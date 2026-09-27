@@ -48,6 +48,13 @@ module.exports = {
             to: { path: '^src/(canvas|foundry|ui)/' },
         },
         {
+            name: 'compose-is-pure',
+            comment: 'The composer turns an intent into a scene spec as data; it builds nothing itself, and generators never reach up into it.',
+            severity: 'warn',
+            from: { path: '^src/compose/' },
+            to: { path: '^src/(canvas|foundry|ui)/' },
+        },
+        {
             name: 'tools-must-not-import-canvas',
             comment: 'Tool/path state is Foundry-agnostic; the canvas layer depends on it, not the reverse.',
             severity: 'warn',

@@ -36,7 +36,7 @@ function walk(dir) {
 
 const rel = (path) => relative(ROOT, path);
 /** Test support: fakes and fixtures exist only for tests and stories, so they are support, not production. */
-const TEST_SUPPORT = ['src/canvas/test-fakes.ts', 'src/stamps/fixtures.ts'];
+const TEST_SUPPORT = ['src/canvas/test-fakes.ts', 'src/stamps/fixtures.ts', 'src/compose/test-roles.ts'];
 const isSupport = (path) => /\.(test|stories)\.ts$/.test(path) || path.endsWith('.d.ts') || TEST_SUPPORT.includes(rel(path));
 const files = walk(SRC).filter((f) => f.endsWith('.ts'));
 const production = files.filter((f) => !isSupport(f));

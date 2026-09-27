@@ -47,6 +47,10 @@
             ],
             "scale": "interior",
             "perspective": "top-down",
+            "role": "storage",
+            "placement": {
+                "against": "wall"
+            },
             "container": {
                 "states": {
                     "closed": "shut",
@@ -309,6 +313,11 @@
             "category": "Terrain",
             "scale": "exterior",
             "perspective": "top-down",
+            "role": "rock",
+            "habitats": [
+                "rocky",
+                "grassland"
+            ],
             "physical": {
                 "blocksMovement": true
             },

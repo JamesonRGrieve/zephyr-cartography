@@ -5,6 +5,9 @@ import * as stories from './generator-view.stories';
 function mount(story: { readonly args?: Partial<stories.GeneratorArgs> }): HTMLElement {
     const base = stories.default.args;
     const el = stories.mountGeneratorPanel({
+        presets: story.args?.presets ?? base?.presets ?? [],
+        preset: story.args?.preset ?? base?.preset ?? '',
+        intentText: story.args?.intentText ?? base?.intentText ?? '',
         form: story.args?.form ?? base?.form ?? { seed: 1, width: 24, height: 16, minRoom: 3, maxRoom: 8, entrance: true },
         specText: story.args?.specText ?? base?.specText ?? '',
         status: story.args?.status ?? base?.status ?? null,
@@ -83,15 +86,45 @@ describe('generator panel', () => {
         expect(statusLines(root).every((line) => line.startsWith('features.0.'))).toBe(true);
     });
 
+    it('starts a map intent from a preset, editable, and gives it another layout keeping the rest', () => {
+        const root = mount(stories.Empty);
+        const intent = (): HTMLTextAreaElement => labelled<HTMLTextAreaElement>(root, 'Map intent (JSON)', 'textarea');
+        expect(JSON.parse(intent().value)).toMatchObject({ seed: 7, buildings: [{ key: 'inn' }] });
+        const preset = root.querySelector<HTMLSelectElement>('#zc-generator-preset');
+        if (preset) {
+            preset.value = 'forest-road';
+            preset.dispatchEvent(new Event('change'));
+        }
+        expect(JSON.parse(intent().value)).toMatchObject({ seed: 3, paths: [{ kind: 'road' }] });
+        buttonNamed(root, 'Another layout').click();
+        const reseeded = JSON.parse(intent().value);
+        expect(reseeded).toMatchObject({ paths: [{ kind: 'road' }] });
+        expect(reseeded).not.toMatchObject({ seed: 3 });
+        // Text that is not an intent is left for the GM to fix.
+        type(intent(), '{ not json');
+        buttonNamed(root, 'Another layout').click();
+        expect(intent().value).toBe('{ not json');
+    });
+
+    it('composes the edited intent, or lists why it was refused', () => {
+        const root = mount(stories.Empty);
+        buttonNamed(root, 'Compose').click();
+        expect(statusLines(root)[0]).toMatch(/^Would build \d+ features\.$/);
+        type(labelled<HTMLTextAreaElement>(root, 'Map intent (JSON)', 'textarea'), '{"schemaVersion": 1, "zones": [{"kind": "jungle"}]}');
+        buttonNamed(root, 'Compose').click();
+        expect(statusLines(root).every((line) => line.startsWith('zones.0.'))).toBe(true);
+    });
+
     it('disables building while a build runs', () => {
         const root = mount(stories.Building);
+        expect(buttonNamed(root, 'Compose').disabled).toBe(true);
         expect(buttonNamed(root, 'Generate').disabled).toBe(true);
         expect(buttonNamed(root, 'Build spec').disabled).toBe(true);
     });
 
     it('renders every story', () => {
-        for (const story of [stories.Empty, stories.WithSpec, stories.Built, stories.RefusedSpec, stories.Building]) {
-            expect(mount(story).querySelectorAll('fieldset')).toHaveLength(2);
+        for (const story of [stories.Empty, stories.WithSpec, stories.Built, stories.RefusedSpec, stories.Building, stories.ComposedTavern]) {
+            expect(mount(story).querySelectorAll('fieldset')).toHaveLength(3);
         }
     });
 });

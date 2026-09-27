@@ -39,17 +39,22 @@ import { createSplatStore } from './foundry/splat-store';
 import { registerSubmapRuntime } from './foundry/submap-runtime';
 import { registerSwitchDoorControl } from './foundry/switch-door-control';
 import { createSwitchLinker, type SwitchLinker } from './foundry/switch-linker';
+import { createTerrainLayer } from './foundry/terrain-layer';
 import { registerZoneRuntime } from './foundry/zone-runtime';
 import { distance, type Point } from './geometry/spline';
 import { I18N } from './i18n';
 import { MODULE_ID } from './module-id';
 import type { BiomeKind } from './tools/biome';
+import { WALL_BAND_SQUARES } from './tools/materials';
 
 interface DrawState {
     controller: CartographyController;
     /** What draws the features, and runs their particles. */
     renderer: FeatureRenderer;
+    /** The module's layer above the canvas: it takes the pointer and shows the brush outline and link lines. */
     container: PIXI.Container;
+    /** Where the painted map draws, in Foundry's primary group beneath tiles and tokens. */
+    terrain: PIXI.Container;
     mode: Mode;
     /** A control point being dragged: moved, or (Shift) its path width set by distance from `anchor`. */
     drag: { id: string; index: number; kind: 'move' | 'width'; anchor: Point } | null;
@@ -85,7 +90,7 @@ const zones = registerZoneRuntime(() => state?.controller ?? null);
 
 followPileStates(() => state?.controller ?? null);
 
-const generator = registerGeneratorRuntime(() => state?.controller ?? null, materials.forNewRooms);
+const generator = registerGeneratorRuntime(() => state?.controller ?? null, materials.forNewRooms, packs.stamps);
 
 // A new brush size is the next stroke's; a new texture is picked up at once by a paint tool in hand.
 const paint = registerPaintRuntime(
@@ -129,7 +134,7 @@ const paths = registerPathRuntime(packs.textureRoles, (settings) => {
     }
 });
 
-registerApi(() => state?.controller ?? null);
+registerApi(() => state?.controller ?? null, packs.stamps);
 
 // Newly loaded packs or another texture set re-render the layer, and the paint panel's textures.
 packs.onChange(() => {
@@ -165,6 +170,7 @@ function teardown(): void {
         // Particles run outside the layer's container, so a rebuild without a canvas redraw would leave them going.
         state.renderer.clear();
         state.container.destroy({ children: true });
+        state.terrain.destroy({ children: true });
         state = null;
     }
 }
@@ -420,7 +426,9 @@ function onPointerUp(st: DrawState, pointerEvent: PIXI.FederatedPointerEvent): v
 /** (Re)build the draw layer on the current canvas with the active texture pack. */
 function setupDrawLayer(): void {
     teardown();
-    if (!canvas?.stage) {
+    // The painted map draws beneath tiles and tokens, on the viewed level's floor; the pointer is taken above it all.
+    const terrain = createTerrainLayer(canvas?.level?.elevation.bottom ?? 0);
+    if (!canvas?.stage || !terrain) {
         return;
     }
     const container = new PIXI.Container();
@@ -430,14 +438,17 @@ function setupDrawLayer(): void {
     // Particles need the scene's levels and grid, which the controller they draw for holds.
     let built: CartographyController | null = null;
     const gridSize = canvas.grid?.size ?? 0;
-    const renderer = withParticles(new GraphicsFeatureRenderer(createPixiSurface(container, gridSize), packs.textures()), canvas.level?.id ?? null, () =>
-        built ? { levels: built.levels, gridDistance: built.gridDistance } : null,
+    const wallBand = gridSize > 0 ? gridSize * WALL_BAND_SQUARES : undefined;
+    const renderer = withParticles(
+        new GraphicsFeatureRenderer(createPixiSurface(terrain, gridSize), packs.textures(), wallBand),
+        canvas.level?.id ?? null,
+        () => (built ? { levels: built.levels, gridDistance: built.gridDistance } : null),
     );
     const makeId = (): string => foundry.utils.randomID();
     const controller = new CartographyController({
         renderer,
         splats: createSplatStore(activeScene),
-        splatRenderer: createSplatRenderer(container, packs.textures(), gridSize),
+        splatRenderer: createSplatRenderer(terrain, packs.textures(), gridSize),
         store: new FoundrySceneStore(activeScene),
         sink: new FoundryDocumentSink(activeScene, { makeId, modifyBatch, regionName, lightName, soundName }),
         levels: createLevelStore(activeScene),
@@ -466,6 +477,7 @@ function setupDrawLayer(): void {
         controller,
         renderer,
         container,
+        terrain,
         mode: IDLE,
         drag: null,
         painting: false,

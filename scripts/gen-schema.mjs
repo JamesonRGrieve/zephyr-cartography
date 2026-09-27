@@ -6,6 +6,7 @@
  *
  *   src/stamps/schema.ts   → schema/stamp-pack.v1.schema.json
  *   src/generate/spec.ts   → schema/scene-spec.v1.schema.json
+ *   src/compose/intent.ts  → schema/map-intent.v1.schema.json
  *
  *   node scripts/gen-schema.mjs           # write the schema files
  *   node scripts/gen-schema.mjs --check   # fail if a committed file is stale
@@ -31,6 +32,7 @@ registerHooks({
 
 const { STAMP_PACK_SCHEMA_URL, stampPackSchema } = await import('../src/stamps/schema.ts');
 const { SCENE_SPEC_SCHEMA_URL, sceneSpecSchema } = await import('../src/generate/spec.ts');
+const { MAP_INTENT_SCHEMA_URL, mapIntentSchema } = await import('../src/compose/intent.ts');
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
@@ -38,6 +40,7 @@ const check = process.argv.includes('--check');
 const SCHEMAS = [
     { file: 'stamp-pack.v1.schema.json', id: STAMP_PACK_SCHEMA_URL, title: 'Zephyrex Cartography stamp pack (v1)', schema: stampPackSchema },
     { file: 'scene-spec.v1.schema.json', id: SCENE_SPEC_SCHEMA_URL, title: 'Zephyrex Cartography scene spec (v1)', schema: sceneSpecSchema },
+    { file: 'map-intent.v1.schema.json', id: MAP_INTENT_SCHEMA_URL, title: 'Zephyrex Cartography map intent (v1)', schema: mapIntentSchema },
 ];
 
 let stale = false;

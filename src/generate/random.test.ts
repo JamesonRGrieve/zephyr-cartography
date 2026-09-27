@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { pick, randomInt, seededRandom } from './random';
+import { pick, randomInt, seededRandom, shuffled } from './random';
 
 const draw = (seed: number, n: number): number[] => {
     const random = seededRandom(seed);
@@ -32,5 +32,17 @@ describe('randomInt and pick', () => {
         const random = seededRandom(9);
         expect(['a', 'b', 'c']).toContain(pick(random, ['a', 'b', 'c']));
         expect(pick(random, [])).toBeUndefined();
+    });
+});
+
+describe('shuffled', () => {
+    it('reorders a copy, keeping every item, the same way for a seed', () => {
+        const items = ['a', 'b', 'c', 'd', 'e', 'f'];
+        const once = shuffled(seededRandom(5), items);
+        expect([...once].sort()).toEqual(items);
+        expect(shuffled(seededRandom(5), items)).toEqual(once);
+        expect(items).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+        // Some seed moves something.
+        expect([1, 2, 3, 4].some((seed) => shuffled(seededRandom(seed), items).join() !== items.join())).toBe(true);
     });
 });

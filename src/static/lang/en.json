@@ -21,10 +21,28 @@
             "Pin": "Map pin (click to place a note, or click a pin to set what it shows and opens)",
             "Label": "Map label (click to place text on the map, or click a label to change it)",
             "Zone": "Zone (click to place a region in one of Foundry's shapes, or click a zone to reshape it or attach it to a token)",
-            "Generator": "Map builder (generate a floor plan, or build a scene spec)"
+            "Generator": "Map builder (compose a map from an intent, generate a floor plan, or build a scene spec)"
         },
         "Generator": {
             "Title": "Map builder",
+            "Compose": "Compose a map",
+            "Preset": "Start from",
+            "Presets": {
+                "WoodlandInn": "An inn in a woodland clearing",
+                "Tavern": "A tavern's rooms",
+                "ForestRoad": "A road through the forest",
+                "MarshCrossing": "A marsh crossing"
+            },
+            "Intent": "Map intent (JSON)",
+            "ComposeMap": "Compose",
+            "ReseedMap": "Another layout",
+            "NotJson": "The map intent is not valid JSON.",
+            "IntentRefused": "The map intent was not composed:",
+            "ComposeProblems": {
+                "RoomsDoNotFit": "{building}: its rooms do not fit a {width} × {height} footprint, so it was left out.",
+                "NotBeside": "{building}: {room} could not be put beside {other}, so they are joined through other rooms.",
+                "NoStamp": "{wantedIn}: no loaded stamp is a {role}, so none was placed."
+            },
             "FloorPlan": "Floor plan",
             "Seed": "Seed",
             "NewSeed": "New seed",

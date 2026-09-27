@@ -175,8 +175,8 @@ test('the paint tool paints and blends in any texture of the active set, picked 
     // Grassland ground, drawn in the cobbles.
     await expect.poll(async () => featureAt(world, { x: 700, y: 510 })).toMatchObject({ type: 'stroke', biome: 'grassland', texture: 'floor.e2e-cobbles' });
     const drawnIn = await world.evaluate(() => {
-        const layer = canvas?.stage?.children.at(-1);
-        return (layer?.children ?? []).flatMap((child) =>
+        const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+        return (terrain instanceof PIXI.Container ? terrain.children : []).flatMap((child) =>
             child instanceof PIXI.Container
                 ? child.children.flatMap((grandchild) => (grandchild instanceof PIXI.TilingSprite ? [grandchild.texture.baseTexture.cacheId] : []))
                 : [],
@@ -204,14 +204,15 @@ test('the paint brush shows its size on the map, and paints as it is dragged, be
     await panel.getByLabel('Brush size (px)').press('Enter');
     await tuckPanels(world);
     await holdView(world);
-    // What the draw layer shows: its textured fills, and the brush outline drawn last, above them.
+    // What the canvas shows: the terrain's textured fills, and the brush outline, last on the module's layer above it all.
     const shown = async (): Promise<{ textured: number; ring: { width: number; visible: boolean } | null; committed: boolean }> =>
         world.evaluate(() => {
             const layer = canvas?.stage?.children.at(-1);
-            const children = layer?.children ?? [];
-            const last = children.at(-1);
+            const drawn: readonly PIXI.DisplayObject[] = layer instanceof PIXI.Container ? layer.children : [];
+            const last = drawn.at(-1);
             const ring = last instanceof PIXI.Graphics ? { width: last.getLocalBounds().width, visible: last.visible } : null;
-            const textured = children.filter(
+            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+            const textured = (terrain instanceof PIXI.Container ? terrain.children : []).filter(
                 (child) => child instanceof PIXI.Container && child.children.some((grandchild) => grandchild instanceof PIXI.TilingSprite),
             ).length;
             // A committed stroke is a feature the controller can pick; the one being painted is not yet.

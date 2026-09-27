@@ -91,6 +91,11 @@ describe('CartographyController levels', () => {
         await c.addLevel('above', 'Upper'); // active lv2
         r.setIds.length = 0;
         c.setActiveLevel('lv2');
+        // Already the level being edited: nothing is redrawn.
+        expect(r.setIds).toEqual([]);
+        c.setActiveLevel('lv1');
+        r.setIds.length = 0;
+        c.setActiveLevel('lv2');
         expect(r.setIds).toEqual(['p1']);
         expect(c.hitTest({ x: 90, y: 10 })).toBe('p1');
         c.setActiveLevel('lv1');

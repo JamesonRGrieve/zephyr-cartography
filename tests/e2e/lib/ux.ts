@@ -81,7 +81,9 @@ export async function panelProblems(page: Page, panel: string): Promise<string[]
                 }
                 // What a control holds (a stamp's picture, a swatch) must sit inside it, not spill over its neighbours or be cropped.
                 const spills = [...control.querySelectorAll('*')].filter(shown).some((part) => outside(part.getBoundingClientRect(), box));
-                if (spills || control.scrollHeight > control.clientHeight + slack) {
+                // A text box scrolls the text typed or pasted into it by design (a whole map intent), so only other controls must fit theirs.
+                const cropped = control.tagName !== 'TEXTAREA' && control.scrollHeight > control.clientHeight + slack;
+                if (spills || cropped) {
                     problems.push(`${what} is too small for what it shows`);
                 }
                 return problems;

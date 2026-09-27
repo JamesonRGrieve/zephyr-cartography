@@ -1,0 +1,167 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+/**
+ * The map intent schema v1: what a map is, not where each thing goes. A GM,
+ * an LLM or a Map builder preset writes one; the composer expands it, seeded
+ * and repeatably, into an ordinary scene spec (zoned ground, roads and
+ * rivers, scattered vegetation, buildings of rooms by purpose, furnished).
+ *
+ * Single source of truth, like the other schemas: the types (`z.infer`),
+ * validation (`parseMapIntent`) and the published JSON Schema
+ * (`schema/map-intent.v1.schema.json`, from `pnpm schema:gen`) all derive
+ * from here. v1 changes are additive only.
+ */
+import { z } from 'zod';
+import type { SpecIssue } from '../generate/spec';
+import { BIOMES } from '../tools/biome';
+import type { Liquid } from '../tools/path';
+import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
+
+const MAP_INTENT_SCHEMA_VERSION = 1;
+
+export const MAP_INTENT_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/map-intent.v1.schema.json';
+
+/** What a room is for; each purpose has its furnishing template. */
+export const ROOM_PURPOSES = ['common-room', 'bar', 'kitchen', 'storage', 'bedroom', 'hall', 'office', 'workshop', 'shrine', 'cell'] as const;
+
+/** Kinds of outdoor zone, each with its ground and what grows or lies in it. */
+const ZONE_KINDS = ['woodland', 'meadow', 'clearing', 'marsh', 'rocky'] as const;
+
+/** How thickly a zone is filled. */
+const DENSITIES = ['sparse', 'normal', 'dense'] as const;
+
+/** The map's four edges. */
+const EDGES = ['north', 'east', 'south', 'west'] as const;
+
+const INTENT_LIQUIDS = ['water', 'lava', 'poison', 'acid'] as const satisfies readonly Liquid[];
+
+/** A map of this many squares when the intent gives no size. */
+const DEFAULT_MAP_SQUARES = { width: 30, height: 20 } as const;
+
+const text = z.string().min(1);
+const squares = z.number().positive();
+const point = z.object({ x: z.number(), y: z.number() }).strict().describe('In grid squares from the map’s top-left corner.');
+const edge = z.enum(EDGES);
+
+const anchor = z
+    .union([edge, point, z.object({ building: text }).strict()])
+    .describe('Where a road or river starts or ends: a map edge (a point along it), a point, or a building (its entrance).');
+
+const room = z
+    .object({
+        key: text.describe('This room’s name among the building’s rooms, for `opensTo`.'),
+        purpose: z.enum(ROOM_PURPOSES),
+        size: squares.default(1).describe('Floor area relative to the building’s other rooms (2 is twice as big as 1).'),
+        opensTo: z.array(text).default([]).describe('Rooms it has a door into; the layout puts them side by side.'),
+        entrance: z.boolean().default(false).describe('Has the building’s front door. Without one marked, the first room has it.'),
+    })
+    .strict();
+
+const building = z
+    .object({
+        key: text.optional().describe('A name roads can run to.'),
+        at: point.optional().describe('Top-left corner. Omitted: centred on the map.'),
+        width: z.number().int().min(3),
+        height: z.number().int().min(3),
+        floor: text.default('floor.wooden-planks').describe('Floor texture role (a biome or a pack floor.*).'),
+        wall: text.default('wall.stone').describe('Wall texture role (a pack wall.*), drawn along every wall.'),
+        wallKind: z.enum(WALL_PRESETS).default(DEFAULT_WALL_PRESET),
+        entrance: edge.default('south').describe('The side its front door faces.'),
+        rooms: z.array(room).min(1),
+    })
+    .strict()
+    .superRefine((b, ctx) => {
+        const keys = b.rooms.map((r) => r.key);
+        keys.forEach((key, i) => {
+            if (keys.indexOf(key) !== i) {
+                ctx.addIssue({ code: 'custom', path: ['rooms', i, 'key'], message: `room ${key} is named twice` });
+            }
+        });
+        b.rooms.forEach((r, i) => {
+            r.opensTo.forEach((other, j) => {
+                if (!keys.includes(other) || other === r.key) {
+                    ctx.addIssue({ code: 'custom', path: ['rooms', i, 'opensTo', j], message: `${r.key} cannot open to ${other}` });
+                }
+            });
+        });
+    });
+
+const zoneArea = z
+    .union([
+        z.object({ shape: z.literal('everywhere') }).strict(),
+        z.object({ shape: z.literal('edge'), side: edge, depth: squares.describe('How far in from the edge.') }).strict(),
+        z.object({ shape: z.literal('circle'), centre: point, radius: squares }).strict(),
+        z.object({ shape: z.literal('polygon'), points: z.array(point).min(3) }).strict(),
+    ])
+    .describe('Where the zone lies.');
+
+const zone = z
+    .object({
+        kind: z.enum(ZONE_KINDS),
+        area: zoneArea,
+        density: z.enum(DENSITIES).default('normal'),
+    })
+    .strict();
+
+const path = z
+    .object({
+        kind: z.enum(['road', 'river']),
+        from: anchor,
+        to: anchor,
+        width: squares.optional().describe('Squares across; omitted: a road 1.5, a river 2.'),
+        meander: z.number().min(0).max(1).default(0.3).describe('How much it winds: 0 straight, 1 a lot.'),
+        liquid: z.enum(INTENT_LIQUIDS).optional().describe('A river’s liquid (default water).'),
+    })
+    .strict();
+
+export const mapIntentSchema = z
+    .object({
+        $schema: z.string().optional(),
+        schemaVersion: z.literal(MAP_INTENT_SCHEMA_VERSION),
+        seed: z.number().int().default(1).describe('The same intent and seed always compose the same map.'),
+        width: z.number().int().min(4).default(DEFAULT_MAP_SQUARES.width).describe('Map width in grid squares.'),
+        height: z.number().int().min(4).default(DEFAULT_MAP_SQUARES.height),
+        settings: z
+            .array(text)
+            .default([])
+            .describe('Stamp tags the map is made from: only stamps carrying at least one are used (e.g. a setting and "generic" pieces); none: any stamp.'),
+        ground: z.enum(BIOMES).nullable().default('grassland').describe('The ground under everything; null for none (an interior on a bare scene).'),
+        zones: z.array(zone).default([]),
+        paths: z.array(path).default([]),
+        buildings: z.array(building).default([]),
+    })
+    .strict()
+    .superRefine((intent, ctx) => {
+        const buildings = intent.buildings.flatMap((b) => (b.key === undefined ? [] : [b.key]));
+        intent.paths.forEach((p, i) => {
+            for (const end of ['from', 'to'] as const) {
+                const at = p[end];
+                if (typeof at === 'object' && 'building' in at && !buildings.includes(at.building)) {
+                    ctx.addIssue({ code: 'custom', path: ['paths', i, end], message: `no building named ${at.building}` });
+                }
+            }
+        });
+    });
+
+export type MapIntent = z.infer<typeof mapIntentSchema>;
+export type BuildingIntent = MapIntent['buildings'][number];
+export type RoomIntent = BuildingIntent['rooms'][number];
+export type ZoneIntent = MapIntent['zones'][number];
+export type PathIntent = MapIntent['paths'][number];
+export type Anchor = PathIntent['from'];
+export type RoomPurpose = (typeof ROOM_PURPOSES)[number];
+export type ZoneKind = (typeof ZONE_KINDS)[number];
+export type Density = (typeof DENSITIES)[number];
+export type Edge = (typeof EDGES)[number];
+
+/** An intent, validated with its defaults filled, or its problems, each at its path, as a scene spec's are reported. */
+export type IntentParseResult = { readonly ok: true; readonly intent: MapIntent } | { readonly ok: false; readonly issues: readonly SpecIssue[] };
+
+/** Validate an intent (untyped JSON from an author), filling its defaults, or list what is wrong with it. */
+// eslint-disable-next-line no-restricted-syntax -- boundary: an intent arrives as untyped JSON, narrowed here by its schema
+export function parseMapIntent(v: unknown): IntentParseResult {
+    const result = mapIntentSchema.safeParse(v);
+    if (result.success) {
+        return { ok: true, intent: result.data };
+    }
+    return { ok: false, issues: result.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) };
+}

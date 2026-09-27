@@ -20,6 +20,9 @@ export type FloorMaterial = string;
 /** A room wall: a `wall.<name>` role, or null for walls that are not drawn. */
 export type WallMaterial = string | null;
 
+/** A drawn wall's thickness as a share of a grid square: a foot of masonry on a 5 ft square, centred on the wall line. */
+export const WALL_BAND_SQUARES = 0.2;
+
 // eslint-disable-next-line no-restricted-syntax -- boundary: validates a persisted floor material from scene-flag JSON
 export function isFloorMaterial(v: unknown): v is FloorMaterial {
     return isBiomeKind(v) || (typeof v === 'string' && v.startsWith(FLOOR_PREFIX) && v.length > FLOOR_PREFIX.length);

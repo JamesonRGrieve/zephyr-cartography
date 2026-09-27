@@ -269,6 +269,16 @@ that type's own control group, after Foundry's tools
   is active.
 - **Redraws.** A canvas redraw re-activates the native layer with its tool
   still selected, and the draw layer picks the tool straight back up.
+- **Two layers.** The painted map (terrain, paths, room floors, splat
+  blends) draws in Foundry's **primary group** (`foundry/terrain-layer.ts`),
+  as a map background does: at the viewed level's floor, between the level's
+  images (sort layer SCENE, 0) and its tiles (TILES, 500). So stamps, drawings
+  and tokens stand on it, and lighting and fog of war fall over it. Drawn on
+  the stage above everything, it buried every stamp (once land was opaque)
+  and showed through the fog. The module's own **draw layer** stays on the
+  stage, above it all: it takes the pointer and shows the brush outline, link
+  lines and nothing else. `tests/e2e/canvas.spec.ts` checks a stamp's tile
+  sorts above the terrain.
 - **Pointer.** While a tool is active, the draw layer has a hit area over the
   whole scene. Without it, a bare container is hit only through what it has
   drawn, so clicks on empty canvas would never reach it. While idle it takes
@@ -1039,6 +1049,85 @@ option**: a splat map, as in Dungeondraft and Inkarnate.
     - A layer saved before stacks reads as its level's first.
     - Proven in `tests/e2e/structures.spec.ts`.
 
+### Priority 9: map composition, from intent to a playable map [done]
+The scene spec places every feature by hand, and the floor-plan generator
+only splits a rectangle into unnamed rooms. Neither knows what a woodland
+or a tavern is. Composition is the layer above them (operator decisions,
+2026-09-26):
+- **An intent schema** (`compose/intent.ts`, published as
+  `schema/map-intent.v1.schema.json`, same rules as the other schemas).
+  It says *what* the map is, not where each thing goes: its size and seed,
+  its `settings` (stamp tags, any of which a stamp must carry; none: any
+  stamp), a ground biome, zones, paths and buildings. Exterior and interior
+  share one schema: an exterior can hold buildings, and a building has
+  rooms. Duplicate keys, an `opensTo` naming no room and a path to no
+  building are refused.
+- **The composer** (`compose/`, pure and unit-tested, seeded and
+  repeatable; dependency-cruiser's `compose-is-pure` keeps it so) compiles
+  an intent into an ordinary scene spec (`composeMap`). The realiser, the
+  undo step and the native documents are unchanged, and the result can be
+  edited like anything drawn by hand. What it could not do comes back as
+  `ComposeProblem`s, each once: a role no loaded stamp fills (and where it
+  was wanted), rooms that do not fit their footprint, rooms asked to adjoin
+  that could not.
+- **Stamps by role** (`compose/roles.ts`). A stamp's optional `role`,
+  `placement` (what it stands against, the floor kept clear before it,
+  which image edge is its back) and `habitats` (the ground a land stamp
+  belongs on) are additive pack fields. The composer picks by role, setting
+  and habitat from whatever packs are loaded, never by id, and turns each
+  stamp so its back meets the wall.
+- **Interior.** A building's footprint, floor and wall materials, wall kind
+  and rooms, each with a purpose (common room, bar, kitchen, storage,
+  bedroom, hall, office, workshop, shrine, cell), a relative size, and the
+  rooms it opens onto.
+  - `compose/layout.ts` partitions the footprint by weighted recursive
+    splits over many seeded tries, scoring the room sizes and the adjacency
+    asked for. The entrance room reaches the outer wall the building's
+    front faces.
+  - Doors join the rooms asked to adjoin (every room reachable), plus the
+    front door. Walls are always drawn, in the wall material.
+  - `compose/furnish.ts` gives each purpose a template of steps: stamps
+    against walls, in corners, in clusters (a table with benches or seats
+    beside it, a round one seated all round) or scattered, and underlays.
+    Door approaches and each piece's clearance stay open. A hearth goes on
+    an outer wall, a counter on an inner one with seats before it.
+- **Exterior** (`compose/exterior.ts`). Zones (woodland, meadow, clearing,
+  marsh, rocky ground; everywhere, a circle, an edge strip or a polygon)
+  with a density; roads and rivers from anchor to anchor (a map edge, a
+  point or a building's front door), meandering.
+  - Ground is layered: the base, then each zone's own ground, its edge
+    wandering by noise. Worn earth wears into woods and meadows in short
+    wandering strokes, never into a clearing.
+  - Paths go round buildings (`compose/detour.ts`: the shorter way round
+    the footprint, grown by the path's setback; a river keeps well back).
+    A path to a door runs on from the step before it to the doorway.
+  - Vegetation and props are scattered by Poisson disc, clumped by noise
+    and thinning at a zone's edge, spaced by the pieces' own size. Nothing
+    stands on a path, in a clearing that keeps it out, or where its canopy
+    would spread over a building. Rocks line riverbanks.
+- **Presets** (`compose/presets.ts`): a woodland inn, a tavern, a forest
+  road and a marsh crossing, as intents.
+- **Where.** The module API's `compose(intent)`, and the Map builder's
+  Compose section: a preset or pasted intent, "Compose map", and "Another
+  layout" to reseed. Problems are listed, localised.
+- **Cost.** A composed map is hundreds of features in one batch. The
+  batch saves the feature list once, as it ends (`persist`). Picking the
+  level already edited redraws nothing. A redrawn feathered fill reuses the
+  mask rendered for its outline (`foundry/pixi-surface.ts`): rendering one
+  is a large blur pass, and redrawing every mask per feature made a
+  woodland take minutes.
+- **Assets.** The photo texture sets carry CC0 walls (stone, brick,
+  plaster, wood, rock, concrete, metal). The hand-painted set's walls are
+  to be generated to match its style. The asset packs carry roles,
+  placement and habitats.
+- **Proof.** Unit tests for every rule (layout, adjacency, clearance,
+  spacing, exclusion, detours). `tests/e2e/compose.spec.ts` composes a
+  storeroom in the fixture pack and checks its documents and one-step undo.
+  `tests/e2e/showcase.spec.ts` composes the woodland inn and tavern presets
+  in the real asset pack's art where it is installed among the test modules
+  (it skips elsewhere); what the pack lacks is reported softly, and the
+  screenshots are reviewed by eye.
+
 ---
 
 ## Stamp pack schema — the contract
@@ -1088,7 +1177,13 @@ imports).
     vision), alpha threshold, light and weather restrictions, video;
   - `surface`: a Define Surface floor or roof over the footprint, optionally
     revealed;
-  - `terrain`: a movement-cost multiplier per movement action.
+  - `terrain`: a movement-cost multiplier per movement action;
+  - for composing (Priority 9): `role` (tree, shrub, rock, log, flora,
+    debris, table, seat, bench, counter, hearth, shelf, bed, storage,
+    clutter, rug, desk, workbench, light), `placement` (`against` a wall,
+    a corner or free; the `clearance` kept before it; which image edge is
+    its `back`) and `habitats` (forest, grassland, marsh, rocky, cave,
+    arctic, desert, urban, ruin).
 - **Variant overrides.** Structural properties sit on the stamp, and a
   **variant may override them**. `null` removes a property for that variant:
   `light: null` for an unlit variant, `particles` only on a "destroyed" one,

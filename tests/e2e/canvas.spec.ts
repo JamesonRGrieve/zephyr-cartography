@@ -64,8 +64,8 @@ test('overlapping strokes of one texture meet seamlessly: every fill tiles from 
     ]);
     const tiling = async (): Promise<{ textureOrigin: Point; span: number }[]> =>
         world.evaluate(() => {
-            const layer = canvas?.stage?.children.at(-1);
-            const sprites = (layer?.children ?? []).flatMap((child) =>
+            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+            const sprites = (terrain instanceof PIXI.Container ? terrain.children : []).flatMap((child) =>
                 child instanceof PIXI.Container ? child.children.filter((grandchild) => grandchild instanceof PIXI.TilingSprite) : [],
             );
             return sprites.map((sprite) => ({
@@ -82,6 +82,31 @@ test('overlapping strokes of one texture meet seamlessly: every fill tiles from 
     }
     await frameScene(world);
     await expect(world.locator('#board')).toHaveScreenshot('overlapping-strokes.png');
+});
+
+test('painted ground lies beneath the stamps placed on it, as a map background does', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [
+                { type: 'stroke', biome: 'forest', radius: 2, points: [{ x: 5, y: 5 }] },
+                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 5, y: 5 },
+            ],
+        });
+    });
+    // Where the terrain and the stamp's tile sort in the primary group, once the tile is drawn (-1: not there yet).
+    const order = async (): Promise<{ terrain: number; tile: number }> =>
+        world.evaluate(() => {
+            const primary = canvas?.primary;
+            primary?.sortChildren();
+            const children = primary?.children ?? [];
+            const mesh = canvas?.tiles?.placeables[0]?.mesh;
+            return { terrain: children.findIndex((child) => child.name === 'zephyrex-cartography-terrain'), tile: mesh ? children.indexOf(mesh) : -1 };
+        });
+    await expect.poll(async () => (await order()).tile).toBeGreaterThanOrEqual(0);
+    const { terrain, tile } = await order();
+    expect(terrain).toBeGreaterThanOrEqual(0);
+    expect(tile).toBeGreaterThan(terrain);
 });
 
 test('a river ends square at its full width, as a road does', async ({ world }) => {

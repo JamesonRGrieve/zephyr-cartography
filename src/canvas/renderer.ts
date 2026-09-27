@@ -88,14 +88,18 @@ const ROLE_FALLBACK = 0x6e6457;
 /** Flat colour of a wall material the active texture set does not have. */
 const WALL_FALLBACK = 0x3a3a3a;
 
-/** Width (scene px) of a room's drawn wall band. */
-const WALL_BAND_WIDTH = 8;
+/** Width (scene px) of a room's drawn wall band on a scene with no grid to size it by. */
+const GRIDLESS_WALL_BAND = 8;
 
 /** A keyed 2D fill surface: create-or-update / remove / clear filled polygons. */
 export interface DrawSurface {
     fill: (id: string, polygon: readonly number[], color: number, alpha: number, feather: boolean) => void;
-    /** Fill the polygon with a tiled texture (by image URL), multiply-tinted. */
-    fillTextured: (id: string, polygon: readonly number[], textureUrl: string, tint: number, alpha: number, feather: boolean) => void;
+    /**
+     * Fill the polygon with a tiled texture (by image URL), multiply-tinted,
+     * its tiling turned by `angle` (radians) about the scene's origin: a wall
+     * band's courses run along its wall.
+     */
+    fillTextured: (id: string, polygon: readonly number[], textureUrl: string, tint: number, alpha: number, feather: boolean, angle: number) => void;
     remove: (id: string) => void;
     clear: () => void;
 }
@@ -118,6 +122,8 @@ interface Filled {
     readonly tint: number;
     /** Soften the boundary — regions blend into the map (coastline/terrain edge); paths stay crisp. */
     readonly feather: boolean;
+    /** How far (radians) the texture's tiling is turned: a wall band's, to lie along its wall; unturned when absent. */
+    readonly angle?: number;
 }
 
 /** Fill descriptor for a biome area (region, brush stroke, or room floor) — textured, tinted. */
@@ -222,18 +228,20 @@ function outlineAndStyle(feature: Feature, resolve: TextureResolver): Filled {
 const PREVIEW_ID = '__preview__';
 
 /** The drawn wall bands of a room: one band per perimeter segment, in its wall material. */
-function wallBands(feature: Feature, resolve: TextureResolver): Filled[] {
+function wallBands(feature: Feature, resolve: TextureResolver, bandWidth: number): Filled[] {
     if (feature.type !== 'room' || feature.wall === null) {
         return [];
     }
     const { texture, tint } = texturing(resolve, [feature.wall], NO_TINT, 'grain', WALL_FALLBACK);
+    // Each band's texture is turned to its wall, so courses of brick and grain of planks run along it.
     return perimeterSegments(feature.points).map((seg) => ({
-        outline: segmentBand(seg, WALL_BAND_WIDTH),
+        outline: segmentBand(seg, bandWidth),
         fill: WALL_FALLBACK,
         alpha: 1,
         texture,
         tint,
         feather: false,
+        angle: Math.atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x),
     }));
 }
 
@@ -241,14 +249,15 @@ export class GraphicsFeatureRenderer implements FeatureRenderer {
     /** Surface ids of the extra fills drawn for each feature (a river's bed, a room's wall bands), so they go with it. */
     private readonly extras = new Map<string, string[]>();
 
-    constructor(private readonly surface: DrawSurface, private readonly resolve: TextureResolver) {}
+    /** `wallBand` is how thick (scene px) room walls are drawn: a share of the grid square, or a fixed width without a grid. */
+    constructor(private readonly surface: DrawSurface, private readonly resolve: TextureResolver, private readonly wallBand: number = GRIDLESS_WALL_BAND) {}
 
     /** Draw a feature: what lies beneath it first (each draw goes on top), then the feature, then its wall bands. */
     set(id: string, feature: Feature): void {
         this.removeExtras(id);
         const below = underlays(feature, this.resolve).map((fill, i) => this.drawExtra(`${id}:bed:${i}`, fill));
         this.draw(id, outlineAndStyle(feature, this.resolve));
-        const above = wallBands(feature, this.resolve).map((band, i) => this.drawExtra(`${id}:wall:${i}`, band));
+        const above = wallBands(feature, this.resolve, this.wallBand).map((band, i) => this.drawExtra(`${id}:wall:${i}`, band));
         const drawn = [...below, ...above];
         if (drawn.length > 0) {
             this.extras.set(id, drawn);
@@ -260,11 +269,11 @@ export class GraphicsFeatureRenderer implements FeatureRenderer {
         return extraId;
     }
 
-    private draw(id: string, { outline, fill, alpha, texture, tint, feather }: Filled): void {
+    private draw(id: string, { outline, fill, alpha, texture, tint, feather, angle = 0 }: Filled): void {
         if (outline.length < 6) {
             this.surface.remove(id);
         } else if (texture !== null) {
-            this.surface.fillTextured(id, outline, texture, tint, alpha, feather);
+            this.surface.fillTextured(id, outline, texture, tint, alpha, feather, angle);
         } else {
             this.surface.fill(id, outline, fill, alpha, feather);
         }

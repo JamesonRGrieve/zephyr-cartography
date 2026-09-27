@@ -533,6 +533,9 @@ export const sceneSpecSchema = z
 
 export type SceneSpec = z.infer<typeof sceneSpecSchema>;
 
+/** A spec as an author writes it, defaulted fields left out: what the composer emits before it is validated. */
+export type SceneSpecInput = z.input<typeof sceneSpecSchema>;
+
 export type FeatureSpec = SceneSpec['features'][number];
 
 export type RoomSpec = z.infer<typeof roomSpec>;

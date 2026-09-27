@@ -30,6 +30,16 @@ export function randomInt(random: Random, min: number, max: number): number {
     return min + Math.floor(random() * (max - min + 1));
 }
 
+/** A copy of `items` in a seeded random order: each drawn at random from those left. */
+export function shuffled<T>(random: Random, items: readonly T[]): T[] {
+    const pool = [...items];
+    const out: T[] = [];
+    while (pool.length > 0) {
+        out.push(...pool.splice(Math.floor(random() * pool.length), 1));
+    }
+    return out;
+}
+
 /** One element of a non-empty list, or undefined for an empty one. */
 export function pick<T>(random: Random, items: readonly T[]): T | undefined {
     return items[Math.floor(random() * items.length)];

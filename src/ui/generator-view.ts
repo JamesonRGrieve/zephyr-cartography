@@ -1,17 +1,30 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * The map builder panel. Generate a floor plan from a few settings and a seed,
- * or build any scene spec pasted in as JSON. The outcome of the last build,
- * or why a spec was refused, is announced in a live status line. A pure
+ * The map builder panel. Compose a whole map from a map intent (starting from
+ * a preset and editing it), generate a floor plan from a few settings and a
+ * seed, or build any scene spec pasted in as JSON. The outcome of the last
+ * build, or why it was refused, is announced in a live status line. A pure
  * function from the panel state to elements; unit-tested under happy-dom.
  */
 import type { GeneratorField, GeneratorForm } from '../generate/form';
-import { button, el, fieldWithAction, labelledCheckbox, labelledInput, labelledTextArea, replacePreservingFocus } from './dom';
+import { actionRow, button, choice, el, fieldWithAction, labelledCheckbox, labelledInput, labelledTextArea, replacePreservingFocus } from './dom';
 
-/** Lines of the scene spec box. */
+/** Lines of the scene spec box, and of the map intent box. */
 const SPEC_ROWS = 6;
+const INTENT_ROWS = 10;
+
+/** A preset in the picker: its key and name. */
+export interface PresetChoice {
+    readonly key: string;
+    readonly label: string;
+}
 
 export interface GeneratorPanel {
+    /** The presets to start a map intent from, and the one picked. */
+    readonly presets: readonly PresetChoice[];
+    readonly preset: string;
+    /** The map intent JSON being edited. */
+    readonly intentText: string;
     readonly form: GeneratorForm;
     /** The scene spec JSON being edited. */
     readonly specText: string;
@@ -22,6 +35,12 @@ export interface GeneratorPanel {
 }
 
 export interface GeneratorLabels {
+    readonly compose: string;
+    readonly preset: string;
+    readonly intent: string;
+    readonly composeMap: string;
+    /** The button giving the map intent a new seed. */
+    readonly reseedMap: string;
     readonly floorPlan: string;
     readonly seed: string;
     readonly newSeed: string;
@@ -36,6 +55,12 @@ export interface GeneratorLabels {
 }
 
 export interface GeneratorHandlers {
+    /** Start the map intent from a preset (replacing what is in the box). */
+    readonly pickPreset: (key: string) => void;
+    readonly setIntentText: (text: string) => void;
+    /** Give the map intent a new seed: the same map, differently. */
+    readonly reseedIntent: () => void;
+    readonly compose: () => void;
     /** Apply a typed setting; false rejects it (the input reverts). */
     readonly setField: (field: GeneratorField, typed: string) => boolean;
     readonly setEntrance: (on: boolean) => void;
@@ -74,18 +99,35 @@ function floorPlanSection(panel: GeneratorPanel, labels: GeneratorLabels, handle
     ]);
 }
 
+/** A text box and the button that acts on its text, committing the text first even while the box still has focus. */
+function textWithAction(box: HTMLElement, commit: (text: string) => void, act: () => void, label: string, key: string, busy: boolean): HTMLButtonElement {
+    const action = button('tw-text-xs', label, key, () => {
+        const area = box.querySelector('textarea');
+        if (area) {
+            commit(area.value);
+        }
+        act();
+    });
+    action.disabled = busy;
+    return action;
+}
+
+function composeSection(panel: GeneratorPanel, labels: GeneratorLabels, handlers: GeneratorHandlers): HTMLElement {
+    const presets = panel.presets.map((p) => [p.key, p.label] as const);
+    const box = labelledTextArea(labels.intent, panel.intentText, 'intent', INTENT_ROWS, handlers.setIntentText);
+    box.classList.add('zc-field-wide');
+    const compose = textWithAction(box, handlers.setIntentText, handlers.compose, labels.composeMap, 'compose', panel.busy);
+    const reseed = textWithAction(box, handlers.setIntentText, handlers.reseedIntent, labels.reseedMap, 'reseed-intent', false);
+    return section(labels.compose, [
+        choice('zc-generator-preset', labels.preset, presets, panel.preset, handlers.pickPreset),
+        box,
+        actionRow([reseed, compose]),
+    ]);
+}
+
 function specSection(panel: GeneratorPanel, labels: GeneratorLabels, handlers: GeneratorHandlers): HTMLElement {
     const wrap = labelledTextArea(labels.spec, panel.specText, 'spec', SPEC_ROWS, handlers.setSpecText);
-    const build = button('tw-text-xs', labels.buildSpec, 'build-spec', () => {
-        // The text is committed as the button is pressed, even if the text area still has focus.
-        const area = wrap.querySelector('textarea');
-        if (area) {
-            handlers.setSpecText(area.value);
-        }
-        handlers.buildSpec();
-    });
-    build.disabled = panel.busy;
-    return section(labels.spec, [wrap, build]);
+    return section(labels.spec, [wrap, textWithAction(wrap, handlers.setSpecText, handlers.buildSpec, labels.buildSpec, 'build-spec', panel.busy)]);
 }
 
 /** Replace `root`'s contents with the panel, keeping keyboard focus in place. */
@@ -96,5 +138,10 @@ export function renderGeneratorPanel(root: HTMLElement, panel: GeneratorPanel, l
     for (const line of panel.status ?? []) {
         outcome.append(el('li', '', line));
     }
-    replacePreservingFocus(root, [floorPlanSection(panel, labels, handlers), specSection(panel, labels, handlers), outcome]);
+    replacePreservingFocus(root, [
+        composeSection(panel, labels, handlers),
+        floorPlanSection(panel, labels, handlers),
+        specSection(panel, labels, handlers),
+        outcome,
+    ]);
 }

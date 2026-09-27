@@ -332,6 +332,8 @@ export class CartographyController {
     private readonly staged: StagedChanges;
     /** Depth of nested transactions; only the outermost one writes. */
     private writing = 0;
+    /** The features changed inside the transaction under way, to be saved as it ends. */
+    private unsaved = false;
 
     /** Half-width (scene px) applied to newly drawn paths. */
     halfWidth = DEFAULT_HALF_WIDTH;
@@ -544,7 +546,12 @@ export class CartographyController {
 
     /** Edit on `id` (null: every level). Redraws to show only that level's features. */
     setActiveLevel(id: string | null): void {
-        this.active = id !== null && findLevel(this.levelList, id) ? id : null;
+        const next = id !== null && findLevel(this.levelList, id) ? id : null;
+        // A built spec names a level for every feature; redrawing the whole map for each was most of its cost.
+        if (next === this.active) {
+            return;
+        }
+        this.active = next;
         this.redraw();
     }
 
@@ -669,7 +676,7 @@ export class CartographyController {
             });
         this.history.splice(0, this.history.length, ...prune(this.history));
         this.future = prune(this.future);
-        await this.store.save(this.features);
+        await this.persist();
         await Promise.all(orphans.map(async (f) => this.discard(f)));
         await this.resyncDependents(before, orphans);
     }
@@ -812,7 +819,7 @@ export class CartographyController {
         }
         const next = withZonePlace(zone, at, rotation);
         this.features = this.features.map((f) => (f.id === zone.id ? next : f));
-        await this.store.save(this.features);
+        await this.persist();
         this.redraw();
         return true;
     }
@@ -936,7 +943,7 @@ export class CartographyController {
         const { segment: _segment, ...settings } = door;
         const next = withRoomDoor(room, segment, { ...settings, state });
         this.features = this.features.map((f) => (f.id === room.id ? next : f));
-        await this.store.save(this.features);
+        await this.persist();
         return true;
     }
 
@@ -1070,7 +1077,7 @@ export class CartographyController {
             const before = [...this.features];
             this.features.push(feature);
             this.show(feature);
-            await this.store.save(this.features);
+            await this.persist();
             await this.syncDocs(feature);
             await this.resyncDependents(before, [feature]);
         });
@@ -1093,7 +1100,7 @@ export class CartographyController {
                     return lightSwitch ? { ...lightSwitch, switchTargets: lightSwitch.switchTargets.filter((t) => !sameTarget(t, unlinked)) } : f;
                 });
             this.renderer.remove(id);
-            await this.store.save(this.features);
+            await this.persist();
             await this.discard(target);
             await this.resyncDependents(before, [target]);
         });
@@ -1171,7 +1178,7 @@ export class CartographyController {
             }
             return [...list, unchanged(f, current) ? current : await this.relink(f, current)];
         }, Promise.resolve<Feature[]>([]));
-        await this.store.save(this.features);
+        await this.persist();
         this.redraw();
         await touched.reduce(async (previous, f) => {
             await previous;
@@ -1516,7 +1523,7 @@ export class CartographyController {
             const before = this.features;
             this.features = this.features.map((f) => (f.id === id ? next : f));
             this.show(next);
-            await this.store.save(this.features);
+            await this.persist();
             await this.syncDocs(next);
             if (next.type === 'stamp' && next.pile !== null) {
                 // The container token follows the stamp.
@@ -1580,7 +1587,7 @@ export class CartographyController {
             walls: keepWalls ? old.walls : created.walls,
         };
         this.features = this.features.map((f) => (f.id === feature.id ? withDocs(f, docs) : f));
-        await this.store.save(this.features);
+        await this.persist();
     }
 
     /**
@@ -1600,12 +1607,18 @@ export class CartographyController {
         this.writing = 1;
         try {
             const result = await work();
+            // The features are saved once, as the transaction ends, before the documents they own are written.
+            if (this.unsaved) {
+                this.unsaved = false;
+                await this.store.save(this.features);
+            }
             if (!this.staged.empty) {
                 await this.sink.write(this.staged.take());
             }
             return result;
         } catch (error) {
             this.staged.take();
+            this.unsaved = false;
             this.features = before.features;
             this.history.splice(0, this.history.length, ...before.history);
             this.future = before.future;
@@ -1615,6 +1628,19 @@ export class CartographyController {
         } finally {
             this.writing = 0;
         }
+    }
+
+    /**
+     * Save the features: now, or, inside a transaction, once as it ends. A
+     * built spec adds hundreds of features in one transaction, and saving the
+     * whole list after each made that hundreds of ever-larger scene writes.
+     */
+    private async persist(): Promise<void> {
+        if (this.writing > 0) {
+            this.unsaved = true;
+            return;
+        }
+        await this.store.save(this.features);
     }
 
     /** A fresh id for a feature built outside the controller (e.g. from a scene spec). */
@@ -1978,7 +2004,7 @@ export class CartographyController {
         }
         this.snapshot();
         this.features = next;
-        await this.store.save(this.features);
+        await this.persist();
         this.redraw();
     }
 

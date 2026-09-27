@@ -16,8 +16,11 @@ import { test as base, expect, type Page } from '@playwright/test';
 const PORT_BASE = Number(process.env['FOUNDRY_TEST_PORT'] ?? 30101);
 const MODULE_ID = 'zephyrex-cartography';
 const PACK_ID = 'zc-e2e-pack';
-/** Integrations the suite exercises when their modules are installed (see scripts/e2e-world.mjs). */
-const OPTIONAL_MODULES = ['item-piles', 'socketlib', 'lib-wrapper'];
+/**
+ * Integrations the suite exercises when their modules are installed (see scripts/e2e-world.mjs), and the real asset
+ * pack the showcase maps are built from.
+ */
+const OPTIONAL_MODULES = ['item-piles', 'socketlib', 'lib-wrapper', 'zephyrex-cartography-assets'];
 
 /** The e2e system's one Actor type (tests/e2e/fixtures/system). */
 const E2E_ACTOR_TYPE = 'npc';
@@ -121,13 +124,20 @@ async function activateModules(page: Page): Promise<void> {
 }
 
 /** Create and view a fresh scene, and wait for the module's controller on it. */
-export async function freshScene(page: Page, sceneTitle: string): Promise<void> {
+/** A scene's size in px and its grid square. */
+export interface SceneSize {
+    readonly width: number;
+    readonly height: number;
+    readonly gridSize: number;
+}
+
+export async function freshScene(page: Page, sceneTitle: string, size: SceneSize = SCENE): Promise<void> {
     await page.evaluate(
         async ({ sceneName, scene }) => {
             const created = await Scene.create({ name: sceneName, width: scene.width, height: scene.height, padding: 0, grid: { size: scene.gridSize } });
             await created?.view();
         },
-        { sceneName: sceneTitle, scene: SCENE },
+        { sceneName: sceneTitle, scene: size },
     );
     await page.waitForFunction(
         ([sceneName, moduleId]) =>
@@ -149,22 +159,26 @@ const POINTER_SWEEP = [
     { x: 720, y: 420 },
 ] as const;
 
+/** How far out the default framing zooms: the default scene fills the view. */
+const FRAME_SCALE = 0.5;
+
 /**
  * Hide everything but the canvas (the interface, notifications, the pause
- * banner) and frame the whole scene, for a canvas-only screenshot.
+ * banner) and frame the whole scene, for a canvas-only screenshot. A scene
+ * of another size is framed at `scale` about its middle.
  */
-export async function frameScene(page: Page, layer: 'walls' | null = null): Promise<void> {
+export async function frameScene(page: Page, layer: 'walls' | null = null, size: SceneSize = SCENE, scale = FRAME_SCALE): Promise<void> {
     // A stylesheet rule, not per-element styles, so overlays added later (a tour, a notification) stay hidden too.
     await page.addStyleTag({ content: 'body > :not(#board) { visibility: hidden !important; }' });
     await page.evaluate(
-        async ({ scene, show }) => {
+        async ({ scene, show, zoom }) => {
             // Foundry draws wall lines only while the Walls layer is active.
             if (show === 'walls') {
                 canvas?.walls?.activate();
             }
-            await canvas?.animatePan({ x: scene.width / 2, y: scene.height / 2, scale: 0.5, duration: 0 });
+            await canvas?.animatePan({ x: scene.width / 2, y: scene.height / 2, scale: zoom, duration: 0 });
         },
-        { scene: SCENE, show: layer },
+        { scene: size, show: layer, zoom: scale },
     );
 }
 

@@ -14,14 +14,14 @@ const RESOLVE: TextureResolver = (role) => `${role}.jpg`;
 
 class FakeSurface implements DrawSurface {
     readonly filled: { id: string; n: number; color: number; feather: boolean }[] = [];
-    readonly textured: { id: string; n: number; textureFile: string; tint: number; feather: boolean }[] = [];
+    readonly textured: { id: string; n: number; polygon: readonly number[]; textureFile: string; tint: number; feather: boolean; angle: number }[] = [];
     readonly removed: string[] = [];
     cleared = 0;
     fill(id: string, polygon: readonly number[], color: number, _alpha: number, feather: boolean): void {
         this.filled.push({ id, n: polygon.length, color, feather });
     }
-    fillTextured(id: string, polygon: readonly number[], textureFile: string, tint: number, _alpha: number, feather: boolean): void {
-        this.textured.push({ id, n: polygon.length, textureFile, tint, feather });
+    fillTextured(id: string, polygon: readonly number[], textureFile: string, tint: number, _alpha: number, feather: boolean, angle: number): void {
+        this.textured.push({ id, n: polygon.length, polygon, textureFile, tint, feather, angle });
     }
     remove(id: string): void {
         this.removed.push(id);
@@ -172,6 +172,8 @@ describe('GraphicsFeatureRenderer', () => {
         expect(s.textured).toHaveLength(1);
         expect(s.textured[0]?.textureFile).toBe('forest.jpg');
         expect(s.textured[0]?.feather).toBe(true);
+        // Ground is never turned: its tiling lines up with every other fill's.
+        expect(s.textured[0]?.angle).toBe(0);
     });
 
     it('renders a room floor textured with a crisp (unfeathered) edge on its exact polygon', () => {
@@ -198,6 +200,17 @@ describe('GraphicsFeatureRenderer', () => {
         gr.set('rm', { ...room, wall: 'wall.brick' });
         const bands = s.textured.filter((t) => t.id.startsWith('rm:wall:'));
         expect(bands.map((b) => b.textureFile)).toEqual(['brick.jpg', 'brick.jpg', 'brick.jpg', 'brick.jpg']);
+        // As thick as the renderer is told (a share of the grid square), else a fixed width: the top wall's band, across y.
+        const across = (polygon: readonly number[] | undefined): number => {
+            const ys = (polygon ?? []).filter((_, i) => i % 2 === 1);
+            return Math.max(...ys) - Math.min(...ys);
+        };
+        expect(across(bands[0]?.polygon)).toBeCloseTo(8);
+        const thick = new FakeSurface();
+        new GraphicsFeatureRenderer(thick, (role) => (role === 'wall.brick' ? 'brick.jpg' : null), 20).set('rm', { ...room, wall: 'wall.brick' });
+        expect(across(thick.textured.find((t) => t.id === 'rm:wall:0')?.polygon)).toBeCloseTo(20);
+        // Each band's texture turned to its wall (clockwise round the room), so courses run along it.
+        expect(bands.map((b) => Math.round((b.angle * 180) / Math.PI))).toEqual([0, 90, 180, -90]);
         gr.set('rm', room); // walls no longer drawn
         expect(s.removed.filter((id) => id.startsWith('rm:wall:'))).toHaveLength(4);
         gr.set('rm', { ...room, wall: 'wall.missing' });

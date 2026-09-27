@@ -122,6 +122,20 @@ describe('batch', () => {
         expect(s.last()).toEqual([]);
     });
 
+    it('saves the features once for the whole batch, however many it adds, and once per edit outside one', async () => {
+        const { c, s } = makeHarness();
+        await roomAt(c, 0);
+        const beforeBatch = s.saved.length;
+        await c.batch(async () => {
+            for (const x of [200, 400, 600, 800]) {
+                // eslint-disable-next-line no-await-in-loop -- rooms are added one after another, as a built spec adds them
+                await roomAt(c, x);
+            }
+        });
+        expect(s.saved.length - beforeBatch).toBe(1);
+        expect(s.last()).toHaveLength(5);
+    });
+
     it('rolls back and ends when its work throws, so later edits are undone one by one again', async () => {
         const { c, s, d } = makeHarness();
         await expect(

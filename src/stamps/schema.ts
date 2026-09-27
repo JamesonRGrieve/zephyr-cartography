@@ -322,6 +322,65 @@ const variantSchema = z
     })
     .strict();
 
+/**
+ * What a stamp is to the map composer, which dresses land and furnishes rooms
+ * by role, never by stamp id: land (tree, shrub, rock, log, flora, debris)
+ * and furniture (table, seat, bench, counter, hearth, shelf, bed, storage,
+ * clutter, rug, desk, workbench, light).
+ */
+const STAMP_ROLES = [
+    'tree',
+    'shrub',
+    'rock',
+    'log',
+    'flora',
+    'debris',
+    'table',
+    'seat',
+    'bench',
+    'counter',
+    'hearth',
+    'shelf',
+    'bed',
+    'storage',
+    'clutter',
+    'rug',
+    'desk',
+    'workbench',
+    'light',
+] as const;
+
+/** Where a stamp stands in a room: against a wall, in a corner, or anywhere on the floor. */
+const STAMP_ANCHORS = ['wall', 'corner', 'free'] as const;
+
+/**
+ * The kinds of ground a land stamp belongs on, so the composer dresses a
+ * wood with forest rocks and never stalagmites: forest, grassland, marsh,
+ * rocky (hills, scree), cave, arctic, desert, urban, ruin.
+ */
+export const STAMP_HABITATS = ['forest', 'grassland', 'marsh', 'rocky', 'cave', 'arctic', 'desert', 'urban', 'ruin'] as const;
+
+const placementSchema = z
+    .object({
+        against: z
+            .enum(STAMP_ANCHORS)
+            .default('free')
+            .describe('Where the composer stands it: with its back (see `back`) against a wall, in a corner, or anywhere free.'),
+        clearance: z
+            .number()
+            .min(0)
+            .default(0)
+            .describe('Grid squares of open floor the composer keeps in front of it: a counter’s serving side, a hearth’s apron.'),
+        back: z
+            .enum(['top', 'right', 'bottom', 'left'])
+            .default('top')
+            .describe(
+                'The edge of the image that is the piece’s back, set against a wall or turned away from a table: a bed drawn with its headboard on the left says left.',
+            ),
+    })
+    .strict()
+    .describe('How the map composer places the stamp.');
+
 const stampSchema = z
     .object({
         id: text.describe('Unique within the pack.'),
@@ -330,6 +389,12 @@ const stampSchema = z
         tags: z.array(text).default([]),
         scale: z.enum(STAMP_SCALES),
         perspective: z.enum(STAMP_PERSPECTIVES),
+        role: z.enum(STAMP_ROLES).optional().describe('What the map composer uses it as; without one it is never composed, only placed by hand.'),
+        habitats: z
+            .array(z.enum(STAMP_HABITATS))
+            .default([])
+            .describe('The ground a land stamp belongs on; the composer dresses each outdoor zone only with stamps of its habitat.'),
+        placement: placementSchema.optional(),
         defaultVariant: z.number().int().min(0).default(0).describe('Index into variants.'),
         variants: z.array(variantSchema).min(1),
         physical: physicalSchema.optional(),
@@ -431,6 +496,14 @@ export type StampPile = z.infer<typeof containerSchema>;
 export type StampSurface = z.infer<typeof surfaceSchema>;
 
 export type StampTerrain = z.infer<typeof terrainSchema>;
+
+export type StampRole = (typeof STAMP_ROLES)[number];
+
+export type StampAnchor = (typeof STAMP_ANCHORS)[number];
+
+export type StampBack = z.infer<typeof placementSchema>['back'];
+
+export type StampHabitat = (typeof STAMP_HABITATS)[number];
 
 export type TextureSet = StampPack['textureSets'][number];
 

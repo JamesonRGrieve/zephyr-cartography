@@ -51,17 +51,18 @@ const KEEP_WHOLE_CHANCE = 0.35;
 /** A coin toss. */
 const EVEN_CHANCE = 0.5;
 
-interface Rect {
+/** A rectangle in grid squares: a footprint or a room. */
+export interface Rect {
     readonly x: number;
     readonly y: number;
     readonly w: number;
     readonly h: number;
 }
 
-type Side = 'top' | 'right' | 'bottom' | 'left';
+export type Side = 'top' | 'right' | 'bottom' | 'left';
 
 /** A one-square door on a room's side, starting `at` along it (absolute x for top/bottom, y for left/right). */
-interface DoorSlot {
+export interface DoorSlot {
     readonly side: Side;
     readonly at: number;
 }
@@ -171,7 +172,11 @@ function sidePoints(start: Corner, end: Corner, doorsAt: readonly number[]): { p
 }
 
 /** A room's polygon, clockwise from its top-left corner, with a one-square segment for each of its doors. */
-function roomSpec(room: Rect, slots: readonly DoorSlot[], o: FloorPlanOptions): RoomSpec {
+/** What a room is built of: its floor, its drawn walls, their Foundry kind, and whether it has a ceiling. */
+export type RoomBuild = Pick<FloorPlanOptions, 'floor' | 'wall' | 'wallKind' | 'ceiling'>;
+
+/** A room spec over `room`, with a one-square door in each of `slots`. */
+export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild): RoomSpec {
     const corners: Corner[] = [
         { x: room.x, y: room.y },
         { x: room.x + room.w, y: room.y },

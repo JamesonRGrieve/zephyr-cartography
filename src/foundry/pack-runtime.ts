@@ -51,6 +51,8 @@ declare global {
 
 export interface PackRuntime {
     readonly catalog: StampCatalog;
+    /** Every stamp the loaded packs offer. */
+    readonly stamps: () => readonly CatalogStamp[];
     /** Open the stamp browser window. */
     readonly openBrowser: () => void;
     /** Place the stamp selected in the browser at a world point. */
@@ -321,6 +323,7 @@ export function registerPackRuntime(controller: () => CartographyController | nu
             listeners.push(listener);
         },
         catalog: { get: (key) => byKey.get(key) ?? null },
+        stamps: () => stamps,
         openBrowser: browser.open,
         placeArmedAt: (point) => {
             const armed = browser.armed();

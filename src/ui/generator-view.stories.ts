@@ -5,14 +5,22 @@
  * fully interactive in Storybook.
  */
 import type { Meta, StoryObj } from '@storybook/html-vite';
+import { composeMap } from '../compose/compose';
+import { parseMapIntent } from '../compose/intent';
+import { isMapPreset, MAP_PRESETS, presetText, withSeed } from '../compose/presets';
 import { generateFloorPlan } from '../generate/floor-plan';
 import { DEFAULT_GENERATOR_FORM, floorPlanOptions, newSeed, withGeneratorField, type GeneratorForm } from '../generate/form';
 import { formatSpecIssue, parseSceneSpecJson } from '../generate/spec';
-import { renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel } from './generator-view';
+import { renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel, type PresetChoice } from './generator-view';
 
 export type GeneratorArgs = GeneratorPanel;
 
 const LABELS: GeneratorLabels = {
+    compose: 'Compose a map',
+    preset: 'Start from',
+    intent: 'Map intent (JSON)',
+    composeMap: 'Compose',
+    reseedMap: 'Another layout',
     floorPlan: 'Floor plan',
     seed: 'Seed',
     newSeed: 'New seed',
@@ -41,6 +49,34 @@ export function mountGeneratorPanel(args: GeneratorArgs): HTMLElement {
     let seeds = 0;
     const render = (): void => {
         renderGeneratorPanel(root, panel, LABELS, {
+            pickPreset: (preset) => {
+                if (isMapPreset(preset)) {
+                    panel = { ...panel, preset, intentText: presetText(preset) };
+                    render();
+                }
+            },
+            setIntentText: (intentText) => {
+                panel = { ...panel, intentText };
+            },
+            reseedIntent: () => {
+                seeds += 1;
+                panel = {
+                    ...panel,
+                    intentText:
+                        withSeed(
+                            panel.intentText,
+                            newSeed(() => (seeds * 0.618) % 1),
+                        ) ?? panel.intentText,
+                };
+                render();
+            },
+            compose: () => {
+                // Stories have no packs: the map is composed without stamps, and says so.
+                const parsed = parseMapIntent(JSON.parse(panel.intentText));
+                const lines = parsed.ok ? [describeBuild(composeMap(parsed.intent, new Map()).spec.features.length)] : parsed.issues.map(formatSpecIssue);
+                panel = { ...panel, status: lines };
+                render();
+            },
             setField: (field, typed) => {
                 const form = withGeneratorField(panel.form, field, typed);
                 if (form) {
@@ -95,11 +131,13 @@ const SPEC = JSON.stringify({
     ],
 });
 
+const PRESETS: readonly PresetChoice[] = MAP_PRESETS.map((key) => ({ key, label: key.replaceAll('-', ' ') }));
+
 const meta: Meta<GeneratorArgs> = {
     title: 'Builder/Generator Panel',
     excludeStories: ['mountGeneratorPanel'],
     render: mountGeneratorPanel,
-    args: { form: FORM, specText: '', status: null, busy: false },
+    args: { presets: PRESETS, preset: 'woodland-inn', intentText: presetText('woodland-inn'), form: FORM, specText: '', status: null, busy: false },
 };
 
 export default meta;
@@ -125,4 +163,13 @@ export const RefusedSpec: Story = {
 
 export const Building: Story = {
     args: { busy: true },
+};
+
+/** A tavern's rooms picked to start from, and a composed map's report. */
+export const ComposedTavern: Story = {
+    args: {
+        preset: 'tavern',
+        intentText: presetText('tavern'),
+        status: ['Composed 86 features.', 'tavern/room-2: no loaded stamp is a bed.'],
+    },
 };

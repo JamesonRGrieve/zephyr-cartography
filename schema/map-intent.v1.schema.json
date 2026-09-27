@@ -1,0 +1,493 @@
+{
+    "$id": "https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/map-intent.v1.schema.json",
+    "title": "Zephyrex Cartography map intent (v1)",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "schemaVersion": {
+            "type": "number",
+            "const": 1
+        },
+        "seed": {
+            "default": 1,
+            "description": "The same intent and seed always compose the same map.",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+        },
+        "width": {
+            "default": 30,
+            "description": "Map width in grid squares.",
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 9007199254740991
+        },
+        "height": {
+            "default": 20,
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 9007199254740991
+        },
+        "settings": {
+            "default": [],
+            "description": "Stamp tags the map is made from: only stamps carrying at least one are used (e.g. a setting and \"generic\" pieces); none: any stamp.",
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "ground": {
+            "default": "grassland",
+            "description": "The ground under everything; null for none (an interior on a bare scene).",
+            "anyOf": [
+                {
+                    "type": "string",
+                    "enum": [
+                        "water",
+                        "grassland",
+                        "forest",
+                        "sand",
+                        "rock",
+                        "snow",
+                        "dirt",
+                        "lava",
+                        "marsh",
+                        "ice",
+                        "ash",
+                        "tundra",
+                        "ocean"
+                    ]
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
+        "zones": {
+            "default": [],
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "woodland",
+                            "meadow",
+                            "clearing",
+                            "marsh",
+                            "rocky"
+                        ]
+                    },
+                    "area": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "shape": {
+                                        "type": "string",
+                                        "const": "everywhere"
+                                    }
+                                },
+                                "required": [
+                                    "shape"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "shape": {
+                                        "type": "string",
+                                        "const": "edge"
+                                    },
+                                    "side": {
+                                        "type": "string",
+                                        "enum": [
+                                            "north",
+                                            "east",
+                                            "south",
+                                            "west"
+                                        ]
+                                    },
+                                    "depth": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 0,
+                                        "description": "How far in from the edge."
+                                    }
+                                },
+                                "required": [
+                                    "shape",
+                                    "side",
+                                    "depth"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "shape": {
+                                        "type": "string",
+                                        "const": "circle"
+                                    },
+                                    "centre": {
+                                        "type": "object",
+                                        "properties": {
+                                            "x": {
+                                                "type": "number"
+                                            },
+                                            "y": {
+                                                "type": "number"
+                                            }
+                                        },
+                                        "required": [
+                                            "x",
+                                            "y"
+                                        ],
+                                        "additionalProperties": false,
+                                        "description": "In grid squares from the map’s top-left corner."
+                                    },
+                                    "radius": {
+                                        "type": "number",
+                                        "exclusiveMinimum": 0
+                                    }
+                                },
+                                "required": [
+                                    "shape",
+                                    "centre",
+                                    "radius"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "shape": {
+                                        "type": "string",
+                                        "const": "polygon"
+                                    },
+                                    "points": {
+                                        "minItems": 3,
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "x": {
+                                                    "type": "number"
+                                                },
+                                                "y": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "x",
+                                                "y"
+                                            ],
+                                            "additionalProperties": false,
+                                            "description": "In grid squares from the map’s top-left corner."
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "shape",
+                                    "points"
+                                ],
+                                "additionalProperties": false
+                            }
+                        ],
+                        "description": "Where the zone lies."
+                    },
+                    "density": {
+                        "default": "normal",
+                        "type": "string",
+                        "enum": [
+                            "sparse",
+                            "normal",
+                            "dense"
+                        ]
+                    }
+                },
+                "required": [
+                    "kind",
+                    "area"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "paths": {
+            "default": [],
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "road",
+                            "river"
+                        ]
+                    },
+                    "from": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "north",
+                                    "east",
+                                    "south",
+                                    "west"
+                                ]
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "x": {
+                                        "type": "number"
+                                    },
+                                    "y": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "x",
+                                    "y"
+                                ],
+                                "additionalProperties": false,
+                                "description": "In grid squares from the map’s top-left corner."
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "building": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "required": [
+                                    "building"
+                                ],
+                                "additionalProperties": false
+                            }
+                        ],
+                        "description": "Where a road or river starts or ends: a map edge (a point along it), a point, or a building (its entrance)."
+                    },
+                    "to": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "north",
+                                    "east",
+                                    "south",
+                                    "west"
+                                ]
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "x": {
+                                        "type": "number"
+                                    },
+                                    "y": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "x",
+                                    "y"
+                                ],
+                                "additionalProperties": false,
+                                "description": "In grid squares from the map’s top-left corner."
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "building": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "required": [
+                                    "building"
+                                ],
+                                "additionalProperties": false
+                            }
+                        ],
+                        "description": "Where a road or river starts or ends: a map edge (a point along it), a point, or a building (its entrance)."
+                    },
+                    "width": {
+                        "description": "Squares across; omitted: a road 1.5, a river 2.",
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    },
+                    "meander": {
+                        "default": 0.3,
+                        "description": "How much it winds: 0 straight, 1 a lot.",
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                    },
+                    "liquid": {
+                        "description": "A river’s liquid (default water).",
+                        "type": "string",
+                        "enum": [
+                            "water",
+                            "lava",
+                            "poison",
+                            "acid"
+                        ]
+                    }
+                },
+                "required": [
+                    "kind",
+                    "from",
+                    "to"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "buildings": {
+            "default": [],
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "description": "A name roads can run to.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "at": {
+                        "description": "Top-left corner. Omitted: centred on the map.",
+                        "type": "object",
+                        "properties": {
+                            "x": {
+                                "type": "number"
+                            },
+                            "y": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "x",
+                            "y"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "width": {
+                        "type": "integer",
+                        "minimum": 3,
+                        "maximum": 9007199254740991
+                    },
+                    "height": {
+                        "type": "integer",
+                        "minimum": 3,
+                        "maximum": 9007199254740991
+                    },
+                    "floor": {
+                        "default": "floor.wooden-planks",
+                        "description": "Floor texture role (a biome or a pack floor.*).",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "wall": {
+                        "default": "wall.stone",
+                        "description": "Wall texture role (a pack wall.*), drawn along every wall.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "wallKind": {
+                        "default": "solid",
+                        "type": "string",
+                        "enum": [
+                            "solid",
+                            "terrain",
+                            "invisible",
+                            "ethereal",
+                            "window"
+                        ]
+                    },
+                    "entrance": {
+                        "default": "south",
+                        "description": "The side its front door faces.",
+                        "type": "string",
+                        "enum": [
+                            "north",
+                            "east",
+                            "south",
+                            "west"
+                        ]
+                    },
+                    "rooms": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "This room’s name among the building’s rooms, for `opensTo`."
+                                },
+                                "purpose": {
+                                    "type": "string",
+                                    "enum": [
+                                        "common-room",
+                                        "bar",
+                                        "kitchen",
+                                        "storage",
+                                        "bedroom",
+                                        "hall",
+                                        "office",
+                                        "workshop",
+                                        "shrine",
+                                        "cell"
+                                    ]
+                                },
+                                "size": {
+                                    "default": 1,
+                                    "description": "Floor area relative to the building’s other rooms (2 is twice as big as 1).",
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                "opensTo": {
+                                    "default": [],
+                                    "description": "Rooms it has a door into; the layout puts them side by side.",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "entrance": {
+                                    "default": false,
+                                    "description": "Has the building’s front door. Without one marked, the first room has it.",
+                                    "type": "boolean"
+                                }
+                            },
+                            "required": [
+                                "key",
+                                "purpose"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": [
+                    "width",
+                    "height",
+                    "rooms"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [
+        "schemaVersion"
+    ],
+    "additionalProperties": false
+}

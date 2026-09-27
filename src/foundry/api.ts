@@ -7,10 +7,12 @@
  */
 import type { CartographyController } from '../canvas/controller';
 import type { RealizeReport } from '../canvas/realize';
+import { parseMapIntent } from '../compose/intent';
 import { DEFAULT_FLOOR_PLAN, generateFloorPlan, type FloorPlanOptions } from '../generate/floor-plan';
 import { parseSceneSpec, type SceneSpec, type SpecIssue } from '../generate/spec';
 import { MODULE_ID } from '../module-id';
-import { buildOnScene } from './build-spec';
+import type { CatalogStamp } from '../stamps/catalog';
+import { buildOnScene, type ComposeOutcome, composeOnScene } from './build-spec';
 import { spawnInto, type SpawnResult } from './spawner';
 
 /** Revision of the API shape; additive changes keep it. */
@@ -27,6 +29,13 @@ interface CartographyApi {
     readonly buildSpec: (spec: unknown) => Promise<BuildOutcome>;
     /** A floor-plan scene spec; options not given take the generator's defaults. */
     readonly generateFloorPlan: (options?: Partial<FloorPlanOptions>) => SceneSpec;
+    /**
+     * Validate a map intent, compose it from the loaded packs' stamps, and
+     * build it on the viewed scene as one undo step; what the composer could
+     * not do comes back as problems.
+     */
+    // eslint-disable-next-line no-restricted-syntax -- boundary: a macro or module passes any value; it is validated as a map intent
+    readonly compose: (intent: unknown) => Promise<ComposeOutcome>;
     /**
      * Spawn an area's tokens into its region (painted ground, a room or a
      * zone, by feature id). Foundry's own errors (no room left inside, no
@@ -45,7 +54,8 @@ declare global {
     }
 }
 
-export function registerApi(controller: () => CartographyController | null): void {
+/** `stamps` lists every stamp the loaded packs offer, for composing. */
+export function registerApi(controller: () => CartographyController | null, stamps: () => readonly CatalogStamp[]): void {
     const api: CartographyApi = {
         version: API_VERSION,
         controller,
@@ -61,6 +71,17 @@ export function registerApi(controller: () => CartographyController | null): voi
             return { ok: true, report: await buildOnScene(active, parsed.spec) };
         },
         generateFloorPlan: (options = {}) => generateFloorPlan({ ...DEFAULT_FLOOR_PLAN, ...options }),
+        compose: async (intent) => {
+            const active = controller();
+            const parsed = parseMapIntent(intent);
+            if (!parsed.ok) {
+                return { ok: false, issues: parsed.issues };
+            }
+            if (!active) {
+                return { ok: false, issues: [{ path: '', message: 'no scene is being viewed' }] };
+            }
+            return composeOnScene(active, parsed.intent, stamps());
+        },
         spawn: async (featureId) => {
             const active = controller();
             const settings = active?.areaSettings(featureId) ?? null;

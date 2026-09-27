@@ -75,6 +75,84 @@
                             "isometric"
                         ]
                     },
+                    "role": {
+                        "description": "What the map composer uses it as; without one it is never composed, only placed by hand.",
+                        "type": "string",
+                        "enum": [
+                            "tree",
+                            "shrub",
+                            "rock",
+                            "log",
+                            "flora",
+                            "debris",
+                            "table",
+                            "seat",
+                            "bench",
+                            "counter",
+                            "hearth",
+                            "shelf",
+                            "bed",
+                            "storage",
+                            "clutter",
+                            "rug",
+                            "desk",
+                            "workbench",
+                            "light"
+                        ]
+                    },
+                    "habitats": {
+                        "default": [],
+                        "description": "The ground a land stamp belongs on; the composer dresses each outdoor zone only with stamps of its habitat.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "forest",
+                                "grassland",
+                                "marsh",
+                                "rocky",
+                                "cave",
+                                "arctic",
+                                "desert",
+                                "urban",
+                                "ruin"
+                            ]
+                        }
+                    },
+                    "placement": {
+                        "type": "object",
+                        "properties": {
+                            "against": {
+                                "default": "free",
+                                "description": "Where the composer stands it: with its back (see `back`) against a wall, in a corner, or anywhere free.",
+                                "type": "string",
+                                "enum": [
+                                    "wall",
+                                    "corner",
+                                    "free"
+                                ]
+                            },
+                            "clearance": {
+                                "default": 0,
+                                "description": "Grid squares of open floor the composer keeps in front of it: a counter’s serving side, a hearth’s apron.",
+                                "type": "number",
+                                "minimum": 0
+                            },
+                            "back": {
+                                "default": "top",
+                                "description": "The edge of the image that is the piece’s back, set against a wall or turned away from a table: a bed drawn with its headboard on the left says left.",
+                                "type": "string",
+                                "enum": [
+                                    "top",
+                                    "right",
+                                    "bottom",
+                                    "left"
+                                ]
+                            }
+                        },
+                        "additionalProperties": false,
+                        "description": "How the map composer places the stamp."
+                    },
                     "defaultVariant": {
                         "default": 0,
                         "description": "Index into variants.",
