@@ -5,6 +5,8 @@ import * as stories from './generator-view.stories';
 function mount(story: { readonly args?: Partial<stories.GeneratorArgs> }): HTMLElement {
     const base = stories.default.args;
     const el = stories.mountGeneratorPanel({
+        mode: story.args?.mode ?? base?.mode ?? 'algorithmic',
+        assistAvailable: story.args?.assistAvailable ?? base?.assistAvailable ?? false,
         presets: story.args?.presets ?? base?.presets ?? [],
         preset: story.args?.preset ?? base?.preset ?? '',
         intentText: story.args?.intentText ?? base?.intentText ?? '',
@@ -122,8 +124,25 @@ describe('generator panel', () => {
         expect(buttonNamed(root, 'Build spec').disabled).toBe(true);
     });
 
+    it('offers the AI-assisted mode only once a model is set up, and says where to set one', () => {
+        // Without a model there is nothing to choose: only the hint.
+        const without = mount(stories.Empty);
+        expect(without.querySelector('#zc-generator-mode')).toBeNull();
+        expect(without.textContent).toContain("Set a model in the module's settings");
+        const withModel = mount(stories.Assisted);
+        const modes = withModel.querySelector<HTMLSelectElement>('#zc-generator-mode');
+        expect([...(modes?.options ?? [])].map((o) => o.value)).toEqual(['algorithmic', 'assisted']);
+        expect(modes?.value).toBe('assisted');
+        if (modes) {
+            modes.value = 'algorithmic';
+            modes.dispatchEvent(new Event('change'));
+        }
+        expect(withModel.querySelector<HTMLSelectElement>('#zc-generator-mode')?.value).toBe('algorithmic');
+        expect(withModel.textContent).not.toContain("Set a model in the module's settings");
+    });
+
     it('renders every story', () => {
-        for (const story of [stories.Empty, stories.WithSpec, stories.Built, stories.RefusedSpec, stories.Building, stories.ComposedTavern]) {
+        for (const story of [stories.Empty, stories.WithSpec, stories.Built, stories.RefusedSpec, stories.Building, stories.ComposedTavern, stories.Assisted]) {
             expect(mount(story).querySelectorAll('fieldset')).toHaveLength(3);
         }
     });

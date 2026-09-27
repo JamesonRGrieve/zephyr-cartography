@@ -8,7 +8,7 @@ import { noiseField } from './noise';
 const MAP = { width: 20, height: 12 };
 const noise = noiseField(seededRandom(1), 4);
 
-const zone = (area: ZoneIntent['area']): ZoneIntent => ({ kind: 'woodland', area, density: 'normal' });
+const zone = (area: ZoneIntent['area']): ZoneIntent => ({ kind: 'woodland', area, density: 'normal', texture: null });
 
 describe('zoneOutline', () => {
     it('covers the whole map and past its edges for everywhere', () => {

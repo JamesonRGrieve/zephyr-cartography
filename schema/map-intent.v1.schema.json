@@ -67,6 +67,28 @@
                 }
             ]
         },
+        "lighting": {
+            "default": "day",
+            "description": "By night the scene is dark and rooms are lit by what is in them (a hearth, lamps), not a flat light; a room with nothing to light it keeps its own.",
+            "type": "string",
+            "enum": [
+                "day",
+                "night"
+            ]
+        },
+        "groundTexture": {
+            "default": null,
+            "description": "A texture role of the active set to draw the ground in (`floor.scorched-earth`); null for its biome’s own. A role the set lacks draws as the biome.",
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "zones": {
             "default": [],
             "type": "array",
@@ -80,7 +102,11 @@
                             "meadow",
                             "clearing",
                             "marsh",
-                            "rocky"
+                            "rocky",
+                            "rubble",
+                            "industrial",
+                            "fortified",
+                            "landing"
                         ]
                     },
                     "area": {
@@ -208,6 +234,19 @@
                             "sparse",
                             "normal",
                             "dense"
+                        ]
+                    },
+                    "texture": {
+                        "default": null,
+                        "description": "A texture role of the active set to draw the ground in (`floor.scorched-earth`); null for its biome’s own. A role the set lacks draws as the biome.",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
                         ]
                     }
                 },
@@ -445,7 +484,15 @@
                                         "office",
                                         "workshop",
                                         "shrine",
-                                        "cell"
+                                        "cell",
+                                        "mess",
+                                        "chapel",
+                                        "medicae",
+                                        "command",
+                                        "armoury",
+                                        "barracks",
+                                        "manufactorum",
+                                        "interrogation"
                                     ]
                                 },
                                 "size": {
@@ -467,11 +514,103 @@
                                     "default": false,
                                     "description": "Has the building’s front door. Without one marked, the first room has it.",
                                     "type": "boolean"
+                                },
+                                "floor": {
+                                    "description": "Its own floor texture role (a kitchen’s flagstones among plank rooms); omitted, the building’s.",
+                                    "type": "string",
+                                    "minLength": 1
                                 }
                             },
                             "required": [
                                 "key",
                                 "purpose"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "description": "The ground floor’s rooms."
+                    },
+                    "floors": {
+                        "default": [],
+                        "description": "Storeys above the ground floor, bottom to top, each a level of the scene over the same footprint, so every floor’s outer walls stand on the ones below. A stair in the same place on every floor joins each to the next.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "description": "The level’s name; omitted, “Floor 2” and so on.",
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "rooms": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "key": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "description": "This room’s name among the building’s rooms, for `opensTo`."
+                                            },
+                                            "purpose": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "common-room",
+                                                    "bar",
+                                                    "kitchen",
+                                                    "storage",
+                                                    "bedroom",
+                                                    "hall",
+                                                    "office",
+                                                    "workshop",
+                                                    "shrine",
+                                                    "cell",
+                                                    "mess",
+                                                    "chapel",
+                                                    "medicae",
+                                                    "command",
+                                                    "armoury",
+                                                    "barracks",
+                                                    "manufactorum",
+                                                    "interrogation"
+                                                ]
+                                            },
+                                            "size": {
+                                                "default": 1,
+                                                "description": "Floor area relative to the building’s other rooms (2 is twice as big as 1).",
+                                                "type": "number",
+                                                "exclusiveMinimum": 0
+                                            },
+                                            "opensTo": {
+                                                "default": [],
+                                                "description": "Rooms it has a door into; the layout puts them side by side.",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                }
+                                            },
+                                            "entrance": {
+                                                "default": false,
+                                                "description": "Has the building’s front door. Without one marked, the first room has it.",
+                                                "type": "boolean"
+                                            },
+                                            "floor": {
+                                                "description": "Its own floor texture role (a kitchen’s flagstones among plank rooms); omitted, the building’s.",
+                                                "type": "string",
+                                                "minLength": 1
+                                            }
+                                        },
+                                        "required": [
+                                            "key",
+                                            "purpose"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                }
+                            },
+                            "required": [
+                                "rooms"
                             ],
                             "additionalProperties": false
                         }

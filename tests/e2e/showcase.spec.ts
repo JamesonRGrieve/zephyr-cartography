@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Real maps, composed from map intents in the real asset pack's art: the Map
- * builder's woodland inn and tavern presets, each on a scene its size, in
- * the hand-painted texture set. They are judged by eye from their
+ * builder's presets, fantasy (a woodland inn, a tavern), grimdark (a hive
+ * outpost, a hive chapel, a manufactorum) and sci-fi (a void port), each on
+ * a scene its size, in the hand-painted texture set. They are judged by eye from their
  * screenshots, whole and close up, and checked to have been composed whole
  * (no problems, every stamp drawn). The pack is not in this repo, so the
  * spec runs only where it is installed among the test modules
@@ -75,34 +76,55 @@ test.beforeEach(async ({ world }) => {
     test.skip(!(await moduleActive(world, ASSETS)), `${ASSETS} is not installed among the test modules`);
 });
 
-test('the woodland inn preset: an inn in a clearing, a road to its door, a stream through the woods', async ({ world }) => {
-    const { size, outcome } = await composePreset(world, 'woodland-inn', 'Woodland inn');
+/** Where (in squares) and how close a showcase's second shot looks. */
+interface CloseUp {
+    readonly x: number;
+    readonly y: number;
+    readonly scale: number;
+}
+
+/**
+ * Compose `preset`, shoot it whole as `<shot>.png` (wall lines shown for an
+ * interior), then close up as `<shot>-close-up.png`.
+ */
+async function showcase(page: Page, preset: MapPreset, title: string, shot: string, closeUp: CloseUp, walls: boolean): Promise<void> {
+    const { size, outcome } = await composePreset(page, preset, title);
     // Soft: whatever the packs lack is reported, and the map is still shot for review.
     expect.soft(outcome).toEqual([]);
-    await expect.poll(async () => allTilesDrawn(world), { timeout: IMAGES_LOAD_MS }).toBe(true);
-    await frameScene(world, null, size, fitScale(world, size));
-    await expect(world.locator('#board')).toHaveScreenshot('woodland-inn.png');
-    // The inn, close: its rooms, walls, doors and furniture.
-    await world.evaluate(
+    await expect.poll(async () => allTilesDrawn(page), { timeout: IMAGES_LOAD_MS }).toBe(true);
+    await frameScene(page, walls ? 'walls' : null, size, fitScale(page, size));
+    await expect(page.locator('#board')).toHaveScreenshot(`${shot}.png`);
+    await page.evaluate(
         async ({ x, y, scale }) => {
             await canvas?.animatePan({ x, y, scale, duration: 0 });
         },
-        { x: 18 * GRID, y: 13.5 * GRID, scale: CLOSE_UP_SCALE / 2 },
+        { x: closeUp.x * GRID, y: closeUp.y * GRID, scale: closeUp.scale },
     );
-    await expect(world.locator('#board')).toHaveScreenshot('woodland-inn-close-up.png');
+    await expect(page.locator('#board')).toHaveScreenshot(`${shot}-close-up.png`);
+}
+
+test('the woodland inn preset: an inn in a clearing, a road to its door, a stream through the woods', async ({ world }) => {
+    // The inn, close: its rooms, walls, doors and furniture.
+    await showcase(world, 'woodland-inn', 'Woodland inn', 'woodland-inn', { x: 18, y: 13.5, scale: CLOSE_UP_SCALE / 2 }, false);
 });
 
 test('the tavern preset: common room, bar, kitchen, store, hall and bedrooms, furnished', async ({ world }) => {
-    const { size, outcome } = await composePreset(world, 'tavern', 'Tavern');
-    expect.soft(outcome).toEqual([]);
-    await expect.poll(async () => allTilesDrawn(world), { timeout: IMAGES_LOAD_MS }).toBe(true);
-    await frameScene(world, 'walls', size, fitScale(world, size));
-    await expect(world.locator('#board')).toHaveScreenshot('tavern.png');
-    await world.evaluate(
-        async ({ x, y, scale }) => {
-            await canvas?.animatePan({ x, y, scale, duration: 0 });
-        },
-        { x: 8 * GRID, y: 6 * GRID, scale: CLOSE_UP_SCALE },
-    );
-    await expect(world.locator('#board')).toHaveScreenshot('tavern-close-up.png');
+    await showcase(world, 'tavern', 'Tavern', 'tavern', { x: 8, y: 6, scale: CLOSE_UP_SCALE }, true);
+});
+
+test('the hive outpost preset: a fortified outpost among shelled rubble, industry and a toxic runoff', async ({ world }) => {
+    // The outpost, close: command, armoury, barracks, medicae, interrogation and cell.
+    await showcase(world, 'hive-outpost', 'Hive outpost', 'hive-outpost', { x: 21.5, y: 14.5, scale: CLOSE_UP_SCALE / 2 }, false);
+});
+
+test('the hive chapel preset: a nave of pews facing its altar, a vestry, an ossuary and a cell', async ({ world }) => {
+    await showcase(world, 'hive-chapel', 'Hive chapel', 'hive-chapel', { x: 12, y: 9, scale: CLOSE_UP_SCALE / 2 }, true);
+});
+
+test('the manufactorum preset: rows of machines, an overseer’s post, stores, a mess and bunks', async ({ world }) => {
+    await showcase(world, 'manufactorum', 'Manufactorum', 'manufactorum', { x: 10, y: 8, scale: CLOSE_UP_SCALE / 2 }, true);
+});
+
+test('the void port preset: craft on a landing field, industry beside it, a road to the port office', async ({ world }) => {
+    await showcase(world, 'void-port', 'Void port', 'void-port', { x: 20, y: 16, scale: CLOSE_UP_SCALE / 4 }, false);
 });

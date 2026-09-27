@@ -55,6 +55,18 @@ export interface BuildingLayout {
 
 const SIDE_OF_EDGE: Readonly<Record<Edge, Side>> = { north: 'top', east: 'right', south: 'bottom', west: 'left' };
 
+const OPPOSITE: Readonly<Record<Side, Side>> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+
+/** Each room's doors as it sees them: its own, and the ones its neighbours opened into its walls. */
+export function doorsOf(layout: BuildingLayout, key: string): DoorSlot[] {
+    return layout.doors.flatMap((d) => {
+        if (d.room === key) {
+            return [d.slot];
+        }
+        return d.to === key ? [{ side: OPPOSITE[d.slot.side], at: d.slot.at }] : [];
+    });
+}
+
 /** The rooms each room opens onto, both ways. */
 function neighbours(rooms: readonly RoomIntent[]): Map<string, Set<string>> {
     const graph = new Map(rooms.map((r) => [r.key, new Set<string>()]));
@@ -281,9 +293,28 @@ function score(layout: BuildingLayout, building: BuildingIntent, footprint: Rect
     return met * ADJACENCY_WEIGHT + entranceOnSide * ENTRANCE_WEIGHT - cramped - sizeError;
 }
 
-/** Lay out `building` over `footprint` (its own origin and size, in squares); null if its rooms cannot fit. */
-export function layOutBuilding(building: BuildingIntent, footprint: Rect, random: Random): BuildingLayout | null {
-    const [first, ...others] = building.rooms;
+/** How a storey is laid out: with the building's front door (the ground floor) or none, and a test every layout must pass. */
+export interface StoreyOptions {
+    readonly front: boolean;
+    /** A layout this refuses is never chosen, however it scores: an upper floor must hold the stairwell below. */
+    readonly accept: (layout: BuildingLayout) => boolean;
+}
+
+const GROUND_FLOOR: StoreyOptions = { front: true, accept: () => true };
+
+/**
+ * Lay out `building`'s `rooms` (its ground floor's, unless given another
+ * storey's) over `footprint` (its own origin and size, in squares); null if
+ * its rooms cannot fit, or no layout passes `options.accept`.
+ */
+export function layOutBuilding(
+    building: BuildingIntent,
+    footprint: Rect,
+    random: Random,
+    options: StoreyOptions = GROUND_FLOOR,
+    storeyRooms: readonly RoomIntent[] = building.rooms,
+): BuildingLayout | null {
+    const [first, ...others] = storeyRooms;
     if (first === undefined) {
         return null;
     }
@@ -293,9 +324,12 @@ export function layOutBuilding(building: BuildingIntent, footprint: Rect, random
         const placed = place(footprint, roomOrder(rooms, random), random);
         if (placed) {
             const { doors, unmet } = interiorDoors(placed, random);
-            const front = frontDoor(placed, entranceRoom(rooms), building.entrance, footprint, random);
+            const front = options.front ? frontDoor(placed, entranceRoom(rooms), building.entrance, footprint, random) : null;
             const layout = { rooms: placed, doors: front ? [...doors, front] : doors, unmet };
-            const value = score(layout, building, footprint);
+            if (!options.accept(layout)) {
+                continue;
+            }
+            const value = score(layout, { ...building, rooms }, footprint);
             if (best === null || value > best.score) {
                 best = { layout, score: value };
             }

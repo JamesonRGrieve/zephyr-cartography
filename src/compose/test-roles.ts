@@ -3,9 +3,18 @@
 import { STAMP_HABITATS, type StampAnchor, type StampRole } from '../stamps/schema';
 import type { RoleIndex, RoleStamp } from './roles';
 
-function stamp(role: StampRole, width: number, height: number, against: StampAnchor = 'free', clearance = 0, id: string = role, turn = 0): RoleStamp {
+function stamp(
+    role: StampRole,
+    width: number,
+    height: number,
+    against: StampAnchor = 'free',
+    clearance = 0,
+    id: string = role,
+    turn = 0,
+    upright = false,
+): RoleStamp {
     // Land stamps belong on every kind of ground, so every zone can be dressed.
-    return { key: `test:${id}`, role, width, height, turn, against, clearance, habitats: STAMP_HABITATS };
+    return { key: `test:${id}`, role, width, height, turn, against, clearance, upright, habitats: STAMP_HABITATS };
 }
 
 /** Every role the templates use, with sizes like the real packs' (a 5 ft square). */
@@ -30,4 +39,23 @@ export const TEST_ROLES: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([
     ['desk', [stamp('desk', 1.4, 0.8, 'wall')]],
     ['workbench', [stamp('workbench', 2, 0.8, 'wall')]],
     ['light', [stamp('light', 0.5, 0.5, 'wall')]],
+    ['machine', [stamp('machine', 2, 1.7)]],
+    ['console', [stamp('console', 1, 1, 'wall', 1)]],
+    ['altar', [stamp('altar', 1, 1.2, 'wall', 1.5)]],
+    ['pew', [stamp('pew', 2, 1.66)]],
+    ['lectern', [stamp('lectern', 0.5, 0.6, 'wall', 1)]],
+    ['icon', [stamp('icon', 0.4, 0.6, 'wall')]],
+    ['rack', [stamp('rack', 1, 1, 'wall')]],
+    ['medical', [stamp('medical', 1.4, 1, 'wall')]],
+    ['restraint', [stamp('restraint', 0.7, 1.4)]],
+    // A bunker seen from above, and a watch post drawn side-on that must stand as drawn.
+    ['structure', [stamp('structure', 5, 2.8), stamp('structure', 1.4, 2, 'free', 0, 'watch-post', 0, true)]],
+    // Defences drawn front up, back to the image's bottom: a quarter turn twice brings the back to the top.
+    ['barricade', [stamp('barricade', 2, 0.5, 'free', 0, 'barricade', 180)]],
+    ['crater', [stamp('crater', 2, 1.9)]],
+    ['emplacement', [stamp('emplacement', 2.2, 2.4, 'free', 0, 'emplacement', 180)]],
+    ['vehicle', [stamp('vehicle', 9, 9), stamp('vehicle', 6, 2.4, 'free', 0, 'hauler')]],
+    ['stairs', [stamp('stairs', 1, 2)]],
+    ['tabletop', [stamp('tabletop', 0.3, 0.3), stamp('tabletop', 0.4, 0.25, 'free', 0, 'tankards')]],
+    ['nightstand', [stamp('nightstand', 0.5, 0.5, 'wall')]],
 ]);

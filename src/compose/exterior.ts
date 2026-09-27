@@ -22,6 +22,7 @@ import { detour, grown } from './detour';
 import type { Anchor, Density, Edge, MapIntent, PathIntent, ZoneIntent, ZoneKind } from './intent';
 import type { PlacedDoor } from './layout';
 import { noiseField, type NoiseField } from './noise';
+import { narrowed, type Preferences, zonePlace } from './preferences';
 import type { ComposeProblem } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
 import { poissonDisc } from './scatter';
@@ -45,6 +46,10 @@ const ZONE_GROUND: Readonly<Record<ZoneKind, BiomeKind>> = {
     clearing: 'grassland',
     marsh: 'marsh',
     rocky: 'rock',
+    rubble: 'dirt',
+    industrial: 'rock',
+    fortified: 'dirt',
+    landing: 'rock',
 };
 
 /**
@@ -56,6 +61,8 @@ interface Dressing {
     readonly role: StampRole;
     readonly spread: number;
     readonly clumping: number;
+    /** Stood in a line just inside the zone's edge, fronts facing out (a perimeter), rather than scattered through it. */
+    readonly perimeter?: true;
 }
 
 const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
@@ -86,7 +93,45 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         { role: 'shrub', spread: 4, clumping: 0.2 },
         { role: 'debris', spread: 5, clumping: 0 },
     ],
+    rubble: [
+        { role: 'debris', spread: 1.6, clumping: 0.4 },
+        { role: 'crater', spread: 3, clumping: 0.2 },
+        { role: 'rock', spread: 5, clumping: 0 },
+    ],
+    industrial: [
+        { role: 'structure', spread: 1.4, clumping: 0.3 },
+        { role: 'vehicle', spread: 4, clumping: 0 },
+        { role: 'storage', spread: 3, clumping: 0.45 },
+        { role: 'debris', spread: 4, clumping: 0.2 },
+    ],
+    // Guns at intervals round the perimeter, barricades closing the line between them, the camp inside.
+    fortified: [
+        { role: 'emplacement', spread: 5, clumping: 0, perimeter: true },
+        { role: 'barricade', spread: 1.05, clumping: 0, perimeter: true },
+        { role: 'structure', spread: 2, clumping: 0.2 },
+        { role: 'storage', spread: 4, clumping: 0.6 },
+        { role: 'crater', spread: 5, clumping: 0 },
+        { role: 'debris', spread: 5, clumping: 0.2 },
+    ],
+    landing: [
+        { role: 'vehicle', spread: 1.1, clumping: 0 },
+        { role: 'storage', spread: 5, clumping: 0.7 },
+        { role: 'structure', spread: 4, clumping: 0.2 },
+    ],
 };
+
+/** Every role a zone of `kind` is dressed with. */
+export const zoneRoles = (kind: ZoneKind): StampRole[] => ZONE_DRESSING[kind].map((d) => d.role);
+
+/** Land roles: they dress only zones of their habitat. Anything else outdoors (works, cargo) stands on any ground. */
+const LAND_ROLES: readonly StampRole[] = ['tree', 'shrub', 'rock', 'log', 'flora', 'debris'];
+
+/**
+ * Roles whose pieces must not stand on one another, or reach over a path or
+ * a building. Land's canopies and litter may overlap, and a crater is a scar
+ * in the ground: works stand at its lip and a road can be shelled.
+ */
+const SOLID_ROLES: readonly StampRole[] = ['structure', 'vehicle', 'emplacement', 'barricade', 'storage'];
 
 /** The ground each zone's pieces belong on: a wood takes forest rocks, never stalagmites. */
 const ZONE_HABITATS: Readonly<Record<ZoneKind, readonly StampHabitat[]>> = {
@@ -95,14 +140,20 @@ const ZONE_HABITATS: Readonly<Record<ZoneKind, readonly StampHabitat[]>> = {
     clearing: ['forest', 'grassland'],
     marsh: ['marsh'],
     rocky: ['rocky'],
+    // A ruin's rocks are any open ground's: boulders and broken stone as well as the city's own wreckage.
+    rubble: ['ruin', 'urban', 'rocky'],
+    industrial: ['urban'],
+    fortified: ['ruin', 'urban', 'rocky'],
+    landing: ['urban'],
 };
 
 /** Rocks along a riverbank: any that belong outdoors on open ground. */
 const BANK_HABITATS: readonly StampHabitat[] = ['forest', 'grassland', 'marsh', 'rocky'];
 
-/** The stamps of a role that belong on any of `habitats`. */
+/** The stamps of a role that belong on any of `habitats` (any stamp of a role that is not land). */
 function inHabitat(stamps: RoleIndex, role: StampRole, habitats: readonly StampHabitat[]): RoleStamp[] {
-    return (stamps.get(role) ?? []).filter((stamp) => stamp.habitats.some((h) => habitats.includes(h)));
+    const all = stamps.get(role) ?? [];
+    return LAND_ROLES.includes(role) ? all.filter((stamp) => stamp.habitats.some((h) => habitats.includes(h))) : [...all];
 }
 
 /** The pieces' typical size: the mean of each one's longer side, in squares. */
@@ -299,7 +350,13 @@ interface Keepout {
 }
 
 /** Whether nothing of `role` may stand at `p`; `reach` is how far (squares) what stands there spreads round it. */
-function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0): boolean {
+/**
+ * Whether nothing of `role` may stand at `p`. `reach` is how far (squares)
+ * what stands there spreads round it, kept off buildings; `onPaths` is how
+ * far of it must also stay off roads and water (a canopy may hang over a
+ * road, a bunker may not stand on one).
+ */
+function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths = 0): boolean {
     const { map } = keepout;
     if (p.x < map.x || p.y < map.y || p.x > map.x + map.w || p.y > map.y + map.h) {
         return true;
@@ -309,7 +366,7 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0): boolea
     if (keepout.sites.some(({ footprint: f }) => p.x > f.x - m && p.x < f.x + f.w + m && p.y > f.y - m && p.y < f.y + f.h + m)) {
         return true;
     }
-    if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN)) {
+    if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + onPaths)) {
         return true;
     }
     return CLEARED.includes(role) && keepout.clearings.some((outline) => pointInPolygon(p, outline));
@@ -323,12 +380,23 @@ function depthInside(p: Point, outline: readonly Point[]): number {
 const flat = (points: readonly Point[]): number[] => points.flatMap((p) => [p.x, p.y]);
 
 /** Stamps for one zone's dressing, scattered over its outline. */
+/** A solid piece already standing: its centre and the radius of its footprint, in squares. */
+interface Standing {
+    readonly x: number;
+    readonly y: number;
+    readonly r: number;
+}
+
+/** The radius of a piece's footprint however it is turned. */
+const footprintRadius = (stamp: RoleStamp): number => Math.hypot(stamp.width, stamp.height) / 2;
+
 function dress(
     zone: ZoneIntent,
     outline: readonly Point[],
     dressing: Dressing,
     keepout: Keepout,
     choices: readonly RoleStamp[],
+    standing: Standing[],
     random: Random,
 ): FeatureInput[] {
     if (choices.length === 0) {
@@ -348,10 +416,84 @@ function dress(
         clump(p.x, p.y) >= dressing.clumping * random() &&
         // Thinning towards the zone's edge.
         Math.min(1, depthInside(p, outline) / EDGE_FADE) >= random() * QUARTER * 2;
+    const solid = SOLID_ROLES.includes(dressing.role);
     return poissonDisc(bounds, spacing, accept, random).flatMap((p) => {
         const stamp = pick(random, choices);
-        return stamp ? [{ type: 'stamp' as const, stamp: stamp.key, x: p.x, y: p.y, rotation: Math.floor(random() * FULL_TURN) }] : [];
+        if (!stamp) {
+            return [];
+        }
+        if (solid) {
+            // A solid piece, however big, keeps its whole footprint off paths, buildings and every other solid piece.
+            const r = footprintRadius(stamp);
+            if (blocked(p, dressing.role, keepout, r, r) || standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
+                return [];
+            }
+            standing.push({ x: p.x, y: p.y, r });
+        }
+        // Drawn side-on, it stands as drawn; seen from above, any way round.
+        return [{ type: 'stamp' as const, stamp: stamp.key, x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) }];
     });
+}
+
+/** Squares a perimeter piece stands inside the zone's edge, beyond half its own depth. */
+const PERIMETER_INSET = 0.3;
+
+/** The mean of a polygon's points: what a perimeter faces away from. */
+function centreOf(outline: readonly Point[]): Point {
+    return { x: outline.reduce((s, p) => s + p.x, 0) / outline.length, y: outline.reduce((s, p) => s + p.y, 0) / outline.length };
+}
+
+/**
+ * The rotation (degrees clockwise) that turns a piece's front, the side
+ * away from its back (image bottom once its turn brings its back up), to
+ * face along `out`.
+ */
+function facing(out: Point, turn: number): number {
+    const degrees = (Math.atan2(-out.x, out.y) * (FULL_TURN / 2)) / Math.PI;
+    return (((Math.round(degrees) + turn) % FULL_TURN) + FULL_TURN) % FULL_TURN;
+}
+
+/**
+ * Defences stood along the zone's edge, just inside it, every so many
+ * squares, each front facing out from the zone's middle and its length along
+ * the edge. Where a road, a building or another solid piece is in the way the
+ * line breaks: a gate.
+ */
+function perimeter(
+    outline: readonly Point[],
+    dressing: Dressing,
+    keepout: Keepout,
+    choices: readonly RoleStamp[],
+    standing: Standing[],
+    random: Random,
+): FeatureInput[] {
+    const centre = centreOf(outline);
+    const ring = [...outline, ...outline.slice(0, 1)];
+    const out: FeatureInput[] = [];
+    let carry = 0;
+    let stamp = pick(random, choices);
+    ring.reduce((a, b) => {
+        const span = Math.hypot(b.x - a.x, b.y - a.y);
+        for (let t = carry; stamp && t < span; ) {
+            const step = dressing.spread * Math.max(stamp.width, stamp.height);
+            const edge = { x: a.x + ((b.x - a.x) * t) / span, y: a.y + ((b.y - a.y) * t) / span };
+            const toCentre = { x: centre.x - edge.x, y: centre.y - edge.y };
+            const distance = Math.hypot(toCentre.x, toCentre.y) || 1;
+            const inset = stamp.height / 2 + PERIMETER_INSET;
+            const p = { x: edge.x + (toCentre.x / distance) * inset, y: edge.y + (toCentre.y / distance) * inset };
+            const r = footprintRadius(stamp);
+            const clear = !blocked(p, dressing.role, keepout, r, r) && !standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r);
+            if (clear) {
+                standing.push({ x: p.x, y: p.y, r: Math.max(stamp.width, stamp.height) / 2 });
+                out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: facing({ x: -toCentre.x, y: -toCentre.y }, stamp.turn) });
+                stamp = pick(random, choices);
+            }
+            t += step;
+            carry = t - span;
+        }
+        return b;
+    });
+    return out;
 }
 
 /** Rocks strewn along each river's banks. */
@@ -414,22 +556,27 @@ function wander(start: Point, radius: number, random: Random): Point[] {
     return points;
 }
 
+/** A region's texture field: the role given, or none for its biome's own. */
+const textured = (texture: string | null): { texture?: string } => (texture === null ? {} : { texture });
+
 /** The outdoors of `intent` around `sites`: ground, zones, paths and what stands among them. */
 export function composeExterior(
     intent: MapIntent,
     sites: readonly Site[],
     stamps: RoleIndex,
     random: Random,
+    preferences: Preferences,
 ): { features: FeatureInput[]; problems: ComposeProblem[] } {
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     if (intent.ground !== null) {
-        const everywhere: ZoneIntent = { kind: 'meadow', area: { shape: 'everywhere' }, density: 'normal' };
-        features.push({ type: 'region', biome: intent.ground, points: zoneOutline(everywhere, intent, noiseField(random, EDGE_SCALE)) });
+        const everywhere: ZoneIntent = { kind: 'meadow', area: { shape: 'everywhere' }, density: 'normal', texture: null };
+        const points = zoneOutline(everywhere, intent, noiseField(random, EDGE_SCALE));
+        features.push({ type: 'region', biome: intent.ground, points, ...textured(intent.groundTexture) });
     }
     const outlines = intent.zones.map((zone) => ({ zone, outline: zoneOutline(zone, intent, noiseField(random, EDGE_SCALE)) }));
     for (const { zone, outline } of outlines) {
-        features.push({ type: 'region', biome: ZONE_GROUND[zone.kind], points: outline });
+        features.push({ type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, ...textured(zone.texture) });
     }
     const paths: LaidPath[] = intent.paths.map((path) => {
         const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
@@ -468,15 +615,21 @@ export function composeExterior(
             });
         }
     });
-    for (const { zone, outline } of outlines) {
+    // Solid pieces of every zone keep clear of one another; each zone's dressing lists its largest works first, so they stand first.
+    const standing: Standing[] = [];
+    outlines.forEach(({ zone, outline }, i) => {
         for (const dressing of ZONE_DRESSING[zone.kind]) {
-            const choices = inHabitat(stamps, dressing.role, ZONE_HABITATS[zone.kind]);
+            const choices = narrowed(inHabitat(stamps, dressing.role, ZONE_HABITATS[zone.kind]), preferences.get(zonePlace(i))?.get(dressing.role));
             if (choices.length === 0) {
                 problems.push({ kind: 'no-stamp', role: dressing.role, wantedIn: zone.kind });
             }
-            features.push(...dress(zone, outline, dressing, keepout, choices, random));
+            features.push(
+                ...(dressing.perimeter
+                    ? perimeter(outline, dressing, keepout, choices, standing, random)
+                    : dress(zone, outline, dressing, keepout, choices, standing, random)),
+            );
         }
-    }
+    });
     features.push(...banks(paths, keepout, stamps, random));
     return { features, problems };
 }

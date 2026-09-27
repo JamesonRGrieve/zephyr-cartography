@@ -176,6 +176,165 @@ describe('composeMap', () => {
         }
     });
 
+    it('stands a fortified yard’s works and a landing field’s craft apart, clear of the road and the building, on their own ground', () => {
+        const { spec } = compose(
+            intentOf({
+                seed: 4,
+                width: 56,
+                height: 28,
+                ground: 'ash',
+                groundTexture: 'floor.scorched-earth',
+                zones: [
+                    { kind: 'fortified', area: { shape: 'circle', centre: { x: 12, y: 14 }, radius: 10 }, density: 'dense', texture: 'floor.packed-dirt' },
+                    { kind: 'landing', area: { shape: 'edge', side: 'east', depth: 22 } },
+                ],
+                // From the west, through the yard, so the landing field is left whole for its craft.
+                paths: [{ kind: 'road', from: 'west', to: { building: 'post' } }],
+                buildings: [{ key: 'post', at: { x: 16, y: 4 }, width: 6, height: 5, rooms: [{ key: 'command', purpose: 'command', entrance: true }] }],
+            }),
+        );
+        const sizes = new Map([...TEST_ROLES.values()].flat().map((s) => [s.key, s]));
+        const works = spec.features.flatMap((f) => {
+            const stamp = f.type === 'stamp' ? sizes.get(f.stamp) : undefined;
+            return f.type === 'stamp' && stamp && ['structure', 'vehicle', 'emplacement', 'barricade'].includes(stamp.role)
+                ? // Half its longer side: barricades in a line stand end to end, and nothing stands on another.
+                  [{ x: f.x, y: f.y, r: Math.max(stamp.width, stamp.height) / 2, role: stamp.role }]
+                : [];
+        });
+        expect(new Set(works.map((w) => w.role))).toEqual(new Set(['structure', 'vehicle', 'emplacement', 'barricade']));
+        // Craters scar the yard's ground among the works.
+        expect(spec.features.some((f) => f.type === 'stamp' && f.stamp === 'test:crater')).toBe(true);
+        works.forEach((a, i) => {
+            for (const b of works.slice(i + 1)) {
+                expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(a.r + b.r);
+            }
+        });
+        const road = spec.features.find((f) => f.type === 'path');
+        const post = { x: 16, y: 4, w: 6, h: 5 };
+        for (const w of works) {
+            expect(distanceToPolyline(w, road?.type === 'path' ? road.points : [])).toBeGreaterThan(w.r);
+            const clear = w.x + w.r < post.x || w.x - w.r > post.x + post.w || w.y + w.r < post.y || w.y - w.r > post.y + post.h;
+            expect(clear).toBe(true);
+        }
+        // The ground and the yard are drawn in the textures the intent names.
+        const textures = spec.features.flatMap((f) => (f.type === 'region' ? [f.texture ?? null] : []));
+        expect(textures).toEqual(['floor.scorched-earth', 'floor.packed-dirt', null]);
+    });
+
+    it('rings a fortified yard with its defences, every front facing out, and stands side-on works as drawn', () => {
+        const centre = { x: 20, y: 14 };
+        const { spec } = compose(intentOf({ seed: 6, width: 40, height: 28, zones: [{ kind: 'fortified', area: { shape: 'circle', centre, radius: 9 } }] }));
+        const defences = spec.features.flatMap((f) => (f.type === 'stamp' && (f.stamp === 'test:barricade' || f.stamp === 'test:emplacement') ? [f] : []));
+        expect(defences.length).toBeGreaterThan(8);
+        for (const d of defences) {
+            // Near the edge, not scattered through the yard.
+            expect(Math.hypot(d.x - centre.x, d.y - centre.y)).toBeGreaterThan(9 * 0.6);
+            // Its front (the image's top, the piece drawn back down) points away from the middle, within a few degrees.
+            const radians = ((d.rotation ?? 0) * Math.PI) / 180;
+            const front = { x: Math.sin(radians), y: -Math.cos(radians) };
+            const out = { x: d.x - centre.x, y: d.y - centre.y };
+            const cos = (front.x * out.x + front.y * out.y) / Math.hypot(out.x, out.y);
+            expect(cos).toBeGreaterThan(0.95);
+        }
+        const posts = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:watch-post');
+        expect(posts.every((p) => p.type === 'stamp' && p.rotation === 0)).toBe(true);
+    });
+
+    it('dresses a landing field or a yard whatever the habitats, but a wood only with its own land', () => {
+        const barren = new Map([...TEST_ROLES].map(([role, stamps]) => [role, stamps.map((s) => ({ ...s, habitats: [] }))]));
+        const composed = composeMap(
+            intentOf({
+                zones: [
+                    { kind: 'landing', area: { shape: 'everywhere' } },
+                    { kind: 'woodland', area: { shape: 'everywhere' } },
+                ],
+            }),
+            barren,
+        );
+        const roles = new Set(composed.spec.features.flatMap((f) => (f.type === 'stamp' ? [f.stamp] : [])));
+        expect(roles.has('test:hauler') || roles.has('test:vehicle')).toBe(true);
+        expect(roles.has('test:tree')).toBe(false);
+        expect(composed.problems).toContainEqual({ kind: 'no-stamp', role: 'tree', wantedIn: 'woodland' });
+    });
+
+    it('puts a building of three floors on three levels, the ground on the scene’s own, a switchback stair joining each floor to the next, nothing on it', () => {
+        const { spec, problems } = compose(
+            intentOf({
+                seed: 8,
+                width: 24,
+                height: 18,
+                zones: [{ kind: 'meadow', area: { shape: 'everywhere' } }],
+                buildings: [
+                    {
+                        key: 'house',
+                        at: { x: 6, y: 4 },
+                        width: 12,
+                        height: 9,
+                        rooms: [
+                            { key: 'hall', purpose: 'hall', entrance: true, opensTo: ['kitchen', 'common'] },
+                            { key: 'kitchen', purpose: 'kitchen' },
+                            { key: 'common', purpose: 'common-room', size: 2 },
+                        ],
+                        floors: [
+                            {
+                                name: 'Bedrooms',
+                                rooms: [
+                                    { key: 'landing', purpose: 'hall', opensTo: ['bed-1', 'bed-2'] },
+                                    { key: 'bed-1', purpose: 'bedroom' },
+                                    { key: 'bed-2', purpose: 'bedroom' },
+                                ],
+                            },
+                            { rooms: [{ key: 'attic', purpose: 'storage' }] },
+                        ],
+                    },
+                ],
+            }),
+        );
+        expect(problems).toEqual([]);
+        expect(spec.levels.map((l) => [l.key, l.name, l.existing])).toEqual([
+            ['ground', 'Ground floor', true],
+            ['floor-2', 'Bedrooms', false],
+            ['floor-3', 'Floor 3', false],
+        ]);
+        // Everything is on a level: outdoors and the ground floor on the ground.
+        expect(spec.features.every((f) => f.level !== undefined)).toBe(true);
+        const rooms = spec.features.flatMap((f) => (f.type === 'room' ? [f] : []));
+        expect(new Set(rooms.map((r) => r.level))).toEqual(new Set(['ground', 'floor-2', 'floor-3']));
+        // Room keys stay unique across floors.
+        expect(new Set(rooms.map((r) => r.key)).size).toBe(rooms.length);
+        const stairs = spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:stairs' ? [f] : []));
+        expect(stairs.map((s) => s.level)).toEqual(['ground', 'floor-2']);
+        // A switchback: the second flight beside the first (one stair's width on), so their ways between floors never overlap.
+        const [first, second] = stairs;
+        expect(second?.y).toBe(first?.y);
+        expect((second?.x ?? 0) - (first?.x ?? 0)).toBeCloseTo(1);
+        // Nothing else stands in the stairwell, on any floor.
+        const well = { x: (first?.x ?? 0) - 0.5, y: (first?.y ?? 0) - 1, w: 2, h: 2 };
+        const sizes = new Map([...TEST_ROLES.values()].flat().map((s) => [s.key, s]));
+        const inWell = spec.features.flatMap((f) => {
+            const piece = f.type === 'stamp' && f.stamp !== 'test:stairs' ? sizes.get(f.stamp) : undefined;
+            if (f.type !== 'stamp' || !piece || piece.role === 'rug') {
+                return [];
+            }
+            // The piece's inner half-size: however it is turned, at least this much of it lies each way of its centre.
+            const r = Math.min(piece.width, piece.height) / 2;
+            const clear = f.x + r <= well.x || f.x - r >= well.x + well.w || f.y + r <= well.y || f.y - r >= well.y + well.h;
+            return clear ? [] : [f.stamp];
+        });
+        expect(inWell).toEqual([]);
+    });
+
+    it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {
+        const { spec } = compose({ ...INN_IN_THE_WOODS, lighting: 'night' });
+        expect(spec.scene).toMatchObject({ darkness: 0.85, globalLight: false });
+        const rooms = spec.features.flatMap((f) => (f.type === 'room' ? [f] : []));
+        // The common room has its hearth and lamps; the store has nothing to light it.
+        expect(rooms.find((r) => r.key === 'inn:common')?.lit).toBe(false);
+        expect(rooms.find((r) => r.key === 'inn:store')?.lit).toBe(true);
+        // By day every room keeps its light.
+        expect(compose(INN_IN_THE_WOODS).spec.features.every((f) => f.type !== 'room' || f.lit)).toBe(true);
+    });
+
     it('is the same map for the same intent, and another for another seed', () => {
         expect(compose(INN_IN_THE_WOODS).spec).toEqual(compose(INN_IN_THE_WOODS).spec);
         expect(compose({ ...INN_IN_THE_WOODS, seed: 4 }).spec).not.toEqual(compose(INN_IN_THE_WOODS).spec);
@@ -198,6 +357,27 @@ describe('composeMap', () => {
             ],
         });
         expect(composeMap(strip, TEST_ROLES).problems).toContainEqual(expect.objectContaining({ kind: 'not-beside', building: 'building-1', room: 'a' }));
+    });
+
+    it('reports a building of floors with no stair to join them, and an upper floor whose rooms do not fit', () => {
+        const tower = (upper: readonly string[]): MapIntent =>
+            intentOf({
+                buildings: [
+                    {
+                        key: 'tower',
+                        width: 6,
+                        height: 5,
+                        rooms: [{ key: 'hall', purpose: 'hall', entrance: true }],
+                        floors: [{ rooms: upper.map((key) => ({ key, purpose: 'cell' })) }],
+                    },
+                ],
+            });
+        const stairless = new Map([...TEST_ROLES].filter(([role]) => role !== 'stairs'));
+        expect(composeMap(tower(['loft']), stairless).problems).toContainEqual({ kind: 'no-stamp', role: 'stairs', wantedIn: 'tower' });
+        // Nine cells cannot share a 6 by 5 floor, so no stairwell serves it either.
+        const crowded = composeMap(tower(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']), TEST_ROLES).problems;
+        expect(crowded).toContainEqual({ kind: 'rooms-do-not-fit', building: 'tower/floor-2', width: 6, height: 5 });
+        expect(crowded).toContainEqual({ kind: 'no-stairwell', building: 'tower' });
     });
 
     it('centres a building placed nowhere in particular, and composes an interior alone on a bare scene', () => {

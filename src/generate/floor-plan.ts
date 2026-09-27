@@ -210,6 +210,7 @@ export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild): 
         wall: o.wall,
         wallKind: o.wallKind,
         ceiling: o.ceiling,
+        lit: true,
         movementCost: NORMAL_COST,
         effects: [],
         display: DEFAULT_AREA_DISPLAY,

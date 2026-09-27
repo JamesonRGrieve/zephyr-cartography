@@ -5,7 +5,7 @@
  * every preset is validated and composed in the tests.
  */
 
-export const MAP_PRESETS = ['woodland-inn', 'tavern', 'forest-road', 'marsh-crossing'] as const;
+export const MAP_PRESETS = ['woodland-inn', 'tavern', 'forest-road', 'marsh-crossing', 'hive-outpost', 'hive-chapel', 'manufactorum', 'void-port'] as const;
 
 export type MapPreset = (typeof MAP_PRESETS)[number];
 
@@ -36,14 +36,29 @@ export function withSeed(text: string, seed: number): string | null {
     return JSON.stringify({ ...parsed, seed }, null, INTENT_INDENT);
 }
 
+// Planks where guests sit and sleep; stone where the work is done and the stores are kept.
 const TAVERN_ROOMS = [
     { key: 'common', purpose: 'common-room', size: 5, entrance: true, opensTo: ['bar', 'hall'] },
-    { key: 'bar', purpose: 'bar', size: 1.6, opensTo: ['kitchen'] },
-    { key: 'kitchen', purpose: 'kitchen', size: 1.6, opensTo: ['store'] },
-    { key: 'store', purpose: 'storage', size: 0.9 },
+    { key: 'bar', purpose: 'bar', size: 1.6, opensTo: ['kitchen'], floor: 'floor.wood-pavers' },
+    { key: 'kitchen', purpose: 'kitchen', size: 1.6, opensTo: ['store'], floor: 'floor.cobbled-street' },
+    { key: 'store', purpose: 'storage', size: 0.9, floor: 'floor.packed-dirt' },
     { key: 'hall', purpose: 'hall', size: 1, opensTo: ['room-1', 'room-2'] },
     { key: 'room-1', purpose: 'bedroom', size: 1 },
     { key: 'room-2', purpose: 'bedroom', size: 1 },
+] as const;
+
+/** Stamps of the grim far future, and the setting-free ones (barrels, crates) that suit any. */
+const GRIMDARK = ['setting-grimdark', 'setting-generic'];
+
+// Rockcrete throughout, deck plate where the machine-spirits are tended, clean stone where the wounded are, grating in the armoury.
+const OUTPOST_ROOMS = [
+    { key: 'hall', purpose: 'hall', size: 1.2, entrance: true, opensTo: ['command', 'barracks', 'medicae'] },
+    { key: 'command', purpose: 'command', size: 1.6, opensTo: ['armoury', 'interrogation'], floor: 'floor.deck-plating' },
+    { key: 'armoury', purpose: 'armoury', size: 1, floor: 'floor.metal-grating' },
+    { key: 'barracks', purpose: 'barracks', size: 1.6 },
+    { key: 'medicae', purpose: 'medicae', size: 1.2, floor: 'floor.white-marble' },
+    { key: 'interrogation', purpose: 'interrogation', size: 0.8, opensTo: ['cell'] },
+    { key: 'cell', purpose: 'cell', size: 0.5 },
 ] as const;
 
 /** Each preset's intent, as JSON an author would write. */
@@ -54,6 +69,7 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         width: 40,
         height: 28,
         settings: ['setting-fantasy', 'setting-generic'],
+        lighting: 'night',
         ground: 'grassland',
         zones: [
             { kind: 'woodland', area: { shape: 'everywhere' }, density: 'dense' },
@@ -72,6 +88,7 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         width: 24,
         height: 16,
         settings: ['setting-fantasy', 'setting-generic'],
+        lighting: 'night',
         ground: null,
         buildings: [{ key: 'tavern', width: 22, height: 14, floor: 'floor.tavern-boards', wall: 'wall.wood', rooms: TAVERN_ROOMS }],
     },
@@ -103,6 +120,117 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         paths: [
             { kind: 'river', from: 'north', to: 'south', width: 3, meander: 0.8 },
             { kind: 'road', from: 'west', to: 'east', width: 1.2, meander: 0.2 },
+        ],
+    },
+    'hive-outpost': {
+        schemaVersion: 1,
+        seed: 13,
+        width: 44,
+        height: 30,
+        settings: GRIMDARK,
+        lighting: 'night',
+        ground: 'ash',
+        groundTexture: 'floor.scorched-earth',
+        zones: [
+            { kind: 'rubble', area: { shape: 'everywhere' }, density: 'sparse' },
+            { kind: 'rubble', area: { shape: 'circle', centre: { x: 7, y: 7 }, radius: 6 }, density: 'dense', texture: 'floor.rubble' },
+            { kind: 'fortified', area: { shape: 'circle', centre: { x: 21, y: 15 }, radius: 12 }, texture: 'floor.packed-dirt' },
+            { kind: 'industrial', area: { shape: 'edge', side: 'east', depth: 9 }, texture: 'floor.concrete' },
+        ],
+        paths: [
+            { kind: 'road', from: 'south', to: { building: 'outpost' }, width: 2, meander: 0.3 },
+            { kind: 'river', from: 'north', to: 'west', width: 1.5, meander: 0.5, liquid: 'poison' },
+        ],
+        buildings: [{ key: 'outpost', at: { x: 14, y: 9 }, width: 15, height: 11, floor: 'floor.concrete', wall: 'wall.concrete', rooms: OUTPOST_ROOMS }],
+    },
+    'hive-chapel': {
+        schemaVersion: 1,
+        seed: 17,
+        width: 24,
+        height: 18,
+        settings: GRIMDARK,
+        lighting: 'night',
+        ground: null,
+        buildings: [
+            {
+                key: 'chapel',
+                width: 22,
+                height: 16,
+                floor: 'floor.blackstone-crypt',
+                wall: 'wall.stone',
+                rooms: [
+                    { key: 'nave', purpose: 'chapel', size: 4, entrance: true, opensTo: ['vestry', 'ossuary'], floor: 'floor.black-marble' },
+                    { key: 'vestry', purpose: 'office', size: 1, opensTo: ['cell'], floor: 'floor.wooden-planks' },
+                    { key: 'ossuary', purpose: 'storage', size: 1 },
+                    { key: 'cell', purpose: 'cell', size: 0.6 },
+                ],
+            },
+        ],
+    },
+    'manufactorum': {
+        schemaVersion: 1,
+        seed: 19,
+        width: 28,
+        height: 20,
+        settings: GRIMDARK,
+        ground: null,
+        buildings: [
+            {
+                key: 'manufactorum',
+                width: 26,
+                height: 18,
+                floor: 'floor.metal-grating',
+                wall: 'wall.metal',
+                rooms: [
+                    { key: 'floor', purpose: 'manufactorum', size: 5, entrance: true, opensTo: ['overseer', 'stores', 'mess'] },
+                    { key: 'overseer', purpose: 'command', size: 1, floor: 'floor.deck-plating' },
+                    { key: 'stores', purpose: 'storage', size: 1.2 },
+                    { key: 'mess', purpose: 'mess', size: 1.5, opensTo: ['bunks'], floor: 'floor.concrete' },
+                    { key: 'bunks', purpose: 'barracks', size: 1.5 },
+                ],
+            },
+        ],
+    },
+    'void-port': {
+        schemaVersion: 1,
+        seed: 23,
+        width: 60,
+        height: 40,
+        settings: ['setting-scifi', 'setting-grimdark', 'setting-generic'],
+        ground: 'rock',
+        groundTexture: 'floor.concrete',
+        zones: [
+            {
+                kind: 'landing',
+                area: {
+                    shape: 'polygon',
+                    points: [
+                        { x: 3, y: 3 },
+                        { x: 38, y: 3 },
+                        { x: 38, y: 30 },
+                        { x: 3, y: 30 },
+                    ],
+                },
+                texture: 'floor.deck-plating',
+            },
+            { kind: 'industrial', area: { shape: 'edge', side: 'east', depth: 14 }, density: 'dense', texture: 'floor.metal-grating' },
+            { kind: 'fortified', area: { shape: 'circle', centre: { x: 30, y: 36 }, radius: 5 }, density: 'sparse' },
+        ],
+        paths: [{ kind: 'road', from: 'south', to: { building: 'port-office' }, width: 2.5, meander: 0.2 }],
+        buildings: [
+            {
+                key: 'port-office',
+                at: { x: 42, y: 26 },
+                width: 12,
+                height: 8,
+                floor: 'floor.deck-plating',
+                wall: 'wall.metal',
+                rooms: [
+                    { key: 'hall', purpose: 'hall', entrance: true, opensTo: ['control', 'stores'] },
+                    { key: 'control', purpose: 'command', size: 1.4 },
+                    { key: 'stores', purpose: 'storage', size: 0.8 },
+                ],
+            },
         ],
     },
 };

@@ -26,6 +26,7 @@ describe('parseSceneSpec', () => {
                         wall: null,
                         wallKind: 'solid',
                         ceiling: true,
+                        lit: true,
                         movementCost: 1,
                         effects: [],
                         display: { visibility: 'layer', highlight: 'shapes', measurements: false, observed: false, restriction: null, hidden: false },

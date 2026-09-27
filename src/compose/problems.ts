@@ -11,7 +11,9 @@ export type ComposeProblem =
     /** Two rooms the intent opens onto each other that the layout could not put side by side. */
     | { readonly kind: 'not-beside'; readonly building: string; readonly room: string; readonly other: string }
     /** A role no loaded stamp fills, where it was wanted: a zone's kind, or a building's room. */
-    | { readonly kind: 'no-stamp'; readonly role: StampRole; readonly wantedIn: string };
+    | { readonly kind: 'no-stamp'; readonly role: StampRole; readonly wantedIn: string }
+    /** A building of several floors whose floors could not agree on a place for the stair, which goes without one. */
+    | { readonly kind: 'no-stairwell'; readonly building: string };
 
 /** Each problem once, in the order first met. */
 export function distinctProblems(problems: readonly ComposeProblem[]): ComposeProblem[] {

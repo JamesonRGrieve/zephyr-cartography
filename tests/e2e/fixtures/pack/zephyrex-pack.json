@@ -243,6 +243,9 @@
             "id": "stairs",
             "name": "Stairs",
             "category": "Access",
+            "tags": [
+                "stairs"
+            ],
             "scale": "interior",
             "perspective": "top-down",
             "transition": {
@@ -262,6 +265,9 @@
             "id": "ladder",
             "name": "Ladder",
             "category": "Access",
+            "tags": [
+                "ladder"
+            ],
             "scale": "interior",
             "perspective": "top-down",
             "transition": {

@@ -9,6 +9,7 @@
  */
 import type { CartographyController } from '../canvas/controller';
 import type { RealizeReport } from '../canvas/realize';
+import type { Advised } from '../compose/assist';
 import { parseMapIntent } from '../compose/intent';
 import { isMapPreset, MAP_PRESETS, type MapPreset, presetText, withSeed } from '../compose/presets';
 import type { ComposeProblem } from '../compose/problems';
@@ -18,7 +19,8 @@ import { formatSpecIssue, parseSceneSpecJson, type SceneSpec } from '../generate
 import { I18N } from '../i18n';
 import type { CatalogStamp } from '../stamps/catalog';
 import type { RoomMaterials } from '../tools/room';
-import { renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel } from '../ui/generator-view';
+import { type ComposeMode, renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel } from '../ui/generator-view';
+import { advisorAvailable, askAdvisor } from './advisor';
 import { buildOnScene, composeOnScene } from './build-spec';
 import { format, localize } from './localize';
 import { createViewWindow } from './view-window';
@@ -36,6 +38,10 @@ function panelLabels(): GeneratorLabels {
         intent: localize(g.intent),
         composeMap: localize(g.composeMap),
         reseedMap: localize(g.reseedMap),
+        mode: localize(g.mode),
+        algorithmic: localize(g.algorithmic),
+        assisted: localize(g.assisted),
+        assistUnavailable: localize(g.assistUnavailable),
         floorPlan: localize(g.floorPlan),
         seed: localize(g.seed),
         newSeed: localize(g.newSeed),
@@ -48,6 +54,24 @@ function panelLabels(): GeneratorLabels {
         spec: localize(g.spec),
         buildSpec: localize(g.buildSpec),
     };
+}
+
+/** Most of the model's fixes listed in the status; the rest are counted. */
+const FIXES_SHOWN = 8;
+
+/** What the model did: the places it chose stamps for and the fixes it asked for, or that it could not be reached. */
+function adviceLines(advised: Advised): string[] {
+    const g = I18N.generator;
+    if (advised.failed && advised.chosen === 0) {
+        return [localize(g.adviceFailed)];
+    }
+    const applied = advised.fixes.filter((f) => f.applied);
+    return [
+        format(g.adviceChosen, { count: String(advised.chosen) }),
+        format(g.adviceFixes, { asked: String(advised.fixes.length), applied: String(applied.length) }),
+        ...applied.slice(0, FIXES_SHOWN).map((f) => format(g.adviceFix, { piece: String(f.piece), action: f.action, why: f.why })),
+        ...(advised.failed ? [localize(g.adviceFailed)] : []),
+    ];
 }
 
 function reportLines(report: RealizeReport): string[] {
@@ -67,6 +91,9 @@ function problemLine(problem: ComposeProblem): string {
     if (problem.kind === 'not-beside') {
         return format(p.notBeside, { building: problem.building, room: problem.room, other: problem.other });
     }
+    if (problem.kind === 'no-stairwell') {
+        return format(p.noStairwell, { building: problem.building });
+    }
     return format(p.noStamp, { wantedIn: problem.wantedIn, role: problem.role });
 }
 
@@ -76,6 +103,10 @@ const PRESET_TITLES: Readonly<Record<MapPreset, string>> = {
     'tavern': I18N.generator.presets.tavern,
     'forest-road': I18N.generator.presets.forestRoad,
     'marsh-crossing': I18N.generator.presets.marshCrossing,
+    'hive-outpost': I18N.generator.presets.hiveOutpost,
+    'hive-chapel': I18N.generator.presets.hiveChapel,
+    'manufactorum': I18N.generator.presets.manufactorum,
+    'void-port': I18N.generator.presets.voidPort,
 };
 
 /** The preset the builder starts on. */
@@ -97,6 +128,7 @@ export function registerGeneratorRuntime(
     let intentText = presetText(FIRST_PRESET);
     let outcome: readonly string[] | null = null;
     let busy = false;
+    let mode: ComposeMode = 'algorithmic';
 
     /** Run a build with the panel marked busy, then report `lines` of what it did. */
     const run = async (work: () => Promise<readonly string[]>): Promise<void> => {
@@ -128,10 +160,14 @@ export function registerGeneratorRuntime(
             panelWindow.refresh();
             return;
         }
+        const assisted = mode === 'assisted' && advisorAvailable();
+        if (assisted) {
+            outcome = [localize(I18N.generator.advising)];
+        }
         void run(async () => {
-            const composed = await composeOnScene(active, parsed.intent, stamps());
+            const composed = await composeOnScene(active, parsed.intent, stamps(), assisted ? askAdvisor : null);
             return composed.ok
-                ? [...reportLines(composed.report), ...composed.problems.map(problemLine)]
+                ? [...reportLines(composed.report), ...(composed.advised ? adviceLines(composed.advised) : []), ...composed.problems.map(problemLine)]
                 : [localize(I18N.generator.refused), ...composed.issues.map(formatSpecIssue)];
         });
     };
@@ -142,8 +178,12 @@ export function registerGeneratorRuntime(
         width: PANEL_WIDTH,
         render: (root) => {
             const presets = MAP_PRESETS.map((key) => ({ key, label: localize(PRESET_TITLES[key]) }));
-            const panel: GeneratorPanel = { presets, preset, intentText, form, specText, status: outcome, busy };
+            const panel: GeneratorPanel = { mode, assistAvailable: advisorAvailable(), presets, preset, intentText, form, specText, status: outcome, busy };
             renderGeneratorPanel(root, panel, panelLabels(), {
+                pickMode: (picked) => {
+                    mode = picked;
+                    panelWindow.refresh();
+                },
                 pickPreset: (key) => {
                     if (isMapPreset(key)) {
                         preset = key;

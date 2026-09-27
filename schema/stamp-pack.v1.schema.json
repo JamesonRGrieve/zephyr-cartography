@@ -69,40 +69,67 @@
                         ]
                     },
                     "perspective": {
+                        "description": "How the image is drawn: orthographic (straight down), isometric (depth, no vanishing point) or central (one-point perspective).",
                         "type": "string",
                         "enum": [
-                            "top-down",
-                            "isometric"
+                            "orthographic",
+                            "isometric",
+                            "central",
+                            "top-down"
                         ]
                     },
                     "role": {
-                        "description": "What the map composer uses it as; without one it is never composed, only placed by hand.",
-                        "type": "string",
-                        "enum": [
-                            "tree",
-                            "shrub",
-                            "rock",
-                            "log",
-                            "flora",
-                            "debris",
-                            "table",
-                            "seat",
-                            "bench",
-                            "counter",
-                            "hearth",
-                            "shelf",
-                            "bed",
-                            "storage",
-                            "clutter",
-                            "rug",
-                            "desk",
-                            "workbench",
-                            "light"
+                        "description": "What the map composer uses it as. Omitted, its tags say (a stamp tagged `console` is a console); null, it is never composed, however it is tagged (an L-shaped counter no wall takes). A stamp neither names nor tags as anything is only placed by hand.",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "tree",
+                                    "shrub",
+                                    "rock",
+                                    "log",
+                                    "flora",
+                                    "debris",
+                                    "table",
+                                    "seat",
+                                    "bench",
+                                    "counter",
+                                    "hearth",
+                                    "shelf",
+                                    "bed",
+                                    "storage",
+                                    "clutter",
+                                    "rug",
+                                    "desk",
+                                    "workbench",
+                                    "light",
+                                    "machine",
+                                    "console",
+                                    "altar",
+                                    "pew",
+                                    "lectern",
+                                    "icon",
+                                    "rack",
+                                    "medical",
+                                    "restraint",
+                                    "structure",
+                                    "barricade",
+                                    "crater",
+                                    "emplacement",
+                                    "vehicle",
+                                    "stairs",
+                                    "tabletop",
+                                    "nightstand"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
                         ]
                     },
                     "habitats": {
                         "default": [],
-                        "description": "The ground a land stamp belongs on; the composer dresses each outdoor zone only with stamps of its habitat.",
+                        "description": "The ground a land stamp belongs on; the composer dresses each outdoor zone only with stamps of its habitat. Empty, its tags say (`cave`, `ice`, `forest`), else its role’s usual ground.",
                         "type": "array",
                         "items": {
                             "type": "string",
@@ -123,7 +150,6 @@
                         "type": "object",
                         "properties": {
                             "against": {
-                                "default": "free",
                                 "description": "Where the composer stands it: with its back (see `back`) against a wall, in a corner, or anywhere free.",
                                 "type": "string",
                                 "enum": [
@@ -133,14 +159,12 @@
                                 ]
                             },
                             "clearance": {
-                                "default": 0,
                                 "description": "Grid squares of open floor the composer keeps in front of it: a counter’s serving side, a hearth’s apron.",
                                 "type": "number",
                                 "minimum": 0
                             },
                             "back": {
-                                "default": "top",
-                                "description": "The edge of the image that is the piece’s back, set against a wall or turned away from a table: a bed drawn with its headboard on the left says left.",
+                                "description": "The edge of the image that is the piece’s back, set against a wall or turned away from a table: a bed drawn with its headboard on the left says left. For a defence (an emplacement, a barricade), the side away from the enemy: its front faces out.",
                                 "type": "string",
                                 "enum": [
                                     "top",
@@ -148,10 +172,14 @@
                                     "bottom",
                                     "left"
                                 ]
+                            },
+                            "upright": {
+                                "description": "Drawn side-on or front-on (a tower, a tent, a silo): the composer never turns it, so it always stands as drawn.",
+                                "type": "boolean"
                             }
                         },
                         "additionalProperties": false,
-                        "description": "How the map composer places the stamp."
+                        "description": "How the map composer places the stamp, where this image differs from its role’s way (a role’s pieces stand against a wall, face out, or stand upright as the role does). Omitted fields take the role’s."
                     },
                     "defaultVariant": {
                         "default": 0,
@@ -197,8 +225,10 @@
                                     "description": "Overrides the stamp perspective.",
                                     "type": "string",
                                     "enum": [
-                                        "top-down",
-                                        "isometric"
+                                        "orthographic",
+                                        "isometric",
+                                        "central",
+                                        "top-down"
                                     ]
                                 },
                                 "doorState": {

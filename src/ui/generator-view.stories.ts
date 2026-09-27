@@ -21,6 +21,10 @@ const LABELS: GeneratorLabels = {
     intent: 'Map intent (JSON)',
     composeMap: 'Compose',
     reseedMap: 'Another layout',
+    mode: 'Compose with',
+    algorithmic: 'Algorithm',
+    assisted: 'AI-assisted',
+    assistUnavailable: "Composing by algorithm. Set a model in the module's settings to compose AI-assisted.",
     floorPlan: 'Floor plan',
     seed: 'Seed',
     newSeed: 'New seed',
@@ -49,6 +53,10 @@ export function mountGeneratorPanel(args: GeneratorArgs): HTMLElement {
     let seeds = 0;
     const render = (): void => {
         renderGeneratorPanel(root, panel, LABELS, {
+            pickMode: (mode) => {
+                panel = { ...panel, mode };
+                render();
+            },
             pickPreset: (preset) => {
                 if (isMapPreset(preset)) {
                     panel = { ...panel, preset, intentText: presetText(preset) };
@@ -137,7 +145,17 @@ const meta: Meta<GeneratorArgs> = {
     title: 'Builder/Generator Panel',
     excludeStories: ['mountGeneratorPanel'],
     render: mountGeneratorPanel,
-    args: { presets: PRESETS, preset: 'woodland-inn', intentText: presetText('woodland-inn'), form: FORM, specText: '', status: null, busy: false },
+    args: {
+        mode: 'algorithmic',
+        assistAvailable: false,
+        presets: PRESETS,
+        preset: 'woodland-inn',
+        intentText: presetText('woodland-inn'),
+        form: FORM,
+        specText: '',
+        status: null,
+        busy: false,
+    },
 };
 
 export default meta;
@@ -171,5 +189,22 @@ export const ComposedTavern: Story = {
         preset: 'tavern',
         intentText: presetText('tavern'),
         status: ['Composed 86 features.', 'tavern/room-2: no loaded stamp is a bed.'],
+    },
+};
+
+/** A model set up, and a map composed with its help: what it chose and fixed. */
+export const Assisted: Story = {
+    args: {
+        mode: 'assisted',
+        assistAvailable: true,
+        preset: 'hive-chapel',
+        intentText: presetText('hive-chapel'),
+        status: [
+            'Built 64 features.',
+            'The model chose the stamps of 5 places.',
+            'The model asked for 3 fixes; 2 were made:',
+            '#41 turn: the lectern should face the pews',
+            '#57 remove: a supply cache does not belong in a nave',
+        ],
     },
 };

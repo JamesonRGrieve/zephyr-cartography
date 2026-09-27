@@ -188,6 +188,11 @@
                         "type": "string",
                         "minLength": 1
                     },
+                    "existing": {
+                        "default": false,
+                        "description": "Take the scene's lowest level as this one (renamed to `name`) instead of adding a level: a fresh scene's own floor becomes the ground floor, so the scene opens on it. At most one level does, the first listed; a scene with no levels adds it.",
+                        "type": "boolean"
+                    },
                     "bottom": {
                         "description": "Floor elevation (scene distance units); with `top`, sets the band.",
                         "type": "number"
@@ -1700,6 +1705,11 @@
                             "ceiling": {
                                 "default": true,
                                 "description": "Whether a level above gets a ceiling over the room (false for an open courtyard).",
+                                "type": "boolean"
+                            },
+                            "lit": {
+                                "default": true,
+                                "description": "Whether its centre light is on: false for a room lit only by what is in it (a hearth, lamps), or left dark.",
                                 "type": "boolean"
                             },
                             "movementCost": {

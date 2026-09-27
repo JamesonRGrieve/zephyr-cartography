@@ -253,6 +253,7 @@ const roomSpec = z
             .default(DEFAULT_WALL_PRESET)
             .describe("What kind of walls, as Foundry's Walls palette names them: solid, terrain, invisible, ethereal or window."),
         ceiling: z.boolean().default(true).describe('Whether a level above gets a ceiling over the room (false for an open courtyard).'),
+        lit: z.boolean().default(true).describe('Whether its centre light is on: false for a room lit only by what is in it (a hearth, lamps), or left dark.'),
         movementCost,
         effects: areaEffects,
         display: areaDisplay,
@@ -305,6 +306,12 @@ const levelSpec = z
     .object({
         key: text.describe('What features name in their `level`.'),
         name: text,
+        existing: z
+            .boolean()
+            .default(false)
+            .describe(
+                "Take the scene's lowest level as this one (renamed to `name`) instead of adding a level: a fresh scene's own floor becomes the ground floor, so the scene opens on it. At most one level does, the first listed; a scene with no levels adds it.",
+            ),
         bottom: z.number().optional().describe('Floor elevation (scene distance units); with `top`, sets the band.'),
         top: z.number().optional(),
         background: text.optional().describe("Image Foundry draws as this level's background, for this floor alone."),
@@ -634,7 +641,8 @@ function zoneIssues(f: FeatureSpec, i: number): SpecIssue[] {
 /**
  * What JSON Schema cannot express: unique level and feature keys, references
  * to them that resolve (a feature's level, a level's visible levels, a
- * switch's controls), doors on real segments, and zone shapes Foundry takes.
+ * switch's controls), only the first level taking the scene's own floor,
+ * doors on real segments, and zone shapes Foundry takes.
  */
 function referenceIssues(spec: SceneSpec): SpecIssue[] {
     const levels = declaredKeys(spec.levels, 'levels', 'level');
@@ -644,6 +652,10 @@ function referenceIssues(spec: SceneSpec): SpecIssue[] {
         ...features.issues,
         ...splatIssues(spec.splats, levels.keys),
         ...spec.levels.flatMap((l, i) => unresolved(l.visibleLevels, levels.keys, (j) => `levels.${i}.visibleLevels.${j}`, 'level')),
+        // Only the bottom level can be the scene's own lowest floor.
+        ...spec.levels.flatMap((l, i) =>
+            i > 0 && l.existing ? [{ path: `levels.${i}.existing`, message: "only the first level can take the scene's own lowest floor" }] : [],
+        ),
         ...spec.features.flatMap((f, i) => [
             ...unresolved(f.level === undefined ? [] : [f.level], levels.keys, () => `features.${i}.level`, 'level'),
             ...(f.type === 'stamp' ? unresolved(f.controls, features.keys, (j) => `features.${i}.controls.${j}`, 'feature') : []),

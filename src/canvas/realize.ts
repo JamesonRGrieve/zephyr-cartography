@@ -16,7 +16,7 @@ import type { LevelArt } from '../tools/levels';
 import { DEFAULT_HALF_WIDTH, LIQUID_LOOKS, makePath } from '../tools/path';
 import { makePin, withPinSettings } from '../tools/pin';
 import { makeRegion } from '../tools/region';
-import { DEFAULT_FLOOR, makeRoom, withRoomDoor } from '../tools/room';
+import { DEFAULT_FLOOR, makeRoom, withRoomDoor, withRoomLit } from '../tools/room';
 import { DEFAULT_SHAPE_STYLE, makeShape, type ShapeFeature, type ShapeStyle } from '../tools/shape';
 import { storedSpawn } from '../tools/spawn';
 import type { StampPlacement } from '../tools/stamp';
@@ -107,7 +107,7 @@ function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string,
         const room = makeRoom(id, spec.floor ?? DEFAULT_FLOOR, points, spec.wall, spec.wallKind, spec.ceiling);
         const doored =
             room && spec.doors.reduce((r, d) => withRoomDoor(r, d.segment, { type: d.type, state: d.state, sound: d.sound, animation: d.animation }), room);
-        feature = doored && { ...doored, ...areaOf(spec) };
+        feature = doored && { ...withRoomLit(doored, spec.lit), ...areaOf(spec) };
     }
     return feature && { ...feature, level };
 }
@@ -223,9 +223,14 @@ export async function realizeSpec(controller: CartographyController, spec: Scene
         await controller.setSceneSettings(spec.scene);
     }
     await controller.batch(async () => {
-        await spec.levels.reduce(async (previous, l) => {
+        await spec.levels.reduce(async (previous, l, i) => {
             await previous;
-            const id = await controller.addLevel('above', l.name);
+            // The first level may take the scene's own lowest floor rather than stacking a new one above it.
+            const lowest = i === 0 && l.existing ? controller.levels[0] : undefined;
+            if (lowest) {
+                await controller.renameLevel(lowest.id, l.name);
+            }
+            const id = lowest ? lowest.id : await controller.addLevel('above', l.name);
             if (id !== null) {
                 levels[l.key] = id;
                 if (l.bottom !== undefined && l.top !== undefined) {

@@ -13,7 +13,9 @@ import { type Brush, CartographyController } from './canvas/controller';
 import { IDLE, type Mode, modeForTool } from './canvas/modes';
 import { type FeatureRenderer, GraphicsFeatureRenderer } from './canvas/renderer';
 import { inOwnGroup, moduleTool, NATIVE_GROUPS, NATIVE_TOOLS, type NativeTool, nativeToolName } from './canvas/tool-placement';
+import { registerAdvisorSettings } from './foundry/advisor';
 import { registerApi } from './foundry/api';
+import { followViewedLevel } from './foundry/build-spec';
 import { lightName, regionName, soundName } from './foundry/document-names';
 import { FoundryDocumentSink } from './foundry/documents';
 import { registerDoorRuntime } from './foundry/door-runtime';
@@ -90,6 +92,7 @@ const zones = registerZoneRuntime(() => state?.controller ?? null);
 
 followPileStates(() => state?.controller ?? null);
 
+registerAdvisorSettings();
 const generator = registerGeneratorRuntime(() => state?.controller ?? null, materials.forNewRooms, packs.stamps);
 
 // A new brush size is the next stroke's; a new texture is picked up at once by a paint tool in hand.
@@ -466,6 +469,7 @@ function setupDrawLayer(): void {
     applyPathSettings(controller, paths.current());
     built = controller;
     controller.load();
+    followViewedLevel(controller);
     void controller.loadSplats();
     levels.refresh();
     // The scene may have been edited under the other terrain setting; only the active GM writes documents.

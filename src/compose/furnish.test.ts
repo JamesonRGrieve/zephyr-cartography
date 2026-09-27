@@ -39,15 +39,31 @@ const COMMON: RoomFloor = {
         { side: 'left', at: 5 },
     ],
     outer: ['top', 'bottom'],
+    entrance: 'bottom',
 };
 
 function furnish(room: RoomFloor, seed = 1): ComposedStamp[] {
     return furnishRoom(room, TEST_ROLES, seededRandom(seed)).stamps;
 }
 
-/** Everything placed stands inside the room, nothing overlaps (rugs lie beneath), and every door's approach is clear. */
+/** Surfaces other pieces are set on. */
+const SURFACES: readonly (StampRole | undefined)[] = ['table', 'counter', 'desk', 'workbench', 'altar'];
+
+/**
+ * Everything placed stands inside the room, nothing on the floor overlaps
+ * (rugs lie beneath), what is set on a surface lies wholly on one, and every
+ * door's approach is clear.
+ */
 function expectOrderly(room: RoomFloor, placed: readonly ComposedStamp[]): void {
-    const solid = placed.filter((p) => roleOf(p) !== 'rug').map(boxOf);
+    const set = placed.filter((p) => roleOf(p) === 'tabletop').map(boxOf);
+    const surfaces = placed.filter((p) => SURFACES.includes(roleOf(p))).map(boxOf);
+    for (const item of set) {
+        const on = surfaces.some(
+            (s) => item.x >= s.x - EPSILON && item.y >= s.y - EPSILON && item.x + item.w <= s.x + s.w + EPSILON && item.y + item.h <= s.y + s.h + EPSILON,
+        );
+        expect(on).toBe(true);
+    }
+    const solid = placed.filter((p) => roleOf(p) !== 'rug' && roleOf(p) !== 'tabletop').map(boxOf);
     solid.forEach((box, i) => {
         expect(box.x).toBeGreaterThanOrEqual(room.rect.x - EPSILON);
         expect(box.y).toBeGreaterThanOrEqual(room.rect.y - EPSILON);
@@ -91,8 +107,18 @@ describe('furnishRoom', () => {
     });
 
     it('seats a round table all round, and gives a table chairs when its bench is far longer than it', () => {
-        const table: RoleStamp = { key: 'test:round-table', role: 'table', width: 1, height: 1, turn: 0, against: 'free', clearance: 0, habitats: [] };
-        const pew: RoleStamp = { key: 'test:pew', role: 'bench', width: 2, height: 0.9, turn: 0, against: 'free', clearance: 0, habitats: [] };
+        const table: RoleStamp = {
+            key: 'test:round-table',
+            role: 'table',
+            width: 1,
+            height: 1,
+            turn: 0,
+            against: 'free',
+            clearance: 0,
+            upright: false,
+            habitats: [],
+        };
+        const pew: RoleStamp = { key: 'test:pew', role: 'bench', width: 2, height: 0.9, turn: 0, against: 'free', clearance: 0, upright: false, habitats: [] };
         const roles = new Map([...TEST_ROLES, ['table', [table]], ['bench', [pew]]] as const);
         const placed = furnishRoom(COMMON, roles, seededRandom(1)).stamps;
         const tables = placed.filter((p) => p.stamp === 'test:round-table');
@@ -108,8 +134,29 @@ describe('furnishRoom', () => {
         }
     });
 
+    it('seats tables with benches drawn with depth in rows across the room, one row above each table, never turned', () => {
+        const tall: RoomFloor = { ...COMMON, rect: { x: 0, y: 0, w: 8, h: 12 }, doors: [{ side: 'bottom', at: 4 }], outer: ['top'] };
+        const roles = new Map([...TEST_ROLES].map(([role, stamps]) => [role, role === 'bench' ? stamps.map((s) => ({ ...s, upright: true })) : stamps]));
+        const placed = furnishRoom(tall, roles, seededRandom(1)).stamps;
+        const tables = placed.filter((p) => roleOf(p) === 'table');
+        const benches = placed.filter((p) => roleOf(p) === 'bench');
+        expect(tables.length).toBeGreaterThanOrEqual(4);
+        expect(benches.every((b) => b.rotation === 0)).toBe(true);
+        // Every table has its bench just above it.
+        for (const table of tables) {
+            expect(benches.some((b) => Math.abs(b.x - table.x) < 1 && b.y < table.y && table.y - b.y < 1.5)).toBe(true);
+        }
+    });
+
     it('puts a bar’s counter against an inner wall, stools before it facing it', () => {
-        const bar: RoomFloor = { key: 'bar', purpose: 'bar', rect: { x: 0, y: 0, w: 6, h: 5 }, doors: [{ side: 'right', at: 2 }], outer: ['top', 'left'] };
+        const bar: RoomFloor = {
+            key: 'bar',
+            purpose: 'bar',
+            rect: { x: 0, y: 0, w: 6, h: 5 },
+            doors: [{ side: 'right', at: 2 }],
+            outer: ['top', 'left'],
+            entrance: null,
+        };
         const placed = furnish(bar);
         expectOrderly(bar, placed);
         const counter = placed.find((p) => roleOf(p) === 'counter');
@@ -125,7 +172,14 @@ describe('furnishRoom', () => {
     });
 
     it('lays a bedroom’s rug beneath everything, and its beds against the walls', () => {
-        const bedroom: RoomFloor = { key: 'bed', purpose: 'bedroom', rect: { x: 0, y: 0, w: 5, h: 5 }, doors: [{ side: 'bottom', at: 2 }], outer: [] };
+        const bedroom: RoomFloor = {
+            key: 'bed',
+            purpose: 'bedroom',
+            rect: { x: 0, y: 0, w: 5, h: 5 },
+            doors: [{ side: 'bottom', at: 2 }],
+            outer: [],
+            entrance: null,
+        };
         const placed = furnish(bedroom);
         expectOrderly(bedroom, placed);
         expect(roleOf(placed[0] ?? { stamp: '', x: 0, y: 0, rotation: 0 })).toBe('rug');
@@ -141,7 +195,14 @@ describe('furnishRoom', () => {
     });
 
     it('fills a storeroom’s walls with storage', () => {
-        const store: RoomFloor = { key: 'store', purpose: 'storage', rect: { x: 0, y: 0, w: 5, h: 5 }, doors: [{ side: 'left', at: 2 }], outer: [] };
+        const store: RoomFloor = {
+            key: 'store',
+            purpose: 'storage',
+            rect: { x: 0, y: 0, w: 5, h: 5 },
+            doors: [{ side: 'left', at: 2 }],
+            outer: [],
+            entrance: null,
+        };
         const placed = furnish(store);
         expectOrderly(store, placed);
         const storage = placed.filter((p) => roleOf(p) === 'storage');
@@ -153,7 +214,14 @@ describe('furnishRoom', () => {
 
     it('furnishes every purpose in order, and the same way for a seed', () => {
         for (const purpose of ROOM_PURPOSES) {
-            const room: RoomFloor = { key: purpose, purpose, rect: { x: 0, y: 0, w: 6, h: 6 }, doors: [{ side: 'top', at: 2 }], outer: ['bottom'] };
+            const room: RoomFloor = {
+                key: purpose,
+                purpose,
+                rect: { x: 0, y: 0, w: 6, h: 6 },
+                doors: [{ side: 'top', at: 2 }],
+                outer: ['bottom'],
+                entrance: null,
+            };
             const placed = furnish(room, 5);
             expectOrderly(room, placed);
             expect(placed.length).toBeGreaterThan(0);
@@ -168,5 +236,249 @@ describe('furnishRoom', () => {
         // Tables still stand, unseated.
         expect(result.stamps.length).toBeGreaterThan(0);
         expect(Object.keys(ROOM_TEMPLATES).sort()).toEqual([...ROOM_PURPOSES].sort());
+    });
+});
+
+describe('a chapel', () => {
+    /** A nave entered from the bottom: its altar belongs on the top wall, facing the way in. */
+    const NAVE: RoomFloor = {
+        key: 'nave',
+        purpose: 'chapel',
+        rect: { x: 0, y: 0, w: 9, h: 12 },
+        // The front door, and a side door whose facing wall must not win over the front's.
+        doors: [
+            { side: 'bottom', at: 4 },
+            { side: 'left', at: 2 },
+        ],
+        outer: ['top', 'bottom', 'left'],
+        entrance: 'bottom',
+    };
+
+    it('stands its altar on the wall facing the door, and its pews in rows facing the altar with a centre aisle', () => {
+        const placed = furnish(NAVE);
+        expectOrderly(NAVE, placed);
+        const altar = placed.find((p) => roleOf(p) === 'altar');
+        const pews = placed.filter((p) => roleOf(p) === 'pew');
+        // Against the top wall, back to it.
+        expect(altar && boxOf(altar).y).toBeCloseTo(NAVE.rect.y);
+        expect(altar?.rotation).toBe(0);
+        expect(pews.length).toBeGreaterThanOrEqual(6);
+        for (const pew of pews) {
+            // Backs to the bottom wall: seats face up the nave, to the altar, all behind its kept front.
+            expect(pew.rotation).toBe(180);
+            expect(boxOf(pew).y).toBeGreaterThan((altar?.y ?? 0) + 1.5);
+        }
+        // Two columns either side of an aisle down the middle, clear of the door's line.
+        const middle = NAVE.rect.x + NAVE.rect.w / 2;
+        expect(pews.some((p) => p.x < middle)).toBe(true);
+        expect(pews.some((p) => p.x > middle)).toBe(true);
+        expect(pews.every((p) => Math.abs(p.x - middle) >= 0.5)).toBe(true);
+    });
+
+    it('is lit along its walls, one light to every eight squares of wall, so a great nave is lit end to end', () => {
+        const great: RoomFloor = { ...NAVE, rect: { x: 0, y: 0, w: 20, h: 14 } };
+        const lights = furnish(great).filter((p) => roleOf(p) === 'light');
+        expect(lights.length).toBe(Math.round((2 * (20 + 14)) / 8));
+        // Spread down the nave, not bunched on one wall.
+        const ys = lights.map((l) => l.y);
+        expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(great.rect.h / 2);
+        // Lamps drawn with depth have no back, so they still line every wall, unturned.
+        const drawnWithDepth = new Map(
+            [...TEST_ROLES].map(([role, stamps]) => [role, role === 'light' ? stamps.map((s) => ({ ...s, upright: true })) : stamps]),
+        );
+        const upright = furnishRoom(great, drawnWithDepth, seededRandom(1)).stamps.filter((p) => roleOf(p) === 'light');
+        expect(upright.every((l) => l.rotation === 0)).toBe(true);
+        expect(new Set(upright.map((l) => (l.x < 1 ? 'left' : l.x > 19 ? 'right' : l.y < 1 ? 'top' : 'bottom'))).size).toBeGreaterThanOrEqual(3);
+        const cell: RoomFloor = { ...NAVE, rect: { x: 0, y: 0, w: 2, h: 1 } };
+        expect(furnish({ ...cell, purpose: 'hall', doors: [], entrance: null }).filter((p) => roleOf(p) === 'light').length).toBeLessThanOrEqual(1);
+    });
+
+    it('faces its pews to the wall farthest from the door when it has no altar', () => {
+        const noAltar = new Map([...TEST_ROLES].filter(([role]) => role !== 'altar'));
+        const { stamps, missing } = furnishRoom({ ...NAVE, doors: [{ side: 'left', at: 5 }], entrance: null }, noAltar, seededRandom(2));
+        expect(missing).toContain('altar');
+        const pews = stamps.filter((p) => roleOf(p) === 'pew');
+        expect(pews.length).toBeGreaterThan(0);
+        // Facing the right wall, the one across from the door: backs to the left.
+        expect(pews.every((p) => p.rotation === 270)).toBe(true);
+    });
+});
+
+describe('companions and what is set on surfaces', () => {
+    it('stands a bar’s counter out from the wall, shelves on the wall behind it, stools before it, drink on it', () => {
+        const bar: RoomFloor = {
+            key: 'bar',
+            purpose: 'bar',
+            rect: { x: 0, y: 0, w: 8, h: 6 },
+            doors: [{ side: 'bottom', at: 3 }],
+            outer: ['bottom'],
+            entrance: null,
+        };
+        const placed = furnish(bar, 2);
+        expectOrderly(bar, placed);
+        const counter = placed.find((p) => roleOf(p) === 'counter');
+        const box = counter ? boxOf(counter) : null;
+        if (!box) {
+            throw new Error('no counter');
+        }
+        // The standoff from the wall behind it: the barkeep's floor.
+        const gaps = [box.x - bar.rect.x, bar.rect.x + bar.rect.w - box.x - box.w, box.y - bar.rect.y, bar.rect.y + bar.rect.h - box.y - box.h];
+        expect(gaps.some((gap) => Math.abs(gap - 1.3) < EPSILON)).toBe(true);
+        // Behind it: in the strip between the counter and whichever wall it stands off.
+        const { rect } = bar;
+        const strips: Box[] = [
+            { x: rect.x, y: box.y, w: box.x - rect.x, h: box.h },
+            { x: box.x + box.w, y: box.y, w: rect.x + rect.w - box.x - box.w, h: box.h },
+            { x: box.x, y: rect.y, w: box.w, h: box.y - rect.y },
+            { x: box.x, y: box.y + box.h, w: box.w, h: rect.y + rect.h - box.y - box.h },
+        ].filter((strip) => Math.abs(Math.min(strip.w, strip.h) - 1.3) < EPSILON);
+        const shelves = placed.filter((p) => roleOf(p) === 'shelf').map(boxOf);
+        expect(
+            shelves.some((s) =>
+                strips.some(
+                    (strip) =>
+                        s.x >= strip.x - EPSILON &&
+                        s.y >= strip.y - EPSILON &&
+                        s.x + s.w <= strip.x + strip.w + EPSILON &&
+                        s.y + s.h <= strip.y + strip.h + EPSILON,
+                ),
+            ),
+        ).toBe(true);
+        expect(placed.filter((p) => roleOf(p) === 'seat').length).toBeGreaterThanOrEqual(2);
+        expect(placed.filter((p) => roleOf(p) === 'tabletop').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('stands a nightstand beside each bed and a chest at its foot', () => {
+        const bedroom: RoomFloor = {
+            key: 'bed',
+            purpose: 'bedroom',
+            rect: { x: 0, y: 0, w: 5, h: 5 },
+            doors: [{ side: 'bottom', at: 2 }],
+            outer: [],
+            entrance: null,
+        };
+        const placed = furnish(bedroom, 3);
+        expectOrderly(bedroom, placed);
+        const beds = placed.filter((p) => roleOf(p) === 'bed').map(boxOf);
+        const stands = placed.filter((p) => roleOf(p) === 'nightstand').map(boxOf);
+        expect(beds.length).toBeGreaterThanOrEqual(1);
+        const touching = (a: Box, b: Box): boolean => a.x <= b.x + b.w + 0.2 && b.x <= a.x + a.w + 0.2 && a.y <= b.y + b.h + 0.2 && b.y <= a.y + a.h + 0.2;
+        for (const bed of beds) {
+            expect(stands.some((s) => touching(s, bed))).toBe(true);
+        }
+        expect(placed.some((p) => roleOf(p) === 'storage' && beds.some((bed) => touching(boxOf(p), bed)))).toBe(true);
+    });
+
+    it('sets a meal on every table of a common room, never over its edge nor on another', () => {
+        const placed = furnish(COMMON, 4);
+        expectOrderly(COMMON, placed);
+        const tables = placed.filter((p) => roleOf(p) === 'table').map(boxOf);
+        const items = placed.filter((p) => roleOf(p) === 'tabletop').map(boxOf);
+        for (const table of tables) {
+            expect(items.some((i) => i.x >= table.x && i.x + i.w <= table.x + table.w && i.y >= table.y && i.y + i.h <= table.y + table.h)).toBe(true);
+        }
+        items.forEach((a, i) => {
+            for (const b of items.slice(i + 1)) {
+                expect(overlap(a, b)).toBe(false);
+            }
+        });
+    });
+});
+
+describe('art drawn with depth', () => {
+    it('is never turned, in any room, so nothing stands upside down', () => {
+        const upright = new Map([...TEST_ROLES].map(([role, list]) => [role, list.map((s) => ({ ...s, upright: true, turn: 0 }))]));
+        for (const purpose of ROOM_PURPOSES) {
+            for (const seed of [1, 2, 3]) {
+                const room: RoomFloor = {
+                    key: purpose,
+                    purpose,
+                    rect: { x: 0, y: 0, w: 9, h: 7 },
+                    doors: [{ side: 'bottom', at: 4 }],
+                    outer: ['top', 'bottom'],
+                    entrance: 'bottom',
+                };
+                const placed = furnishRoom(room, upright, seededRandom(seed)).stamps;
+                expect(placed.filter((p) => p.rotation % 360 !== 0)).toEqual([]);
+            }
+        }
+    });
+});
+
+describe('variety', () => {
+    it('varies a room’s kit piece by piece, but keeps its chairs and tables a matching set', () => {
+        const kit = (id: string): RoleStamp => ({
+            key: `test:${id}`,
+            role: 'medical',
+            width: 1,
+            height: 1,
+            turn: 0,
+            against: 'wall',
+            clearance: 0,
+            upright: false,
+            habitats: [],
+        });
+        const chair = (id: string): RoleStamp => ({
+            key: `test:${id}`,
+            role: 'seat',
+            width: 0.5,
+            height: 0.5,
+            turn: 0,
+            against: 'free',
+            clearance: 0,
+            upright: false,
+            habitats: [],
+        });
+        // No benches, so the common room's tables are seated with chairs.
+        const roles = new Map([
+            ...TEST_ROLES,
+            ['medical', [kit('gurney'), kit('monitor'), kit('drip')]],
+            ['seat', [chair('stool'), chair('armchair')]],
+            ['bench', []],
+        ] as const);
+        const medicae: RoomFloor = {
+            key: 'medicae',
+            purpose: 'medicae',
+            rect: { x: 0, y: 0, w: 10, h: 8 },
+            doors: [{ side: 'left', at: 3 }],
+            outer: [],
+            entrance: null,
+        };
+        const kinds = new Set(
+            furnishRoom(medicae, roles, seededRandom(3))
+                .stamps.filter((p) => p.stamp !== 'test:storage' && ['test:gurney', 'test:monitor', 'test:drip'].includes(p.stamp))
+                .map((p) => p.stamp),
+        );
+        expect(kinds.size).toBeGreaterThan(1);
+        const seats = new Set(
+            furnishRoom(COMMON, roles, seededRandom(3))
+                .stamps.filter((p) => p.stamp === 'test:stool' || p.stamp === 'test:armchair')
+                .map((p) => p.stamp),
+        );
+        expect(seats.size).toBe(1);
+    });
+});
+
+describe('the grim far future’s rooms', () => {
+    const room = (purpose: RoomFloor['purpose']): RoomFloor => ({
+        key: purpose,
+        purpose,
+        rect: { x: 0, y: 0, w: 10, h: 8 },
+        doors: [{ side: 'left', at: 3 }],
+        outer: ['top'],
+        entrance: null,
+    });
+
+    it('fills a manufactorum with machines in rows, a medicae with gurneys, an armoury with racks, a barracks with beds', () => {
+        const count = (purpose: RoomFloor['purpose'], role: StampRole): number => furnish(room(purpose)).filter((p) => roleOf(p) === role).length;
+        expect(count('manufactorum', 'machine')).toBeGreaterThanOrEqual(4);
+        expect(count('medicae', 'medical')).toBeGreaterThanOrEqual(2);
+        expect(count('armoury', 'rack')).toBeGreaterThanOrEqual(3);
+        expect(count('barracks', 'bed')).toBeGreaterThanOrEqual(4);
+        expect(count('command', 'console')).toBeGreaterThanOrEqual(2);
+        expect(count('interrogation', 'restraint')).toBe(1);
+        for (const purpose of ['manufactorum', 'medicae', 'armoury', 'barracks', 'command', 'interrogation', 'mess', 'chapel'] as const) {
+            expectOrderly(room(purpose), furnish(room(purpose)));
+        }
     });
 });

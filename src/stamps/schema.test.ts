@@ -23,13 +23,15 @@ describe('parseStampPack', () => {
         expect(parsed?.stamps[0]?.container).toBe(false);
     });
 
-    it('takes a role and placement for the map composer, defaulting the placement, and refuses an unknown role', () => {
+    it('takes a role and placement for the map composer, keeping only what the pack says, and refuses an unknown role', () => {
         const counter = { ...crate, id: 'counter', role: 'counter', placement: { against: 'wall', clearance: 1 } };
         const table = { ...crate, id: 'table', role: 'table', placement: {} };
         const result = parseStampPack(pack([counter, table, crate]));
         const [c, t, plain] = result.ok ? result.pack.stamps : [];
-        expect([c?.role, c?.placement]).toEqual(['counter', { against: 'wall', clearance: 1, back: 'top' }]);
-        expect(t?.placement).toEqual({ against: 'free', clearance: 0, back: 'top' });
+        // What a pack leaves out is its role's way, filled in by the composer, not here.
+        expect([c?.role, c?.placement]).toEqual(['counter', { against: 'wall', clearance: 1 }]);
+        expect(t?.placement).toEqual({});
+        expect(parseStampPack(pack([{ ...crate, placement: { upright: true } }])).ok).toBe(true);
         const bed = parseStampPack(pack([{ ...crate, role: 'bed', placement: { against: 'wall', back: 'left' } }]));
         expect(bed.ok ? bed.pack.stamps[0]?.placement?.back : null).toBe('left');
         // Land stamps say where they belong; unsaid, nowhere in particular.

@@ -215,6 +215,39 @@ describe('realizeSpec', () => {
         expect(h.w.settings).toEqual([scene]);
     });
 
+    it('takes the scene’s own lowest floor as an existing first level, stacking the rest above it', async () => {
+        const h = makeHarness();
+        const own = await h.c.addLevel('above', 'Level 1');
+        h.c.setActiveLevel(null);
+        const report = await realizeSpec(
+            h.c,
+            spec({
+                levels: [
+                    { key: 'ground', name: 'Ground floor', existing: true },
+                    { key: 'upper', name: 'Upper floor' },
+                ],
+                features: [],
+            }),
+            { origin: ORIGIN, gridSize: GRID },
+        );
+        expect(Object.keys(report.levels)).toEqual(['ground', 'upper']);
+        expect(report.levels['ground']).toBe(own);
+        expect(h.c.levels.map((l) => l.name)).toEqual(['Ground floor', 'Upper floor']);
+        expect(
+            parseSceneSpec({
+                schemaVersion: 1,
+                levels: [
+                    { key: 'a', name: 'A' },
+                    { key: 'b', name: 'B', existing: true },
+                ],
+                features: [],
+            }),
+        ).toMatchObject({
+            ok: false,
+            issues: [{ path: 'levels.1.existing' }],
+        });
+    });
+
     it('creates levels bottom to top, puts features on them, and restores the level being edited', async () => {
         const h = makeHarness();
         const report = await realizeSpec(

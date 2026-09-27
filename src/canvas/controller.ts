@@ -6,6 +6,7 @@
  * and never touches Foundry directly. Handles both brushes: path (road/river)
  * and region (biome).
  */
+import { isSurface } from '../compose/role-tags';
 import { nearestVertex } from '../geometry/hit';
 import { snapToGrid, type Grid } from '../geometry/snap';
 import type { Point } from '../geometry/spline';
@@ -75,6 +76,7 @@ import {
     MAX_SPLAT_LAYERS,
     stackChannelFor,
 } from '../tools/splat';
+import { stackedElevation } from '../tools/stacking';
 import { makeStamp, stampCentre, withStampFrame, withStampVariant, type StampFeature, type StampPlacement } from '../tools/stamp';
 import { DEFAULT_BRUSH_RADIUS, makeStroke } from '../tools/stroke';
 import { DEFAULT_TRAVEL, exitRegion, exitSquare, type SceneFrame, type SubmapLink } from '../tools/submap';
@@ -728,8 +730,20 @@ export class CartographyController {
         const placed = makeStamp(this.makeId(), stamp, placement, this.stampGrid(stamp));
         // A door dropped near a room wall lands on it, so its axis cuts the wall cleanly.
         const feature = await this.withSilhouette(snapDoorToRooms(placed, this.features, placed.gridSize * DOOR_SNAP_SQUARES));
-        await this.add(await this.withPile({ ...feature, level: feature.level ?? this.active }, stamp.name));
+        const onItsLevel = { ...feature, level: feature.level ?? this.active };
+        await this.add(await this.withPile(placement.elevation === undefined ? this.stacked(onItsLevel) : onItsLevel, stamp.name));
         return feature.id;
+    }
+
+    /** A stamp set down wholly on a table, bar or desk stands on it, at its top, so it is drawn on it; else as it is. */
+    private stacked(stamp: StampFeature): StampFeature {
+        const stamps = this.features.filter((f): f is StampFeature => f.type === 'stamp');
+        const surface = (f: StampFeature): boolean => {
+            const listed = this.catalog.get(f.stamp);
+            return listed !== null && isSurface(listed.role, listed.tags);
+        };
+        const elevation = stackedElevation(stamp, stamps, surface, this.gridDistance);
+        return elevation === null ? stamp : { ...stamp, elevation };
     }
 
     /** Put a map pin at `at` on the level being edited; returns its feature id. */

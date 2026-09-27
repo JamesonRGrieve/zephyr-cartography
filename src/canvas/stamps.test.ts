@@ -204,6 +204,50 @@ describe('CartographyController door stamps', () => {
     });
 });
 
+describe('CartographyController stacked stamps', () => {
+    const furniture = catalogStamps([
+        {
+            id: 'bar',
+            name: 'Bar Counter',
+            category: 'Furniture',
+            tags: ['bar', 'counter'],
+            scale: 'interior',
+            perspective: 'top-down',
+            variants: [{ state: 'x', image: 'bar.png', width: 300, height: 100 }],
+        },
+        {
+            id: 'tankard',
+            name: 'Tankard',
+            category: 'Props',
+            tags: ['tankard'],
+            scale: 'interior',
+            perspective: 'top-down',
+            variants: [{ state: 'x', image: 't.png', width: 30, height: 30 }],
+        },
+    ]);
+
+    it('stands a tankard set down on a bar at the bar’s top, so it is drawn on it, and leaves one on the floor at the floor', async () => {
+        const { c, d } = makeHarness(furniture);
+        c.grid = { size: 100, originX: 0, originY: 0 };
+        c.gridDistance = 5;
+        await c.placeStamp({ stamp: 'pack:bar', x: 500, y: 500 });
+        const onBar = await c.placeStamp({ stamp: 'pack:tankard', x: 560, y: 500 });
+        const onFloor = await c.placeStamp({ stamp: 'pack:tankard', x: 900, y: 900 });
+        const elevationOf = (id: string | null): number | undefined => {
+            const f = id === null ? null : c.getFeature(id);
+            return f?.type === 'stamp' ? f.elevation : undefined;
+        };
+        // Half a square up, the pack giving the bar no height: 2.5 ft at 5 ft squares.
+        expect(elevationOf(onBar)).toBe(2.5);
+        expect(elevationOf(onFloor)).toBe(0);
+        // Its tile, the second of the three written, stands there too.
+        expect(d.tiles.flat()[1]?.elevation).toBe(2.5);
+        // An elevation asked for outright is kept.
+        const held = await c.placeStamp({ stamp: 'pack:tankard', x: 440, y: 500, elevation: 0 });
+        expect(elevationOf(held)).toBe(0);
+    });
+});
+
 describe('CartographyController stamps', () => {
     it('emits its ambient sound at the offset, radius in px, and silences it for a variant that sets none', async () => {
         const humming = catalogStamps([

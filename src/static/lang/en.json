@@ -31,17 +31,33 @@
                 "WoodlandInn": "An inn in a woodland clearing",
                 "Tavern": "A tavern's rooms",
                 "ForestRoad": "A road through the forest",
-                "MarshCrossing": "A marsh crossing"
+                "MarshCrossing": "A marsh crossing",
+                "HiveOutpost": "A fortified outpost in a shelled hive district",
+                "HiveChapel": "A hive chapel and its vestry",
+                "Manufactorum": "A manufactorum floor and its workers' quarters",
+                "VoidPort": "A void port landing field"
             },
             "Intent": "Map intent (JSON)",
             "ComposeMap": "Compose",
             "ReseedMap": "Another layout",
+            "Mode": "Compose with",
+            "Modes": {
+                "Algorithmic": "Algorithm",
+                "Assisted": "AI-assisted"
+            },
+            "AssistUnavailable": "Composing by algorithm. Set a model in the module's settings to compose AI-assisted.",
+            "Advising": "The model is choosing stamps and checking the layout…",
+            "AdviceChosen": "The model chose the stamps of {count} places.",
+            "AdviceFixes": "The model asked for {asked} fixes; {applied} were made:",
+            "AdviceFix": "#{piece} {action}: {why}",
+            "AdviceFailed": "The model could not be reached, so the map was composed without it.",
             "NotJson": "The map intent is not valid JSON.",
             "IntentRefused": "The map intent was not composed:",
             "ComposeProblems": {
                 "RoomsDoNotFit": "{building}: its rooms do not fit a {width} × {height} footprint, so it was left out.",
                 "NotBeside": "{building}: {room} could not be put beside {other}, so they are joined through other rooms.",
-                "NoStamp": "{wantedIn}: no loaded stamp is a {role}, so none was placed."
+                "NoStamp": "{wantedIn}: no loaded stamp is a {role}, so none was placed.",
+                "NoStairwell": "{building}: its floors could not share a place for a stair, so they are not joined."
             },
             "FloorPlan": "Floor plan",
             "Seed": "Seed",
@@ -275,6 +291,18 @@
             }
         },
         "Settings": {
+            "AssistEndpoint": {
+                "Name": "Map builder model: endpoint",
+                "Hint": "The OpenAI-compatible API the Map builder's AI-assisted mode asks, e.g. https://gateway.example/v1. It must be served over HTTPS and allow this world's address (CORS). Empty: the mode is off."
+            },
+            "AssistModel": {
+                "Name": "Map builder model: model",
+                "Hint": "The model the AI-assisted mode asks, as the endpoint names it (e.g. a Qwen model)."
+            },
+            "AssistKey": {
+                "Name": "Map builder model: key",
+                "Hint": "The endpoint's API key, if it needs one. Kept in this browser only."
+            },
             "TextureSet": {
                 "Name": "Terrain texture set",
                 "Hint": "Which asset-pack texture set fills biome regions, brush strokes, room floors and roads. Terrain without a texture in the set draws a procedural pattern in its colour."

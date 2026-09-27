@@ -19,7 +19,13 @@ export interface PresetChoice {
     readonly label: string;
 }
 
+/** How a map is composed: by the algorithm alone, or with a language model choosing stamps and critiquing the result. */
+export type ComposeMode = 'algorithmic' | 'assisted';
+
 export interface GeneratorPanel {
+    readonly mode: ComposeMode;
+    /** A model is set up for the AI-assisted mode. */
+    readonly assistAvailable: boolean;
     /** The presets to start a map intent from, and the one picked. */
     readonly presets: readonly PresetChoice[];
     readonly preset: string;
@@ -36,6 +42,11 @@ export interface GeneratorPanel {
 
 export interface GeneratorLabels {
     readonly compose: string;
+    readonly mode: string;
+    readonly algorithmic: string;
+    readonly assisted: string;
+    /** Where to set up a model, while none is. */
+    readonly assistUnavailable: string;
     readonly preset: string;
     readonly intent: string;
     readonly composeMap: string;
@@ -55,6 +66,7 @@ export interface GeneratorLabels {
 }
 
 export interface GeneratorHandlers {
+    readonly pickMode: (mode: ComposeMode) => void;
     /** Start the map intent from a preset (replacing what is in the box). */
     readonly pickPreset: (key: string) => void;
     readonly setIntentText: (text: string) => void;
@@ -118,7 +130,16 @@ function composeSection(panel: GeneratorPanel, labels: GeneratorLabels, handlers
     box.classList.add('zc-field-wide');
     const compose = textWithAction(box, handlers.setIntentText, handlers.compose, labels.composeMap, 'compose', panel.busy);
     const reseed = textWithAction(box, handlers.setIntentText, handlers.reseedIntent, labels.reseedMap, 'reseed-intent', false);
+    // The mode is a choice once a model is set up; until then there is only the algorithm, and a hint says where to set one.
+    const modes: readonly (readonly [ComposeMode, string])[] = [
+        ['algorithmic', labels.algorithmic],
+        ['assisted', labels.assisted],
+    ];
+    const mode = panel.assistAvailable
+        ? choice('zc-generator-mode', labels.mode, modes, panel.mode, handlers.pickMode)
+        : el('p', 'tw-italic tw-text-xs tw-w-full', labels.assistUnavailable);
     return section(labels.compose, [
+        mode,
         choice('zc-generator-preset', labels.preset, presets, panel.preset, handlers.pickPreset),
         box,
         actionRow([reseed, compose]),

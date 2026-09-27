@@ -234,7 +234,8 @@ describe('effectiveProperties', () => {
 
     it('inherits the stamp properties when the variant declares none', () => {
         expect(effectiveProperties(lamp, 0)).toEqual({
-            perspective: 'top-down',
+            // The pack's old `top-down` reads as orthographic.
+            perspective: 'orthographic',
             doorState: undefined,
             light: LAMP_LIGHT,
             occlusion: { shape: 'bounds', sight: true, movement: true, light: true, sound: true },

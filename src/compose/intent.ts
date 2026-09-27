@@ -21,16 +21,51 @@ const MAP_INTENT_SCHEMA_VERSION = 1;
 export const MAP_INTENT_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/map-intent.v1.schema.json';
 
 /** What a room is for; each purpose has its furnishing template. */
-export const ROOM_PURPOSES = ['common-room', 'bar', 'kitchen', 'storage', 'bedroom', 'hall', 'office', 'workshop', 'shrine', 'cell'] as const;
+export const ROOM_PURPOSES = [
+    'common-room',
+    'bar',
+    'kitchen',
+    'storage',
+    'bedroom',
+    'hall',
+    'office',
+    'workshop',
+    'shrine',
+    'cell',
+    'mess',
+    'chapel',
+    'medicae',
+    'command',
+    'armoury',
+    'barracks',
+    'manufactorum',
+    'interrogation',
+] as const;
 
-/** Kinds of outdoor zone, each with its ground and what grows or lies in it. */
-const ZONE_KINDS = ['woodland', 'meadow', 'clearing', 'marsh', 'rocky'] as const;
+/**
+ * Kinds of outdoor zone, each with its ground and what grows, lies or
+ * stands in it: the wild (woodland, meadow, clearing, marsh, rocky) and the
+ * made (rubble: a ruin or a shelled street; industrial: a yard of plant and
+ * cargo; fortified: an encampment behind barricades; landing: a field of
+ * landed craft).
+ */
+const ZONE_KINDS = ['woodland', 'meadow', 'clearing', 'marsh', 'rocky', 'rubble', 'industrial', 'fortified', 'landing'] as const;
 
 /** How thickly a zone is filled. */
 const DENSITIES = ['sparse', 'normal', 'dense'] as const;
 
 /** The map's four edges. */
 const EDGES = ['north', 'east', 'south', 'west'] as const;
+
+/** A texture role to draw ground in instead of its biome's own, which still says what the ground is. */
+const groundTexture = z
+    .string()
+    .min(1)
+    .nullable()
+    .default(null)
+    .describe(
+        'A texture role of the active set to draw the ground in (`floor.scorched-earth`); null for its biome’s own. A role the set lacks draws as the biome.',
+    );
 
 const INTENT_LIQUIDS = ['water', 'lava', 'poison', 'acid'] as const satisfies readonly Liquid[];
 
@@ -53,6 +88,7 @@ const room = z
         size: squares.default(1).describe('Floor area relative to the building’s other rooms (2 is twice as big as 1).'),
         opensTo: z.array(text).default([]).describe('Rooms it has a door into; the layout puts them side by side.'),
         entrance: z.boolean().default(false).describe('Has the building’s front door. Without one marked, the first room has it.'),
+        floor: text.optional().describe('Its own floor texture role (a kitchen’s flagstones among plank rooms); omitted, the building’s.'),
     })
     .strict();
 
@@ -66,23 +102,39 @@ const building = z
         wall: text.default('wall.stone').describe('Wall texture role (a pack wall.*), drawn along every wall.'),
         wallKind: z.enum(WALL_PRESETS).default(DEFAULT_WALL_PRESET),
         entrance: edge.default('south').describe('The side its front door faces.'),
-        rooms: z.array(room).min(1),
+        rooms: z.array(room).min(1).describe('The ground floor’s rooms.'),
+        floors: z
+            .array(
+                z
+                    .object({
+                        name: text.optional().describe('The level’s name; omitted, “Floor 2” and so on.'),
+                        rooms: z.array(room).min(1),
+                    })
+                    .strict(),
+            )
+            .default([])
+            .describe(
+                'Storeys above the ground floor, bottom to top, each a level of the scene over the same footprint, so every floor’s outer walls stand on the ones below. A stair in the same place on every floor joins each to the next.',
+            ),
     })
     .strict()
     .superRefine((b, ctx) => {
-        const keys = b.rooms.map((r) => r.key);
-        keys.forEach((key, i) => {
-            if (keys.indexOf(key) !== i) {
-                ctx.addIssue({ code: 'custom', path: ['rooms', i, 'key'], message: `room ${key} is named twice` });
-            }
-        });
-        b.rooms.forEach((r, i) => {
-            r.opensTo.forEach((other, j) => {
-                if (!keys.includes(other) || other === r.key) {
-                    ctx.addIssue({ code: 'custom', path: ['rooms', i, 'opensTo', j], message: `${r.key} cannot open to ${other}` });
+        const storeys = [{ rooms: b.rooms, at: ['rooms'] }, ...b.floors.map((f, n) => ({ rooms: f.rooms, at: ['floors', n, 'rooms'] }))];
+        for (const { rooms, at } of storeys) {
+            const keys = rooms.map((r) => r.key);
+            keys.forEach((key, i) => {
+                if (keys.indexOf(key) !== i) {
+                    ctx.addIssue({ code: 'custom', path: [...at, i, 'key'], message: `room ${key} is named twice` });
                 }
             });
-        });
+            rooms.forEach((r, i) => {
+                r.opensTo.forEach((other, j) => {
+                    if (!keys.includes(other) || other === r.key) {
+                        ctx.addIssue({ code: 'custom', path: [...at, i, 'opensTo', j], message: `${r.key} cannot open to ${other}` });
+                    }
+                });
+            });
+        }
     });
 
 const zoneArea = z
@@ -99,6 +151,7 @@ const zone = z
         kind: z.enum(ZONE_KINDS),
         area: zoneArea,
         density: z.enum(DENSITIES).default('normal'),
+        texture: groundTexture,
     })
     .strict();
 
@@ -125,6 +178,13 @@ export const mapIntentSchema = z
             .default([])
             .describe('Stamp tags the map is made from: only stamps carrying at least one are used (e.g. a setting and "generic" pieces); none: any stamp.'),
         ground: z.enum(BIOMES).nullable().default('grassland').describe('The ground under everything; null for none (an interior on a bare scene).'),
+        lighting: z
+            .enum(['day', 'night'])
+            .default('day')
+            .describe(
+                'By night the scene is dark and rooms are lit by what is in them (a hearth, lamps), not a flat light; a room with nothing to light it keeps its own.',
+            ),
+        groundTexture: groundTexture,
         zones: z.array(zone).default([]),
         paths: z.array(path).default([]),
         buildings: z.array(building).default([]),

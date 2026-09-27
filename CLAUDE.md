@@ -1070,31 +1070,83 @@ or a tavern is. Composition is the layer above them (operator decisions,
   `ComposeProblem`s, each once: a role no loaded stamp fills (and where it
   was wanted), rooms that do not fit their footprint, rooms asked to adjoin
   that could not.
-- **Stamps by role** (`compose/roles.ts`). A stamp's optional `role`,
-  `placement` (what it stands against, the floor kept clear before it,
-  which image edge is its back) and `habitats` (the ground a land stamp
-  belongs on) are additive pack fields. The composer picks by role, setting
-  and habitat from whatever packs are loaded, never by id, and turns each
-  stamp so its back meets the wall.
+- **Stamps by tags, never by name** (`compose/role-tags.ts`,
+  `compose/roles.ts`; operator decision, 2026-09-27: no asset is ever
+  hardcoded). A stamp's role (tree, table, console, altar, emplacement,
+  stairs, tabletop and so on) comes from its descriptive tags by ordered
+  rules (a `cogitator` `desk` is a desk, a `desk` `lamp` a light, a
+  `prep` table a workbench, a `trap` never composed; a rule may need a
+  combination, so `table` `clutter` is tabletop, not a table), and so
+  does how the role stands (against a wall,
+  its clearance, a defence's front facing out, a structure upright) and a
+  land stamp's habitat (`cave`, `ice`, `forest`, else the role's usual
+  ground). A new asset tagged `console` composes with no code change. A
+  pack's own `role` (null: never composed), `placement` and `habitats`
+  override the tags, for facts only the picture shows (which edge of a bed
+  is its head). Indoor roles take interior-scale stamps and outdoor works
+  exterior ones. A role's matching pieces (chairs, tables, beds, pews) are
+  one stamp per room; its other pieces vary piece by piece.
+- **Perspective** (pack `perspective`: `orthographic` straight down,
+  `isometric` with depth and no vanishing point, `central` one-point; the
+  old `top-down` reads as orthographic). Only orthographic art is ever
+  turned: art drawn with depth turned half round stands upside down. So it
+  stands as drawn, its back to the top wall or unturned in a corner, and a
+  role with any orthographic art uses only that (`Floor.put` refuses a
+  turn outright). A light has no back, so light art drawn with depth
+  still stands by any wall, unturned. Seats drawn with depth seat each
+  table from above only, in rows across the room.
 - **Interior.** A building's footprint, floor and wall materials, wall kind
   and rooms, each with a purpose (common room, bar, kitchen, storage,
-  bedroom, hall, office, workshop, shrine, cell), a relative size, and the
-  rooms it opens onto.
+  bedroom, hall, office, workshop, shrine, cell, mess, chapel, medicae,
+  command, armoury, barracks, manufactorum, interrogation), a relative
+  size, its own floor if it differs (a kitchen's flagstones), and the rooms
+  it opens onto.
   - `compose/layout.ts` partitions the footprint by weighted recursive
     splits over many seeded tries, scoring the room sizes and the adjacency
     asked for. The entrance room reaches the outer wall the building's
     front faces.
   - Doors join the rooms asked to adjoin (every room reachable), plus the
     front door. Walls are always drawn, in the wall material.
-  - `compose/furnish.ts` gives each purpose a template of steps: stamps
+  - `compose/furnish.ts` gives each purpose a template of steps: pieces
     against walls, in corners, in clusters (a table with benches or seats
-    beside it, a round one seated all round) or scattered, and underlays.
-    Door approaches and each piece's clearance stay open. A hearth goes on
-    an outer wall, a counter on an inner one with seats before it.
+    beside it, a round one seated all round), in rows facing an altar with
+    a centre aisle, or scattered, and underlays. A wall piece brings what
+    goes with it: seats before a counter, a nightstand beside a bed, a
+    chest at its foot, and a bar counter stands out from the wall with its
+    shelves behind the barkeep. `dress` steps set tabletop pieces on every
+    table, bar and desk. Door approaches and each piece's clearance stay
+    open; an altar faces the front door.
+- **Stacking** (`tools/stacking.ts`): a stamp set down wholly on a surface
+  stamp (a table, a counter, a desk, a workbench, an altar) of its level
+  stands at its top (its elevation plus its height, half a square when the
+  pack gives none), so Foundry, which orders by elevation first, always
+  draws the tankard on the bar. The GM's own placement stacks the same way;
+  an elevation asked for outright is kept.
+- **Storeys** (`compose/storeys.ts`). A building's `floors` are levels of
+  the scene over the same footprint, so every floor's outer walls stand on
+  the ones below; upper floors have no front door. The ground floor takes
+  the scene's own lowest level (spec levels' `existing`), the rest stack
+  above, and everything outside is on the ground level. A stairwell sized
+  to the stair (a stamp whose `transition` climbs, found by tags) is fixed
+  in one place on every floor, inside one room on each, against a wall,
+  clear of every doorway and of furniture. A flight on each floor but the
+  top joins it to the next; three floors or more make a switchback, each
+  flight beside the one below, so no two level changes overlap. On a scene
+  of several levels the map drawn and edited is the viewed level's.
+- **Night** (intent `lighting`): the scene goes dark, and a room is lit by
+  its hearth and lamps (pack lights), keeping its own flat light only when
+  it has neither. Common rooms, halls and chapels get a lamp for every
+  eight squares of wall, shared out evenly along every wall, so a great
+  nave is lit end to end.
 - **Exterior** (`compose/exterior.ts`). Zones (woodland, meadow, clearing,
-  marsh, rocky ground; everywhere, a circle, an edge strip or a polygon)
-  with a density; roads and rivers from anchor to anchor (a map edge, a
-  point or a building's front door), meandering.
+  marsh, rocky ground, rubble, industrial yards, fortified camps, landing
+  fields; everywhere, a circle, an edge strip or a polygon) with a density
+  and optionally their own ground texture; roads and rivers from anchor to
+  anchor (a map edge, a point or a building's front door), meandering.
+  - Solid works (structures, vehicles, barricades, emplacements, cargo)
+    keep their whole footprint off one another, paths and buildings.
+    Defences line a fortified zone's edge, fronts facing out, the line
+    breaking where a road passes.
   - Ground is layered: the base, then each zone's own ground, its edge
     wandering by noise. Worn earth wears into woods and meadows in short
     wandering strokes, never into a clearing.
@@ -1105,11 +1157,32 @@ or a tavern is. Composition is the layer above them (operator decisions,
     and thinning at a zone's edge, spaced by the pieces' own size. Nothing
     stands on a path, in a clearing that keeps it out, or where its canopy
     would spread over a building. Rocks line riverbanks.
-- **Presets** (`compose/presets.ts`): a woodland inn, a tavern, a forest
-  road and a marsh crossing, as intents.
+- **Presets** (`compose/presets.ts`): fantasy (a woodland inn, a tavern, a
+  forest road, a marsh crossing), grimdark (a hive outpost, a hive chapel,
+  a manufactorum) and sci-fi (a void port), as intents.
 - **Where.** The module API's `compose(intent)`, and the Map builder's
   Compose section: a preset or pasted intent, "Compose map", and "Another
   layout" to reseed. Problems are listed, localised.
+- **Two modes** (operator decision, 2026-09-27): algorithmic, and
+  AI-assisted, where a language model (Qwen by default) helps
+  (`compose/assist.ts`, pure; `foundry/advisor.ts`, the call).
+  - It chooses each place's stamps from the tag-matched candidates
+    (numbered, with names and tags), which become the composer's
+    `Preferences` (`compose/preferences.ts`).
+  - It critiques the composed rooms (each piece, where it faces) and
+    answers with fixes (turn, move, remove), each applied only if the
+    piece stays in its room on no other piece.
+  - Its answers are untrusted: anything unreadable or unknown is refused
+    and reported; if it cannot be reached the map is composed without it.
+  - The GM's browser calls an OpenAI-compatible endpoint (world settings
+    `assistEndpoint` and `assistModel`; a key, if needed, is a client
+    setting that never reaches players). The endpoint must allow the
+    world's origin (CORS) over HTTPS; the lab's Bifrost at
+    `https://ai.zephyrex.ca/v1` does, serving `72gb-vllm/qwen3.8-27b`.
+    Thinking is turned off (`chat_template_kwargs`). A question is
+    abandoned after five minutes and the map composed without advice;
+    probed 2026-09-27, whole-map questions to that model still ran past
+    it, so the mode works but the model is too slow to help yet.
 - **Cost.** A composed map is hundreds of features in one batch. The
   batch saves the feature list once, as it ends (`persist`). Picking the
   level already edited redraws nothing. A redrawn feathered fill reuses the
@@ -1118,15 +1191,19 @@ or a tavern is. Composition is the layer above them (operator decisions,
   woodland take minutes.
 - **Assets.** The photo texture sets carry CC0 walls (stone, brick,
   plaster, wood, rock, concrete, metal). The hand-painted set's walls are
-  to be generated to match its style. The asset packs carry roles,
-  placement and habitats.
+  to be generated to match its style. The asset packs carry descriptive
+  tags, each stamp's perspective, lights and level transitions derived
+  from tags, and only the image facts tags cannot say.
 - **Proof.** Unit tests for every rule (layout, adjacency, clearance,
-  spacing, exclusion, detours). `tests/e2e/compose.spec.ts` composes a
-  storeroom in the fixture pack and checks its documents and one-step undo.
-  `tests/e2e/showcase.spec.ts` composes the woodland inn and tavern presets
-  in the real asset pack's art where it is installed among the test modules
-  (it skips elsewhere); what the pack lacks is reported softly, and the
-  screenshots are reviewed by eye.
+  spacing, exclusion, detours, tags, perspective, stacking, storeys,
+  advice). `tests/e2e/compose.spec.ts` composes a storeroom in the fixture
+  pack (documents, one-step undo, the Map builder UI) and a two-storey
+  house (native levels, outer walls on the same perimeter on each, one
+  level-change region joining them, nothing upstairs over the stair).
+  `tests/e2e/showcase.spec.ts` composes every preset in the real asset
+  pack's art where it is installed among the test modules (it skips
+  elsewhere); what the pack lacks is reported softly, and the screenshots
+  are reviewed by eye against the operator's reference battlemaps.
 
 ---
 
@@ -1151,7 +1228,8 @@ imports).
   reports invalid packs instead of silently dropping them. Stamp-id uniqueness
   is checked in code, because JSON Schema can't express it.
 - **Contents per stamp:**
-  - identity, category, tags, scale band, perspective;
+  - identity, category, tags, scale band, perspective (orthographic,
+    isometric or central; how the picture is drawn);
   - **variants**: a free-text state label, an image, and a pixel size at the
     pack's `referenceGridSize`;
   - `physical`: height in grid units, cover 0–1, blocksMovement;
@@ -1178,12 +1256,12 @@ imports).
   - `surface`: a Define Surface floor or roof over the footprint, optionally
     revealed;
   - `terrain`: a movement-cost multiplier per movement action;
-  - for composing (Priority 9): `role` (tree, shrub, rock, log, flora,
-    debris, table, seat, bench, counter, hearth, shelf, bed, storage,
-    clutter, rug, desk, workbench, light), `placement` (`against` a wall,
-    a corner or free; the `clearance` kept before it; which image edge is
-    its `back`) and `habitats` (forest, grassland, marsh, rocky, cave,
-    arctic, desert, urban, ruin).
+  - for composing (Priority 9), all optional overrides of what the tags
+    say: `role` (null: never composed), `placement` (`against` a wall, a
+    corner or free; the `clearance` kept before it; which image edge is
+    its `back`; `upright`, never turned) and `habitats` (forest,
+    grassland, marsh, rocky, cave, arctic, desert, urban, ruin). The roles
+    are listed in `STAMP_ROLES`.
 - **Variant overrides.** Structural properties sit on the stamp, and a
   **variant may override them**. `null` removes a property for that variant:
   `light: null` for an unlit variant, `particles` only on a "destroyed" one,

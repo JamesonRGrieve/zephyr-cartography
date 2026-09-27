@@ -21,7 +21,21 @@ export const STAMP_PACK_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonR
 /** Map scale band a stamp is authored for (drives browser grouping). */
 const STAMP_SCALES = ['system', 'planet', 'regional', 'city', 'exterior', 'interior'] as const;
 
-const STAMP_PERSPECTIVES = ['top-down', 'isometric'] as const;
+/**
+ * How a stamp's image is drawn: `orthographic` straight down (a plan view,
+ * which can be turned any way on a map); `isometric` a three-quarter or
+ * front-on view with depth but no vanishing point; `central` from above in
+ * one-point perspective, its sides converging. Only orthographic art can be
+ * turned: anything drawn with depth turned half round stands upside down.
+ * `top-down` is the old name for orthographic, still read as it.
+ */
+const STAMP_PERSPECTIVES = ['orthographic', 'isometric', 'central', 'top-down'] as const;
+
+/** A perspective as read: the old `top-down` is `orthographic`. */
+const perspective = z
+    .enum(STAMP_PERSPECTIVES)
+    .transform((p) => (p === 'top-down' ? 'orthographic' : p))
+    .describe('How the image is drawn: orthographic (straight down), isometric (depth, no vanishing point) or central (one-point perspective).');
 
 const text = z.string().min(1);
 const fraction = z.number().min(0).max(1);
@@ -304,7 +318,7 @@ const variantSchema = z
             .describe('A browser image (PNG, WebP, ...) the stamp browser and the tile HUD show for compressed art; left out, they show the image.'),
         width: z.number().int().positive().describe('Pixel width at the pack referenceGridSize.'),
         height: z.number().int().positive().describe('Pixel height at the pack referenceGridSize.'),
-        perspective: z.enum(STAMP_PERSPECTIVES).optional().describe('Overrides the stamp perspective.'),
+        perspective: perspective.optional().describe('Overrides the stamp perspective.'),
         doorState: z.enum(['closed', 'open', 'locked']).optional().describe('Door state this variant represents (door stamps).'),
         light: lightSchema.nullable().optional().describe('Overrides the stamp light; null means this variant emits none (e.g. "unlit").'),
         occlusion: occlusionSchema.optional().describe('Overrides the stamp occlusion.'),
@@ -324,9 +338,20 @@ const variantSchema = z
 
 /**
  * What a stamp is to the map composer, which dresses land and furnishes rooms
- * by role, never by stamp id: land (tree, shrub, rock, log, flora, debris)
- * and furniture (table, seat, bench, counter, hearth, shelf, bed, storage,
- * clutter, rug, desk, workbench, light).
+ * by role, never by stamp id:
+ * - land (tree, shrub, rock, log, flora, debris), which dresses only zones
+ *   of its `habitats`;
+ * - works that stand outdoors on any ground (structure: a bunker, a tent, a
+ *   silo; barricade; crater; emplacement: a gun or its pit; vehicle);
+ * - furniture (table, seat, bench, counter, hearth, shelf, bed, storage,
+ *   clutter, rug, desk, workbench, light) and the fittings of harder places
+ *   (machine, console, altar, pew, lectern, icon: something hung on a wall,
+ *   rack: arms or armour, medical, restraint);
+ * - stairs: a stair, ladder or lift joining a building's floors, which the
+ *   composer uses only when it carries a `transition` that climbs;
+ * - tabletop: what is set on a table, bar or desk (a meal, tankards,
+ *   papers), stacked on it;
+ * - nightstand: what stands beside a bed.
  */
 const STAMP_ROLES = [
     'tree',
@@ -348,7 +373,27 @@ const STAMP_ROLES = [
     'desk',
     'workbench',
     'light',
+    'machine',
+    'console',
+    'altar',
+    'pew',
+    'lectern',
+    'icon',
+    'rack',
+    'medical',
+    'restraint',
+    'structure',
+    'barricade',
+    'crater',
+    'emplacement',
+    'vehicle',
+    'stairs',
+    'tabletop',
+    'nightstand',
 ] as const;
+
+/** An image's edges, as a piece's back. */
+const STAMP_BACKS = ['top', 'right', 'bottom', 'left'] as const;
 
 /** Where a stamp stands in a room: against a wall, in a corner, or anywhere on the floor. */
 const STAMP_ANCHORS = ['wall', 'corner', 'free'] as const;
@@ -364,22 +409,28 @@ const placementSchema = z
     .object({
         against: z
             .enum(STAMP_ANCHORS)
-            .default('free')
+            .optional()
             .describe('Where the composer stands it: with its back (see `back`) against a wall, in a corner, or anywhere free.'),
         clearance: z
             .number()
             .min(0)
-            .default(0)
+            .optional()
             .describe('Grid squares of open floor the composer keeps in front of it: a counter’s serving side, a hearth’s apron.'),
         back: z
-            .enum(['top', 'right', 'bottom', 'left'])
-            .default('top')
+            .enum(STAMP_BACKS)
+            .optional()
             .describe(
-                'The edge of the image that is the piece’s back, set against a wall or turned away from a table: a bed drawn with its headboard on the left says left.',
+                'The edge of the image that is the piece’s back, set against a wall or turned away from a table: a bed drawn with its headboard on the left says left. For a defence (an emplacement, a barricade), the side away from the enemy: its front faces out.',
             ),
+        upright: z
+            .boolean()
+            .optional()
+            .describe('Drawn side-on or front-on (a tower, a tent, a silo): the composer never turns it, so it always stands as drawn.'),
     })
     .strict()
-    .describe('How the map composer places the stamp.');
+    .describe(
+        'How the map composer places the stamp, where this image differs from its role’s way (a role’s pieces stand against a wall, face out, or stand upright as the role does). Omitted fields take the role’s.',
+    );
 
 const stampSchema = z
     .object({
@@ -388,12 +439,20 @@ const stampSchema = z
         category: text,
         tags: z.array(text).default([]),
         scale: z.enum(STAMP_SCALES),
-        perspective: z.enum(STAMP_PERSPECTIVES),
-        role: z.enum(STAMP_ROLES).optional().describe('What the map composer uses it as; without one it is never composed, only placed by hand.'),
+        perspective,
+        role: z
+            .enum(STAMP_ROLES)
+            .nullable()
+            .optional()
+            .describe(
+                'What the map composer uses it as. Omitted, its tags say (a stamp tagged `console` is a console); null, it is never composed, however it is tagged (an L-shaped counter no wall takes). A stamp neither names nor tags as anything is only placed by hand.',
+            ),
         habitats: z
             .array(z.enum(STAMP_HABITATS))
             .default([])
-            .describe('The ground a land stamp belongs on; the composer dresses each outdoor zone only with stamps of its habitat.'),
+            .describe(
+                'The ground a land stamp belongs on; the composer dresses each outdoor zone only with stamps of its habitat. Empty, its tags say (`cave`, `ice`, `forest`), else its role’s usual ground.',
+            ),
         placement: placementSchema.optional(),
         defaultVariant: z.number().int().min(0).default(0).describe('Index into variants.'),
         variants: z.array(variantSchema).min(1),
@@ -501,7 +560,9 @@ export type StampRole = (typeof STAMP_ROLES)[number];
 
 export type StampAnchor = (typeof STAMP_ANCHORS)[number];
 
-export type StampBack = z.infer<typeof placementSchema>['back'];
+export type StampBack = (typeof STAMP_BACKS)[number];
+
+export type StampPlacement = z.infer<typeof placementSchema>;
 
 export type StampHabitat = (typeof STAMP_HABITATS)[number];
 

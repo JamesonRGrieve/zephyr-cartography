@@ -22,18 +22,60 @@ describe('roleIndex', () => {
     it('indexes stamps with a role by it, sized in grid squares, with how they stand', () => {
         const index = roleIndex(
             stamps([
-                stampDef('counter', { role: 'counter', placement: { against: 'wall', clearance: 1 } }),
+                stampDef('counter', { role: 'counter', placement: { against: 'wall', clearance: 2 } }),
                 stampDef('table', { role: 'table' }),
                 stampDef('statue', {}),
             ]),
             [],
         );
         expect(index.get('counter')).toEqual([
-            { key: 'pack:counter', role: 'counter', width: 2, height: 1, turn: 0, against: 'wall', clearance: 1, habitats: [] },
+            { key: 'pack:counter', role: 'counter', width: 2, height: 1, turn: 0, against: 'wall', clearance: 2, upright: false, habitats: [] },
         ]);
-        expect(index.get('table')).toEqual([{ key: 'pack:table', role: 'table', width: 2, height: 1, turn: 0, against: 'free', clearance: 0, habitats: [] }]);
-        // No role: only ever placed by hand.
+        expect(index.get('table')).toEqual([
+            { key: 'pack:table', role: 'table', width: 2, height: 1, turn: 0, against: 'free', clearance: 0, upright: false, habitats: [] },
+        ]);
+        // Neither a role nor a tag that makes one: only ever placed by hand.
         expect([...index.values()].flat().map((s) => s.key)).not.toContain('pack:statue');
+    });
+
+    it('never turns art drawn with depth, and uses art drawn straight down wherever a role has any', () => {
+        const drawn = roleIndex(
+            stamps([
+                stampDef('crates', { tags: ['crates'], perspective: 'isometric', placement: { back: 'left' } }),
+                stampDef('tower', { tags: ['silo'], perspective: 'central', scale: 'exterior' }),
+                stampDef('plan-bed', { tags: ['bed'], perspective: 'orthographic' }),
+                stampDef('front-bed', { tags: ['bed'], perspective: 'isometric' }),
+            ]),
+            [],
+        );
+        // Its back is its top, whatever the pack says, and it stands as drawn.
+        expect(drawn.get('storage')).toEqual([expect.objectContaining({ key: 'pack:crates', upright: true, turn: 0, width: 2, height: 1 })]);
+        expect(drawn.get('structure')).toEqual([expect.objectContaining({ upright: true })]);
+        // Beds drawn straight down exist, so the front-on one is left out.
+        expect(drawn.get('bed')?.map((s) => s.key)).toEqual(['pack:plan-bed']);
+    });
+
+    it('takes a role its pack does not name from its tags, standing as that role does', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('console', { tags: ['cogitator', 'console'] }),
+                stampDef('lamp', { tags: ['desk', 'lamp'] }),
+                stampDef('gun', { tags: ['sandbag', 'emplacement'], scale: 'exterior' }),
+                stampDef('silo', { tags: ['ore', 'silo'], scale: 'exterior' }),
+                // An indoor gantry is not a yard's structure.
+                stampDef('gantry', { tags: ['crane', 'gantry'] }),
+                // The pack's word beats its tags.
+                stampDef('odd', { tags: ['console'], role: 'clutter' }),
+            ]),
+            [],
+        );
+        expect(index.get('console')).toEqual([expect.objectContaining({ key: 'pack:console', against: 'wall', clearance: 1 })]);
+        expect(index.get('light')?.map((s) => s.key)).toEqual(['pack:lamp']);
+        // A defence is drawn front up: its back is the image's bottom, turned half round to stand back up.
+        expect(index.get('emplacement')).toEqual([expect.objectContaining({ key: 'pack:gun', turn: 180 })]);
+        expect(index.get('structure')).toEqual([expect.objectContaining({ key: 'pack:silo', upright: true })]);
+        expect([...index.values()].flat().map((s) => s.key)).not.toContain('pack:gantry');
+        expect(index.get('clutter')?.map((s) => s.key)).toEqual(['pack:odd']);
     });
 
     it('turns a stamp whose back is not the image’s top so it is, running its size along the back', () => {
