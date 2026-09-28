@@ -20,7 +20,7 @@ const PATH_HIT_PADDING = 4;
 
 export function featureHit(feature: Feature, pt: Point): boolean {
     if (isRegion(feature)) {
-        return pointInPolygon(pt, regionOutline(feature.points));
+        return pointInPolygon(pt, regionOutline(feature));
     }
     if (isRoom(feature)) {
         // A room is its exact polygon (terrain regions are the smoothed ones).

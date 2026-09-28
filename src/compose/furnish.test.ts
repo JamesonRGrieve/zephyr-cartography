@@ -97,9 +97,11 @@ describe('furnishRoom', () => {
             expect([0, 180]).toContain(hearths[0]?.rotation);
             const tables = placed.filter((p) => roleOf(p) === 'table');
             expect(tables.length).toBeGreaterThanOrEqual(2);
-            // Every table has seats (benches here) beside it.
+            // Every table has seats beside it: benches at the long ones, chairs round the rest.
             for (const table of tables) {
-                const near = placed.filter((p) => roleOf(p) === 'bench' && Math.abs(p.x - table.x) < 1 && Math.abs(p.y - table.y) < 1);
+                const near = placed.filter(
+                    (p) => (roleOf(p) === 'bench' || roleOf(p) === 'seat') && Math.abs(p.x - table.x) < 1.2 && Math.abs(p.y - table.y) < 1.2,
+                );
                 expect(near.length).toBeGreaterThanOrEqual(1);
             }
             expect(placed.filter((p) => roleOf(p) === 'clutter').length).toBeGreaterThanOrEqual(2);
@@ -117,8 +119,24 @@ describe('furnishRoom', () => {
             clearance: 0,
             upright: false,
             habitats: [],
+            climb: null,
+            borrowed: false,
+            purposes: [],
         };
-        const pew: RoleStamp = { key: 'test:pew', role: 'bench', width: 2, height: 0.9, turn: 0, against: 'free', clearance: 0, upright: false, habitats: [] };
+        const pew: RoleStamp = {
+            key: 'test:pew',
+            role: 'bench',
+            width: 2,
+            height: 0.9,
+            turn: 0,
+            against: 'free',
+            clearance: 0,
+            upright: false,
+            habitats: [],
+            climb: null,
+            borrowed: false,
+            purposes: [],
+        };
         const roles = new Map([...TEST_ROLES, ['table', [table]], ['bench', [pew]]] as const);
         const placed = furnishRoom(COMMON, roles, seededRandom(1)).stamps;
         const tables = placed.filter((p) => p.stamp === 'test:round-table');
@@ -135,7 +153,8 @@ describe('furnishRoom', () => {
     });
 
     it('seats tables with benches drawn with depth in rows across the room, one row above each table, never turned', () => {
-        const tall: RoomFloor = { ...COMMON, rect: { x: 0, y: 0, w: 8, h: 12 }, doors: [{ side: 'bottom', at: 4 }], outer: ['top'] };
+        // A mess hall: its tables all benched.
+        const tall: RoomFloor = { ...COMMON, purpose: 'mess', rect: { x: 0, y: 0, w: 8, h: 12 }, doors: [{ side: 'bottom', at: 4 }], outer: ['top'] };
         const roles = new Map([...TEST_ROLES].map(([role, stamps]) => [role, role === 'bench' ? stamps.map((s) => ({ ...s, upright: true })) : stamps]));
         const placed = furnishRoom(tall, roles, seededRandom(1)).stamps;
         const tables = placed.filter((p) => roleOf(p) === 'table');
@@ -192,6 +211,22 @@ describe('furnishRoom', () => {
             const flush = { 0: box.y === 0, 90: box.x + box.w === 5, 180: box.y + box.h === 5, 270: box.x === 0 }[facing];
             expect(flush).toBe(true);
         }
+        // A lamp and a chest even in a small room, and none of a store's crates: a guest's room, not just a bed.
+        for (const role of ['light', 'chest'] as const) {
+            expect(placed.some((p) => roleOf(p) === role)).toBe(true);
+        }
+        expect(placed.some((p) => roleOf(p) === 'storage')).toBe(false);
+        // A guest room of any size has its table and chair, and something on the table.
+        const guestRoom = { ...bedroom, rect: { x: 0, y: 0, w: 6, h: 6 } };
+        const tabled = furnishRoom(guestRoom, TEST_ROLES, seededRandom(1)).stamps;
+        expectOrderly(guestRoom, tabled);
+        for (const role of ['table', 'seat', 'tabletop'] as const) {
+            expect(tabled.some((p) => roleOf(p) === role)).toBe(true);
+        }
+        // Another setting's bed, used for want of one, is reported.
+        const lentBeds = new Map([...TEST_ROLES].map(([role, list]) => [role, role === 'bed' ? list.map((s) => ({ ...s, borrowed: true })) : list]));
+        expect(furnishRoom(bedroom, lentBeds, seededRandom(1)).borrowed).toEqual(['bed']);
+        expect(furnishRoom(bedroom, TEST_ROLES, seededRandom(1)).borrowed).toEqual([]);
     });
 
     it('fills a storeroom’s walls with storage', () => {
@@ -366,7 +401,8 @@ describe('companions and what is set on surfaces', () => {
         for (const bed of beds) {
             expect(stands.some((s) => touching(s, bed))).toBe(true);
         }
-        expect(placed.some((p) => roleOf(p) === 'storage' && beds.some((bed) => touching(boxOf(p), bed)))).toBe(true);
+        // A chest, a guest's own, not a store's crate.
+        expect(placed.some((p) => roleOf(p) === 'chest' && beds.some((bed) => touching(boxOf(p), bed)))).toBe(true);
     });
 
     it('sets a meal on every table of a common room, never over its edge nor on another', () => {
@@ -417,6 +453,9 @@ describe('variety', () => {
             clearance: 0,
             upright: false,
             habitats: [],
+            climb: null,
+            borrowed: false,
+            purposes: [],
         });
         const chair = (id: string): RoleStamp => ({
             key: `test:${id}`,
@@ -428,6 +467,9 @@ describe('variety', () => {
             clearance: 0,
             upright: false,
             habitats: [],
+            climb: null,
+            borrowed: false,
+            purposes: [],
         });
         // No benches, so the common room's tables are seated with chairs.
         const roles = new Map([
@@ -479,6 +521,83 @@ describe('the grim far future’s rooms', () => {
         expect(count('interrogation', 'restraint')).toBe(1);
         for (const purpose of ['manufactorum', 'medicae', 'armoury', 'barracks', 'command', 'interrogation', 'mess', 'chapel'] as const) {
             expectOrderly(room(purpose), furnish(room(purpose)));
+        }
+    });
+
+    const GUEST: RoomFloor = {
+        key: 'guest',
+        purpose: 'bedroom',
+        rect: { x: 0, y: 0, w: 4, h: 4 },
+        doors: [{ side: 'bottom', at: 1 }],
+        outer: ['top'],
+        entrance: null,
+    };
+    const bed = byKey.get('test:bed');
+    if (!bed) {
+        throw new Error('fixture bed');
+    }
+
+    it('keeps pieces that name another kind of room out of a room, unless nothing else fills the role', () => {
+        const medicae: RoleStamp = { ...bed, key: 'test:medicae-bed', purposes: ['medicae'] };
+        const beds = (list: readonly RoleStamp[], where: RoomFloor): string[] =>
+            furnishRoom(where, new Map([...TEST_ROLES, ['bed', list]]), seededRandom(1))
+                .stamps.filter((p) => p.stamp.endsWith('bed'))
+                .map((p) => p.stamp);
+        for (const seed of [1, 2, 3]) {
+            const placed = furnishRoom(GUEST, new Map([...TEST_ROLES, ['bed', [medicae, bed]]]), seededRandom(seed)).stamps;
+            expect(placed.filter((p) => p.stamp.endsWith('bed')).map((p) => p.stamp)).toEqual(['test:bed']);
+        }
+        // A medicae bed in a guest room when it is the only bed there is; a cell takes its own bunk over a medicae bed.
+        expect(beds([medicae], GUEST)).toEqual(['test:medicae-bed']);
+        const bunk: RoleStamp = { ...bed, key: 'test:cell-bed', purposes: ['cell'] };
+        expect(beds([medicae, bunk], { ...GUEST, purpose: 'cell' })).toEqual(['test:cell-bed']);
+    });
+
+    it('stacks a store’s rows from its large pieces, varied, and stands piles drawn with depth by any wall as drawn', () => {
+        const piece = (id: string, width: number, height: number, upright = false): RoleStamp => ({
+            ...bed,
+            key: `test:${id}`,
+            role: 'storage',
+            width,
+            height,
+            turn: 0,
+            upright,
+            against: 'free',
+        });
+        const stores = [piece('crates', 1.2, 1.2), piece('barrels', 0.9, 1.2, true), piece('sacks', 1, 0.8, true), piece('keg', 0.3, 0.4, true)];
+        const cellar: RoomFloor = {
+            key: 'cellar',
+            purpose: 'storage',
+            rect: { x: 0, y: 0, w: 9, h: 9 },
+            doors: [{ side: 'top', at: 4 }],
+            outer: [],
+            entrance: null,
+        };
+        const placed = furnishRoom(cellar, new Map([...TEST_ROLES, ['storage', stores]]), seededRandom(4)).stamps;
+        // The rows: away from every wall, more than one kind, never the keg too small to read as a stack.
+        const rows = placed.filter((p) => p.x > 2 && p.x < 7 && p.y > 2 && p.y < 7 && p.stamp !== 'test:seat');
+        const kinds = new Set(rows.map((p) => p.stamp).filter((k) => stores.some((s) => s.key === k)));
+        expect(kinds.size).toBeGreaterThan(1);
+        expect(kinds.has('test:keg')).toBe(false);
+        // Piles drawn with depth line the side and bottom walls too, unturned.
+        const piles = placed.filter((p) => ['test:barrels', 'test:sacks', 'test:keg'].includes(p.stamp));
+        expect(piles.every((p) => p.rotation === 0)).toBe(true);
+        expect(piles.some((p) => p.x < 1.5 || p.x > 7.5 || p.y > 7.5)).toBe(true);
+    });
+
+    it('stands a long table in for a missing work surface, never a round one', () => {
+        const round: RoleStamp = { ...bed, key: 'test:round-table', role: 'table', width: 1, height: 1, turn: 0, against: 'free' };
+        const long = byKey.get('test:table');
+        if (!long) {
+            throw new Error('fixture table');
+        }
+        const kitchen: RoomFloor = { ...GUEST, key: 'kitchen', purpose: 'kitchen', rect: { x: 0, y: 0, w: 6, h: 5 } };
+        const roles = new Map([...TEST_ROLES].filter(([role]) => role !== 'workbench'));
+        roles.set('table', [round, long]);
+        for (const seed of [1, 2, 3]) {
+            const tables = furnishRoom(kitchen, roles, seededRandom(seed)).stamps.filter((p) => p.stamp.endsWith('table'));
+            expect(tables.length).toBeGreaterThan(0);
+            expect(tables.every((p) => p.stamp === 'test:table')).toBe(true);
         }
     });
 });

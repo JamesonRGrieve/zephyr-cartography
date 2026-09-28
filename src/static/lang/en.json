@@ -35,7 +35,8 @@
                 "HiveOutpost": "A fortified outpost in a shelled hive district",
                 "HiveChapel": "A hive chapel and its vestry",
                 "Manufactorum": "A manufactorum floor and its workers' quarters",
-                "VoidPort": "A void port landing field"
+                "VoidPort": "A void port landing field",
+                "RoadsideInn": "A roadside inn, with guest rooms, a cellar and a bridge"
             },
             "Intent": "Map intent (JSON)",
             "ComposeMap": "Compose",
@@ -57,7 +58,17 @@
                 "RoomsDoNotFit": "{building}: its rooms do not fit a {width} × {height} footprint, so it was left out.",
                 "NotBeside": "{building}: {room} could not be put beside {other}, so they are joined through other rooms.",
                 "NoStamp": "{wantedIn}: no loaded stamp is a {role}, so none was placed.",
-                "NoStairwell": "{building}: its floors could not share a place for a stair, so they are not joined."
+                "NoStairwell": "{building}: its floors could not share a place for a stair, so they are not joined.",
+                "Borrowed": "{wantedIn}: the map's settings have no way between levels, so {used} was borrowed from another setting.",
+                "StandIn": "{wantedIn}: no loaded stamp is {wanted}, so {used} stands in.",
+                "BorrowedArt": "{wantedIn}: the map's settings have no {role}, so one was borrowed from another setting."
+            },
+            "Access": {
+                "Stairs": "a staircase",
+                "Ladder": "a ladder",
+                "Lift": "a lift",
+                "Hatch": "a hatch",
+                "StormDoor": "storm doors"
             },
             "FloorPlan": "Floor plan",
             "Seed": "Seed",

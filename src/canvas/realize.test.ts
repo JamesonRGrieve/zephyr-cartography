@@ -215,7 +215,7 @@ describe('realizeSpec', () => {
         expect(h.w.settings).toEqual([scene]);
     });
 
-    it('takes the scene’s own lowest floor as an existing first level, stacking the rest above it', async () => {
+    it('takes the scene’s own lowest floor as an existing level, stacking those after it above and those before it below', async () => {
         const h = makeHarness();
         const own = await h.c.addLevel('above', 'Level 1');
         h.c.setActiveLevel(null);
@@ -223,6 +223,8 @@ describe('realizeSpec', () => {
             h.c,
             spec({
                 levels: [
+                    { key: 'cellar-2', name: 'Crypt' },
+                    { key: 'cellar-1', name: 'Cellar' },
                     { key: 'ground', name: 'Ground floor', existing: true },
                     { key: 'upper', name: 'Upper floor' },
                 ],
@@ -230,14 +232,31 @@ describe('realizeSpec', () => {
             }),
             { origin: ORIGIN, gridSize: GRID },
         );
-        expect(Object.keys(report.levels)).toEqual(['ground', 'upper']);
         expect(report.levels['ground']).toBe(own);
-        expect(h.c.levels.map((l) => l.name)).toEqual(['Ground floor', 'Upper floor']);
+        // Bottom to top, the scene's own floor where it was, the cellars under it.
+        expect(h.c.levels.map((l) => l.name)).toEqual(['Crypt', 'Cellar', 'Ground floor', 'Upper floor']);
+        const ground = h.c.levels.find((l) => l.name === 'Ground floor');
+        const cellar = h.c.levels.find((l) => l.name === 'Cellar');
+        expect(cellar?.top).toBe(ground?.bottom);
+        // A scene with no levels of its own adds the ground floor first, then the cellar under it.
+        const bare = makeHarness();
+        await realizeSpec(
+            bare.c,
+            spec({
+                levels: [
+                    { key: 'cellar-1', name: 'Cellar' },
+                    { key: 'ground', name: 'Ground floor', existing: true },
+                ],
+                features: [],
+            }),
+            { origin: ORIGIN, gridSize: GRID },
+        );
+        expect(bare.c.levels.map((l) => l.name)).toEqual(['Cellar', 'Ground floor']);
         expect(
             parseSceneSpec({
                 schemaVersion: 1,
                 levels: [
-                    { key: 'a', name: 'A' },
+                    { key: 'a', name: 'A', existing: true },
                     { key: 'b', name: 'B', existing: true },
                 ],
                 features: [],

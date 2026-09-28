@@ -19,7 +19,7 @@ import type { Point } from '../geometry/spline';
 import type { StampHabitat, StampRole } from '../stamps/schema';
 import type { BiomeKind } from '../tools/biome';
 import { detour, grown } from './detour';
-import type { Anchor, Density, Edge, MapIntent, PathIntent, ZoneIntent, ZoneKind } from './intent';
+import type { Anchor, Density, Edge, MapIntent, PathIntent, PropIntent, ZoneIntent, ZoneKind } from './intent';
 import type { PlacedDoor } from './layout';
 import { noiseField, type NoiseField } from './noise';
 import { narrowed, type Preferences, zonePlace } from './preferences';
@@ -29,11 +29,14 @@ import { poissonDisc } from './scatter';
 
 type FeatureInput = SceneSpecInput['features'][number];
 
-/** A building as the outdoors sees it: where it stands, and its front door. */
+/** A building as the outdoors sees it: where it stands, its front door, and what it has outside its walls (a storm door's areaway). */
 export interface Site {
     readonly key: string | undefined;
     readonly footprint: Rect;
     readonly front: PlacedDoor | null;
+    readonly annexes: readonly Rect[];
+    /** A working yard round it: stores against its walls, a cart standing by. */
+    readonly yard: boolean;
 }
 
 /** How far the ground reaches past the map's edges, in squares, so no edge shows bare. */
@@ -50,6 +53,7 @@ const ZONE_GROUND: Readonly<Record<ZoneKind, BiomeKind>> = {
     industrial: 'rock',
     fortified: 'dirt',
     landing: 'rock',
+    lake: 'water',
 };
 
 /**
@@ -118,6 +122,8 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         { role: 'storage', spread: 5, clumping: 0.7 },
         { role: 'structure', spread: 4, clumping: 0.2 },
     ],
+    // Open water: nothing stands in it; its shore is dressed instead.
+    lake: [],
 };
 
 /** Every role a zone of `kind` is dressed with. */
@@ -131,7 +137,7 @@ const LAND_ROLES: readonly StampRole[] = ['tree', 'shrub', 'rock', 'log', 'flora
  * a building. Land's canopies and litter may overlap, and a crater is a scar
  * in the ground: works stand at its lip and a road can be shelled.
  */
-const SOLID_ROLES: readonly StampRole[] = ['structure', 'vehicle', 'emplacement', 'barricade', 'storage'];
+const SOLID_ROLES: readonly StampRole[] = ['structure', 'vehicle', 'emplacement', 'barricade', 'storage', 'well'];
 
 /** The ground each zone's pieces belong on: a wood takes forest rocks, never stalagmites. */
 const ZONE_HABITATS: Readonly<Record<ZoneKind, readonly StampHabitat[]>> = {
@@ -145,6 +151,7 @@ const ZONE_HABITATS: Readonly<Record<ZoneKind, readonly StampHabitat[]>> = {
     industrial: ['urban'],
     fortified: ['ruin', 'urban', 'rocky'],
     landing: ['urban'],
+    lake: ['marsh'],
 };
 
 /** Rocks along a riverbank: any that belong outdoors on open ground. */
@@ -167,6 +174,12 @@ const DENSITY_SPACING: Readonly<Record<Density, number>> = { sparse: 1.6, normal
 
 /** Squares over which a zone thins out towards its edge. */
 const EDGE_FADE = 2.5;
+
+/** How much of its reach a canopy may spread over open water: a little overhang at the shore, not a lid on the lake. */
+const WATER_OVERHANG = 0.5;
+
+/** The ground under open water, showing through it as a riverbed does. */
+const LAKE_BED: BiomeKind = 'dirt';
 
 /** Squares of clear ground kept round buildings, and beside roads and rivers. */
 const BUILDING_MARGIN = 1.5;
@@ -212,6 +225,7 @@ const WORN = { spacing: 6, chance: 0.45, radius: [0.5, 1.1] as const, steps: 3, 
 
 const QUARTER = 0.25;
 const FULL_TURN = 360;
+const QUARTER_TURN = 90;
 
 type Size = Pick<MapIntent, 'width' | 'height'>;
 
@@ -260,8 +274,8 @@ function stripOutline(side: Edge, depth: number, size: Size, noise: NoiseField):
     return [at(-m, -m), ...inner, at(along + m, -m)];
 }
 
-/** Where a path's end lies: just past a map edge, at a point, or before a building's front door. */
-function anchorPoint(anchor: Anchor, size: Size, sites: readonly Site[], random: Random): Point {
+/** Where a path's end lies: just past a map edge, at a point, or before a building's front door; null for a zone, which depends on the other end. */
+function fixedPoint(anchor: Anchor, size: Size, sites: readonly Site[], random: Random): Point | null {
     if (typeof anchor === 'string') {
         const f = EDGE_SPAN[0] + random() * (EDGE_SPAN[1] - EDGE_SPAN[0]);
         const along = anchor === 'north' || anchor === 'south' ? size.width : size.height;
@@ -272,7 +286,34 @@ function anchorPoint(anchor: Anchor, size: Size, sites: readonly Site[], random:
         const site = sites.find((s) => s.key === anchor.building);
         return site ? frontStep(site) : { x: size.width / 2, y: size.height / 2 };
     }
+    if ('zone' in anchor) {
+        return null;
+    }
     return { x: anchor.x, y: anchor.y };
+}
+
+/** Squares inside a zone's edge a path from it starts: a river runs out of the lake, not from its shore. */
+const ZONE_END_INSET = 1;
+
+/** A zone end: the point of its outline nearest `toward`, a little inside it. */
+function zoneEnd(outline: readonly Point[], toward: Point): Point {
+    const centre = centreOf(outline);
+    const nearest = outline.reduce((best, p) => (Math.hypot(p.x - toward.x, p.y - toward.y) < Math.hypot(best.x - toward.x, best.y - toward.y) ? p : best));
+    const span = Math.hypot(centre.x - nearest.x, centre.y - nearest.y) || 1;
+    return { x: nearest.x + ((centre.x - nearest.x) / span) * ZONE_END_INSET, y: nearest.y + ((centre.y - nearest.y) / span) * ZONE_END_INSET };
+}
+
+/** Both ends of `path`: its fixed ends first, then any at a zone, at the edge nearest the other end. */
+function pathEnds(path: PathIntent, size: Size, sites: readonly Site[], zones: ReadonlyMap<string, readonly Point[]>, random: Random): [Point, Point] {
+    const middle = { x: size.width / 2, y: size.height / 2 };
+    const outlineOf = (anchor: Anchor): readonly Point[] | undefined => (typeof anchor === 'object' && 'zone' in anchor ? zones.get(anchor.zone) : undefined);
+    const fixedFrom = fixedPoint(path.from, size, sites, random);
+    const fixedTo = fixedPoint(path.to, size, sites, random);
+    const fromOutline = outlineOf(path.from);
+    const toOutline = outlineOf(path.to);
+    const from = fixedFrom ?? (fromOutline ? zoneEnd(fromOutline, fixedTo ?? (toOutline ? centreOf(toOutline) : middle)) : middle);
+    const to = fixedTo ?? (toOutline ? zoneEnd(toOutline, from) : middle);
+    return [from, to];
 }
 
 /** The ground `out` squares outside each side of a footprint, `at` along it. */
@@ -332,7 +373,18 @@ const reaches = (path: PathIntent, site: Site): boolean =>
  * ends, stays outside.
  */
 function aroundSite(site: Site, path: PathIntent, halfWidth: number): Rect {
-    return grown(site.footprint, reaches(path, site) ? BUILDING_MARGIN / 2 : halfWidth + SETBACK[path.kind]);
+    return grown(siteBounds(site), reaches(path, site) ? BUILDING_MARGIN / 2 : halfWidth + SETBACK[path.kind]);
+}
+
+/** What a building covers outside: its footprint and its annexes. */
+const siteRects = (site: Site): readonly Rect[] => [site.footprint, ...site.annexes];
+
+/** The box round everything a building covers. */
+function siteBounds(site: Site): Rect {
+    const rects = siteRects(site);
+    const x = Math.min(...rects.map((r) => r.x));
+    const y = Math.min(...rects.map((r) => r.y));
+    return { x, y, w: Math.max(...rects.map((r) => r.x + r.w)) - x, h: Math.max(...rects.map((r) => r.y + r.h)) - y };
 }
 
 interface LaidPath {
@@ -347,6 +399,10 @@ interface Keepout {
     readonly sites: readonly Site[];
     readonly paths: readonly LaidPath[];
     readonly clearings: readonly (readonly number[])[];
+    /** Open water (lakes): nothing stands in it, and a canopy reaches only a little over it. */
+    readonly waters: readonly (readonly Point[])[];
+    /** Pieces the intent stood outside (a well), kept clear by everything scattered after them. */
+    readonly props: readonly Standing[];
 }
 
 /** Whether nothing of `role` may stand at `p`; `reach` is how far (squares) what stands there spreads round it. */
@@ -363,10 +419,16 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
     }
     // A tree's canopy must not spread over a building, which the map shows open to the sky, however far off its trunk.
     const m = BUILDING_MARGIN + reach;
-    if (keepout.sites.some(({ footprint: f }) => p.x > f.x - m && p.x < f.x + f.w + m && p.y > f.y - m && p.y < f.y + f.h + m)) {
+    const near = (f: Rect): boolean => p.x > f.x - m && p.x < f.x + f.w + m && p.y > f.y - m && p.y < f.y + f.h + m;
+    if (keepout.sites.some((site) => siteRects(site).some(near))) {
         return true;
     }
     if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + onPaths)) {
+        return true;
+    }
+    const wet = (outline: readonly Point[]): boolean =>
+        pointInPolygon(p, flat(outline)) || distanceToPolyline(p, [...outline, ...outline.slice(0, 1)]) < reach * WATER_OVERHANG;
+    if (keepout.waters.some(wet) || keepout.props.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + reach)) {
         return true;
     }
     return CLEARED.includes(role) && keepout.clearings.some((outline) => pointInPolygon(p, outline));
@@ -409,15 +471,15 @@ function dress(
     const bounds: Rect = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
     const size = typicalSize(choices);
     const spacing = dressing.spread * size * DENSITY_SPACING[zone.density];
+    const inZone = (p: Point): boolean => pointInPolygon(p, polygon) && !blocked(p, dressing.role, keepout, size / 2);
     const accept = (p: Point): boolean =>
-        pointInPolygon(p, polygon) &&
-        !blocked(p, dressing.role, keepout, size / 2) &&
+        inZone(p) &&
         // Clumped: where the noise is low, fewer stand.
         clump(p.x, p.y) >= dressing.clumping * random() &&
         // Thinning towards the zone's edge.
         Math.min(1, depthInside(p, outline) / EDGE_FADE) >= random() * QUARTER * 2;
     const solid = SOLID_ROLES.includes(dressing.role);
-    return poissonDisc(bounds, spacing, accept, random).flatMap((p) => {
+    const stand = (p: Point): FeatureInput[] => {
         const stamp = pick(random, choices);
         if (!stamp) {
             return [];
@@ -432,7 +494,10 @@ function dress(
         }
         // Drawn side-on, it stands as drawn; seen from above, any way round.
         return [{ type: 'stamp' as const, stamp: stamp.key, x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) }];
-    });
+    };
+    const placed = poissonDisc(bounds, spacing, accept, random).flatMap(stand);
+    // Clumping and thinning can leave a zone without any of its pieces (a camp with no tents): then it is dressed again evenly.
+    return placed.length > 0 ? placed : poissonDisc(bounds, spacing, inZone, random).flatMap(stand);
 }
 
 /** Squares a perimeter piece stands inside the zone's edge, beyond half its own depth. */
@@ -511,8 +576,9 @@ function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, 
                 const span = Math.hypot(b.x - a.x, b.y - a.y) || 1;
                 const ux = (b.x - a.x) / span;
                 const uy = (b.y - a.y) / span;
-                for (let t = 0; t < span; t += BANK.step) {
-                    const aside = (river.halfWidth + BANK.offset) * (random() < QUARTER * 2 ? 1 : -1);
+                // Uneven steps and a wandering distance from the water: strewn along the bank, never a row.
+                for (let t = random() * BANK.step; t < span; t += BANK.step * (QUARTER * 2 + random())) {
+                    const aside = (river.halfWidth + BANK.offset * (QUARTER * 2 + random() * 2)) * (random() < QUARTER * 2 ? 1 : -1);
                     const p = { x: a.x + ux * t - uy * aside, y: a.y + uy * t + ux * aside };
                     const stamp = pick(random, rocks);
                     const clearOfBuildings = !blocked(p, 'rock', { ...keepout, paths: [] });
@@ -526,9 +592,364 @@ function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, 
         });
 }
 
-/** Bare, worn patches of earth in woods and meadows. */
+/** A lake's shore: reeds and rocks every few squares just outside its edge. */
+const SHORE = { step: 1.6, chance: 0.55, offset: 0.4, reeds: 0.6 } as const;
+
+/** Reeds and rocks round a lake's `outline`, on dry land clear of paths and buildings. */
+function shore(outline: readonly Point[], keepout: Keepout, stamps: RoleIndex, random: Random): FeatureInput[] {
+    const reeds = inHabitat(stamps, 'flora', ['marsh']);
+    const rocks = inHabitat(stamps, 'rock', BANK_HABITATS);
+    const centre = centreOf(outline);
+    const out: FeatureInput[] = [];
+    [...outline, ...outline.slice(0, 1)].reduce((a, b) => {
+        const span = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        for (let t = 0; t < span; t += SHORE.step) {
+            const edge = { x: a.x + ((b.x - a.x) * t) / span, y: a.y + ((b.y - a.y) * t) / span };
+            const away = Math.hypot(edge.x - centre.x, edge.y - centre.y) || 1;
+            const p = { x: edge.x + ((edge.x - centre.x) / away) * SHORE.offset, y: edge.y + ((edge.y - centre.y) / away) * SHORE.offset };
+            const role = random() < SHORE.reeds ? 'flora' : 'rock';
+            const stamp = pick(random, role === 'flora' ? reeds : rocks);
+            if (stamp && random() < SHORE.chance && !blocked(p, role, keepout)) {
+                out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) });
+            }
+        }
+        return b;
+    });
+    return out;
+}
+
+/** Squares off a road's edge a waymark stands. */
+const WAYMARK_GAP = 0.5;
+
+/**
+ * A waymark (a milestone, a wayside post) at each turn-off: where a road
+ * leading to a building starts on another road, stood at the corner between
+ * them, off both.
+ */
+function waymarks(paths: readonly LaidPath[], leads: readonly boolean[], stamps: RoleIndex, keepout: Keepout, random: Random): FeatureInput[] {
+    const marks = stamps.get('waymark') ?? [];
+    return paths.flatMap((spur, i) => {
+        const [start, next] = spur.points;
+        const stamp = pick(random, marks);
+        if (leads[i] !== true || !start || !next || !stamp || spur.kind !== 'road') {
+            return [];
+        }
+        const main = paths.find((p, j) => j !== i && p.kind === 'road' && distanceToPolyline(start, p.points) <= p.halfWidth + WAYMARK_GAP);
+        if (!main) {
+            return [];
+        }
+        const span = Math.hypot(next.x - start.x, next.y - start.y) || 1;
+        const along = { x: (next.x - start.x) / span, y: (next.y - start.y) / span };
+        // Out along the spur past the main road's edge, then aside off the spur's own.
+        const out = main.halfWidth + WAYMARK_GAP;
+        const aside = spur.halfWidth + WAYMARK_GAP;
+        const spots = [1, -1].map((side) => ({ x: start.x + along.x * out - along.y * aside * side, y: start.y + along.y * out + along.x * aside * side }));
+        const spot = spots.find((p) => !keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + WAYMARK_GAP / 2));
+        return spot ? [{ type: 'stamp' as const, stamp: stamp.key, x: spot.x, y: spot.y, rotation: squareTurn(stamp, random) }] : [];
+    });
+}
+
+/** Squares within which two crossings are the same one. */
+const SAME_CROSSING = 0.5;
+
+/** Where two polylines cross, with the first one's direction there (a unit vector). */
+function crossings(first: readonly Point[], second: readonly Point[]): { at: Point; along: Point }[] {
+    const found: { at: Point; along: Point }[] = [];
+    for (let i = 1; i < first.length; i++) {
+        const a = first[i - 1];
+        const b = first[i];
+        for (let j = 1; a && b && j < second.length; j++) {
+            const c = second[j - 1];
+            const d = second[j];
+            const hit = c && d ? segmentsCross(a, b, c, d) : null;
+            // A crossing on a bend point touches the segments either side of it: it is one crossing.
+            if (hit && !found.some((f) => Math.hypot(f.at.x - hit.x, f.at.y - hit.y) < SAME_CROSSING)) {
+                const span = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+                found.push({ at: hit, along: { x: (b.x - a.x) / span, y: (b.y - a.y) / span } });
+            }
+        }
+    }
+    return found;
+}
+
+/** Where segment `a`–`b` crosses `c`–`d`, or null. */
+function segmentsCross(a: Point, b: Point, c: Point, d: Point): Point | null {
+    const r = { x: b.x - a.x, y: b.y - a.y };
+    const s = { x: d.x - c.x, y: d.y - c.y };
+    const denominator = r.x * s.y - r.y * s.x;
+    if (denominator === 0) {
+        return null;
+    }
+    const t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / denominator;
+    const u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / denominator;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? { x: a.x + r.x * t, y: a.y + r.y * t } : null;
+}
+
+/** Degrees off square an upright bridge (drawn with depth, never turned) may lie from the road and still carry it. */
+const UPRIGHT_BRIDGE_SLACK = 20;
+
+/** The rotation that lays `stamp` along a road running `along`, or null when it would need a turn it cannot take. */
+function bridgeRotation(stamp: RoleStamp, along: Point): number | null {
+    const road = (Math.atan2(along.y, along.x) * (FULL_TURN / 2)) / Math.PI;
+    // Its long side carries the road.
+    const lengthwise = stamp.width >= stamp.height ? 0 : QUARTER_TURN;
+    const rotation = ((Math.round(road + lengthwise + stamp.turn) % FULL_TURN) + FULL_TURN) % FULL_TURN;
+    if (!stamp.upright) {
+        return rotation;
+    }
+    const off = rotation % (FULL_TURN / 2);
+    return Math.min(off, FULL_TURN / 2 - off) <= UPRIGHT_BRIDGE_SLACK ? 0 : null;
+}
+
+/** A bridge wherever a road crosses a river, laid along the road; a problem when a road needs one and no stamp is a bridge. */
+function bridges(paths: readonly LaidPath[], stamps: RoleIndex, random: Random): { features: FeatureInput[]; problems: ComposeProblem[] } {
+    const choices = stamps.get('bridge') ?? [];
+    const features: FeatureInput[] = [];
+    const problems: ComposeProblem[] = [];
+    for (const road of paths.filter((p) => p.kind === 'road')) {
+        for (const river of paths.filter((p) => p.kind === 'river')) {
+            for (const { at, along } of crossings(road.points, river.points)) {
+                const fits = choices.flatMap((stamp) => {
+                    const rotation = bridgeRotation(stamp, along);
+                    return rotation === null ? [] : [{ stamp, rotation }];
+                });
+                const chosen = pick(random, fits);
+                if (chosen) {
+                    features.push({ type: 'stamp', stamp: chosen.stamp.key, x: at.x, y: at.y, rotation: chosen.rotation });
+                } else {
+                    problems.push({ kind: 'no-stamp', role: 'bridge', wantedIn: 'road' });
+                }
+            }
+        }
+    }
+    return { features, problems };
+}
+
+/** Squares between a yard piece's footprint and the building's margin. */
+const PROP_GAP = 0.3;
+
+/** Squares between the spots along a wall a yard piece is tried at. */
+const PROP_STEP = 0.5;
+
+/** Each map edge as the side of a footprint facing it. */
+const EDGE_SIDE: Readonly<Record<Edge, Side>> = { north: 'top', east: 'right', south: 'bottom', west: 'left' };
+
+/** Each side of a footprint as the map edge it faces. */
+const SIDE_EDGE: Readonly<Record<Side, Edge>> = { top: 'north', right: 'east', bottom: 'south', left: 'west' };
+
+const OPPOSITE_SIDE: Readonly<Record<Side, Side>> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+
+/** Where `stamp` could stand in the yard beside `site`: clear of its margin, off paths and other pieces, nearest the middle of a side first. */
+function yardSpot(site: Site, side: Edge | undefined, stamp: RoleStamp, keepout: Keepout, standing: readonly Standing[]): Point | null {
+    // Out past everything the building has outside too: a well stands beyond the porch, not on it.
+    const f = siteBounds(site);
+    const r = footprintRadius(stamp);
+    const front = site.front?.slot.side;
+    const all: readonly Side[] = ['bottom', 'right', 'top', 'left'];
+    const sides = side ? [EDGE_SIDE[side]] : [...(front ? [front] : []), ...all.filter((s) => s !== front)];
+    for (const each of sides) {
+        const [lo, hi] = each === 'top' || each === 'bottom' ? [f.x, f.x + f.w - 1] : [f.y, f.y + f.h - 1];
+        const middle = (lo + hi) / 2;
+        const spots: number[] = [];
+        for (let at = lo; at <= hi; at += PROP_STEP) {
+            spots.push(at);
+        }
+        spots.sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle));
+        for (const at of spots) {
+            const p = OUTSIDE[each](f, at, BUILDING_MARGIN + r + PROP_GAP);
+            const { map } = keepout;
+            const onMap = p.x - r >= map.x && p.y - r >= map.y && p.x + r <= map.x + map.w && p.y + r <= map.y + map.h;
+            if (onMap && !blocked(p, 'well', keepout, r, r) && !standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
+                return p;
+            }
+        }
+    }
+    return null;
+}
+
+/** The intent's props: each stood at its point, or in the yard beside its building, kept clear by what is scattered after. */
+function placeProps(
+    props: readonly PropIntent[],
+    sites: readonly Site[],
+    stamps: RoleIndex,
+    keepout: Keepout,
+    placed: Standing[],
+    random: Random,
+): { features: FeatureInput[]; problems: ComposeProblem[] } {
+    const features: FeatureInput[] = [];
+    const problems: ComposeProblem[] = [];
+    for (const prop of props) {
+        const stamp = pick(random, stamps.get(prop.role) ?? []);
+        if (!stamp) {
+            problems.push({ kind: 'no-stamp', role: prop.role, wantedIn: 'beside' in prop ? prop.beside.building : 'outside' });
+            continue;
+        }
+        const site = 'beside' in prop ? sites.find((s) => s.key === prop.beside.building) : undefined;
+        const p = 'at' in prop ? prop.at : site ? yardSpot(site, prop.beside.side, stamp, keepout, placed) : null;
+        if (p) {
+            placed.push({ x: p.x, y: p.y, r: footprintRadius(stamp) });
+            features.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
+        }
+    }
+    return { features, problems };
+}
+
+/** How far (squares) a yard's trodden earth reaches round its building, and what it is drawn in. */
+const YARD_EARTH = 1.5;
+const YARD_GROUND = 'floor.packed-dirt';
+
+/**
+ * A trodden yard's edge round `rect`: a rounded rectangle (a superellipse of
+ * `roundness`), wandering in and out by smooth noise as ground worn by use
+ * does, `points` round.
+ */
+const YARD_EDGE = { points: 64, roundness: 5, wander: 0.18, scale: 2.5 } as const;
+
+function yardEdge(rect: Rect, random: Random): Point[] {
+    const noise = noiseField(random, EDGE_SCALE);
+    const centre = { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+    const exponent = 2 / YARD_EDGE.roundness;
+    return Array.from({ length: YARD_EDGE.points }, (_, i) => {
+        const a = (i / YARD_EDGE.points) * 2 * Math.PI;
+        const cos = Math.cos(a);
+        const sin = Math.sin(a);
+        const reach = 1 + YARD_EDGE.wander * (noise(cos * YARD_EDGE.scale, sin * YARD_EDGE.scale) * 2 - 1);
+        return {
+            x: centre.x + Math.sign(cos) * Math.abs(cos) ** exponent * (rect.w / 2) * reach,
+            y: centre.y + Math.sign(sin) * Math.abs(sin) ** exponent * (rect.h / 2) * reach,
+        };
+    });
+}
+
+/** Squares out past a yard's building and its stores that an enclosure stands, and fodder stands beside it. */
+const PEN_OUT = 2;
+
+/**
+ * A yard's enclosure for animals (a pen, a corral) out on the first of
+ * `sides` with room for it, clear of the building, its stores' strip and
+ * everything else; its fodder stacked at its side.
+ */
+function penOf(site: Site, sides: readonly Side[], stamps: RoleIndex, keepout: Keepout, standing: Standing[], random: Random): FeatureInput[] {
+    const pen = pick(random, stamps.get('enclosure') ?? []);
+    if (!pen) {
+        return [];
+    }
+    // Out beyond the stores along the wall: stand it as if the building reached this far.
+    const widened = { ...site, front: null, footprint: grown(site.footprint, PEN_OUT) };
+    const spot = sides.reduce<Point | null>((found, side) => found ?? yardSpot(widened, SIDE_EDGE[side], pen, keepout, standing), null);
+    if (!spot) {
+        return [];
+    }
+    const r = footprintRadius(pen);
+    standing.push({ x: spot.x, y: spot.y, r });
+    const out: FeatureInput[] = [{ type: 'stamp', stamp: pen.key, x: spot.x, y: spot.y, rotation: squareTurn(pen, random) }];
+    const fodder = pick(random, stamps.get('fodder') ?? []);
+    if (fodder) {
+        const fr = footprintRadius(fodder);
+        // Beside the pen, along whichever side is clear.
+        const beside = [0, 1, 2, 3]
+            .map((q) => ({ x: spot.x + Math.cos((q * Math.PI) / 2) * (r + fr), y: spot.y + Math.sin((q * Math.PI) / 2) * (r + fr) }))
+            .find((p) => !blocked(p, 'fodder', keepout, fr, fr) && !standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + fr));
+        if (beside) {
+            standing.push({ x: beside.x, y: beside.y, r: fr });
+            out.push({ type: 'stamp', stamp: fodder.key, x: beside.x, y: beside.y, rotation: squareTurn(fodder, random) });
+        }
+    }
+    return out;
+}
+
+/** A turn for a piece stood outside: drawn side-on, it stands as drawn; seen from above, a square turn of any. */
+function squareTurn(stamp: RoleStamp, random: Random): number {
+    return stamp.upright ? 0 : Math.floor(random() * (FULL_TURN / QUARTER_TURN)) * QUARTER_TURN;
+}
+
+/**
+ * A yard's stores along a wall: a clump by `chance` where one may start (else
+ * `step` squares on), of two to `group` pieces `gap` off the wall, each after
+ * the first standing a rank out before the last by `ranked`; `space` squares
+ * of open wall (between its bounds) after each clump.
+ */
+const YARD = { step: 2.5, chance: 0.65, group: 3, gap: 0.1, ranked: 0.4, space: [1.5, 3.5] } as const;
+
+/**
+ * Stores stacked against a building's outside walls (all but its front) in
+ * groups, clear of its annexes (a porch, an areaway), paths, water and one
+ * another; and a cart or wagon standing by in the yard.
+ */
+function yardOf(site: Site, stamps: RoleIndex, keepout: Keepout, standing: Standing[], random: Random): FeatureInput[] {
+    const stores = stamps.get('storage') ?? [];
+    const f = site.footprint;
+    const front = site.front?.slot.side;
+    const out: FeatureInput[] = [];
+    const clear = (p: Point, r: number): boolean =>
+        p.x - r >= keepout.map.x &&
+        p.y - r >= keepout.map.y &&
+        p.x + r <= keepout.map.x + keepout.map.w &&
+        p.y + r <= keepout.map.y + keepout.map.h &&
+        !site.annexes.some((a) => p.x + r > a.x && p.x - r < a.x + a.w && p.y + r > a.y && p.y - r < a.y + a.h) &&
+        !keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + r) &&
+        !keepout.waters.some((w) => pointInPolygon(p, flat(w))) &&
+        ![...standing, ...keepout.props].some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r);
+    // The yard is behind the building and round one side of it: its back, and a side beside the back, never the front.
+    const back = OPPOSITE_SIDE[front ?? 'bottom'];
+    const flanks = (['top', 'right', 'bottom', 'left'] as const).filter((s) => s !== front && s !== back);
+    const flank = pick(random, flanks);
+    // The cart stands in the yard behind first, the largest piece, the stores clumped round it; with no room there, beside
+    // the building. A yard's is the smallest craft: a cart, not a freighter.
+    const cart = [...(stamps.get('vehicle') ?? [])].sort((a, b) => a.width * a.height - b.width * b.height)[0];
+    const unfronted = { ...site, front: null };
+    // Behind, else beside it on the yard's side, else on the other side: anywhere but before the front door.
+    const spot =
+        cart &&
+        [back, ...(flank ? [flank] : []), ...flanks.filter((s) => s !== flank)].reduce<Point | null>(
+            (found, side) => found ?? yardSpot(unfronted, SIDE_EDGE[side], cart, keepout, standing),
+            null,
+        );
+    if (cart && spot) {
+        standing.push({ x: spot.x, y: spot.y, r: footprintRadius(cart) });
+        out.push({ type: 'stamp', stamp: cart.key, x: spot.x, y: spot.y, rotation: squareTurn(cart, random) });
+    }
+    out.push(...penOf(site, flank ? [flank, back] : [back], stamps, keepout, standing, random));
+    for (const side of flank ? [back, flank] : [back]) {
+        const [lo, hi] = side === 'top' || side === 'bottom' ? [f.x, f.x + f.w] : [f.y, f.y + f.h];
+        // Clumps with open wall between them, never one unbroken line: each two or three pieces, some stacked a rank out.
+        let at = lo + random() * YARD.step;
+        while (at < hi) {
+            if (random() >= YARD.chance) {
+                at += YARD.step;
+                continue;
+            }
+            const size = 2 + Math.floor(random() * (YARD.group - 1));
+            let along = at;
+            let reach = at;
+            for (let n = 0; n < size && along < hi; n++) {
+                const stamp = pick(random, stores);
+                if (!stamp) {
+                    break;
+                }
+                const r = Math.max(stamp.width, stamp.height) / 2;
+                // After the first, a piece may stand before the last, a rank out from the wall, rather than beside it.
+                const ranked = n > 0 && random() < YARD.ranked;
+                const p = OUTSIDE[side](f, (ranked ? along - 2 * r : along) + r - 0.5, r + YARD.gap + (ranked ? 2 * r : 0));
+                if (clear(p, r * 0.9)) {
+                    standing.push({ x: p.x, y: p.y, r });
+                    out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
+                }
+                if (!ranked) {
+                    along += 2 * r;
+                }
+                reach = Math.max(reach, along);
+            }
+            at = reach + YARD.space[0] + random() * (YARD.space[1] - YARD.space[0]);
+        }
+    }
+    return out;
+}
+
+/** Bare, worn patches of earth in woods. */
 function wornEarth(zone: ZoneIntent, outline: readonly Point[], keepout: Keepout, random: Random): FeatureInput[] {
-    if (zone.kind !== 'woodland' && zone.kind !== 'meadow') {
+    // Only under trees, where it is the trodden floor between them; out on open grass it reads as mud stains.
+    if (zone.kind !== 'woodland') {
         return [];
     }
     const polygon = flat(outline);
@@ -575,12 +996,23 @@ export function composeExterior(
         features.push({ type: 'region', biome: intent.ground, points, ...textured(intent.groundTexture) });
     }
     const outlines = intent.zones.map((zone) => ({ zone, outline: zoneOutline(zone, intent, noiseField(random, EDGE_SCALE)) }));
-    for (const { zone, outline } of outlines) {
+    // Water lies over the land round it: lakes after every other zone's ground, each over its own bed.
+    const isLake = ({ zone }: { zone: ZoneIntent }): boolean => zone.kind === 'lake';
+    for (const { zone, outline } of [...outlines.filter((o) => !isLake(o)), ...outlines.filter(isLake)]) {
+        if (zone.kind === 'lake') {
+            features.push({ type: 'region', biome: LAKE_BED, points: outline });
+        }
         features.push({ type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, ...textured(zone.texture) });
     }
+    // A working yard's ground is trodden earth round the building, under its paths.
+    for (const site of sites.filter((s) => s.yard)) {
+        features.push({ type: 'region', biome: 'dirt', texture: YARD_GROUND, points: yardEdge(grown(siteBounds(site), YARD_EARTH), random) });
+    }
+    const keyed = new Map(outlines.flatMap(({ zone, outline }) => (zone.key === undefined ? [] : [[zone.key, outline] as const])));
     const paths: LaidPath[] = intent.paths.map((path) => {
         const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
-        const line = meanderLine(anchorPoint(path.from, intent, sites, random), anchorPoint(path.to, intent, sites, random), path.meander, random);
+        const [from, to] = pathEnds(path, intent, sites, keyed, random);
+        const line = meanderLine(from, to, path.meander, random);
         return {
             kind: path.kind,
             halfWidth,
@@ -594,11 +1026,14 @@ export function composeExterior(
             ),
         };
     });
+    const props: Standing[] = [];
     const keepout: Keepout = {
         map: { x: 0, y: 0, w: intent.width, h: intent.height },
         sites,
         paths,
         clearings: outlines.filter(({ zone }) => zone.kind === 'clearing').map(({ outline }) => flat(outline)),
+        waters: outlines.filter(({ zone }) => zone.kind === 'lake').map(({ outline }) => outline),
+        props,
     };
     for (const { zone, outline } of outlines) {
         features.push(...wornEarth(zone, outline, keepout, random));
@@ -615,6 +1050,14 @@ export function composeExterior(
             });
         }
     });
+    // The intent's own pieces stand first; everything scattered after keeps clear of them.
+    const placedProps = placeProps(intent.props, sites, stamps, keepout, props, random);
+    features.push(...placedProps.features);
+    problems.push(...placedProps.problems);
+    // Yards next: their stores against the walls, a cart standing by, before anything grows round them.
+    for (const site of sites.filter((s) => s.yard)) {
+        features.push(...yardOf(site, stamps, keepout, props, random));
+    }
     // Solid pieces of every zone keep clear of one another; each zone's dressing lists its largest works first, so they stand first.
     const standing: Standing[] = [];
     outlines.forEach(({ zone, outline }, i) => {
@@ -630,6 +1073,16 @@ export function composeExterior(
             );
         }
     });
+    for (const { zone, outline } of outlines) {
+        if (zone.kind === 'lake') {
+            features.push(...shore(outline, keepout, stamps, random));
+        }
+    }
     features.push(...banks(paths, keepout, stamps, random));
+    const crossed = bridges(paths, stamps, random);
+    features.push(...crossed.features);
+    problems.push(...crossed.problems);
+    const leads = intent.paths.map((p) => typeof p.to === 'object' && 'building' in p.to);
+    features.push(...waymarks(paths, leads, stamps, keepout, random));
     return { features, problems };
 }

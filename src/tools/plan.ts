@@ -553,14 +553,14 @@ function outlinePoints(flat: readonly number[]): Point[] {
 }
 
 /**
- * Terrain as a Scene Region over exactly what is painted (the smoothed region
- * fill, or the stroke's swath), named after its biome, on its level's band.
+ * Terrain as a Scene Region over exactly what is painted (the region's fill,
+ * smoothed unless sharp, or the stroke's swath), named after its biome, on its level's band.
  * Difficult ground makes walking across it cost what the GM painted it at
  * (Modify Movement Cost); otherwise it carries no behaviours, for GMs and
  * systems to attach their own (weather and so on).
  */
 function terrainRegion(feature: RegionFeature | StrokeFeature, levels: readonly Level[]): RegionDoc {
-    const outline = feature.type === 'region' ? regionOutline(feature.points) : brushOutline(feature.points, feature.radius, RIBBON_SAMPLES);
+    const outline = feature.type === 'region' ? regionOutline(feature) : brushOutline(feature.points, feature.radius, RIBBON_SAMPLES);
     return areaRegion(feature, { kind: 'terrain', biome: feature.biome }, outlinePoints(outline), levels);
 }
 

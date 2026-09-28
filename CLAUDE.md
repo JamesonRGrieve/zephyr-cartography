@@ -1133,6 +1133,41 @@ or a tavern is. Composition is the layer above them (operator decisions,
   top joins it to the next; three floors or more make a switchback, each
   flight beside the one below, so no two level changes overlap. On a scene
   of several levels the map drawn and edited is the viewed level's.
+  - **Cellars** (`cellars`) lie below the ground floor on levels added
+    beneath the scene's own (spec levels before the `existing` one go
+    below it), round a well of their own clear of the stairwell up. Each
+    way takes the access asked for (`floorAccess`, `cellarAccess`: stairs
+    or a ladder; `compose/access.ts`), else another kind that climbs,
+    reported as a stand-in. The stair prefers the ground floor's hall;
+    among the spots the storeys can share, the first where every room
+    adjoins those it opens onto wins, else the one missing fewest.
+  - **Storm doors** (`stormDoor`: a side) lead into the top cellar from
+    outside: an areaway walled beside that wall on the cellar's level,
+    with a door through into the cellar room behind it, and storm doors
+    (a stamp going down) over it on the ground, back to the wall. Without
+    such art a ladder stands in the areaway. The areaway is the building's
+    annex: paths and dressing keep off it.
+  - **Borrowing.** A way between levels, or a guest room's bed, is never
+    left out for want of art: with none in the map's settings, another
+    setting's is used and reported (`borrowed`, `borrowed-art`). A flight
+    over a level below takes a way that only climbs, never one leading
+    both up and down that would open onto it. Where a flight arrives, the
+    floor above shows a framed opening.
+  - **Corridors.** A hall opening onto four or more rooms is laid as a
+    corridor two squares wide down the long axis, its rooms along both
+    sides, each sized for what it holds (an inn's guest rooms).
+  - **Porch and yard.** A building's `porch` is a board deck that many
+    squares deep along the front wall at its door, furnished (lamp,
+    benches, barrels). A `yard` lays trodden earth round the building,
+    stacks stores along its back and one side, and stands the smallest
+    vehicle (a cart) behind it.
+  - **Stand-ins inside.** A role no stamp fills takes a fitting other
+    one's: a work surface or desk is a table, a nightstand or a chest is
+    storage. A guest room holds a person's chest, not a store's crates;
+    votive candles and censers are a shrine's icons, not a room's lamps.
+    Small pieces a room holds many of (storage, chests, clutter,
+    tabletop, lamps) keep art drawn with depth beside top-down art, for
+    variety.
 - **Night** (intent `lighting`): the scene goes dark, and a room is lit by
   its hearth and lamps (pack lights), keeping its own flat light only when
   it has neither. Common rooms, halls and chapels get a lamp for every
@@ -1157,8 +1192,28 @@ or a tavern is. Composition is the layer above them (operator decisions,
     and thinning at a zone's edge, spaced by the pieces' own size. Nothing
     stands on a path, in a clearing that keeps it out, or where its canopy
     would spread over a building. Rocks line riverbanks.
+  - **Lakes** (a `lake` zone) are open water over a bed of their own,
+    drawn over the zones round them; nothing stands in one, a canopy
+    reaches only a little over it, and reeds and rocks dress its shore. A
+    zone with a `key` is a path anchor: a river from a lake starts a
+    square inside its shore nearest the other end.
+  - **Bridges.** Wherever a road crosses a river, a `bridge` stamp is laid
+    along the road (art drawn with depth only where the road runs as it
+    is drawn); none loaded is reported.
+  - **Props** stand one named piece (by role) at a point or in a
+    building's yard (its front first, or the side asked for), clear of
+    paths, walls and what the building has outside (a porch), before
+    anything is scattered round it.
+  - **Waymarks.** Where a road leading to a building turns off another,
+    a milestone or wayside post stands at the corner.
+  - A zone's dressing that clumping and thinning leave empty (a camp
+    with no tents) is laid again evenly. Riverbank rocks are strewn at
+    uneven steps and distances, never in a row. Painted areas can be
+    `sharp`: their exact outline with a crisp edge (a deck, storm doors
+    drawn as boards where no storm door art exists).
 - **Presets** (`compose/presets.ts`): fantasy (a woodland inn, a tavern, a
-  forest road, a marsh crossing), grimdark (a hive outpost, a hive chapel,
+  roadside inn with guest rooms, a cellar and a bridged river, a forest
+  road, a marsh crossing), grimdark (a hive outpost, a hive chapel,
   a manufactorum) and sci-fi (a void port), as intents.
 - **Where.** The module API's `compose(intent)`, and the Map builder's
   Compose section: a preset or pasted intent, "Compose map", and "Another

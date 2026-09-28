@@ -50,6 +50,9 @@ const ROLES = new Map([
                     clearance: 0,
                     upright: false,
                     habitats: [],
+                    climb: null,
+                    borrowed: false,
+                    purposes: [],
                 }),
                 key: 'test:round-table',
             },
@@ -112,14 +115,15 @@ describe('critique', () => {
     });
 
     it('turns and removes as asked, refusing a move out of the room or onto another piece, and fixes nothing unknown', () => {
-        const hearth = pieces.find((p) => p.f.stamp === 'test:hearth');
+        // A lamp is square: turned any way it keeps its footprint, so nothing stops the turn.
+        const lamp = pieces.find((p) => p.f.stamp === 'test:light');
         const table = pieces.find((p) => p.f.stamp === 'test:table');
         const other = pieces.find((p) => p.f.stamp === 'test:table' && p !== table);
-        if (!hearth || !table || !other) {
+        if (!lamp || !table || !other) {
             throw new Error('fixture pieces');
         }
         const answer = JSON.stringify([
-            { piece: hearth.index, action: 'turn', facing: 'east', why: 'face the room' },
+            { piece: lamp.index, action: 'turn', facing: 'east', why: 'face the room' },
             { piece: table.index, action: 'move', x: 100, y: 100, why: 'out of the room' },
             { piece: table.index, action: 'move', x: other.f.x, y: other.f.y, why: 'onto another table' },
             { piece: 9999, action: 'remove', why: 'no such piece' },
@@ -133,7 +137,8 @@ describe('critique', () => {
             ['remove', true],
         ]);
         expect(fixed.features).toHaveLength(spec.features.length - 1);
-        const turned = fixed.features.find((f) => f.type === 'stamp' && f.stamp === 'test:hearth');
+        // Found where it stands: the removal shifts every piece after it.
+        const turned = fixed.features.find((f) => f.type === 'stamp' && f.stamp === 'test:light' && f.x === lamp.f.x && f.y === lamp.f.y);
         expect(turned?.type === 'stamp' ? turned.rotation : null).toBe(270);
         // An unreadable answer changes nothing.
         expect(applyCritique(spec, 'looks fine to me', TEST_ROLES).fixes).toEqual([]);

@@ -171,3 +171,40 @@ describe('sharedWall', () => {
         expect(sharedWall(a, { x: 6, y: 0, w: 2, h: 2 })).toBeNull();
     });
 });
+
+describe('a corridor', () => {
+    it('lays a hall opening onto many rooms as a corridor down the long axis, every room beside it and sized for what it holds', () => {
+        const rooms = Array.from({ length: 8 }, (_, i) => ({ key: `room-${i + 1}`, purpose: 'bedroom' }));
+        const floor = building({
+            width: 14,
+            height: 11,
+            rooms: [{ key: 'corridor', purpose: 'hall', size: 1.8, entrance: true, opensTo: rooms.map((r) => r.key) }, ...rooms],
+        });
+        const footprint = { x: 0, y: 0, w: 14, h: 11 };
+        const layout = layOutBuilding(floor, footprint, seededRandom(1));
+        expect(layout?.unmet).toEqual([]);
+        const corridor = layout?.rooms.find((r) => r.key === 'corridor')?.rect;
+        // Two squares wide, the footprint's whole length.
+        expect(corridor).toMatchObject({ x: 0, w: 14, h: 2 });
+        for (const room of layout?.rooms.filter((r) => r.key !== 'corridor') ?? []) {
+            // A guest room, not a hall: a bed's room and a little more.
+            expect(room.rect.w * room.rect.h).toBeLessThanOrEqual(20);
+            expect(corridor && sharedWall(room.rect, corridor)).not.toBeNull();
+        }
+        // Rooms of one size share their side's length evenly: fourteen squares among four are 4, 3, 4 and 3, never 4, 4, 4 and 2.
+        const widths = (layout?.rooms.filter((r) => r.key !== 'corridor') ?? []).map((r) => r.rect.w);
+        expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
+    });
+
+    it('runs the corridor down a footprint taller than wide, too', () => {
+        const rooms = Array.from({ length: 6 }, (_, i) => ({ key: `cell-${i + 1}`, purpose: 'cell' }));
+        const block = building({
+            width: 10,
+            height: 14,
+            rooms: [{ key: 'corridor', purpose: 'hall', size: 1.5, entrance: true, opensTo: rooms.map((r) => r.key) }, ...rooms],
+        });
+        const layout = layOutBuilding(block, { x: 0, y: 0, w: 10, h: 14 }, seededRandom(2));
+        expect(layout?.unmet).toEqual([]);
+        expect(layout?.rooms.find((r) => r.key === 'corridor')?.rect).toMatchObject({ y: 0, w: 2, h: 14 });
+    });
+});

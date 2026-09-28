@@ -4,6 +4,7 @@ import { parseSceneSpec, type SceneSpec } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { composeMap, footprintOf } from './compose';
 import { type MapIntent, parseMapIntent } from './intent';
+import { PRESET_INTENTS } from './presets';
 import type { ComposeProblem } from './problems';
 import { TEST_ROLES } from './test-roles';
 
@@ -328,9 +329,25 @@ describe('composeMap', () => {
         const { spec } = compose({ ...INN_IN_THE_WOODS, lighting: 'night' });
         expect(spec.scene).toMatchObject({ darkness: 0.85, globalLight: false });
         const rooms = spec.features.flatMap((f) => (f.type === 'room' ? [f] : []));
-        // The common room has its hearth and lamps; the store has nothing to light it.
+        // Each room is dark but for its own hearth and lamps where it has any, and keeps a light of its own where it has none.
+        const glowing = new Set(['test:hearth', 'test:light']);
+        const glows = (room: (typeof rooms)[number]): boolean => {
+            const xs = room.points.map((p) => p.x);
+            const ys = room.points.map((p) => p.y);
+            return spec.features.some(
+                (f) =>
+                    f.type === 'stamp' &&
+                    glowing.has(f.stamp) &&
+                    f.x > Math.min(...xs) &&
+                    f.x < Math.max(...xs) &&
+                    f.y > Math.min(...ys) &&
+                    f.y < Math.max(...ys),
+            );
+        };
         expect(rooms.find((r) => r.key === 'inn:common')?.lit).toBe(false);
-        expect(rooms.find((r) => r.key === 'inn:store')?.lit).toBe(true);
+        for (const room of rooms) {
+            expect(room.lit).toBe(!glows(room));
+        }
         // By day every room keeps its light.
         expect(compose(INN_IN_THE_WOODS).spec.features.every((f) => f.type !== 'room' || f.lit)).toBe(true);
     });
@@ -378,6 +395,32 @@ describe('composeMap', () => {
         const crowded = composeMap(tower(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']), TEST_ROLES).problems;
         expect(crowded).toContainEqual({ kind: 'rooms-do-not-fit', building: 'tower/floor-2', width: 6, height: 5 });
         expect(crowded).toContainEqual({ kind: 'no-stairwell', building: 'tower' });
+        // So too a cellar too crowded to hold the ladder down.
+        const cellared = intentOf({
+            buildings: [
+                {
+                    key: 'tower',
+                    width: 6,
+                    height: 5,
+                    rooms: [{ key: 'hall', purpose: 'hall', entrance: true }],
+                    cellars: [{ rooms: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map((key) => ({ key, purpose: 'cell' })) }],
+                },
+            ],
+        });
+        expect(composeMap(cellared, TEST_ROLES).problems).toContainEqual({ kind: 'no-stairwell', building: 'tower/cellar' });
+        // Cellars below cellars are numbered down, each on its own level beneath the one above.
+        const deep = intentOf({
+            buildings: [
+                {
+                    key: 'keep',
+                    width: 10,
+                    height: 8,
+                    rooms: [{ key: 'hall', purpose: 'hall', entrance: true }],
+                    cellars: [{ rooms: [{ key: 'store', purpose: 'storage' }] }, { rooms: [{ key: 'crypt', purpose: 'storage' }] }],
+                },
+            ],
+        });
+        expect((composeMap(deep, TEST_ROLES).spec.levels ?? []).map((l) => l.name)).toEqual(['Cellar 2', 'Cellar', 'Ground floor']);
     });
 
     it('centres a building placed nowhere in particular, and composes an interior alone on a bare scene', () => {
@@ -386,5 +429,148 @@ describe('composeMap', () => {
         const { spec } = compose(alone);
         expect(spec.features.some((f) => f.type === 'region')).toBe(false);
         expect(spec.features.filter((f) => f.type === 'room')).toHaveLength(1);
+    });
+});
+
+describe('a roadside inn', () => {
+    const parsed = parseMapIntent(PRESET_INTENTS['roadside-inn']);
+    if (!parsed.ok) {
+        throw new Error('the roadside inn preset is not an intent');
+    }
+    const intent = parsed.intent;
+    const { spec, problems } = compose(intent);
+    const building = intent.buildings[0];
+    if (!building) {
+        throw new Error('no inn');
+    }
+    const inn = footprintOf(building, intent);
+    const stampsOf = (key: string): SceneSpec['features'] => spec.features.filter((f) => f.type === 'stamp' && f.stamp === key);
+    const roomAt = (key: string): SceneSpec['features'][number] | undefined => spec.features.find((f) => f.type === 'room' && f.key === key);
+    const inside = (p: { x: number; y: number }): boolean => p.x > inn.x && p.x < inn.x + inn.w && p.y > inn.y && p.y < inn.y + inn.h;
+
+    it('is composed whole, on three levels: the cellar below the scene’s own floor, the guest rooms above', () => {
+        expect(problems).toEqual([]);
+        expect(spec.levels.map((l) => [l.key, l.name, l.existing])).toEqual([
+            ['cellar-1', 'Cellar', false],
+            ['ground', 'Ground floor', true],
+            ['floor-2', 'Guest rooms', false],
+        ]);
+        expect(roomAt('inn/cellar-1:cellar')?.level).toBe('cellar-1');
+        expect(roomAt('inn/floor-2:room-3')?.level).toBe('floor-2');
+    });
+
+    it('climbs to the guest rooms by the stair and down to the cellar by a ladder standing in the cellar, each inside the inn', () => {
+        const [stair] = stampsOf('test:stairs');
+        const ladders = stampsOf('test:ladder');
+        expect(stair?.level).toBe('ground');
+        expect(ladders.map((l) => l.level)).toEqual(['cellar-1']);
+        for (const flight of [stair, ...ladders]) {
+            expect(flight?.type === 'stamp' && inside(flight)).toBe(true);
+        }
+    });
+
+    it('has storm doors on the ground beside its south wall, over an areaway on the cellar level with a door through into the cellar', () => {
+        const areaway = roomAt('inn:areaway');
+        if (areaway?.type !== 'room') {
+            throw new Error('no areaway');
+        }
+        expect(areaway.level).toBe('cellar-1');
+        const ys = areaway.points.map((p) => p.y);
+        expect(Math.min(...ys)).toBe(inn.y + inn.h);
+        expect(areaway.doors).toHaveLength(1);
+        const [doors] = stampsOf('test:storm-doors');
+        expect(doors).toMatchObject({ level: 'ground', rotation: 0 });
+        expect(doors?.type === 'stamp' && doors.y > inn.y + inn.h).toBe(true);
+        // The cellar room on the other side of the wall has the door too.
+        // With no way down loaded at all, the areaway is still walled, its door through, and nothing is placed to join it.
+        const noWays = new Map([...TEST_ROLES].filter(([role]) => role !== 'stairs'));
+        const bare = composeMap(intent, noWays);
+        expect(bare.spec.features.some((f) => f.type === 'room' && f.key === 'inn:areaway')).toBe(true);
+        expect(bare.problems).toContainEqual({ kind: 'no-stamp', role: 'stairs', wantedIn: 'inn/storm-door' });
+        // On an east wall, the areaway stands east of the inn, the storm doors' back turned to it, the door through its west wall.
+        const eastward = { ...intent, buildings: [{ ...building, stormDoor: 'east' as const }] };
+        const east = compose(eastward).spec.features;
+        const eastAreaway = east.find((f) => f.type === 'room' && f.key === 'inn:areaway');
+        expect(eastAreaway?.type === 'room' && Math.min(...eastAreaway.points.map((p) => p.x))).toBe(inn.x + inn.w);
+        expect(east).toContainEqual(expect.objectContaining({ type: 'stamp', stamp: 'test:storm-doors', rotation: 270, level: 'ground' }));
+        const eastCellar = east.filter((f) => f.type === 'room' && f.level === 'cellar-1' && f.key !== 'inn:areaway');
+        expect(eastCellar.flatMap((f) => (f.type === 'room' ? f.doors : [])).length).toBeGreaterThanOrEqual(2);
+        // Without storm door art, a ladder stands in the areaway on the cellar level, climbing to the ground, and says so.
+        const noDoors = new Map([...TEST_ROLES, ['stairs', (TEST_ROLES.get('stairs') ?? []).filter((s) => s.key !== 'test:storm-doors')] as const]);
+        const standIn = composeMap(intent, noDoors);
+        expect(standIn.problems).toContainEqual({ kind: 'stand-in', wanted: 'storm-door', used: 'ladder', wantedIn: 'inn/storm-door' });
+        const ladders = standIn.spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:ladder' && f.y > inn.y + inn.h);
+        expect(ladders).toEqual([expect.objectContaining({ level: 'cellar-1' })]);
+        // On the ground the doors are still seen: boards laid over the areaway, beside the wall.
+        const boards = standIn.spec.features.find((f) => f.type === 'region' && f.texture === 'floor.wooden-planks');
+        expect(boards).toMatchObject({ level: 'ground' });
+        expect(boards?.type === 'region' && Math.min(...boards.points.map((p) => p.y))).toBe(inn.y + inn.h);
+        const cellarDoors = spec.features
+            .filter((f) => f.type === 'room' && f.level === 'cellar-1' && f.key !== 'inn:areaway')
+            .flatMap((f) => (f.type === 'room' ? f.doors : []));
+        expect(cellarDoors.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('lays a lake of open water in the wood, nothing standing in it, its river running out of it behind the inn and under the road’s bridge', () => {
+        const lake = spec.features.find((f) => f.type === 'region' && f.biome === 'water');
+        if (lake?.type !== 'region') {
+            throw new Error('no lake');
+        }
+        // Over a bed of its own, showing through as a riverbed does.
+        const bed = spec.features[spec.features.indexOf(lake) - 1];
+        expect(bed).toMatchObject({ type: 'region', biome: 'dirt', points: lake.points });
+        const outline = lake.points.flatMap((p) => [p.x, p.y]);
+        const trees = stampsOf('test:tree');
+        expect(trees.length).toBeGreaterThan(10);
+        expect(trees.some((t) => t.type === 'stamp' && pointInPolygon(t, outline))).toBe(false);
+        const river = spec.features.find((f) => f.type === 'path' && f.kind === 'river');
+        if (river?.type !== 'path') {
+            throw new Error('no river');
+        }
+        const [mouth] = river.points;
+        expect(mouth && pointInPolygon(mouth, outline)).toBe(true);
+        // Behind the inn: north of it wherever it passes it.
+        const passing = river.points.filter((p) => p.x > inn.x && p.x < inn.x + inn.w);
+        expect(passing.length).toBeGreaterThan(0);
+        expect(passing.every((p) => p.y < inn.y)).toBe(true);
+        // One bridge, where the road crosses, laid along the road (running north to south, a quarter turn from the art's length).
+        const bridges = stampsOf('test:bridge');
+        expect(bridges).toHaveLength(1);
+        const [bridge] = bridges;
+        const road = spec.features.find((f) => f.type === 'path' && f.kind === 'road');
+        if (bridge?.type !== 'stamp' || road?.type !== 'path') {
+            throw new Error('no bridge');
+        }
+        expect(distanceToPolyline(bridge, road.points)).toBeLessThan(0.1);
+        expect(distanceToPolyline(bridge, river.points)).toBeLessThan(0.1);
+        expect(Math.abs(((bridge.rotation ?? 0) % 180) - 90)).toBeLessThan(30);
+    });
+
+    it('has a board porch at its front door, furnished, and a yard of stores against its walls with a cart standing by', () => {
+        const deck = spec.features.find((f) => f.type === 'region' && f.sharp && f.texture === 'floor.wooden-planks' && f.level === 'ground');
+        if (deck?.type !== 'region') {
+            throw new Error('no porch');
+        }
+        // Against the west wall, where the front door is, two squares deep.
+        const xs = deck.points.map((p) => p.x);
+        expect([Math.min(...xs), Math.max(...xs)]).toEqual([inn.x - 2, inn.x]);
+        const onDeck = spec.features.filter((f) => f.type === 'stamp' && f.x > inn.x - 2 && f.x < inn.x && f.level === 'ground');
+        expect(onDeck.length).toBeGreaterThanOrEqual(3);
+        // Stores stacked just outside the walls, and a cart.
+        const stores = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage' && f.level === 'ground' && !inside(f));
+        expect(stores.length).toBeGreaterThanOrEqual(4);
+        expect(stampsOf('test:vehicle').length + stampsOf('test:hauler').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('stands a well in the yard before the inn, clear of its walls and of the road', () => {
+        const [well] = stampsOf('test:well');
+        if (well?.type !== 'stamp') {
+            throw new Error('no well');
+        }
+        // Out in the front yard, past the porch (2 squares deep), not across the road.
+        expect(well.x).toBeLessThan(inn.x - 2);
+        expect(well.x).toBeGreaterThan(inn.x - 7);
+        const roads = spec.features.filter((f) => f.type === 'path' && f.kind === 'road');
+        expect(roads.every((r) => r.type === 'path' && distanceToPolyline(well, r.points) > (r.halfWidth ?? 0))).toBe(true);
     });
 });

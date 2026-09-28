@@ -176,6 +176,10 @@ const regionSpec = z
         biome,
         texture: groundTexture,
         points: z.array(point).min(3).describe('Boundary control points.'),
+        sharp: z
+            .boolean()
+            .default(false)
+            .describe('Its exact outline with a crisp edge (a deck, a paved yard, storm doors), instead of smoothed and feathered.'),
         movementCost,
         effects: areaEffects,
         display: areaDisplay,
@@ -183,7 +187,7 @@ const regionSpec = z
         level,
     })
     .strict()
-    .describe('A closed, smoothed area of one biome.');
+    .describe('A closed area of one biome, smoothed and feathered unless sharp.');
 
 const strokeSpec = z
     .object({
@@ -310,7 +314,7 @@ const levelSpec = z
             .boolean()
             .default(false)
             .describe(
-                "Take the scene's lowest level as this one (renamed to `name`) instead of adding a level: a fresh scene's own floor becomes the ground floor, so the scene opens on it. At most one level does, the first listed; a scene with no levels adds it.",
+                "Take the scene's lowest level as this one (renamed to `name`) instead of adding a level: a fresh scene's own floor becomes the ground floor, so the scene opens on it. At most one level does; levels listed before it are added below it (cellars), those after above. A scene with no levels adds it.",
             ),
         bottom: z.number().optional().describe('Floor elevation (scene distance units); with `top`, sets the band.'),
         top: z.number().optional(),
@@ -529,7 +533,10 @@ export const sceneSpecSchema = z
         schemaVersion: z.literal(SCENE_SPEC_SCHEMA_VERSION),
         units: z.enum(['grid', 'px']).default('grid').describe('Unit of every coordinate, width and radius: grid squares, or scene pixels.'),
         scene: sceneSettingsSpec.optional(),
-        levels: z.array(levelSpec).default([]).describe('Levels to add, bottom to top, stacked above any the scene has.'),
+        levels: z
+            .array(levelSpec)
+            .default([])
+            .describe("Levels to add, bottom to top, stacked above any the scene has; with one taking the scene's own floor, those before it go below."),
         splats: z
             .array(splatSpec)
             .default([])
@@ -652,9 +659,11 @@ function referenceIssues(spec: SceneSpec): SpecIssue[] {
         ...features.issues,
         ...splatIssues(spec.splats, levels.keys),
         ...spec.levels.flatMap((l, i) => unresolved(l.visibleLevels, levels.keys, (j) => `levels.${i}.visibleLevels.${j}`, 'level')),
-        // Only the bottom level can be the scene's own lowest floor.
+        // Only one level can be the scene's own lowest floor.
         ...spec.levels.flatMap((l, i) =>
-            i > 0 && l.existing ? [{ path: `levels.${i}.existing`, message: "only the first level can take the scene's own lowest floor" }] : [],
+            l.existing && spec.levels.findIndex((other) => other.existing) !== i
+                ? [{ path: `levels.${i}.existing`, message: "only one level can take the scene's own lowest floor" }]
+                : [],
         ),
         ...spec.features.flatMap((f, i) => [
             ...unresolved(f.level === undefined ? [] : [f.level], levels.keys, () => `features.${i}.level`, 'level'),

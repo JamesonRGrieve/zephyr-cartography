@@ -7,6 +7,10 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['cogitator', 'console', 'setting-grimdark'])).toBe('console');
         expect(roleFromTags(['cogitator', 'desk'])).toBe('desk');
         expect(roleFromTags(['desk', 'lamp'])).toBe('light');
+        // Votive candles and censers are a shrine's, a candle cluster a room's lamp.
+        expect(roleFromTags(['candle', 'bank', 'setting-fantasy'])).toBe('icon');
+        expect(roleFromTags(['censer', 'stand'])).toBe('icon');
+        expect(roleFromTags(['candle', 'cluster'])).toBe('light');
         expect(roleFromTags(['interrogation', 'chair'])).toBe('restraint');
         expect(roleFromTags(['shrine', 'shelf'])).toBe('shelf');
         expect(roleFromTags(['prep', 'table', 'setting-fantasy'])).toBe('workbench');

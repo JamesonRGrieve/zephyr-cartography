@@ -71,14 +71,23 @@ describe('parseRegion', () => {
 });
 
 describe('regionOutline', () => {
-    it('produces a closed fill polygon (even-length, >= 6)', () => {
-        const o = regionOutline([
-            { x: 0, y: 0 },
-            { x: 10, y: 0 },
-            { x: 10, y: 10 },
-            { x: 0, y: 10 },
-        ]);
+    const square = [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 0, y: 10 },
+    ];
+
+    it('produces a closed fill polygon (even-length, >= 6), smoothed round its points', () => {
+        const o = regionOutline({ points: square, sharp: false });
         expect(o.length).toBeGreaterThanOrEqual(6);
         expect(o.length % 2).toBe(0);
+        expect(o.length).toBeGreaterThan(square.length * 2);
+    });
+
+    it('keeps a sharp region to exactly its points, and a sharp one persists as sharp', () => {
+        expect(regionOutline({ points: square, sharp: true })).toEqual([0, 0, 10, 0, 10, 10, 0, 10]);
+        expect(parseRegion({ type: 'region', id: 'deck', biome: 'dirt', points: square, sharp: true })?.sharp).toBe(true);
+        expect(parseRegion({ type: 'region', id: 'old', biome: 'dirt', points: square })?.sharp).toBe(false);
     });
 });

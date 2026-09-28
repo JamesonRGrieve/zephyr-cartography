@@ -162,11 +162,11 @@ function roleFilled(role: string, outline: number[], feather: boolean, resolve: 
 }
 
 /** Painted ground: in its own texture where the set has it, else its biome's. */
-function groundFilled(ground: { readonly biome: BiomeKind } & Textured, outline: number[], resolve: TextureResolver): Filled {
+function groundFilled(ground: { readonly biome: BiomeKind } & Textured, outline: number[], resolve: TextureResolver, feather: boolean): Filled {
     const own = ground.texture !== null && resolve(ground.texture) !== null ? ground.texture : null;
     return own === null
-        ? biomeFilled(ground.biome, outline, true, resolve)
-        : { ...roleFilled(own, outline, true, resolve), fill: BIOME_STYLES[ground.biome].fill };
+        ? biomeFilled(ground.biome, outline, feather, resolve)
+        : { ...roleFilled(own, outline, feather, resolve), fill: BIOME_STYLES[ground.biome].fill };
 }
 
 /** A path's ribbon outline at `halfWidths`, ending square across at full width: a road's carriageway, a river's banks. */
@@ -207,11 +207,11 @@ function outlineAndStyle(feature: Feature, resolve: TextureResolver): Filled {
         return NOT_DRAWN;
     }
     if (feature.type === 'region') {
-        return groundFilled(feature, regionOutline(feature.points), resolve);
+        return groundFilled(feature, regionOutline(feature), resolve, !feature.sharp);
     }
     if (feature.type === 'stroke') {
         // What a round brush leaves along the pointer's path: rounded at both ends.
-        return groundFilled(feature, brushOutline(feature.points, feature.radius, RIBBON_SAMPLES), resolve);
+        return groundFilled(feature, brushOutline(feature.points, feature.radius, RIBBON_SAMPLES), resolve, true);
     }
     if (feature.type === 'room') {
         // The exact polygon with a crisp edge: a room's walls are straight and cover its boundary.

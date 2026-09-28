@@ -119,7 +119,13 @@
                                     "vehicle",
                                     "stairs",
                                     "tabletop",
-                                    "nightstand"
+                                    "nightstand",
+                                    "well",
+                                    "bridge",
+                                    "waymark",
+                                    "chest",
+                                    "enclosure",
+                                    "fodder"
                                 ]
                             },
                             {

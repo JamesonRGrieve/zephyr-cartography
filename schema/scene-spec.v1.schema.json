@@ -174,7 +174,7 @@
         },
         "levels": {
             "default": [],
-            "description": "Levels to add, bottom to top, stacked above any the scene has.",
+            "description": "Levels to add, bottom to top, stacked above any the scene has; with one taking the scene's own floor, those before it go below.",
             "type": "array",
             "items": {
                 "type": "object",
@@ -190,7 +190,7 @@
                     },
                     "existing": {
                         "default": false,
-                        "description": "Take the scene's lowest level as this one (renamed to `name`) instead of adding a level: a fresh scene's own floor becomes the ground floor, so the scene opens on it. At most one level does, the first listed; a scene with no levels adds it.",
+                        "description": "Take the scene's lowest level as this one (renamed to `name`) instead of adding a level: a fresh scene's own floor becomes the ground floor, so the scene opens on it. At most one level does; levels listed before it are added below it (cellars), those after above. A scene with no levels adds it.",
                         "type": "boolean"
                     },
                     "bottom": {
@@ -482,6 +482,11 @@
                                     "additionalProperties": false
                                 },
                                 "description": "Boundary control points."
+                            },
+                            "sharp": {
+                                "default": false,
+                                "description": "Its exact outline with a crisp edge (a deck, a paved yard, storm doors), instead of smoothed and feathered.",
+                                "type": "boolean"
                             },
                             "movementCost": {
                                 "default": 1,
@@ -965,7 +970,7 @@
                             "points"
                         ],
                         "additionalProperties": false,
-                        "description": "A closed, smoothed area of one biome."
+                        "description": "A closed area of one biome, smoothed and feathered unless sharp."
                     },
                     {
                         "type": "object",

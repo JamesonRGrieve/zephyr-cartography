@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import { type BuildingIntent, parseMapIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
-import { holdsStairwell, layOutStoreys } from './storeys';
+import { holdsStairwell, layOutStoreys, type Wells } from './storeys';
 
 function buildingOf(given: object): BuildingIntent {
     const parsed = parseMapIntent({ schemaVersion: 1, buildings: [given] });
@@ -36,7 +36,8 @@ const HOUSE = buildingOf({
 });
 
 const FOOTPRINT = { x: 2, y: 3, w: 12, h: 9 };
-const STAIR = { w: 1, h: 2 };
+/** A one-square flight two long up to the floors, and no way down. */
+const STAIR: Wells = { up: { w: 1, h: 2 }, down: null };
 
 /** Whether every room of `layout` can be reached from `start` through its doors. */
 function allReachable(layout: BuildingLayout, start: string): boolean {
@@ -112,6 +113,18 @@ describe('layOutStoreys', () => {
         }
     });
 
+    it('stands the stairwell in the ground floor’s hall when it has one', () => {
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const storeys = layOutStoreys(HOUSE, FOOTPRINT, STAIR, seededRandom(seed));
+            const box = storeys?.stairwell;
+            const hall = storeys?.ground.rooms.find((r) => r.key === 'hall')?.rect;
+            if (!box || !hall) {
+                throw new Error(`seed ${seed}: no stairwell`);
+            }
+            expect(box.x >= hall.x && box.y >= hall.y && box.x + box.w <= hall.x + hall.w && box.y + box.h <= hall.y + hall.h).toBe(true);
+        }
+    });
+
     it('gives only the ground floor a front door', () => {
         const storeys = layOutStoreys(HOUSE, FOOTPRINT, STAIR, seededRandom(3));
         expect(storeys?.ground.doors.some((d) => d.to === null)).toBe(true);
@@ -121,7 +134,7 @@ describe('layOutStoreys', () => {
     });
 
     it('lays floors out without a stairwell when there is no stair, and a building of one floor needs none', () => {
-        expect(layOutStoreys(HOUSE, FOOTPRINT, null, seededRandom(4))?.stairwell).toBeNull();
+        expect(layOutStoreys(HOUSE, FOOTPRINT, { up: null, down: null }, seededRandom(4))?.stairwell).toBeNull();
         const bungalow = buildingOf({ width: 6, height: 5, rooms: [{ key: 'room', purpose: 'bedroom' }] });
         expect(layOutStoreys(bungalow, { x: 0, y: 0, w: 6, h: 5 }, STAIR, seededRandom(4))).toMatchObject({ floors: [], stairwell: null });
     });
@@ -148,5 +161,43 @@ describe('layOutStoreys', () => {
         // Straddling two rooms' shared wall.
         const [a] = ground.rooms;
         expect(holdsStairwell(ground, { x: (a?.rect.x ?? 0) + (a?.rect.w ?? 0) - 0.5, y: (a?.rect.y ?? 0) + 1, w: 1, h: 2 })).toBe(false);
+    });
+
+    it('lays cellars out below round a well of their own, held by the ground floor and every cellar, clear of the stairwell up', () => {
+        const house = buildingOf({
+            width: 12,
+            height: 9,
+            rooms: HOUSE.rooms,
+            floors: HOUSE.floors.slice(0, 1),
+            cellars: [
+                {
+                    name: 'Cellar',
+                    rooms: [
+                        { key: 'cellar', purpose: 'storage', size: 2, opensTo: ['vault'] },
+                        { key: 'vault', purpose: 'storage' },
+                    ],
+                },
+                { rooms: [{ key: 'crypt', purpose: 'storage' }] },
+            ],
+        });
+        for (const seed of [1, 2, 3]) {
+            const storeys = layOutStoreys(house, FOOTPRINT, { up: { w: 1, h: 2 }, down: { w: 2, h: 1.5 } }, seededRandom(seed));
+            const { stairwell, cellarWell } = storeys ?? {};
+            if (!storeys || !stairwell || !cellarWell) {
+                throw new Error(`seed ${seed}: no wells`);
+            }
+            expect(storeys.cellars).toHaveLength(2);
+            expect(holdsStairwell(storeys.ground, cellarWell)).toBe(true);
+            expect(storeys.cellars.every((c) => c !== null && holdsStairwell(c, cellarWell))).toBe(true);
+            // The two ways never share floor.
+            const apart =
+                cellarWell.x >= stairwell.x + stairwell.w ||
+                stairwell.x >= cellarWell.x + cellarWell.w ||
+                cellarWell.y >= stairwell.y + stairwell.h ||
+                stairwell.y >= cellarWell.y + cellarWell.h;
+            expect(apart).toBe(true);
+            // Cellars have no front door.
+            expect(storeys.cellars.every((c) => c?.doors.every((d) => d.to !== null) === true)).toBe(true);
+        }
     });
 });

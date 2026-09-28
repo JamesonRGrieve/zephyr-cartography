@@ -50,6 +50,7 @@ const lake: RegionFeature = {
     id: 'b',
     biome: 'water',
     texture: null,
+    sharp: false,
     points: [
         { x: 0, y: 0 },
         { x: 10, y: 0 },

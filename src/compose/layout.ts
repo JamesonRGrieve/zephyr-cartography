@@ -179,6 +179,72 @@ function place(rect: Rect, rooms: readonly RoomIntent[], random: Random): Placed
     return null;
 }
 
+/** A hall opening onto at least this many rooms is laid as a corridor, the rooms along both its sides. */
+const SPINE_ROOMS = 4;
+
+/** How often, in layout tries, a corridor layout is tried: each with the rooms shuffled along it. */
+const SPINE_EVERY = 8;
+
+/** A corridor's width in squares: two abreast. */
+const CORRIDOR_WIDTH = 2;
+
+/** `rooms` along one side of a corridor: `band` split along its length by the rooms' sizes, each at least a room wide. */
+function sideRooms(band: Rect, rooms: readonly RoomIntent[], lengthwiseX: boolean): PlacedRoom[] | null {
+    const span = lengthwiseX ? band.w : band.h;
+    const whole = total(rooms);
+    let start = 0;
+    let before = 0;
+    const placed = rooms.map((room, i) => {
+        // Each end rounded from the running share, never from the last rounded end, so the rounding never piles onto one room.
+        before += room.size;
+        const end = i === rooms.length - 1 ? span : Math.round((span * before) / whole);
+        const rect = lengthwiseX ? { ...band, x: band.x + start, w: end - start } : { ...band, y: band.y + start, h: end - start };
+        start = end;
+        return { key: room.key, intent: room, rect };
+    });
+    return placed.every((p) => p.rect.w >= MIN_ROOM_SIDE && p.rect.h >= MIN_ROOM_SIDE) ? placed : null;
+}
+
+/**
+ * A storey laid round a corridor: the hall that opens onto most rooms (at
+ * least `SPINE_ROOMS`) as a strip down the footprint's long axis, the other
+ * rooms, in a seeded order, split between its two sides. Null when no hall
+ * opens onto so many, or the rooms do not fit.
+ */
+function spine(rect: Rect, rooms: readonly RoomIntent[], random: Random): PlacedRoom[] | null {
+    const graph = neighbours(rooms);
+    const hall = rooms
+        .filter((r) => r.purpose === 'hall' && (graph.get(r.key)?.size ?? 0) >= SPINE_ROOMS)
+        .sort((x, y) => (graph.get(y.key)?.size ?? 0) - (graph.get(x.key)?.size ?? 0))[0];
+    if (!hall) {
+        return null;
+    }
+    const lengthwiseX = rect.w >= rect.h;
+    const depth = lengthwiseX ? rect.h : rect.w;
+    const near = Math.floor((depth - CORRIDOR_WIDTH) / 2);
+    const far = depth - CORRIDOR_WIDTH - near;
+    const others = shuffled(
+        random,
+        rooms.filter((r) => r !== hall),
+    );
+    const half = Math.ceil(others.length / 2);
+    const bands: [Rect, Rect, Rect] = lengthwiseX
+        ? [
+              { ...rect, h: near },
+              { ...rect, y: rect.y + near, h: CORRIDOR_WIDTH },
+              { ...rect, y: rect.y + near + CORRIDOR_WIDTH, h: far },
+          ]
+        : [
+              { ...rect, w: near },
+              { ...rect, x: rect.x + near, w: CORRIDOR_WIDTH },
+              { ...rect, x: rect.x + near + CORRIDOR_WIDTH, w: far },
+          ];
+    const [first, corridor, second] = bands;
+    const oneSide = sideRooms(first, others.slice(0, half), lengthwiseX);
+    const otherSide = sideRooms(second, others.slice(half), lengthwiseX);
+    return oneSide && otherSide ? [...oneSide, { key: hall.key, intent: hall, rect: corridor }, ...otherSide] : null;
+}
+
 /** The wall `a` and `b` share, as the side of `a` it is on and its extent along that side, or null if they do not touch. */
 export function sharedWall(a: Rect, b: Rect): { side: Side; from: number; to: number } | null {
     const overlap = (lo1: number, hi1: number, lo2: number, hi2: number): [number, number] | null => {
@@ -321,7 +387,11 @@ export function layOutBuilding(
     const rooms: [RoomIntent, ...RoomIntent[]] = [first, ...others];
     let best: { layout: BuildingLayout; score: number } | null = null;
     for (let attempt = 0; attempt < LAYOUT_TRIES; attempt++) {
-        const placed = place(footprint, roomOrder(rooms, random), random);
+        // A corridor with rooms along it is tried beside the splits, and wins where it meets the adjacency they cannot.
+        const placed =
+            attempt % SPINE_EVERY === 0
+                ? spine(footprint, rooms, random) ?? place(footprint, roomOrder(rooms, random), random)
+                : place(footprint, roomOrder(rooms, random), random);
         if (placed) {
             const { doors, unmet } = interiorDoors(placed, random);
             const front = options.front ? frontDoor(placed, entranceRoom(rooms), building.entrance, footprint, random) : null;

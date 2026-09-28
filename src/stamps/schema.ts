@@ -347,13 +347,21 @@ const variantSchema = z
  *   clutter, rug, desk, workbench, light) and the fittings of harder places
  *   (machine, console, altar, pew, lectern, icon: something hung on a wall,
  *   rack: arms or armour, medical, restraint);
- * - stairs: a stair, ladder or lift joining a building's floors, which the
- *   composer uses only when it carries a `transition` that climbs;
+ * - stairs: a stair, ladder, lift, trapdoor or storm door joining a
+ *   building's floors, which the composer uses only when it carries a
+ *   `transition`;
  * - tabletop: what is set on a table, bar or desk (a meal, tankards,
  *   papers), stacked on it;
- * - nightstand: what stands beside a bed.
+ * - nightstand: what stands beside a bed;
+ * - well: a well or pump in a yard;
+ * - bridge: what carries a road over a river, laid along the road;
+ * - waymark: a milestone, wayside post or signpost by a road;
+ * - chest: a chest, trunk or footlocker, a person's belongings (storage is
+ *   a store's crates, barrels and sacks);
+ * - enclosure: a pen, corral or paddock for animals, in a yard;
+ * - fodder: hay and straw, stacked by an enclosure.
  */
-const STAMP_ROLES = [
+export const STAMP_ROLES = [
     'tree',
     'shrub',
     'rock',
@@ -390,6 +398,12 @@ const STAMP_ROLES = [
     'stairs',
     'tabletop',
     'nightstand',
+    'well',
+    'bridge',
+    'waymark',
+    'chest',
+    'enclosure',
+    'fodder',
 ] as const;
 
 /** An image's edges, as a piece's back. */
@@ -557,6 +571,12 @@ export type StampSurface = z.infer<typeof surfaceSchema>;
 export type StampTerrain = z.infer<typeof terrainSchema>;
 
 export type StampRole = (typeof STAMP_ROLES)[number];
+
+type StampTransition = z.infer<typeof transitionSchema>;
+
+export type StampTransitionKind = StampTransition['kind'];
+
+export type StampTransitionDirection = StampTransition['direction'];
 
 export type StampAnchor = (typeof STAMP_ANCHORS)[number];
 

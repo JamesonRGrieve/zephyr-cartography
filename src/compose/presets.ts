@@ -5,7 +5,17 @@
  * every preset is validated and composed in the tests.
  */
 
-export const MAP_PRESETS = ['woodland-inn', 'tavern', 'forest-road', 'marsh-crossing', 'hive-outpost', 'hive-chapel', 'manufactorum', 'void-port'] as const;
+export const MAP_PRESETS = [
+    'woodland-inn',
+    'tavern',
+    'roadside-inn',
+    'forest-road',
+    'marsh-crossing',
+    'hive-outpost',
+    'hive-chapel',
+    'manufactorum',
+    'void-port',
+] as const;
 
 export type MapPreset = (typeof MAP_PRESETS)[number];
 
@@ -91,6 +101,81 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         lighting: 'night',
         ground: null,
         buildings: [{ key: 'tavern', width: 22, height: 14, floor: 'floor.tavern-boards', wall: 'wall.wood', rooms: TAVERN_ROOMS }],
+    },
+    // A tavern by the road: guest rooms upstairs, a cellar down a ladder with storm doors at the side, a well in the yard.
+    // Across the road a wood with a lake, whose river runs behind the tavern under the road's bridge.
+    'roadside-inn': {
+        schemaVersion: 1,
+        seed: 21,
+        width: 48,
+        height: 36,
+        settings: ['setting-fantasy', 'setting-generic'],
+        ground: 'grassland',
+        zones: [
+            { kind: 'woodland', area: { shape: 'edge', side: 'west', depth: 20 }, density: 'dense' },
+            { key: 'lake', kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 9 }, radius: 4.5 } },
+            // The open ground round the inn: grass with flowers, a few bushes and a tree or two.
+            { kind: 'meadow', area: { shape: 'edge', side: 'east', depth: 24 }, density: 'sparse' },
+        ],
+        paths: [
+            { kind: 'road', from: { x: 23, y: -1 }, to: { x: 23, y: 37 }, width: 2, meander: 0.25 },
+            { kind: 'road', from: { x: 23, y: 20 }, to: { building: 'inn' }, width: 1.2, meander: 0 },
+            { kind: 'river', from: { zone: 'lake' }, to: { x: 49, y: 7 }, width: 2, meander: 0.35 },
+        ],
+        buildings: [
+            {
+                key: 'inn',
+                // Set back from the road: a front yard for its porch, its well and the way in.
+                at: { x: 31, y: 14 },
+                width: 14,
+                height: 11,
+                entrance: 'west',
+                floor: 'floor.tavern-boards',
+                wall: 'wall.stone',
+                rooms: [
+                    { key: 'common', purpose: 'common-room', size: 3, entrance: true, opensTo: ['bar', 'hall'] },
+                    { key: 'bar', purpose: 'bar', size: 1.4, opensTo: ['kitchen'], floor: 'floor.wood-pavers' },
+                    { key: 'kitchen', purpose: 'kitchen', size: 1.4, floor: 'floor.terracotta-tile' },
+                    { key: 'hall', purpose: 'hall', size: 1 },
+                ],
+                floors: [
+                    {
+                        name: 'Guest rooms',
+                        rooms: [
+                            // A corridor with the guest rooms either side, each a bed's room and a little more.
+                            {
+                                key: 'corridor',
+                                purpose: 'hall',
+                                size: 1.8,
+                                opensTo: ['room-1', 'room-2', 'room-3', 'room-4', 'room-5', 'room-6', 'room-7', 'room-8'],
+                            },
+                            { key: 'room-1', purpose: 'bedroom' },
+                            { key: 'room-2', purpose: 'bedroom' },
+                            { key: 'room-3', purpose: 'bedroom' },
+                            { key: 'room-4', purpose: 'bedroom' },
+                            { key: 'room-5', purpose: 'bedroom' },
+                            { key: 'room-6', purpose: 'bedroom' },
+                            { key: 'room-7', purpose: 'bedroom' },
+                            { key: 'room-8', purpose: 'bedroom' },
+                        ],
+                    },
+                ],
+                cellars: [
+                    {
+                        name: 'Cellar',
+                        rooms: [
+                            { key: 'cellar', purpose: 'storage', size: 2, opensTo: ['wine'], floor: 'floor.packed-dirt' },
+                            { key: 'wine', purpose: 'storage', floor: 'floor.packed-dirt' },
+                        ],
+                    },
+                ],
+                cellarAccess: 'ladder',
+                stormDoor: 'south',
+                porch: 2,
+                yard: true,
+            },
+        ],
+        props: [{ role: 'well', beside: { building: 'inn', side: 'west' } }],
     },
     'forest-road': {
         schemaVersion: 1,

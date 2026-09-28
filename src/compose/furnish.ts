@@ -52,6 +52,15 @@ type Count = number | readonly [number, number] | { readonly per: number } | 'fi
 /** Squares of wall per light in a room lit along its walls, so a hall or a nave is lit end to end by night. */
 const LIGHT_SPACING = 8;
 
+/** A table's shape: long (twice its width or more, for benches) or round (about square, seated all round). */
+type TableShape = 'long' | 'round';
+
+/** Whether `stamp` is of `shape`. */
+function ofShape(stamp: RoleStamp, shape: TableShape): boolean {
+    const aspect = Math.max(stamp.width, stamp.height) / Math.min(stamp.width, stamp.height);
+    return shape === 'round' ? aspect <= SQUARE_TABLE_ASPECT : aspect > SQUARE_TABLE_ASPECT;
+}
+
 /** Which walls a wall step tries first. */
 type WallPreference = 'outer' | 'inner' | 'far';
 
@@ -79,7 +88,15 @@ interface WallStep {
 type Step =
     | WallStep
     | { readonly kind: 'corner'; readonly role: StampRole; readonly count: Count }
-    | { readonly kind: 'cluster'; readonly centre: StampRole; readonly around: readonly StampRole[]; readonly count: Count; readonly sides: 1 | 2 }
+    | {
+          readonly kind: 'cluster';
+          readonly centre: StampRole;
+          readonly around: readonly StampRole[];
+          readonly count: Count;
+          readonly sides: 1 | 2;
+          /** Tables of this shape only, where the room has any: long ones for benches, round ones seated all round. */
+          readonly shape?: TableShape;
+      }
     | { readonly kind: 'scatter'; readonly role: StampRole; readonly count: Count }
     | { readonly kind: 'underlay'; readonly role: StampRole }
     | { readonly kind: 'rows'; readonly role: StampRole; readonly facing: StampRole }
@@ -87,53 +104,65 @@ type Step =
 
 /** What each kind of room holds, in the order it is placed: the anchoring pieces first, the clutter last. */
 export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
+    // A few long tables with benches, round ones seated all round in the floor they leave: a mix, not a grid of one kind.
     'common-room': [
         { kind: 'wall', role: 'hearth', count: 1, prefer: 'outer' },
-        { kind: 'cluster', centre: 'table', around: ['bench', 'seat'], count: 'fill', sides: 2 },
+        { kind: 'cluster', centre: 'table', around: ['bench', 'seat'], count: [2, 3], sides: 2, shape: 'long' },
+        { kind: 'cluster', centre: 'table', around: ['seat', 'bench'], count: 'fill', sides: 2, shape: 'round' },
         { kind: 'dress', role: 'tabletop', count: [1, 3] },
         { kind: 'wall', role: 'light', count: { per: LIGHT_SPACING } },
         { kind: 'corner', role: 'storage', count: [1, 2] },
         { kind: 'wall', role: 'storage', count: [1, 3] },
         { kind: 'scatter', role: 'clutter', count: [2, 4] },
     ],
-    // The counter stands out from the wall, stocked shelves on the wall behind the barkeep, stools before it, drink on it.
+    // The counter stands out from the wall, stocked shelves on the wall behind the barkeep, stools before it, drink on it and the tables.
     'bar': [
         { kind: 'wall', role: 'counter', count: 1, prefer: 'inner', front: 'seat', standoff: 1.3, behind: 'shelf' },
+        // A table or two for those drinking at the bar.
+        { kind: 'cluster', centre: 'table', around: ['bench', 'seat'], count: [1, 2], sides: 2 },
         { kind: 'dress', role: 'tabletop', count: [2, 4] },
         { kind: 'wall', role: 'shelf', count: [0, 1] },
         { kind: 'corner', role: 'storage', count: [1, 3] },
         { kind: 'wall', role: 'storage', count: [1, 3] },
         { kind: 'scatter', role: 'clutter', count: [1, 2] },
     ],
+    // The hearth on an outer wall, work surfaces along the walls and one down the middle, food and pots on them all.
     'kitchen': [
         { kind: 'wall', role: 'hearth', count: 1, prefer: 'outer' },
         { kind: 'wall', role: 'workbench', count: [1, 2] },
-        { kind: 'dress', role: 'tabletop', count: [1, 2] },
+        { kind: 'cluster', centre: 'workbench', around: [], count: 1, sides: 1 },
+        { kind: 'dress', role: 'tabletop', count: [2, 4] },
         { kind: 'wall', role: 'shelf', count: [1, 2] },
         { kind: 'corner', role: 'storage', count: [2, 4] },
         { kind: 'wall', role: 'storage', count: [1, 2] },
         { kind: 'scatter', role: 'clutter', count: [2, 3] },
     ],
+    // Stores lining the walls and stacked in rows down the floor, aisles between, a lamp to find them by.
     'storage': [
         { kind: 'corner', role: 'storage', count: 4 },
         { kind: 'wall', role: 'shelf', count: [1, 3] },
         { kind: 'wall', role: 'storage', count: 'fill' },
-        { kind: 'scatter', role: 'clutter', count: [1, 3] },
+        { kind: 'cluster', centre: 'storage', around: [], count: 'fill', sides: 1 },
+        { kind: 'wall', role: 'light', count: [0, 1] },
+        { kind: 'scatter', role: 'clutter', count: [2, 5] },
     ],
-    // A bed with its nightstand beside it and a chest at its foot, a desk to write at, something set on it.
+    // A bed with its nightstand beside it and a chest at its foot, a table and chair with something set on it, a lamp, a guest's belongings.
     'bedroom': [
         { kind: 'underlay', role: 'rug' },
-        { kind: 'wall', role: 'bed', count: [1, 2], prefer: 'inner', beside: 'nightstand', before: 'storage' },
-        { kind: 'wall', role: 'desk', count: [0, 1] },
-        { kind: 'dress', role: 'tabletop', count: [1, 2] },
-        { kind: 'corner', role: 'storage', count: [0, 1] },
-        { kind: 'scatter', role: 'clutter', count: [0, 2] },
+        { kind: 'wall', role: 'bed', count: 1, prefer: 'inner', beside: 'nightstand', before: 'chest' },
+        { kind: 'cluster', centre: 'table', around: ['seat'], count: 1, sides: 1 },
+        { kind: 'dress', role: 'tabletop', count: [1, 3] },
+        { kind: 'wall', role: 'light', count: 1 },
+        // A guest's belongings, not a store: the chest at the bed's foot, perhaps a trunk in a corner, a little clutter.
+        { kind: 'corner', role: 'chest', count: [0, 1] },
+        { kind: 'scatter', role: 'clutter', count: [1, 2] },
     ],
     'hall': [
         { kind: 'underlay', role: 'rug' },
         { kind: 'wall', role: 'bench', count: [1, 2] },
         { kind: 'wall', role: 'light', count: { per: LIGHT_SPACING } },
-        { kind: 'corner', role: 'storage', count: [0, 1] },
+        { kind: 'corner', role: 'storage', count: [0, 2] },
+        { kind: 'scatter', role: 'clutter', count: [0, 2] },
     ],
     'office': [
         { kind: 'underlay', role: 'rug' },
@@ -221,6 +250,14 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
         { kind: 'scatter', role: 'debris', count: [0, 2] },
         { kind: 'scatter', role: 'clutter', count: [0, 2] },
     ],
+    // Open on three sides: a lamp by the door, a bench against the building, barrels at its ends, a crate or two.
+    'porch': [
+        { kind: 'wall', role: 'light', count: { per: LIGHT_SPACING * 2 }, prefer: 'inner' },
+        { kind: 'wall', role: 'bench', count: [2, 3], prefer: 'inner' },
+        { kind: 'corner', role: 'storage', count: [2, 3] },
+        { kind: 'wall', role: 'storage', count: [2, 4], prefer: 'inner' },
+        { kind: 'scatter', role: 'clutter', count: [1, 3] },
+    ],
 };
 
 /** Squares kept clear inside a door: its width plus a margin either side, and how deep. */
@@ -230,7 +267,7 @@ const DOOR_CLEAR = { margin: 0.25, depth: 1.5 } as const;
 const ALONG_GAP = 0.15;
 
 /** Squares of walkway kept round the table clusters, and between them. */
-const WALKWAY = 1;
+const WALKWAY = 0.8;
 
 /** Squares between a table and its seats. */
 const SEAT_GAP = 0.05;
@@ -250,8 +287,13 @@ const BACK_TO: Readonly<Record<Side, number>> = { top: 0, right: 90, bottom: 180
 const QUARTER_TURN = 90;
 const HALF_TURN = 180;
 
-/** Roles whose pieces have no back to set against a wall (a candle stand, a brazier): drawn with depth, they still stand unturned by any wall. */
-const BACKLESS_ROLES: readonly StampRole[] = ['light'];
+/**
+ * Roles whose pieces have no back to set against a wall (a candle stand, a
+ * brazier, a pile of crates, barrels or sacks, odds and ends): drawn with
+ * depth, they still stand unturned by any wall, so every wall of a store
+ * takes the whole mix, not only what is drawn straight down.
+ */
+const BACKLESS_ROLES: readonly StampRole[] = ['light', 'storage', 'clutter'];
 const FULL_TURN = 360;
 
 /** Rotation steps for scattered pieces. */
@@ -504,6 +546,13 @@ function orderAlongWall(
 }
 
 /**
+ * The turn that stands `stamp` against the `side` wall. Art drawn with depth
+ * stands only where it needs no turn: its back to the top wall, or, having no
+ * back, unturned by any wall.
+ */
+const wallTurn = (stamp: RoleStamp, side: Side): number => (stamp.upright && BACKLESS_ROLES.includes(stamp.role) ? 0 : BACK_TO[side]);
+
+/**
  * Where `stamp` would stand against the `side` wall from `t` (`inset` out
  * from it, the wall ending at `hi`), its box, clear front and turn; null
  * where it does not fit, the floor is taken, or it would need a turn it
@@ -516,8 +565,7 @@ function wallSpot(
 ): { box: Box; front: Box; turn: number } | null {
     const { side, t, hi, inset } = at;
     const { rect } = floor.room;
-    // Art drawn with depth stands only where it needs no turn: its back to the top wall, or, having no back, unturned by any wall.
-    const turn = stamp.upright && BACKLESS_ROLES.includes(stamp.role) ? 0 : BACK_TO[side];
+    const turn = wallTurn(stamp, side);
     const sideways = (turn - BACK_TO[side]) % HALF_TURN !== 0;
     const along = sideways ? stamp.height : stamp.width;
     const depth = sideways ? stamp.width : stamp.height;
@@ -574,6 +622,9 @@ function placeOnWalls(floor: Floor, step: WallStep, draw: Draw, companions: Comp
                 placeCompanions(floor, side, t, stamp, inset, companions);
                 placedAt.push(t);
                 wanted -= 1;
+                stamp = draw();
+            } else if (!Floor.stands(stamp, wallTurn(stamp, side))) {
+                // Drawn with depth, it stands by no wall but the top: another piece may, rather than this wall going bare.
                 stamp = draw();
             }
         }
@@ -642,7 +693,23 @@ function clusterBlock({ table, seat, sides, round }: Seating): { w: number; h: n
     return { w: long + (round ? 2 * depth : 0), h: short + (seat ? sides * depth : 0), long, short, depth };
 }
 
-function placeClusters(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, given: Seating, random: Random): void {
+/** How far a stack may sit off its slot's centre, in squares: rows of stores stacked by hand, not laid by rule. */
+const STACK_JITTER = 0.15;
+
+/**
+ * One stack of stores drawn afresh into `cell` (sized for the bulkiest):
+ * centred, a little off true, square to the rows.
+ */
+function placeStack(floor: Floor, piece: RoleStamp, cell: Box, turned: boolean, random: Random): boolean {
+    const across = turned && !piece.upright;
+    const w = across ? piece.height : piece.width;
+    const h = across ? piece.width : piece.height;
+    const jitter = (spare: number): number => Math.min(STACK_JITTER, spare / 2) * (2 * random() - 1);
+    const box: Box = { x: cell.x + (cell.w - w) / 2 + jitter(cell.w - w), y: cell.y + (cell.h - h) / 2 + jitter(cell.h - h), w, h };
+    return floor.free(cell) && floor.put(piece, box, across ? QUARTER_TURN : 0, null);
+}
+
+function placeClusters(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, given: Seating, random: Random, stack?: Draw): void {
     const { rect } = floor.room;
     // Seats drawn with depth cannot be turned: one row of them, above each table, facing down onto it as drawn.
     const seating: Seating = given.seat?.upright === true ? { ...given, sides: 1, round: false } : given;
@@ -658,16 +725,31 @@ function placeClusters(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, g
     const spareX = region.w - (cols * bw + (cols - 1) * WALKWAY);
     const spareY = region.h - (rows * bh + (rows - 1) * WALKWAY);
     let wanted = howMany(step.count, random, floor.room.rect);
+    const placeOne = (cell: Box): boolean => (stack ? placeStack(floor, stack(), cell, turned, random) : placeCluster(floor, seating, cell, turned, block));
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const x = region.x + spareX / 2 + c * (bw + WALKWAY);
             const y = region.y + spareY / 2 + r * (bh + WALKWAY);
-            if (wanted > 0 && placeCluster(floor, seating, { x, y, w: bw, h: bh }, turned, block)) {
+            if (wanted > 0 && placeOne({ x, y, w: bw, h: bh })) {
+                wanted -= 1;
+            }
+        }
+    }
+    // Still wanting more, the floor the rows left (round a hearth, a bed, a doorway) takes them, a walkway still round each.
+    const half = WALKWAY / 2;
+    for (let y = region.y; y + bh <= region.y + region.h && wanted > 0; y += CLUSTER_STEP) {
+        for (let x = region.x; x + bw <= region.x + region.w && wanted > 0; x += CLUSTER_STEP) {
+            const walkway = { x: x - half, y: y - half, w: bw + WALKWAY, h: bh + WALKWAY };
+            // The walkway round it is only floor to walk: it may run through a doorway's approach or before a hearth, as they are.
+            if (floor.free(walkway, false) && placeOne({ x, y, w: bw, h: bh })) {
                 wanted -= 1;
             }
         }
     }
 }
+
+/** Squares between the spots a filling tries for another table. */
+const CLUSTER_STEP = 0.5;
 
 /**
  * One table with its seats in `cell`, facing it: along the side(s) of its
@@ -866,15 +948,60 @@ function required(step: Step): boolean {
 const MATCHED_ROLES: readonly StampRole[] = ['table', 'seat', 'bench', 'bed', 'pew', 'rug'];
 
 /**
+ * Pieces that serve for another's role when no stamp fills it: a kitchen's
+ * work surface is a table, a desk a table to write at, a nightstand a chest.
+ */
+const STAND_INS: readonly (readonly [StampRole, StampRole])[] = [
+    ['workbench', 'table'],
+    ['desk', 'table'],
+    ['nightstand', 'storage'],
+    ['chest', 'storage'],
+];
+
+/** Roles a table stands in for as a surface to work at: only a long table serves. */
+const SURFACE_STAND_INS: readonly StampRole[] = ['workbench', 'desk'];
+
+/** `stamps` with each role no stamp fills taking its stand-in's stamps. */
+function withStandIns(stamps: RoleIndex): RoleIndex {
+    const filled = new Map(stamps);
+    for (const [role, standIn] of STAND_INS) {
+        const own = filled.get(role) ?? [];
+        const other = filled.get(standIn) ?? [];
+        if (own.length === 0 && other.length > 0) {
+            // A work surface is a long table to work along, never a round one to sit at, where there is a long one.
+            const long = SURFACE_STAND_INS.includes(role) ? other.filter((s) => ofShape(s, 'long')) : [];
+            filled.set(role, long.length > 0 ? long : other);
+        }
+    }
+    return filled;
+}
+
+/**
+ * `stamps` fit for a room of `purpose`: each role's pieces that name no
+ * other kind of room (a guest room's bed, not a medicae bed or a cell's
+ * bunk), or all of them when every one names another.
+ */
+function forPurpose(stamps: RoleIndex, purpose: RoomPurpose): RoleIndex {
+    return new Map(
+        [...stamps].map(([role, list]) => {
+            const fit = list.filter((s) => s.purposes.length === 0 || s.purposes.includes(purpose));
+            return [role, fit.length > 0 ? fit : list];
+        }),
+    );
+}
+
+/**
  * Furnish `room` by its purpose's template, keeping `reserved` floor (a
- * stairwell) clear; the roles it wanted that no loaded stamp has.
+ * stairwell) clear; the roles it wanted that no loaded stamp has, and those
+ * it filled with another setting's art.
  */
 export function furnishRoom(
     room: RoomFloor,
-    stamps: RoleIndex,
+    given: RoleIndex,
     random: Random,
     reserved: readonly Box[] = [],
-): { stamps: ComposedStamp[]; missing: StampRole[] } {
+): { stamps: ComposedStamp[]; missing: StampRole[]; borrowed: StampRole[] } {
+    const stamps = withStandIns(forPurpose(given, room.purpose));
     const floor = new Floor(room, [...doorApproaches(room), ...reserved]);
     const chosen = new Map<StampRole, RoleStamp | undefined>();
     const choose = (role: StampRole): RoleStamp | undefined => {
@@ -891,26 +1018,53 @@ export function furnishRoom(
         const all = stamps.get(role) ?? [];
         return MATCHED_ROLES.includes(role) ? () => first : () => pick(random, all) ?? first;
     };
+    const bulkiest = (role: StampRole): RoleStamp | undefined => [...(stamps.get(role) ?? [])].sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    // One kind of each shape per room, as a matched role has one kind; a room with none of that shape takes its one kind.
+    const byShape = new Map<string, RoleStamp | undefined>();
+    const shaped = (role: StampRole, shape: TableShape): RoleStamp | undefined => {
+        const key = `${role}:${shape}`;
+        if (!byShape.has(key)) {
+            const fits = (stamps.get(role) ?? []).filter((s) => ofShape(s, shape));
+            byShape.set(key, fits.length > 0 ? pick(random, fits) : choose(role));
+        }
+        return byShape.get(key);
+    };
     const missing = new Set<StampRole>();
     for (const step of ROOM_TEMPLATES[room.purpose]) {
         if (required(step) && choose(mainRole(step)) === undefined) {
             missing.add(mainRole(step));
         }
-        runStep(floor, step, choose, drawOf, random);
+        runStep(floor, step, { choose, drawOf, bulkiest, shaped, all: (role) => stamps.get(role) ?? [] }, random);
     }
     // Rugs lie beneath everything: first in the drawing order.
     const rugs = new Set([...(stamps.get('rug') ?? [])].map((s) => s.key));
     const placed = [...floor.placed.filter((p) => rugs.has(p.stamp)), ...floor.placed.filter((p) => !rugs.has(p.stamp))];
-    return { stamps: placed, missing: [...missing] };
+    const lent = new Map([...stamps.values()].flat().flatMap((s) => (s.borrowed ? [[s.key, s.role] as const] : [])));
+    const borrowed = [...new Set(placed.flatMap((p) => lent.get(p.stamp) ?? []))];
+    return { stamps: placed, missing: [...missing], borrowed };
 }
 
-function runStep(
-    floor: Floor,
-    step: Step,
-    choose: (role: StampRole) => RoleStamp | undefined,
-    drawOf: (role: StampRole) => Draw | undefined,
-    random: Random,
-): void {
+/** How a room's steps draw its pieces: the one kind of a matched role, a fresh pick per piece, the bulkiest kind of a role, one kind of a shape. */
+interface Pieces {
+    readonly choose: (role: StampRole) => RoleStamp | undefined;
+    readonly drawOf: (role: StampRole) => Draw | undefined;
+    readonly bulkiest: (role: StampRole) => RoleStamp | undefined;
+    readonly shaped: (role: StampRole, shape: TableShape) => RoleStamp | undefined;
+    /** Every piece the room may draw for a role. */
+    readonly all: (role: StampRole) => readonly RoleStamp[];
+}
+
+/** A stack's least share of the bulkiest piece's floor: smaller pieces would read as clutter, not a stack. */
+const STACK_SHARE = 0.5;
+
+function runStep(floor: Floor, step: Step, pieces: Pieces, random: Random): void {
+    const { choose, drawOf, bulkiest, shaped, all } = pieces;
+    const stacksOf = (role: StampRole, biggest: RoleStamp): Draw => {
+        const fits = all(role).filter(
+            (s) => s.width * s.height >= STACK_SHARE * biggest.width * biggest.height && s.width <= biggest.width && s.height <= biggest.height,
+        );
+        return () => pick(random, fits) ?? biggest;
+    };
     switch (step.kind) {
         case 'wall': {
             const draw = drawOf(step.role);
@@ -933,11 +1087,14 @@ function runStep(
             return;
         }
         case 'cluster': {
-            const table = choose(step.centre);
+            // Stacked in rows with nothing round them (stores down a cellar), the bulkiest pieces, not a scatter of small ones.
+            const table = step.around.length === 0 ? bulkiest(step.centre) : step.shape ? shaped(step.centre, step.shape) : choose(step.centre);
             if (table) {
                 // The first kind of seat the room has that suits the table: a bench far longer than it gives way to chairs.
                 const seat = step.around.map(choose).find((s) => s !== undefined && fitsBeside(s, table));
-                placeClusters(floor, step, seatingOf(table, seat, step.sides), random);
+                // Stores stacked in rows vary stack by stack among the pieces near the bulkiest's size: crates, barrels, sack piles.
+                const stack = step.around.length === 0 && !MATCHED_ROLES.includes(step.centre) ? stacksOf(step.centre, table) : undefined;
+                placeClusters(floor, step, seatingOf(table, seat, step.sides), random, stack);
             }
             return;
         }

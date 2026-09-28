@@ -20,8 +20,12 @@ export type FloorMaterial = string;
 /** A room wall: a `wall.<name>` role, or null for walls that are not drawn. */
 export type WallMaterial = string | null;
 
-/** A drawn wall's thickness as a share of a grid square: a foot of masonry on a 5 ft square, centred on the wall line. */
-export const WALL_BAND_SQUARES = 0.2;
+/**
+ * A drawn wall's thickness as a share of a grid square, centred on the wall
+ * line: about two feet on a 5 ft square, as battlemaps draw masonry and
+ * timber walls, heavy enough to frame each room at a glance.
+ */
+export const WALL_BAND_SQUARES = 0.35;
 
 // eslint-disable-next-line no-restricted-syntax -- boundary: validates a persisted floor material from scene-flag JSON
 export function isFloorMaterial(v: unknown): v is FloorMaterial {

@@ -29,10 +29,36 @@ describe('roleIndex', () => {
             [],
         );
         expect(index.get('counter')).toEqual([
-            { key: 'pack:counter', role: 'counter', width: 2, height: 1, turn: 0, against: 'wall', clearance: 2, upright: false, habitats: [] },
+            {
+                key: 'pack:counter',
+                role: 'counter',
+                width: 2,
+                height: 1,
+                turn: 0,
+                against: 'wall',
+                clearance: 2,
+                upright: false,
+                habitats: [],
+                climb: null,
+                borrowed: false,
+                purposes: [],
+            },
         ]);
         expect(index.get('table')).toEqual([
-            { key: 'pack:table', role: 'table', width: 2, height: 1, turn: 0, against: 'free', clearance: 0, upright: false, habitats: [] },
+            {
+                key: 'pack:table',
+                role: 'table',
+                width: 2,
+                height: 1,
+                turn: 0,
+                against: 'free',
+                clearance: 0,
+                upright: false,
+                habitats: [],
+                climb: null,
+                borrowed: false,
+                purposes: [],
+            },
         ]);
         // Neither a role nor a tag that makes one: only ever placed by hand.
         expect([...index.values()].flat().map((s) => s.key)).not.toContain('pack:statue');
@@ -106,6 +132,40 @@ describe('roleIndex', () => {
         expect(keys(['imperial', 'generic'])).toEqual(['pack:gothic', 'pack:stool']);
         expect(keys([])).toHaveLength(3);
         expect(roleIndex(stamps(defs, 200), []).get('seat')?.[0]).toMatchObject({ width: 1, height: 0.5 });
+    });
+
+    it('borrows a way between levels from another setting only when the map’s settings have none, and keeps how each climbs', () => {
+        const ladder = stampDef('ladder', { tags: ['ladder', 'setting-grimdark'], transition: { kind: 'ladder', direction: 'up' } });
+        const doors = stampDef('storm-doors', {
+            tags: ['storm', 'cellar', 'doors', 'setting-fantasy'],
+            scale: 'exterior',
+            transition: { kind: 'hatch', direction: 'down' },
+        });
+        const chair = stampDef('chair', { tags: ['chair', 'setting-grimdark'] });
+        const fantasy = roleIndex(stamps([ladder, chair]), ['setting-fantasy']);
+        expect(fantasy.get('stairs')?.map((s) => [s.key, s.borrowed, s.climb])).toEqual([['pack:ladder', true, { kind: 'ladder', direction: 'up' }]]);
+        // Nor is a chair; but a bed is, when the settings have none, and only then.
+        expect(fantasy.has('seat')).toBe(false);
+        const cot = stampDef('cot', { tags: ['cot', 'setting-grimdark'] });
+        const pallet = stampDef('pallet', { tags: ['bed', 'setting-fantasy'] });
+        expect(
+            roleIndex(stamps([cot]), ['setting-fantasy'])
+                .get('bed')
+                ?.map((s) => [s.key, s.borrowed]),
+        ).toEqual([['pack:cot', true]]);
+        expect(
+            roleIndex(stamps([cot, pallet]), ['setting-fantasy'])
+                .get('bed')
+                ?.map((s) => [s.key, s.borrowed]),
+        ).toEqual([['pack:pallet', false]]);
+        // Storm doors drawn for outside are a way down whatever their scale; the setting's own come first, the borrowed after.
+        const withDoors = roleIndex(stamps([ladder, doors]), ['setting-fantasy']);
+        expect(withDoors.get('stairs')?.map((s) => [s.key, s.borrowed, s.climb?.direction])).toEqual([
+            ['pack:storm-doors', false, 'down'],
+            ['pack:ladder', true, 'up'],
+        ]);
+        // A hatch that joins no levels is not a way between them.
+        expect(roleIndex(stamps([stampDef('hatch', { tags: ['hatch', 'trapdoor'] })]), []).has('stairs')).toBe(false);
     });
 
     it('keeps the ground a land stamp belongs on', () => {

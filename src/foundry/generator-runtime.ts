@@ -12,12 +12,13 @@ import type { RealizeReport } from '../canvas/realize';
 import type { Advised } from '../compose/assist';
 import { parseMapIntent } from '../compose/intent';
 import { isMapPreset, MAP_PRESETS, type MapPreset, presetText, withSeed } from '../compose/presets';
-import type { ComposeProblem } from '../compose/problems';
+import type { Access, ComposeProblem } from '../compose/problems';
 import { generateFloorPlan } from '../generate/floor-plan';
 import { DEFAULT_GENERATOR_FORM, floorPlanOptions, newSeed, withGeneratorField, type GeneratorForm } from '../generate/form';
 import { formatSpecIssue, parseSceneSpecJson, type SceneSpec } from '../generate/spec';
 import { I18N } from '../i18n';
 import type { CatalogStamp } from '../stamps/catalog';
+import type { StampTransitionKind } from '../stamps/schema';
 import type { RoomMaterials } from '../tools/room';
 import { type ComposeMode, renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel } from '../ui/generator-view';
 import { advisorAvailable, askAdvisor } from './advisor';
@@ -94,8 +95,26 @@ function problemLine(problem: ComposeProblem): string {
     if (problem.kind === 'no-stairwell') {
         return format(p.noStairwell, { building: problem.building });
     }
+    if (problem.kind === 'borrowed') {
+        return format(p.borrowed, { wantedIn: problem.wantedIn, used: localize(ACCESS_NAMES[problem.used]) });
+    }
+    if (problem.kind === 'borrowed-art') {
+        return format(p.borrowedArt, { wantedIn: problem.wantedIn, role: problem.role });
+    }
+    if (problem.kind === 'stand-in') {
+        return format(p.standIn, { wantedIn: problem.wantedIn, wanted: localize(ACCESS_NAMES[problem.wanted]), used: localize(ACCESS_NAMES[problem.used]) });
+    }
     return format(p.noStamp, { wantedIn: problem.wantedIn, role: problem.role });
 }
+
+/** Each way between levels, by its langpack key. */
+const ACCESS_NAMES: Readonly<Record<Access | StampTransitionKind, string>> = {
+    'stairs': I18N.generator.access.stairs,
+    'ladder': I18N.generator.access.ladder,
+    'lift': I18N.generator.access.lift,
+    'hatch': I18N.generator.access.hatch,
+    'storm-door': I18N.generator.access.stormDoor,
+};
 
 /** The presets by name, as the picker lists them. */
 const PRESET_TITLES: Readonly<Record<MapPreset, string>> = {
@@ -107,6 +126,7 @@ const PRESET_TITLES: Readonly<Record<MapPreset, string>> = {
     'hive-chapel': I18N.generator.presets.hiveChapel,
     'manufactorum': I18N.generator.presets.manufactorum,
     'void-port': I18N.generator.presets.voidPort,
+    'roadside-inn': I18N.generator.presets.roadsideInn,
 };
 
 /** The preset the builder starts on. */

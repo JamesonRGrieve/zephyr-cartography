@@ -117,7 +117,7 @@ function buildGround(spec: Extract<FeatureSpec, { type: 'region' | 'stroke' }>, 
     const points = spec.points.map(scale.point);
     const texture = spec.texture ?? null;
     if (spec.type === 'region') {
-        const region = makeRegion(id, spec.biome, points, texture);
+        const region = makeRegion(id, spec.biome, points, texture, spec.sharp);
         return region && { ...region, ...areaOf(spec) };
     }
     const radius = spec.radius === undefined ? DEFAULT_BRUSH_RADIUS : scale.length(spec.radius);
@@ -223,14 +223,18 @@ export async function realizeSpec(controller: CartographyController, spec: Scene
         await controller.setSceneSettings(spec.scene);
     }
     await controller.batch(async () => {
-        await spec.levels.reduce(async (previous, l, i) => {
+        // A level may take the scene's own lowest floor rather than stacking a new one: those listed after it stack above,
+        // those before it go below it, nearest first, so the scene's floor stays where it was.
+        const own = spec.levels.findIndex((l) => l.existing);
+        const lowest = own >= 0 ? controller.levels[0] : undefined;
+        const order = own > 0 ? [...spec.levels.slice(own), ...spec.levels.slice(0, own).reverse()] : spec.levels;
+        await order.reduce(async (previous, l) => {
             await previous;
-            // The first level may take the scene's own lowest floor rather than stacking a new one above it.
-            const lowest = i === 0 && l.existing ? controller.levels[0] : undefined;
-            if (lowest) {
+            const below = own > 0 && spec.levels.indexOf(l) < own;
+            if (lowest && l.existing) {
                 await controller.renameLevel(lowest.id, l.name);
             }
-            const id = lowest ? lowest.id : await controller.addLevel('above', l.name);
+            const id = lowest && l.existing ? lowest.id : await controller.addLevel(below ? 'below' : 'above', l.name);
             if (id !== null) {
                 levels[l.key] = id;
                 if (l.bottom !== undefined && l.top !== undefined) {

@@ -95,6 +95,11 @@
             "items": {
                 "type": "object",
                 "properties": {
+                    "key": {
+                        "description": "A name roads and rivers can start or end at.",
+                        "type": "string",
+                        "minLength": 1
+                    },
                     "kind": {
                         "type": "string",
                         "enum": [
@@ -106,7 +111,8 @@
                             "rubble",
                             "industrial",
                             "fortified",
-                            "landing"
+                            "landing",
+                            "lake"
                         ]
                     },
                     "area": {
@@ -310,9 +316,22 @@
                                     "building"
                                 ],
                                 "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "zone": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "required": [
+                                    "zone"
+                                ],
+                                "additionalProperties": false
                             }
                         ],
-                        "description": "Where a road or river starts or ends: a map edge (a point along it), a point, or a building (its entrance)."
+                        "description": "Where a road or river starts or ends: a map edge (a point along it), a point, a building (its entrance), or a zone by key (its edge nearest the other end: a river running out of a lake)."
                     },
                     "to": {
                         "anyOf": [
@@ -354,9 +373,22 @@
                                     "building"
                                 ],
                                 "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "zone": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "required": [
+                                    "zone"
+                                ],
+                                "additionalProperties": false
                             }
                         ],
-                        "description": "Where a road or river starts or ends: a map edge (a point along it), a point, or a building (its entrance)."
+                        "description": "Where a road or river starts or ends: a map edge (a point along it), a point, a building (its entrance), or a zone by key (its edge nearest the other end: a river running out of a lake)."
                     },
                     "width": {
                         "description": "Squares across; omitted: a road 1.5, a river 2.",
@@ -492,7 +524,8 @@
                                         "armoury",
                                         "barracks",
                                         "manufactorum",
-                                        "interrogation"
+                                        "interrogation",
+                                        "porch"
                                     ]
                                 },
                                 "size": {
@@ -537,7 +570,7 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "description": "The level’s name; omitted, “Floor 2” and so on.",
+                                    "description": "The level’s name; omitted, “Floor 2”, “Cellar” and so on.",
                                     "type": "string",
                                     "minLength": 1
                                 },
@@ -572,7 +605,8 @@
                                                     "armoury",
                                                     "barracks",
                                                     "manufactorum",
-                                                    "interrogation"
+                                                    "interrogation",
+                                                    "porch"
                                                 ]
                                             },
                                             "size": {
@@ -614,6 +648,147 @@
                             ],
                             "additionalProperties": false
                         }
+                    },
+                    "floorAccess": {
+                        "default": "stairs",
+                        "description": "How the floors above are reached: a staircase or a ladder.",
+                        "type": "string",
+                        "enum": [
+                            "stairs",
+                            "ladder"
+                        ]
+                    },
+                    "cellars": {
+                        "default": [],
+                        "description": "Storeys below the ground floor, top to bottom, each a level under the same footprint, joined to the one above in the same place on each.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "description": "The level’s name; omitted, “Floor 2”, “Cellar” and so on.",
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "rooms": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "key": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "description": "This room’s name among the building’s rooms, for `opensTo`."
+                                            },
+                                            "purpose": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "common-room",
+                                                    "bar",
+                                                    "kitchen",
+                                                    "storage",
+                                                    "bedroom",
+                                                    "hall",
+                                                    "office",
+                                                    "workshop",
+                                                    "shrine",
+                                                    "cell",
+                                                    "mess",
+                                                    "chapel",
+                                                    "medicae",
+                                                    "command",
+                                                    "armoury",
+                                                    "barracks",
+                                                    "manufactorum",
+                                                    "interrogation",
+                                                    "porch"
+                                                ]
+                                            },
+                                            "size": {
+                                                "default": 1,
+                                                "description": "Floor area relative to the building’s other rooms (2 is twice as big as 1).",
+                                                "type": "number",
+                                                "exclusiveMinimum": 0
+                                            },
+                                            "opensTo": {
+                                                "default": [],
+                                                "description": "Rooms it has a door into; the layout puts them side by side.",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                }
+                                            },
+                                            "entrance": {
+                                                "default": false,
+                                                "description": "Has the building’s front door. Without one marked, the first room has it.",
+                                                "type": "boolean"
+                                            },
+                                            "floor": {
+                                                "description": "Its own floor texture role (a kitchen’s flagstones among plank rooms); omitted, the building’s.",
+                                                "type": "string",
+                                                "minLength": 1
+                                            }
+                                        },
+                                        "required": [
+                                            "key",
+                                            "purpose"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                }
+                            },
+                            "required": [
+                                "rooms"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "cellarAccess": {
+                        "default": "ladder",
+                        "description": "How the cellars are reached from above: a staircase or a ladder.",
+                        "type": "string",
+                        "enum": [
+                            "stairs",
+                            "ladder"
+                        ]
+                    },
+                    "stormDoor": {
+                        "default": null,
+                        "description": "The side with storm doors down into the top cellar from outside, through a small areaway beside the wall; null for none.",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "north",
+                                    "east",
+                                    "south",
+                                    "west"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "porch": {
+                        "default": null,
+                        "description": "A board porch this many squares deep along the front wall at the front door, with a bench, barrels and a lamp; null for none.",
+                        "anyOf": [
+                            {
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "yard": {
+                        "default": false,
+                        "description": "A working yard: stores stacked against the outside walls and a cart or wagon standing by.",
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -622,6 +797,169 @@
                     "rooms"
                 ],
                 "additionalProperties": false
+            }
+        },
+        "props": {
+            "default": [],
+            "type": "array",
+            "items": {
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string",
+                                "enum": [
+                                    "tree",
+                                    "shrub",
+                                    "rock",
+                                    "log",
+                                    "flora",
+                                    "debris",
+                                    "table",
+                                    "seat",
+                                    "bench",
+                                    "counter",
+                                    "hearth",
+                                    "shelf",
+                                    "bed",
+                                    "storage",
+                                    "clutter",
+                                    "rug",
+                                    "desk",
+                                    "workbench",
+                                    "light",
+                                    "machine",
+                                    "console",
+                                    "altar",
+                                    "pew",
+                                    "lectern",
+                                    "icon",
+                                    "rack",
+                                    "medical",
+                                    "restraint",
+                                    "structure",
+                                    "barricade",
+                                    "crater",
+                                    "emplacement",
+                                    "vehicle",
+                                    "stairs",
+                                    "tabletop",
+                                    "nightstand",
+                                    "well",
+                                    "bridge",
+                                    "waymark",
+                                    "chest",
+                                    "enclosure",
+                                    "fodder"
+                                ]
+                            },
+                            "at": {
+                                "type": "object",
+                                "properties": {
+                                    "x": {
+                                        "type": "number"
+                                    },
+                                    "y": {
+                                        "type": "number"
+                                    }
+                                },
+                                "required": [
+                                    "x",
+                                    "y"
+                                ],
+                                "additionalProperties": false,
+                                "description": "In grid squares from the map’s top-left corner."
+                            }
+                        },
+                        "required": [
+                            "role",
+                            "at"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string",
+                                "enum": [
+                                    "tree",
+                                    "shrub",
+                                    "rock",
+                                    "log",
+                                    "flora",
+                                    "debris",
+                                    "table",
+                                    "seat",
+                                    "bench",
+                                    "counter",
+                                    "hearth",
+                                    "shelf",
+                                    "bed",
+                                    "storage",
+                                    "clutter",
+                                    "rug",
+                                    "desk",
+                                    "workbench",
+                                    "light",
+                                    "machine",
+                                    "console",
+                                    "altar",
+                                    "pew",
+                                    "lectern",
+                                    "icon",
+                                    "rack",
+                                    "medical",
+                                    "restraint",
+                                    "structure",
+                                    "barricade",
+                                    "crater",
+                                    "emplacement",
+                                    "vehicle",
+                                    "stairs",
+                                    "tabletop",
+                                    "nightstand",
+                                    "well",
+                                    "bridge",
+                                    "waymark",
+                                    "chest",
+                                    "enclosure",
+                                    "fodder"
+                                ]
+                            },
+                            "beside": {
+                                "type": "object",
+                                "properties": {
+                                    "building": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "side": {
+                                        "description": "Omitted: whichever side has room, its front first.",
+                                        "type": "string",
+                                        "enum": [
+                                            "north",
+                                            "east",
+                                            "south",
+                                            "west"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "building"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "role",
+                            "beside"
+                        ],
+                        "additionalProperties": false
+                    }
+                ],
+                "description": "One piece stood outside: at a point, or in the yard beside a building (a well by the inn)."
             }
         }
     },

@@ -108,6 +108,45 @@ test('the woodland inn preset: an inn in a clearing, a road to its door, a strea
     await showcase(world, 'woodland-inn', 'Woodland inn', 'woodland-inn', { x: 18, y: 13.5, scale: CLOSE_UP_SCALE / 2 }, false);
 });
 
+/** Whether the viewed level's tiles are all drawn with their images loaded. */
+async function levelTilesDrawn(page: Page): Promise<boolean> {
+    return page.evaluate(() => {
+        const shown = (canvas?.tiles?.placeables ?? []).filter((tile) => tile.visible);
+        return shown.length > 0 && shown.every((tile) => tile.mesh?.texture?.valid === true);
+    });
+}
+
+/** View the level named `levelName`, shoot the scene whole as `<shot>.png` (wall lines shown) and close up as `<shot>-close-up.png`. */
+async function shootLevel(page: Page, levelName: string, size: SceneSize, shot: string, closeUp: CloseUp): Promise<void> {
+    await page.evaluate(async (named) => {
+        const scene = canvas?.scene;
+        const level = scene?.levels.contents.find((l) => l.name === named);
+        await scene?.view({ level: level?.id ?? '' });
+    }, levelName);
+    await expect.poll(async () => page.evaluate(() => canvas?.ready === true)).toBe(true);
+    await expect.poll(async () => levelTilesDrawn(page), { timeout: IMAGES_LOAD_MS }).toBe(true);
+    await frameScene(page, 'walls', size, fitScale(page, size));
+    await expect(page.locator('#board')).toHaveScreenshot(`${shot}.png`);
+    await page.evaluate(
+        async ({ x, y, scale }) => {
+            await canvas?.animatePan({ x, y, scale, duration: 0 });
+        },
+        { x: closeUp.x * GRID, y: closeUp.y * GRID, scale: closeUp.scale },
+    );
+    await expect(page.locator('#board')).toHaveScreenshot(`${shot}-close-up.png`);
+}
+
+test('the roadside inn preset: guest rooms upstairs, a cellar by ladder and storm doors, a well, a lake’s river under the road’s bridge', async ({ world }) => {
+    const { size, outcome } = await composePreset(world, 'roadside-inn', 'Roadside inn');
+    // Soft: whatever the packs lack (or another setting lends) is reported, and every level is still shot for review.
+    expect.soft(outcome).toEqual([]);
+    // Every level framed alike, whole and close on the inn (its storm-door areaway included), so the floors line up shot to shot.
+    const inn = { x: 37, y: 20.5, scale: CLOSE_UP_SCALE / 2.5 };
+    await shootLevel(world, 'Ground floor', size, 'roadside-inn-ground', inn);
+    await shootLevel(world, 'Guest rooms', size, 'roadside-inn-upper', inn);
+    await shootLevel(world, 'Cellar', size, 'roadside-inn-cellar', inn);
+});
+
 test('the tavern preset: common room, bar, kitchen, store, hall and bedrooms, furnished', async ({ world }) => {
     await showcase(world, 'tavern', 'Tavern', 'tavern', { x: 8, y: 6, scale: CLOSE_UP_SCALE }, true);
 });

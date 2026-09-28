@@ -246,6 +246,7 @@ describe('CartographyController', () => {
                 id: 'a',
                 biome: 'sand',
                 texture: null,
+                sharp: false,
                 points: [
                     { x: 0, y: 0 },
                     { x: 5, y: 0 },
