@@ -12,7 +12,7 @@
  * Pure and unit-tested; positions are in grid squares.
  */
 import type { Rect, Side } from '../generate/floor-plan';
-import { pick, type Random } from '../generate/random';
+import { pick, shuffled, type Random } from '../generate/random';
 import type { SceneSpecInput } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { Point } from '../geometry/spline';
@@ -301,15 +301,22 @@ function fixedPoint(anchor: Anchor, size: Size, sites: readonly Site[], random: 
     return { x: anchor.x, y: anchor.y };
 }
 
-/** Squares inside a zone's edge a path from it starts: a river runs out of the lake, not from its shore. */
+/**
+ * Squares inside a zone's edge a path from it starts, past the reach of its
+ * own bed: a river runs out of the lake, its square end and banks (about
+ * twice its half width to each side) wholly under the water, never cut
+ * across the shore.
+ */
 const ZONE_END_INSET = 1;
 
-/** A zone end: the point of its outline nearest `toward`, a little inside it. */
-function zoneEnd(outline: readonly Point[], toward: Point): Point {
+/** A zone end: the point of its outline nearest `toward`, far enough inside it to hide a path `halfWidth` wide ending there. */
+function zoneEnd(outline: readonly Point[], toward: Point, halfWidth: number): Point {
     const centre = centreOf(outline);
     const nearest = outline.reduce((best, p) => (Math.hypot(p.x - toward.x, p.y - toward.y) < Math.hypot(best.x - toward.x, best.y - toward.y) ? p : best));
     const span = Math.hypot(centre.x - nearest.x, centre.y - nearest.y) || 1;
-    return { x: nearest.x + ((centre.x - nearest.x) / span) * ZONE_END_INSET, y: nearest.y + ((centre.y - nearest.y) / span) * ZONE_END_INSET };
+    // Never past the zone's middle, however wide the path.
+    const inset = Math.min(ZONE_END_INSET + 2 * halfWidth, span);
+    return { x: nearest.x + ((centre.x - nearest.x) / span) * inset, y: nearest.y + ((centre.y - nearest.y) / span) * inset };
 }
 
 /** Both ends of `path`: its fixed ends first, then any at a zone, at the edge nearest the other end. */
@@ -320,8 +327,9 @@ function pathEnds(path: PathIntent, size: Size, sites: readonly Site[], zones: R
     const fixedTo = fixedPoint(path.to, size, sites, random);
     const fromOutline = outlineOf(path.from);
     const toOutline = outlineOf(path.to);
-    const from = fixedFrom ?? (fromOutline ? zoneEnd(fromOutline, fixedTo ?? (toOutline ? centreOf(toOutline) : middle)) : middle);
-    const to = fixedTo ?? (toOutline ? zoneEnd(toOutline, from) : middle);
+    const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
+    const from = fixedFrom ?? (fromOutline ? zoneEnd(fromOutline, fixedTo ?? (toOutline ? centreOf(toOutline) : middle), halfWidth) : middle);
+    const to = fixedTo ?? (toOutline ? zoneEnd(toOutline, from, halfWidth) : middle);
     return [from, to];
 }
 
@@ -856,17 +864,25 @@ const PEN_OUT = 2;
  * `sides` with room for it, clear of the building, its stores' strip and
  * everything else; its fodder stacked at its side.
  */
-function penOf(site: Site, sides: readonly Side[], stamps: RoleIndex, keepout: Keepout, standing: Standing[], random: Random): FeatureInput[] {
-    const pen = pick(random, stamps.get('enclosure') ?? []);
-    if (!pen) {
-        return [];
-    }
-    // Out beyond the stores along the wall: stand it as if the building reached this far.
+/** Where a pen could stand on the first of `sides` with ground for it, out beyond the stores along the wall; null if none. */
+function penSpot(site: Site, sides: readonly Side[], pen: RoleStamp, keepout: Keepout, standing: readonly Standing[]): { side: Side; spot: Point } | null {
+    // Stood as if the building reached this far, so the stores along the wall keep their ground.
     const widened = { ...site, front: null, footprint: grown(site.footprint, PEN_OUT) };
-    const spot = sides.reduce<Point | null>((found, side) => found ?? yardSpot(widened, SIDE_EDGE[side], pen, keepout, standing), null);
-    if (!spot) {
+    for (const side of sides) {
+        const spot = yardSpot(widened, SIDE_EDGE[side], pen, keepout, standing);
+        if (spot) {
+            return { side, spot };
+        }
+    }
+    return null;
+}
+
+function penOf(site: Site, sides: readonly Side[], pen: RoleStamp, stamps: RoleIndex, keepout: Keepout, standing: Standing[], random: Random): FeatureInput[] {
+    const found = penSpot(site, sides, pen, keepout, standing);
+    if (!found) {
         return [];
     }
+    const { spot } = found;
     const r = footprintRadius(pen);
     standing.push({ x: spot.x, y: spot.y, r });
     const out: FeatureInput[] = [{ type: 'stamp', stamp: pen.key, x: spot.x, y: spot.y, rotation: squareTurn(pen, random) }];
@@ -904,9 +920,54 @@ const YARD = { step: 2.5, chance: 0.65, group: 3, gap: 0.1, ranked: 0.4, space: 
  * another; and a cart or wagon standing by in the yard.
  */
 function yardOf(site: Site, stamps: RoleIndex, keepout: Keepout, standing: Standing[], random: Random): FeatureInput[] {
-    const stores = stamps.get('storage') ?? [];
-    const f = site.footprint;
     const front = site.front?.slot.side;
+    const out: FeatureInput[] = [];
+    // The yard is behind the building and round one side of it: its back, and a side beside the back, never the front.
+    const back = OPPOSITE_SIDE[front ?? 'bottom'];
+    const flanks = shuffled(
+        random,
+        (['top', 'right', 'bottom', 'left'] as const).filter((s) => s !== front && s !== back),
+    );
+    // The yard's side is where its pen has ground (never the front; a map edge or a river may leave a side none), a flank
+    // before the back; with no pen, a flank.
+    const pen = pick(random, stamps.get('enclosure') ?? []);
+    const penSides: readonly Side[] = [...flanks, back];
+    const penSide = pen ? penSpot(site, penSides, pen, keepout, standing)?.side ?? null : null;
+    const flank = penSide !== null && penSide !== back ? penSide : flanks[0];
+    // The cart stands by in the yard, beside the pen where the pen still has ground with it there, else on another side
+    // (a flank, then the back), so both stand. A yard's is the smallest craft: a cart, not a freighter.
+    const cart = [...(stamps.get('vehicle') ?? [])].sort((a, b) => a.width * a.height - b.width * b.height)[0];
+    const unfronted = { ...site, front: null };
+    const cartAt = (side: Side, withPen: boolean): Point | null => {
+        const at = cart ? yardSpot(unfronted, SIDE_EDGE[side], cart, keepout, standing) : null;
+        const leaves = (p: Point): boolean =>
+            !pen || !cart || penSpot(site, [side], pen, keepout, [...standing, { x: p.x, y: p.y, r: footprintRadius(cart) }]) !== null;
+        return at && (!withPen || leaves(at)) ? at : null;
+    };
+    const spot =
+        (penSide ? cartAt(penSide, true) : null) ??
+        penSides.filter((s) => s !== penSide).reduce<Point | null>((found, side) => found ?? cartAt(side, false), null) ??
+        (penSide ? cartAt(penSide, false) : null);
+    if (cart && spot) {
+        standing.push({ x: spot.x, y: spot.y, r: footprintRadius(cart) });
+        out.push({ type: 'stamp', stamp: cart.key, x: spot.x, y: spot.y, rotation: squareTurn(cart, random) });
+    }
+    if (pen) {
+        out.push(...penOf(site, penSide ? [penSide, ...penSides.filter((s) => s !== penSide)] : penSides, pen, stamps, keepout, standing, random));
+    }
+    for (const side of flank ? [back, flank] : [back]) {
+        out.push(...storesAlong(site, side, stamps.get('storage') ?? [], keepout, standing, random));
+    }
+    return out;
+}
+
+/**
+ * A yard's stores along the `side` wall, in clumps with open wall between
+ * them, never one unbroken line: each two or three pieces, some stacked a
+ * rank out; clear of the building's annexes, paths, water and what stands.
+ */
+function storesAlong(site: Site, side: Side, stores: readonly RoleStamp[], keepout: Keepout, standing: Standing[], random: Random): FeatureInput[] {
+    const f = site.footprint;
     const out: FeatureInput[] = [];
     const clear = (p: Point, r: number): boolean =>
         p.x - r >= keepout.map.x &&
@@ -917,58 +978,35 @@ function yardOf(site: Site, stamps: RoleIndex, keepout: Keepout, standing: Stand
         !keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + r) &&
         !keepout.waters.some((w) => pointInPolygon(p, flat(w))) &&
         ![...standing, ...keepout.props].some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r);
-    // The yard is behind the building and round one side of it: its back, and a side beside the back, never the front.
-    const back = OPPOSITE_SIDE[front ?? 'bottom'];
-    const flanks = (['top', 'right', 'bottom', 'left'] as const).filter((s) => s !== front && s !== back);
-    const flank = pick(random, flanks);
-    // The cart stands in the yard behind first, the largest piece, the stores clumped round it; with no room there, beside
-    // the building. A yard's is the smallest craft: a cart, not a freighter.
-    const cart = [...(stamps.get('vehicle') ?? [])].sort((a, b) => a.width * a.height - b.width * b.height)[0];
-    const unfronted = { ...site, front: null };
-    // Behind, else beside it on the yard's side, else on the other side: anywhere but before the front door.
-    const spot =
-        cart &&
-        [back, ...(flank ? [flank] : []), ...flanks.filter((s) => s !== flank)].reduce<Point | null>(
-            (found, side) => found ?? yardSpot(unfronted, SIDE_EDGE[side], cart, keepout, standing),
-            null,
-        );
-    if (cart && spot) {
-        standing.push({ x: spot.x, y: spot.y, r: footprintRadius(cart) });
-        out.push({ type: 'stamp', stamp: cart.key, x: spot.x, y: spot.y, rotation: squareTurn(cart, random) });
-    }
-    out.push(...penOf(site, flank ? [flank, back] : [back], stamps, keepout, standing, random));
-    for (const side of flank ? [back, flank] : [back]) {
-        const [lo, hi] = side === 'top' || side === 'bottom' ? [f.x, f.x + f.w] : [f.y, f.y + f.h];
-        // Clumps with open wall between them, never one unbroken line: each two or three pieces, some stacked a rank out.
-        let at = lo + random() * YARD.step;
-        while (at < hi) {
-            if (random() >= YARD.chance) {
-                at += YARD.step;
-                continue;
-            }
-            const size = 2 + Math.floor(random() * (YARD.group - 1));
-            let along = at;
-            let reach = at;
-            for (let n = 0; n < size && along < hi; n++) {
-                const stamp = pick(random, stores);
-                if (!stamp) {
-                    break;
-                }
-                const r = Math.max(stamp.width, stamp.height) / 2;
-                // After the first, a piece may stand before the last, a rank out from the wall, rather than beside it.
-                const ranked = n > 0 && random() < YARD.ranked;
-                const p = OUTSIDE[side](f, (ranked ? along - 2 * r : along) + r - 0.5, r + YARD.gap + (ranked ? 2 * r : 0));
-                if (clear(p, r * 0.9)) {
-                    standing.push({ x: p.x, y: p.y, r });
-                    out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
-                }
-                if (!ranked) {
-                    along += 2 * r;
-                }
-                reach = Math.max(reach, along);
-            }
-            at = reach + YARD.space[0] + random() * (YARD.space[1] - YARD.space[0]);
+    const [lo, hi] = side === 'top' || side === 'bottom' ? [f.x, f.x + f.w] : [f.y, f.y + f.h];
+    let at = lo + random() * YARD.step;
+    while (at < hi) {
+        if (random() >= YARD.chance) {
+            at += YARD.step;
+            continue;
         }
+        const size = 2 + Math.floor(random() * (YARD.group - 1));
+        let along = at;
+        let reach = at;
+        for (let n = 0; n < size && along < hi; n++) {
+            const stamp = pick(random, stores);
+            if (!stamp) {
+                break;
+            }
+            const r = Math.max(stamp.width, stamp.height) / 2;
+            // After the first, a piece may stand before the last, a rank out from the wall, rather than beside it.
+            const ranked = n > 0 && random() < YARD.ranked;
+            const p = OUTSIDE[side](f, (ranked ? along - 2 * r : along) + r - 0.5, r + YARD.gap + (ranked ? 2 * r : 0));
+            if (clear(p, r * 0.9)) {
+                standing.push({ x: p.x, y: p.y, r });
+                out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
+            }
+            if (!ranked) {
+                along += 2 * r;
+            }
+            reach = Math.max(reach, along);
+        }
+        at = reach + YARD.space[0] + random() * (YARD.space[1] - YARD.space[0]);
     }
     return out;
 }

@@ -1162,9 +1162,14 @@ or a tavern is. Composition is the layer above them (operator decisions,
     sides, each sized for what it holds (an inn's guest rooms).
   - **Porch and yard.** A building's `porch` is a board deck that many
     squares deep along the front wall at its door, furnished (lamp,
-    benches, barrels). A `yard` lays trodden earth round the building,
-    stacks stores along its back and one side, and stands the smallest
-    vehicle (a cart) behind it.
+    benches, barrels). A `yard` lays trodden earth round the building. Its
+    side is wherever its pen (`enclosure`, with fodder beside it) has
+    ground, a flank before the back, never the front, so a map edge or a
+    river on one side sends it to another. The smallest vehicle (a cart)
+    stands beside the pen where both fit, else on another side, and stores
+    stand along the back and the yard's side in clumps with open wall
+    between. A river from a lake starts deep enough inside it that its
+    square end and banks lie under the water.
   - **Taprooms and guest rooms.** A `bar` is a taproom: its counter
     stands out from an inner wall with shelves behind and stools before,
     and the floor it leaves is a common room's (hearth, long and round

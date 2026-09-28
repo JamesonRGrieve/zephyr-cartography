@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
-import { pointInPolygon } from '../geometry/hit';
+import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { composeMap } from './compose';
 import { zoneOutline } from './exterior';
 import { type MapIntent, parseMapIntent, type ZoneIntent } from './intent';
@@ -113,6 +113,21 @@ describe('bridges and yard pieces', () => {
                     ),
             );
         expect([inWater(first), inWater(last)].sort((a, b) => a - b)).toEqual([0, 1]);
+        // Deep enough in that the river's square end and its banks lie under the water, not cut across the shore.
+        const depth = (p: { x: number; y: number } | undefined): number =>
+            Math.max(
+                ...waters.map((w) =>
+                    w.type === 'region' &&
+                    p !== undefined &&
+                    pointInPolygon(
+                        p,
+                        w.points.flatMap((q) => [q.x, q.y]),
+                    )
+                        ? distanceToPolyline(p, [...w.points, ...w.points.slice(0, 1)])
+                        : 0,
+                ),
+            );
+        expect(Math.min(depth(first), depth(last))).toBeGreaterThanOrEqual(1 + 2 * (river.halfWidth ?? 0) - 0.5);
     });
 
     it('stands a prop at its point, reports one no stamp fills, and leaves one out where the yard has no room', () => {
@@ -169,6 +184,34 @@ describe('bridges and yard pieces', () => {
         expect(flowers.length).toBeGreaterThan(6);
         const neighboured = flowers.filter((f) => flowers.some((g) => g !== f && Math.hypot(g.x - f.x, g.y - f.y) < 1.5));
         expect(neighboured.length / flowers.length).toBeGreaterThan(0.6);
+    });
+
+    it('lays the yard where it has ground: its back to the map’s edge and a river along one side, pen and cart go to the other', () => {
+        const hemmed = crossing({
+            width: 30,
+            height: 26,
+            paths: [{ kind: 'river', from: { x: -1, y: 2 }, to: { x: 31, y: 2 }, meander: 0, width: 2 }],
+            buildings: [
+                {
+                    key: 'inn',
+                    at: { x: 14, y: 6 },
+                    width: 13,
+                    height: 6,
+                    entrance: 'west',
+                    yard: true,
+                    rooms: [{ key: 'room', purpose: 'storage', entrance: true }],
+                },
+            ],
+        });
+        for (const seed of [1, 2, 3]) {
+            const { spec } = composeMap({ ...hemmed, seed }, TEST_ROLES);
+            const [pen] = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:enclosure');
+            const carts = spec.features.filter((f) => f.type === 'stamp' && (f.stamp === 'test:vehicle' || f.stamp === 'test:hauler'));
+            // South of the inn, the only side with ground, both of them.
+            expect(pen?.type === 'stamp' && pen.y > 12).toBe(true);
+            expect(carts.length).toBe(1);
+            expect(carts.every((c) => c.type === 'stamp' && c.y > 12)).toBe(true);
+        }
     });
 
     it('stacks a yard’s stores in clumps with open wall between, stands its cart, and lays nothing it has no art for', () => {
