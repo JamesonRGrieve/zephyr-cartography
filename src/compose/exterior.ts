@@ -67,7 +67,16 @@ interface Dressing {
     readonly clumping: number;
     /** Stood in a line just inside the zone's edge, fronts facing out (a perimeter), rather than scattered through it. */
     readonly perimeter?: true;
+    /**
+     * Grown in patches: each spot `spread` apart is a patch of between these
+     * many pieces close together, open ground between patches, as flowers and
+     * ground cover grow, never dotted evenly over the grass.
+     */
+    readonly patch?: readonly [number, number];
 }
+
+/** How far a patch's pieces lie from its middle, in the pieces' typical size. */
+const PATCH_REACH = 1.1;
 
 const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
     woodland: [
@@ -75,20 +84,20 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         { role: 'shrub', spread: 2, clumping: 0.3 },
         { role: 'log', spread: 4, clumping: 0 },
         { role: 'rock', spread: 6, clumping: 0 },
-        { role: 'flora', spread: 3, clumping: 0.2 },
+        { role: 'flora', spread: 6, clumping: 0.2, patch: [2, 4] },
     ],
     meadow: [
-        { role: 'flora', spread: 2, clumping: 0.4 },
+        { role: 'flora', spread: 5, clumping: 0.4, patch: [3, 6] },
         { role: 'shrub', spread: 5, clumping: 0.3 },
         { role: 'tree', spread: 3, clumping: 0.4 },
         { role: 'rock', spread: 8, clumping: 0 },
     ],
     clearing: [
-        { role: 'flora', spread: 3.5, clumping: 0.3 },
+        { role: 'flora', spread: 6, clumping: 0.3, patch: [3, 5] },
         { role: 'rock', spread: 8, clumping: 0 },
     ],
     marsh: [
-        { role: 'flora', spread: 1.5, clumping: 0.3 },
+        { role: 'flora', spread: 3.5, clumping: 0.3, patch: [3, 6] },
         { role: 'shrub', spread: 3, clumping: 0.3 },
         { role: 'log', spread: 5, clumping: 0 },
     ],
@@ -423,7 +432,9 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
     if (keepout.sites.some((site) => siteRects(site).some(near))) {
         return true;
     }
-    if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + onPaths)) {
+    // A canopy hangs over a road as it likes, but over a river only as far as over a lake: the water is seen running through.
+    const off = (path: LaidPath): number => Math.max(onPaths, path.kind === 'river' ? reach * WATER_OVERHANG : 0);
+    if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + off(path))) {
         return true;
     }
     const wet = (outline: readonly Point[]): boolean =>
@@ -495,9 +506,25 @@ function dress(
         // Drawn side-on, it stands as drawn; seen from above, any way round.
         return [{ type: 'stamp' as const, stamp: stamp.key, x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) }];
     };
-    const placed = poissonDisc(bounds, spacing, accept, random).flatMap(stand);
+    // A patch grows round each spot: its pieces close about it, each still only where the zone allows.
+    const patched = (spots: readonly Point[]): Point[] => {
+        const { patch } = dressing;
+        if (!patch) {
+            return [...spots];
+        }
+        return spots.flatMap((spot) => {
+            const count = patch[0] + Math.floor(random() * (patch[1] - patch[0] + 1));
+            return Array.from({ length: count }, (_, i) => {
+                // The first at the spot itself, the rest round it at a random bearing and reach.
+                const reach = i === 0 ? 0 : Math.sqrt(random()) * PATCH_REACH * size;
+                const bearing = random() * 2 * Math.PI;
+                return { x: spot.x + reach * Math.cos(bearing), y: spot.y + reach * Math.sin(bearing) };
+            }).filter(inZone);
+        });
+    };
+    const placed = patched(poissonDisc(bounds, spacing, accept, random)).flatMap(stand);
     // Clumping and thinning can leave a zone without any of its pieces (a camp with no tents): then it is dressed again evenly.
-    return placed.length > 0 ? placed : poissonDisc(bounds, spacing, inZone, random).flatMap(stand);
+    return placed.length > 0 ? placed : patched(poissonDisc(bounds, spacing, inZone, random)).flatMap(stand);
 }
 
 /** Squares a perimeter piece stands inside the zone's edge, beyond half its own depth. */
@@ -996,12 +1023,8 @@ export function composeExterior(
         features.push({ type: 'region', biome: intent.ground, points, ...textured(intent.groundTexture) });
     }
     const outlines = intent.zones.map((zone) => ({ zone, outline: zoneOutline(zone, intent, noiseField(random, EDGE_SCALE)) }));
-    // Water lies over the land round it: lakes after every other zone's ground, each over its own bed.
     const isLake = ({ zone }: { zone: ZoneIntent }): boolean => zone.kind === 'lake';
-    for (const { zone, outline } of [...outlines.filter((o) => !isLake(o)), ...outlines.filter(isLake)]) {
-        if (zone.kind === 'lake') {
-            features.push({ type: 'region', biome: LAKE_BED, points: outline });
-        }
+    for (const { zone, outline } of outlines.filter((o) => !isLake(o))) {
         features.push({ type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, ...textured(zone.texture) });
     }
     // A working yard's ground is trodden earth round the building, under its paths.
@@ -1050,6 +1073,14 @@ export function composeExterior(
             });
         }
     });
+    // Water lies over the land round it and over the paths' ends in it: each lake over its own bed, after every other zone's
+    // ground and the paths, so a river out of a lake starts under its water, its square end and banks unseen.
+    for (const { zone, outline } of outlines.filter(isLake)) {
+        features.push(
+            { type: 'region', biome: LAKE_BED, points: outline },
+            { type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, ...textured(zone.texture) },
+        );
+    }
     // The intent's own pieces stand first; everything scattered after keeps clear of them.
     const placedProps = placeProps(intent.props, sites, stamps, keepout, props, random);
     features.push(...placedProps.features);

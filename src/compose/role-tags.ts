@@ -23,6 +23,8 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['bridge', ['bridge']],
     ['well', ['well']],
     ['waymark', ['milestone', 'wayside', 'signpost']],
+    // A bedroom's chest of drawers, wardrobe and washstand: before chest, as drawers are no trunk.
+    ['dresser', ['dresser', 'wardrobe', 'drawers', 'washstand']],
     ['chest', ['chest', 'trunk', 'footlocker', 'strongbox']],
     ['enclosure', ['pen', 'corral', 'paddock', 'stable']],
     ['fodder', ['hay', 'straw', 'fodder']],
@@ -34,6 +36,8 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['desk', ['desk', 'workstation']],
     ['shelf', ['shelf', 'archive']],
     ['counter', ['counter', 'stall']],
+    // An upholstered chair is an armchair before it is a seat.
+    ['armchair', ['armchair', 'wingback', ['padded', 'chair'], ['easy', 'chair']]],
     ['seat', ['chair', 'stool']],
     ['bench', ['bench']],
     ['pew', ['pew']],
@@ -213,6 +217,8 @@ const ROLE_PLACEMENT: Readonly<Record<StampRole, RolePlacement>> = {
     chest: FREE,
     enclosure: FREE,
     fodder: FREE,
+    dresser: WALL,
+    armchair: { ...FREE, against: 'corner' },
 };
 
 /** Tags that say which ground land belongs on. */
@@ -272,6 +278,8 @@ const INDOOR_ROLES: readonly StampRole[] = [
     'restraint',
     'tabletop',
     'nightstand',
+    'dresser',
+    'armchair',
 ];
 
 /** Roles that stand outdoors, which take only stamps drawn at exterior scale. */
@@ -293,7 +301,7 @@ export function suitsScale(role: StampRole, scale: string): boolean {
 /** How a stamp of `role` stands: the role's way, as its tags adjust it, with whatever the pack says of this image over that. */
 /** Tags that stand a piece otherwise than its role does: storage is crates in corners, but a locker stands against a wall. */
 const TAG_PLACEMENT: readonly (readonly [StampRole, readonly string[], Partial<RolePlacement>])[] = [
-    ['storage', ['locker', 'wardrobe', 'cabinet', 'case', 'dresser'], { against: 'wall' }],
+    ['storage', ['locker', 'cabinet', 'case'], { against: 'wall' }],
 ];
 
 export function placementOf(role: StampRole, tags: readonly string[], own: StampPlacement | undefined): RolePlacement {

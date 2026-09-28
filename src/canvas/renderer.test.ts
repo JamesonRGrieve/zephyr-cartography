@@ -14,14 +14,23 @@ const RESOLVE: TextureResolver = (role) => `${role}.jpg`;
 
 class FakeSurface implements DrawSurface {
     readonly filled: { id: string; n: number; color: number; feather: boolean }[] = [];
-    readonly textured: { id: string; n: number; polygon: readonly number[]; textureFile: string; tint: number; feather: boolean; angle: number }[] = [];
+    readonly textured: {
+        id: string;
+        n: number;
+        polygon: readonly number[];
+        textureFile: string;
+        tint: number;
+        alpha: number;
+        feather: boolean;
+        angle: number;
+    }[] = [];
     readonly removed: string[] = [];
     cleared = 0;
     fill(id: string, polygon: readonly number[], color: number, _alpha: number, feather: boolean): void {
         this.filled.push({ id, n: polygon.length, color, feather });
     }
-    fillTextured(id: string, polygon: readonly number[], textureFile: string, tint: number, _alpha: number, feather: boolean, angle: number): void {
-        this.textured.push({ id, n: polygon.length, polygon, textureFile, tint, feather, angle });
+    fillTextured(id: string, polygon: readonly number[], textureFile: string, tint: number, alpha: number, feather: boolean, angle: number): void {
+        this.textured.push({ id, n: polygon.length, polygon, textureFile, tint, alpha, feather, angle });
     }
     remove(id: string): void {
         this.removed.push(id);
@@ -159,11 +168,14 @@ describe('GraphicsFeatureRenderer', () => {
         expect(s.textured[0]?.tint).toBe(0xffffff);
     });
 
-    it('draws a water region translucent in the set’s water texture, untinted', () => {
+    it('draws a water region translucent in the set’s water texture, as a river of water is: one water where a river leaves a lake', () => {
         const s = new FakeSurface();
         new GraphicsFeatureRenderer(s, RESOLVE).set('b', lake);
         expect(s.filled).toHaveLength(0);
-        expect(s.textured).toEqual([expect.objectContaining({ id: 'b', textureFile: 'water.jpg', tint: 0xffffff })]);
+        expect(s.textured).toEqual([expect.objectContaining({ id: 'b', textureFile: 'water.jpg', tint: tintToward(LIQUID_LOOKS.water.shade, 0.5) })]);
+        const flowing = new FakeSurface();
+        new GraphicsFeatureRenderer(flowing, RESOLVE).set('r', river);
+        expect(flowing.textured[0]?.alpha).toBe(s.textured[0]?.alpha);
         expect(s.textured[0]?.n ?? 0).toBeGreaterThanOrEqual(6);
     });
 

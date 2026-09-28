@@ -133,9 +133,10 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
                 floor: 'floor.tavern-boards',
                 wall: 'wall.stone',
                 rooms: [
-                    { key: 'common', purpose: 'common-room', size: 3, entrance: true, opensTo: ['bar', 'hall'] },
-                    { key: 'bar', purpose: 'bar', size: 1.4, opensTo: ['kitchen'], floor: 'floor.wood-pavers' },
-                    { key: 'kitchen', purpose: 'kitchen', size: 1.4, floor: 'floor.terracotta-tile' },
+                    // One taproom, its counter among the tables, the kitchen behind it and a pantry off the kitchen.
+                    { key: 'taproom', purpose: 'bar', size: 4, entrance: true, opensTo: ['kitchen', 'hall'] },
+                    { key: 'kitchen', purpose: 'kitchen', size: 1.4, opensTo: ['pantry'], floor: 'floor.terracotta-tile' },
+                    { key: 'pantry', purpose: 'storage', size: 0.6, floor: 'floor.packed-dirt' },
                     { key: 'hall', purpose: 'hall', size: 1 },
                 ],
                 floors: [

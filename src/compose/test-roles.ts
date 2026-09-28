@@ -64,6 +64,8 @@ export const TEST_ROLES: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([
     ['stairs', [access('stairs', 'stairs', 'up', 1, 2), access('ladder', 'ladder', 'up', 1, 1.5), access('storm-doors', 'hatch', 'down', 2, 1.5)]],
     ['tabletop', [stamp('tabletop', 0.3, 0.3), stamp('tabletop', 0.4, 0.25, 'free', 0, 'tankards')]],
     ['nightstand', [stamp('nightstand', 0.5, 0.5, 'wall')]],
+    ['dresser', [stamp('dresser', 1.2, 0.5, 'wall')]],
+    ['armchair', [stamp('armchair', 0.8, 0.8, 'corner')]],
     ['well', [stamp('well', 1.1, 1.2)]],
     // Drawn with the road running along its length, across the image.
     ['bridge', [stamp('bridge', 6, 2.4)]],

@@ -84,13 +84,70 @@ function spots(footprint: Rect, size: { readonly w: number; readonly h: number }
  * share a spot) they are laid out on their own and the well is null.
  */
 export function layOutStoreys(building: BuildingIntent, footprint: Rect, wells: Wells, random: Random): Storeys | null {
+    const landed = hallToHall(building, footprint, wells, random);
+    if (landed) {
+        return landed;
+    }
     const ground = layOutBuilding(building, footprint, random);
     if (!ground) {
         return null;
     }
     const up = stack(ground, building.floors, { building, footprint, size: wells.up, clear: null }, random);
-    const down = stack(ground, building.cellars, { building, footprint, size: wells.down, clear: up.well }, random);
-    return { ground, floors: up.layouts, stairwell: up.well, cellars: down.layouts, cellarWell: down.well };
+    return withCellars(building, footprint, wells, random, { ground, floors: up.layouts, stairwell: up.well });
+}
+
+/** The cellars laid out under `upper` round a well of their own, clear of its stairwell. */
+function withCellars(
+    building: BuildingIntent,
+    footprint: Rect,
+    wells: Wells,
+    random: Random,
+    upper: Pick<Storeys, 'ground' | 'floors' | 'stairwell'>,
+): Storeys {
+    const down = stack(upper.ground, building.cellars, { building, footprint, size: wells.down, clear: upper.stairwell }, random);
+    return { ...upper, cellars: down.layouts, cellarWell: down.well };
+}
+
+/**
+ * A stair that climbs from hall to hall: the floors above laid out first
+ * (a corridor falls where the footprint puts it), then the ground floor
+ * among the layouts whose hall holds a spot in every hall above, so the
+ * landing is in the corridor, never in a guest's room. Null without floors,
+ * a stair, or such a ground floor.
+ */
+function hallToHall(building: BuildingIntent, footprint: Rect, wells: Wells, random: Random): Storeys | null {
+    const size = wells.up;
+    if (building.floors.length === 0 || size === null) {
+        return null;
+    }
+    const above = building.floors.map((storey) => layOutBuilding(building, footprint, random, { front: false, accept: () => true }, storey.rooms));
+    const floors = above.flatMap((layout) => (layout ? [layout] : []));
+    if (floors.length !== above.length || !floors.some(hasHall)) {
+        return null;
+    }
+    const landings = spots(footprint, size, random).filter((box) => floors.every((layout) => inHall(layout, box)));
+    const ground = layOutBuilding(building, footprint, random, { front: true, accept: (layout) => landings.some((box) => inHall(layout, box)) });
+    if (!ground) {
+        return null;
+    }
+    // Against a wall of the ground floor's room, as a built stair stands.
+    const [stairwell] = landings
+        .flatMap((box) => {
+            const room = inHall(ground, box) ? stairwellRoom(ground, box) : undefined;
+            return room ? [{ box, away: fromWall(room, box) }] : [];
+        })
+        .sort((a, b) => a.away - b.away)
+        .map(({ box }) => box);
+    return stairwell ? withCellars(building, footprint, wells, random, { ground, floors, stairwell }) : null;
+}
+
+/** Whether a layout has a hall: where it does, a stair stands in it. */
+const hasHall = (layout: BuildingLayout): boolean => layout.rooms.some((r) => r.intent.purpose === 'hall');
+
+/** Whether `layout` holds the stairwell `box` in its hall, where it has one, else in any room. */
+function inHall(layout: BuildingLayout, box: Box): boolean {
+    const room = stairwellRoom(layout, box);
+    return room !== undefined && (!hasHall(layout) || room.intent.purpose === 'hall');
 }
 
 /**
@@ -111,28 +168,42 @@ function stack(
         return { layouts: each(() => true), well: null };
     }
     // A stair stands in a hall where the ground floor has one, and against a wall, as a built one does: those spots first.
-    const inHall = (room: LaidRoom): number => (room.intent.purpose === 'hall' ? 0 : 1);
+    const hallFirst = (room: LaidRoom): number => (room.intent.purpose === 'hall' ? 0 : 1);
     const held = spots(footprint, size, random)
         .flatMap((box) => {
             const room = stairwellRoom(ground, box);
             return room && (clear === null || !overlaps(box, clear)) ? [{ box, room }] : [];
         })
-        .sort((a, b) => inHall(a.room) - inHall(b.room) || fromWall(a.room, a.box) - fromWall(b.room, b.box))
+        .sort((a, b) => hallFirst(a.room) - hallFirst(b.room) || fromWall(a.room, a.box) - fromWall(b.room, b.box))
         .map(({ box }) => box);
     // The first spot every storey can hold with every room beside those it opens onto; else the one that misses fewest.
-    let best: { layouts: BuildingLayout[]; well: Box; unmet: number } | null = null;
-    for (const box of held.slice(0, SPOT_TRIES)) {
-        const layouts = each((layout) => holdsStairwell(layout, box));
-        const laid = layouts.flatMap((l) => (l ? [l] : []));
-        if (laid.length === layouts.length) {
-            const unmet = laid.reduce((sum, l) => sum + l.unmet.length, 0);
-            if (!best || unmet < best.unmet) {
-                best = { layouts: laid, well: box, unmet };
-            }
-            if (unmet === 0) {
-                break;
+    // Tried first in the halls of every storey that has one; anywhere each storey holds it only when that keeps more rooms
+    // beside those they open onto (a stair too deep for a corridor must not cost the corridor its rooms).
+    const search = (
+        spotsTried: readonly Box[],
+        holds: (layout: BuildingLayout, box: Box) => boolean,
+    ): { layouts: BuildingLayout[]; well: Box; unmet: number } | null => {
+        let best: { layouts: BuildingLayout[]; well: Box; unmet: number } | null = null;
+        for (const box of spotsTried.slice(0, SPOT_TRIES)) {
+            const layouts = each((layout) => holds(layout, box));
+            const laid = layouts.flatMap((l) => (l ? [l] : []));
+            if (laid.length === layouts.length) {
+                const unmet = laid.reduce((sum, l) => sum + l.unmet.length, 0);
+                if (!best || unmet < best.unmet) {
+                    best = { layouts: laid, well: box, unmet };
+                }
+                if (unmet === 0) {
+                    break;
+                }
             }
         }
-    }
-    return best ? { layouts: best.layouts, well: best.well } : { layouts: each(() => true), well: null };
+        return best;
+    };
+    const halled = search(
+        held.filter((box) => inHall(ground, box)),
+        inHall,
+    );
+    const anywhere = halled?.unmet === 0 ? null : search(held, holdsStairwell);
+    const found = anywhere && (!halled || anywhere.unmet < halled.unmet) ? anywhere : halled;
+    return found ? { layouts: found.layouts, well: found.well } : { layouts: each(() => true), well: null };
 }

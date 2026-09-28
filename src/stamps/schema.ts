@@ -359,7 +359,10 @@ const variantSchema = z
  * - chest: a chest, trunk or footlocker, a person's belongings (storage is
  *   a store's crates, barrels and sacks);
  * - enclosure: a pen, corral or paddock for animals, in a yard;
- * - fodder: hay and straw, stacked by an enclosure.
+ * - fodder: hay and straw, stacked by an enclosure;
+ * - dresser: a chest of drawers, wardrobe or washstand, a bedroom's against
+ *   its wall (a store's locker or cabinet is storage);
+ * - armchair: an upholstered easy chair, sat in a room's corner.
  */
 export const STAMP_ROLES = [
     'tree',
@@ -404,6 +407,8 @@ export const STAMP_ROLES = [
     'chest',
     'enclosure',
     'fodder',
+    'dresser',
+    'armchair',
 ] as const;
 
 /** An image's edges, as a piece's back. */

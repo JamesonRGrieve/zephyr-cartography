@@ -537,6 +537,49 @@ describe('the grim far future’s rooms', () => {
         throw new Error('fixture bed');
     }
 
+    it('furnishes a guest room as one is lived in: a dresser against a wall, an armchair across a corner facing out', () => {
+        const lived: RoomFloor = { ...GUEST, rect: { x: 0, y: 0, w: 4, h: 5 } };
+        const diagonals = [45, 135, 225, 315];
+        for (const seed of [1, 2, 3, 4]) {
+            const placed = furnish(lived, seed);
+            expectOrderly(lived, placed);
+            const dressers = placed.filter((p) => roleOf(p) === 'dresser').map(boxOf);
+            expect(dressers.length).toBeGreaterThanOrEqual(1);
+            // Its back to a wall: flush with one of the room's sides.
+            const flush = (b: Box): boolean => b.x < EPSILON || b.y < EPSILON || Math.abs(b.x + b.w - 4) < EPSILON || Math.abs(b.y + b.h - 5) < EPSILON;
+            expect(dressers.every(flush)).toBe(true);
+            const [chair] = placed.filter((p) => roleOf(p) === 'armchair');
+            expect(diagonals).toContain(chair?.rotation);
+        }
+        // A room three squares wide has no floor for a table out in it: its table stands against a wall.
+        const narrow: RoomFloor = { ...GUEST, rect: { x: 0, y: 0, w: 2.65, h: 4.65 } };
+        const writing: RoleStamp = { ...bed, key: 'test:writing-table', role: 'table', width: 1, height: 0.6, turn: 0, against: 'free' };
+        const chairs: ComposedStamp[] = [];
+        for (const seed of [1, 2, 3]) {
+            const placed = furnishRoom(narrow, new Map([...TEST_ROLES, ['table', [writing]]]), seededRandom(seed)).stamps;
+            expect(placed.filter((p) => p.stamp === 'test:writing-table')).toHaveLength(1);
+            expect(placed.some((p) => roleOf(p) === 'dresser')).toBe(true);
+            chairs.push(...placed.filter((p) => roleOf(p) === 'armchair'));
+        }
+        // Its corners taken by the bed and the doorway, the armchair sits square against a wall instead.
+        expect(chairs.some((c) => c.rotation % 90 === 0)).toBe(true);
+        // A chair drawn with depth faces only down, so its table stands against the bottom wall, the chair above it, unturned.
+        const seat = byKey.get('test:seat');
+        if (!seat) {
+            throw new Error('fixture seat');
+        }
+        const upright = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['table', [writing]], ['seat', [{ ...seat, upright: true }]]]);
+        upright.delete('bed');
+        const closet: RoomFloor = { ...GUEST, rect: { x: 0, y: 0, w: 2.65, h: 2.65 }, doors: [{ side: 'top', at: 1 }] };
+        const walled = furnishRoom(closet, upright, seededRandom(1)).stamps;
+        const table = walled.find((p) => p.stamp === 'test:writing-table');
+        expect(table?.rotation).toBe(180);
+        expect(walled.some((p) => p.stamp === 'test:seat' && p.rotation === 0 && table !== undefined && p.y < table.y)).toBe(true);
+        // Without an easy chair, a plain one takes the corner.
+        const plain = furnishRoom(lived, new Map([...TEST_ROLES].filter(([role]) => role !== 'armchair')), seededRandom(1)).stamps;
+        expect(plain.some((p) => p.stamp === 'test:seat' && (p.x < 1 || p.x > 3) && (p.y < 1 || p.y > 4))).toBe(true);
+    });
+
     it('keeps pieces that name another kind of room out of a room, unless nothing else fills the role', () => {
         const medicae: RoleStamp = { ...bed, key: 'test:medicae-bed', purposes: ['medicae'] };
         const beds = (list: readonly RoleStamp[], where: RoomFloor): string[] =>

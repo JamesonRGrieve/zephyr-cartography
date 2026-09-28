@@ -146,6 +146,31 @@ describe('bridges and yard pieces', () => {
         expect(stampsOf(composeMap(hemmed, TEST_ROLES).spec, 'test:well')).toBe(0);
     });
 
+    it('keeps a wood’s canopies mostly off a river through it, and grows a meadow’s flowers in patches', () => {
+        const wooded = crossing({
+            zones: [
+                { kind: 'woodland', area: { shape: 'edge', side: 'west', depth: 14 }, density: 'dense' },
+                { kind: 'meadow', area: { shape: 'edge', side: 'east', depth: 14 } },
+            ],
+            paths: [{ kind: 'river', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, meander: 0, width: 2 }],
+            buildings: [],
+        });
+        const { spec } = composeMap(wooded, TEST_ROLES);
+        const river = spec.features.find((f) => f.type === 'path' && f.kind === 'river');
+        if (river?.type !== 'path') {
+            throw new Error('no river');
+        }
+        // A tree's canopy (4 squares across, 2 of reach) hangs over the river by half its reach at most.
+        const trees = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:tree');
+        expect(trees.length).toBeGreaterThan(0);
+        expect(trees.every((t) => t.type === 'stamp' && Math.abs(t.y - 10) >= (river.halfWidth ?? 1) + 1)).toBe(true);
+        // Flowers stand in patches: nearly every one has another within a patch's reach, far closer than the patches' spacing.
+        const flowers = spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:flora' && f.x > 16 ? [f] : []));
+        expect(flowers.length).toBeGreaterThan(6);
+        const neighboured = flowers.filter((f) => flowers.some((g) => g !== f && Math.hypot(g.x - f.x, g.y - f.y) < 1.5));
+        expect(neighboured.length / flowers.length).toBeGreaterThan(0.6);
+    });
+
     it('stacks a yard’s stores in clumps with open wall between, stands its cart, and lays nothing it has no art for', () => {
         const barn = { x: 8, y: 5, w: 12, h: 8 };
         const yard = crossing({

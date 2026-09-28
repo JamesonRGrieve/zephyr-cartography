@@ -1,5 +1,7 @@
 {
-  "strict": [],
+  "strict": [
+    "TS2769"
+  ],
   "config": "tsconfig.test.json",
   "totals": {
     "totalErrors": 0

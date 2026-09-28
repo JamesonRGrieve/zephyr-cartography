@@ -135,6 +135,10 @@ describe('layOutStoreys', () => {
 
     it('lays floors out without a stairwell when there is no stair, and a building of one floor needs none', () => {
         expect(layOutStoreys(HOUSE, FOOTPRINT, { up: null, down: null }, seededRandom(4))?.stairwell).toBeNull();
+        // A stair no room can hold: the floors are still laid out, without one.
+        const huge = layOutStoreys(HOUSE, FOOTPRINT, { up: { w: 20, h: 20 }, down: null }, seededRandom(4));
+        expect(huge?.stairwell).toBeNull();
+        expect(huge?.floors.every((f) => f !== null)).toBe(true);
         const bungalow = buildingOf({ width: 6, height: 5, rooms: [{ key: 'room', purpose: 'bedroom' }] });
         expect(layOutStoreys(bungalow, { x: 0, y: 0, w: 6, h: 5 }, STAIR, seededRandom(4))).toMatchObject({ floors: [], stairwell: null });
     });
@@ -198,6 +202,38 @@ describe('layOutStoreys', () => {
             expect(apart).toBe(true);
             // Cellars have no front door.
             expect(storeys.cellars.every((c) => c?.doors.every((d) => d.to !== null) === true)).toBe(true);
+        }
+    });
+
+    it('climbs from hall to hall: out of the ground floor’s hall into the corridor of guest rooms above, never into a room', () => {
+        const guests = Array.from({ length: 8 }, (_, i) => ({ key: `room-${i + 1}`, purpose: 'bedroom' }));
+        const inn = buildingOf({
+            width: 14,
+            height: 11,
+            rooms: [
+                { key: 'taproom', purpose: 'bar', size: 4, entrance: true, opensTo: ['kitchen', 'hall'] },
+                { key: 'kitchen', purpose: 'kitchen', size: 1.4, opensTo: ['pantry'] },
+                { key: 'pantry', purpose: 'storage', size: 0.6 },
+                { key: 'hall', purpose: 'hall' },
+            ],
+            floors: [{ rooms: [{ key: 'corridor', purpose: 'hall', size: 1.8, opensTo: guests.map((g) => g.key) }, ...guests] }],
+        });
+        const footprint = { x: 0, y: 0, w: 14, h: 11 };
+        for (const seed of [1, 2, 3]) {
+            const storeys = layOutStoreys(inn, footprint, { up: { w: 0.75, h: 0.8 }, down: null }, seededRandom(seed));
+            const [above] = storeys?.floors ?? [];
+            const well = storeys?.stairwell;
+            if (!storeys || !above || !well) {
+                throw new Error(`seed ${seed}: no stairwell`);
+            }
+            const holder = (layout: BuildingLayout): string | undefined =>
+                layout.rooms.find(
+                    (r) => well.x >= r.rect.x && well.y >= r.rect.y && well.x + well.w <= r.rect.x + r.rect.w && well.y + well.h <= r.rect.y + r.rect.h,
+                )?.key;
+            expect(holder(storeys.ground)).toBe('hall');
+            expect(holder(above)).toBe('corridor');
+            // The corridor still has every guest room along it.
+            expect(above.unmet).toEqual([]);
         }
     });
 });

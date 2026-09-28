@@ -135,7 +135,9 @@ function biomeLook(biome: BiomeKind, resolve: TextureResolver): Texturing & { re
     const style = BIOME_STYLES[biome];
     const role = BIOME_TEXTURE[biome];
     if (role === null) {
-        return { ...texturing(resolve, OPEN_WATER_ROLES[biome] ?? [], NO_TINT, 'ripple', style.fill), alpha: style.alpha };
+        // Drawn as a river of water is, its texture tinted gently toward its colour and as opaque: a lake and the river out of it are one water.
+        const tint = tintToward(style.fill, LIQUID_TINT_STRENGTH.water);
+        return { ...texturing(resolve, OPEN_WATER_ROLES[biome] ?? [], tint, 'ripple', style.fill), alpha: LIQUID_ALPHA.water };
     }
     return { ...texturing(resolve, [role], BIOME_TINT[biome], 'grain', style.fill), alpha: TEXTURE_ALPHA };
 }

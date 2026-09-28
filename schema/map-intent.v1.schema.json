@@ -851,7 +851,9 @@
                                     "waymark",
                                     "chest",
                                     "enclosure",
-                                    "fodder"
+                                    "fodder",
+                                    "dresser",
+                                    "armchair"
                                 ]
                             },
                             "at": {
@@ -925,7 +927,9 @@
                                     "waymark",
                                     "chest",
                                     "enclosure",
-                                    "fodder"
+                                    "fodder",
+                                    "dresser",
+                                    "armchair"
                                 ]
                             },
                             "beside": {

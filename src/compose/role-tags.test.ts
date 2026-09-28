@@ -24,6 +24,17 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['cargo', 'hauler'])).toBe('vehicle');
         expect(roleFromTags(['bunk', 'bed'])).toBe('bed');
         expect(roleFromTags(['woodland', 'debris'])).toBe('debris');
+        // A bedroom's wardrobe and drawers are dressers, a padded or easy chair an armchair; a locker stays a store's.
+        expect(roleFromTags(['oak', 'wardrobe'])).toBe('dresser');
+        expect(roleFromTags(['chest', 'of', 'drawers'])).toBe('dresser');
+        expect(roleFromTags(['wooden', 'chest'])).toBe('chest');
+        expect(roleFromTags(['washstand'])).toBe('dresser');
+        expect(roleFromTags(['padded', 'chair'])).toBe('armchair');
+        expect(roleFromTags(['wingback'])).toBe('armchair');
+        expect(roleFromTags(['metal', 'locker'])).toBe('storage');
+        expect(placementOf('armchair', [], undefined).against).toBe('corner');
+        expect(placementOf('dresser', [], undefined).against).toBe('wall');
+        expect(suitsScale('dresser', 'exterior')).toBe(false);
     });
 
     it('gives no role to a stamp nothing in its tags describes, or to a trap, so it is only placed by hand', () => {

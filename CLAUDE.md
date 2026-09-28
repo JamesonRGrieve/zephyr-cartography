@@ -1138,9 +1138,13 @@ or a tavern is. Composition is the layer above them (operator decisions,
     below it), round a well of their own clear of the stairwell up. Each
     way takes the access asked for (`floorAccess`, `cellarAccess`: stairs
     or a ladder; `compose/access.ts`), else another kind that climbs,
-    reported as a stand-in. The stair prefers the ground floor's hall;
-    among the spots the storeys can share, the first where every room
-    adjoins those it opens onto wins, else the one missing fewest.
+    reported as a stand-in. A stair climbs from hall to hall: the floors
+    above are laid out first (a corridor falls where the footprint puts
+    it), and the ground floor is chosen among layouts whose hall holds a
+    spot in every hall above, so the landing is never in a guest's room.
+    Failing that, among the spots the storeys can share, one in their
+    halls wins unless a spot elsewhere keeps more rooms beside those they
+    open onto.
   - **Storm doors** (`stormDoor`: a side) lead into the top cellar from
     outside: an areaway walled beside that wall on the cellar's level,
     with a door through into the cellar room behind it, and storm doors
@@ -1161,13 +1165,25 @@ or a tavern is. Composition is the layer above them (operator decisions,
     benches, barrels). A `yard` lays trodden earth round the building,
     stacks stores along its back and one side, and stands the smallest
     vehicle (a cart) behind it.
+  - **Taprooms and guest rooms.** A `bar` is a taproom: its counter
+    stands out from an inner wall with shelves behind and stools before,
+    and the floor it leaves is a common room's (hearth, long and round
+    tables, lamps). A guest room's bed lies along it, head to a short
+    wall, with its nightstand and a chest at its foot; a dresser or
+    wardrobe (`dresser`) stands on another wall and an easy chair
+    (`armchair`) across a corner, facing out, else against a wall; a table
+    too big for the floor left stands against a wall, its chair before it.
   - **Stand-ins inside.** A role no stamp fills takes a fitting other
-    one's: a work surface or desk is a table, a nightstand or a chest is
-    storage. A guest room holds a person's chest, not a store's crates;
-    votive candles and censers are a shrine's icons, not a room's lamps.
-    Small pieces a room holds many of (storage, chests, clutter,
-    tabletop, lamps) keep art drawn with depth beside top-down art, for
-    variety.
+    one's: a work surface or desk is a long table (never a round one), a
+    guest's chest is storage, an easy chair a plain one. A nightstand has
+    none: a barrel by a bed reads as a store room. A room keeps out pieces
+    whose tags name another kind of room (a medicae bed, a cell's bunk)
+    unless nothing else fills the role. A guest room holds a person's
+    chest, not a store's crates; votive candles and censers are a shrine's
+    icons, not a room's lamps. Small pieces a room holds many of (storage,
+    chests, clutter, tabletop, lamps) keep art drawn with depth beside
+    top-down art, for variety; piles drawn with depth line any wall, and
+    a store's rows stack its larger pieces, varied.
 - **Night** (intent `lighting`): the scene goes dark, and a room is lit by
   its hearth and lamps (pack lights), keeping its own flat light only when
   it has neither. Common rooms, halls and chapels get a lamp for every
@@ -1192,8 +1208,13 @@ or a tavern is. Composition is the layer above them (operator decisions,
     and thinning at a zone's edge, spaced by the pieces' own size. Nothing
     stands on a path, in a clearing that keeps it out, or where its canopy
     would spread over a building. Rocks line riverbanks.
+  - Flowers and ground cover grow in patches (`patch`), open grass
+    between them, never dotted evenly. A canopy hangs over a road as it
+    likes, but over a river only as little as over a lake.
   - **Lakes** (a `lake` zone) are open water over a bed of their own,
-    drawn over the zones round them; nothing stands in one, a canopy
+    drawn over the zones round them and over the ends of paths in them, in
+    the same water as a river, so a river leaves a lake seamlessly;
+    nothing stands in one, a canopy
     reaches only a little over it, and reeds and rocks dress its shore. A
     zone with a `key` is a path anchor: a river from a lake starts a
     square inside its shore nearest the other end.
