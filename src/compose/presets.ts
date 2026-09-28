@@ -46,13 +46,14 @@ export function withSeed(text: string, seed: number): string | null {
     return JSON.stringify({ ...parsed, seed }, null, INTENT_INDENT);
 }
 
-// Planks where guests sit and sleep; stone where the work is done and the stores are kept.
+// Planks where guests sit and sleep; stone where the work is done and the stores are kept. One taproom, its counter
+// among the tables, the kitchen and the storeroom behind it and the hall to the bedrooms off it, as a tavern is: never
+// a second walled bar with a hearth of its own, nor guests walking through the kitchen to bed.
 const TAVERN_ROOMS = [
-    { key: 'common', purpose: 'common-room', size: 5, entrance: true, opensTo: ['bar', 'hall'] },
-    { key: 'bar', purpose: 'bar', size: 1.6, opensTo: ['kitchen'], floor: 'floor.wood-pavers' },
-    { key: 'kitchen', purpose: 'kitchen', size: 1.6, opensTo: ['store'], floor: 'floor.cobbled-street' },
+    { key: 'taproom', purpose: 'bar', size: 5, entrance: true, opensTo: ['kitchen', 'store', 'hall'] },
+    { key: 'kitchen', purpose: 'kitchen', size: 1.6, floor: 'floor.cobbled-street' },
     { key: 'store', purpose: 'storage', size: 0.9, floor: 'floor.packed-dirt' },
-    { key: 'hall', purpose: 'hall', size: 1, opensTo: ['room-1', 'room-2'] },
+    { key: 'hall', purpose: 'hall', size: 1.2, opensTo: ['room-1', 'room-2'] },
     { key: 'room-1', purpose: 'bedroom', size: 1 },
     { key: 'room-2', purpose: 'bedroom', size: 1 },
 ] as const;

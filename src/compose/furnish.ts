@@ -750,19 +750,32 @@ function placeStack(floor: Floor, piece: RoleStamp, cell: Box, turned: boolean, 
     return floor.free(cell) && floor.put(piece, box, across ? QUARTER_TURN : 0, null);
 }
 
+/** How a room's tables are seated and laid: one row of seats drawn with depth above each, rows along the floor's length. */
+function clusterLie(given: Seating, rect: Rect): { seating: Seating; region: Box; turned: boolean } {
+    // Seats drawn with depth cannot be turned: one row of them, above each table, facing down onto it as drawn.
+    const seating: Seating = given.seat?.upright === true ? { ...given, sides: 1, round: false } : given;
+    const region: Box = { x: rect.x + WALKWAY, y: rect.y + WALKWAY, w: rect.w - 2 * WALKWAY, h: rect.h - 2 * WALKWAY };
+    // Rows run along the room's long axis; a table drawn with depth lies as drawn, its rows along its own length, as do those
+    // seated by seats drawn with depth.
+    const turned = seating.seat?.upright === true ? false : seating.table.upright ? seating.table.height > seating.table.width : region.h > region.w;
+    return { seating, region, turned };
+}
+
+/** Whether a table and its seats, laid as they would be, fit within `rect`'s floor inside the walkway kept round them. */
+function blockFits(rect: Rect, given: Seating): boolean {
+    const { seating, region, turned } = clusterLie(given, rect);
+    const block = clusterBlock(seating);
+    const [w, h] = turned ? [block.h, block.w] : [block.w, block.h];
+    return w <= region.w && h <= region.h;
+}
+
 /** How far a table may stand off its row, in squares: under half the walkway kept between tables, so one always remains. */
 const TABLE_JITTER = 0.25;
 
 /** Place a cluster step's tables and their seats (or stacks) across the open floor; how many it placed. */
 function placeClusters(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, given: Seating, random: Random, stack?: Draw): number {
-    const { rect } = floor.room;
-    // Seats drawn with depth cannot be turned: one row of them, above each table, facing down onto it as drawn.
-    const seating: Seating = given.seat?.upright === true ? { ...given, sides: 1, round: false } : given;
+    const { seating, region, turned } = clusterLie(given, floor.room.rect);
     const block = clusterBlock(seating);
-    const region: Box = { x: rect.x + WALKWAY, y: rect.y + WALKWAY, w: rect.w - 2 * WALKWAY, h: rect.h - 2 * WALKWAY };
-    // Rows run along the room's long axis; a table drawn with depth lies as drawn, its rows along its own length, as do those
-    // seated by seats drawn with depth.
-    const turned = seating.seat?.upright === true ? false : seating.table.upright ? seating.table.height > seating.table.width : region.h > region.w;
     const bw = turned ? block.h : block.w;
     const bh = turned ? block.w : block.h;
     const cols = Math.floor((region.w + WALKWAY) / (bw + WALKWAY));
@@ -1132,8 +1145,10 @@ function runCluster(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, piec
     if (!table) {
         return;
     }
-    // The first kind of seat the room has that suits the table: a bench far longer than it gives way to chairs.
-    const seat = step.around.map(choose).find((s) => s !== undefined && fitsBeside(s, table));
+    // The first kind of seat the room has that suits the table and leaves it room to stand: a bench far longer than it, or
+    // too deep for the floor (a waiting bench in a narrow mess), gives way to chairs.
+    const suits = step.around.map(choose).filter((s): s is RoleStamp => s !== undefined && fitsBeside(s, table));
+    const seat = suits.find((s) => blockFits(floor.room.rect, seatingOf(table, s, step.sides))) ?? suits[0];
     // Stores stacked in rows vary stack by stack among the pieces near the bulkiest's size: crates, barrels, sack piles.
     const fits = all(step.centre).filter(
         (s) => s.width * s.height >= STACK_SHARE * table.width * table.height && s.width <= table.width && s.height <= table.height,

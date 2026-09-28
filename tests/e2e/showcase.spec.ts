@@ -147,7 +147,7 @@ test('the roadside inn preset: guest rooms upstairs, a cellar by ladder and stor
     await shootLevel(world, 'Cellar', size, 'roadside-inn-cellar', inn);
 });
 
-test('the tavern preset: common room, bar, kitchen, store, hall and bedrooms, furnished', async ({ world }) => {
+test('the tavern preset: a taproom with its counter, the kitchen behind it, a store, a hall and bedrooms, furnished', async ({ world }) => {
     await showcase(world, 'tavern', 'Tavern', 'tavern', { x: 8, y: 6, scale: CLOSE_UP_SCALE }, true);
 });
 

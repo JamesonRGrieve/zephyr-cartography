@@ -540,6 +540,29 @@ describe('the grim far future’s rooms', () => {
         throw new Error('fixture bed');
     }
 
+    it('seats a narrow room’s tables with chairs where its benches are too deep to leave the table room', () => {
+        const table = byKey.get('test:table');
+        const seat = byKey.get('test:seat');
+        if (!table || !seat) {
+            throw new Error('fixture table or seat');
+        }
+        // Both drawn with depth, so they sit above each table: the bench is deep, as a waiting bench is.
+        const deep: RoleStamp = { ...seat, key: 'test:deep-bench', role: 'bench', width: 1.6, height: 1.4, upright: true };
+        const roles = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['bench', [deep]], ['seat', [{ ...seat, upright: true }]]]);
+        const mess: RoomFloor = {
+            key: 'mess',
+            purpose: 'mess',
+            rect: { x: 0, y: 0, w: 14, h: 3.65 },
+            doors: [{ side: 'right', at: 1 }],
+            outer: ['top'],
+            entrance: null,
+        };
+        const placed = furnishRoom(mess, roles, seededRandom(1)).stamps;
+        expect(placed.filter((p) => p.stamp === table.key).length).toBeGreaterThanOrEqual(3);
+        expect(placed.some((p) => p.stamp === 'test:deep-bench')).toBe(false);
+        expect(placed.some((p) => p.stamp === seat.key)).toBe(true);
+    });
+
     it('furnishes a guest room as one is lived in: a dresser against a wall, an armchair across a corner facing out', () => {
         const lived: RoomFloor = { ...GUEST, rect: { x: 0, y: 0, w: 4, h: 5 } };
         const diagonals = [45, 135, 225, 315];
