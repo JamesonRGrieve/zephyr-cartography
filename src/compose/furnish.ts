@@ -750,6 +750,9 @@ function placeStack(floor: Floor, piece: RoleStamp, cell: Box, turned: boolean, 
     return floor.free(cell) && floor.put(piece, box, across ? QUARTER_TURN : 0, null);
 }
 
+/** How far a table may stand off its row, in squares: under half the walkway kept between tables, so one always remains. */
+const TABLE_JITTER = 0.25;
+
 /** Place a cluster step's tables and their seats (or stacks) across the open floor; how many it placed. */
 function placeClusters(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, given: Seating, random: Random, stack?: Draw): number {
     const { rect } = floor.room;
@@ -769,7 +772,13 @@ function placeClusters(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, g
     let wanted = howMany(step.count, random, floor.room.rect);
     let placed = 0;
     const placeOne = (cell: Box): boolean => {
-        const done = stack ? placeStack(floor, stack(), cell, turned, random) : placeCluster(floor, seating, cell, turned, block);
+        // Tables stand a little off their rows, as a room's are left, never ruled into a grid; true to the row where the
+        // shifted spot is taken.
+        const shift = (): number => TABLE_JITTER * (2 * random() - 1);
+        const off = { ...cell, x: cell.x + shift(), y: cell.y + shift() };
+        const done = stack
+            ? placeStack(floor, stack(), cell, turned, random)
+            : placeCluster(floor, seating, off, turned, block, random) || placeCluster(floor, seating, cell, turned, block, random);
         placed += done ? 1 : 0;
         return done;
     };
@@ -809,10 +818,13 @@ function placeCluster(
     cell: Box,
     turned: boolean,
     block: { long: number; short: number; depth: number },
+    random: Random,
 ): boolean {
     if (!floor.free(cell)) {
         return false;
     }
+    // A round table seen from above is turned whichever way it was left, a quarter at a time so its footprint holds.
+    const set = !table.upright && ofShape(table, 'round') ? QUARTER_TURN * Math.floor(random() * (FULL_TURN / QUARTER_TURN)) : 0;
     // The table's own box: past the seats at its ends when seated all round, and across the block past those on its
     // long sides (against the block's far side when seated on one side only).
     const along = round ? block.depth : 0;
@@ -825,7 +837,7 @@ function placeCluster(
     // A table whose image is taller than wide is turned a quarter to lie along the block; one drawn with depth lies as drawn.
     const lengthwise = table.width >= table.height;
     const rotation = table.upright ? 0 : (turned ? QUARTER_TURN : 0) + (lengthwise ? 0 : QUARTER_TURN);
-    if (!floor.put(table, tableBox, rotation % FULL_TURN, null)) {
+    if (!floor.put(table, tableBox, (rotation + set) % FULL_TURN, null)) {
         return false;
     }
     if (seat) {

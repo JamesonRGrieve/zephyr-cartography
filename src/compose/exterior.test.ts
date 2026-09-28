@@ -178,25 +178,33 @@ describe('bridges and yard pieces', () => {
             buildings: [{ key: 'barn', at: { x: barn.x, y: barn.y }, width: barn.w, height: barn.h, yard: true, rooms: [{ key: 'room', purpose: 'storage' }] }],
         });
         const outside = (f: { x: number; y: number }): boolean => f.x < barn.x || f.x > barn.x + barn.w || f.y < barn.y || f.y > barn.y + barn.h;
-        const { spec } = composeMap(yard, TEST_ROLES);
-        const stores = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage' && outside(f));
-        expect(stores.length).toBeGreaterThanOrEqual(2);
-        expect(stampsOf(spec, 'test:vehicle') + stampsOf(spec, 'test:hauler')).toBeGreaterThanOrEqual(1);
-        // Along each wall they stand in clumps: somewhere along it, open wall wider than any piece lies between two.
-        const along = (side: 'top' | 'bottom' | 'left' | 'right'): number[] =>
-            stores
-                .flatMap((f) => {
-                    if (f.type !== 'stamp') {
-                        return [];
-                    }
-                    const at = { top: f.y < barn.y, bottom: f.y > barn.y + barn.h, left: f.x < barn.x, right: f.x > barn.x + barn.w }[side];
-                    return at ? [side === 'top' || side === 'bottom' ? f.x : f.y] : [];
-                })
-                .sort((a, b) => a - b);
-        const gaps = (['top', 'bottom', 'left', 'right'] as const).flatMap((side) =>
-            along(side).flatMap((t, i, all) => (i > 0 ? [t - (all[i - 1] ?? t)] : [])),
-        );
-        expect(Math.max(...gaps)).toBeGreaterThan(2);
+        // Pieces closer than this along a wall stand in one clump; clumps have open wall between.
+        const sameClump = 1.5;
+        const longestRun: number[] = [];
+        for (const seed of [1, 2, 3, 4]) {
+            const { spec } = composeMap({ ...yard, seed }, TEST_ROLES);
+            const stores = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage' && outside(f));
+            expect(stores.length).toBeGreaterThanOrEqual(2);
+            expect(stampsOf(spec, 'test:vehicle') + stampsOf(spec, 'test:hauler')).toBeGreaterThanOrEqual(1);
+            for (const side of ['top', 'bottom', 'left', 'right'] as const) {
+                const along = stores
+                    .flatMap((f) => {
+                        if (f.type !== 'stamp') {
+                            return [];
+                        }
+                        const at = { top: f.y < barn.y, bottom: f.y > barn.y + barn.h, left: f.x < barn.x, right: f.x > barn.x + barn.w }[side];
+                        return at ? [side === 'top' || side === 'bottom' ? f.x : f.y] : [];
+                    })
+                    .sort((a, b) => a - b);
+                let run = 1;
+                along.forEach((t, i) => {
+                    run = i > 0 && t - (along[i - 1] ?? t) < sameClump ? run + 1 : 1;
+                    longestRun.push(run);
+                });
+            }
+        }
+        // Never one unbroken line along a wall: every run is a clump of three at most.
+        expect(Math.max(...longestRun)).toBeLessThanOrEqual(3);
         // With no stores, cart, pen or fodder to be had, the yard is trodden earth and nothing on it.
         const bare = new Map([...TEST_ROLES].filter(([role]) => !['storage', 'vehicle', 'enclosure', 'fodder'].includes(role)));
         const plain = composeMap(yard, bare).spec.features.filter((f) => f.type === 'stamp' && outside(f));

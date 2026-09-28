@@ -141,6 +141,9 @@ describe('furnishRoom', () => {
         const placed = furnishRoom(COMMON, roles, seededRandom(1)).stamps;
         const tables = placed.filter((p) => p.stamp === 'test:round-table');
         expect(tables.length).toBeGreaterThanOrEqual(2);
+        // Left as a room's are, not ruled: each turned its own way and a little off its row.
+        expect(new Set(tables.map((t) => t.rotation)).size).toBeGreaterThan(1);
+        expect(new Set(tables.map((t) => t.y.toFixed(3))).size).toBeGreaterThan(Math.ceil(tables.length / 2));
         // Chairs, not the pew, and on all four sides of each table.
         expect(placed.some((p) => p.stamp === 'test:pew')).toBe(false);
         for (const t of tables) {
@@ -575,6 +578,14 @@ describe('the grim far future’s rooms', () => {
         const table = walled.find((p) => p.stamp === 'test:writing-table');
         expect(table?.rotation).toBe(180);
         expect(walled.some((p) => p.stamp === 'test:seat' && p.rotation === 0 && table !== undefined && p.y < table.y)).toBe(true);
+        // With no chair to be had, the table still stands against a wall, alone.
+        const chairless = new Map(upright);
+        for (const role of ['seat', 'armchair', 'dresser'] as const) {
+            chairless.delete(role);
+        }
+        const alone = furnishRoom({ ...closet, doors: [{ side: 'bottom', at: 1 }] }, chairless, seededRandom(1)).stamps;
+        expect(alone.filter((p) => p.stamp === 'test:writing-table')).toHaveLength(1);
+        expect(alone.some((p) => p.stamp === 'test:seat')).toBe(false);
         // Without an easy chair, a plain one takes the corner.
         const plain = furnishRoom(lived, new Map([...TEST_ROLES].filter(([role]) => role !== 'armchair')), seededRandom(1)).stamps;
         expect(plain.some((p) => p.stamp === 'test:seat' && (p.x < 1 || p.x > 3) && (p.y < 1 || p.y > 4))).toBe(true);
