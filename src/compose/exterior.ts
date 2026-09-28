@@ -1113,10 +1113,14 @@ export function composeExterior(
     });
     // Water lies over the land round it and over the paths' ends in it: each lake over its own bed, after every other zone's
     // ground and the paths, so a river out of a lake starts under its water, its square end and banks unseen.
+    // Crisp-edged, bed and water alike: a feathered edge fades the lake out over the river leaving it, and the river's
+    // water showing through that band draws the shore across the river as a hairline. Crisp, the lake stacks water on
+    // bed as the river does, both tiled from the scene's origin, so the two meet unseen; the reeds and rocks of its
+    // shore and the canopies over it soften the edge on land.
     for (const { zone, outline } of outlines.filter(isLake)) {
         features.push(
-            { type: 'region', biome: LAKE_BED, points: outline },
-            { type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, ...textured(zone.texture) },
+            { type: 'region', biome: LAKE_BED, points: outline, sharp: true },
+            { type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, sharp: true, ...textured(zone.texture) },
         );
     }
     // The intent's own pieces stand first; everything scattered after keeps clear of them.

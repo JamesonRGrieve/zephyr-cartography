@@ -101,6 +101,12 @@ describe('bridges and yard pieces', () => {
         if (river?.type !== 'path' || waters.length !== 2) {
             throw new Error('no river between two lakes');
         }
+        // Crisp-edged, so no fading band of lake draws the shore across the river leaving it.
+        expect(
+            spec.features
+                .filter((f) => f.type === 'region' && (f.biome === 'water' || f.biome === 'dirt'))
+                .every((f) => f.type === 'region' && f.sharp === true),
+        ).toBe(true);
         const [first, last] = [river.points[0], river.points.at(-1)];
         const inWater = (p: { x: number; y: number } | undefined): number =>
             waters.findIndex(
