@@ -118,9 +118,13 @@ const PLACEHOLDER_LOOK = {
     text: '#f4ead2',
 } as const;
 
-/** How a flat one is drawn: a faint frame over the floor, barely filled, so it reads as a mark on it, not a thing in the way. */
+/**
+ * How a flat one is drawn: a clear frame over the floor, barely filled, so
+ * it reads as a mark painted on it (a berth's bay, a stain's spread), not a
+ * thing in the way; a hairline frame vanished on dark plating.
+ */
 const FLAT_LOOK = {
-    stroke: { colour: '#e8dcc0', width: 1, alpha: 0.45 },
+    stroke: { colour: '#e8dcc0', width: 3, alpha: 0.8 },
     fill: { colour: '#1c1812', alpha: 0.15 },
     text: '#f4ead2',
 } as const;

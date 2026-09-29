@@ -64,6 +64,8 @@ describe('placeholders', () => {
         const fillOf = (f: typeof mark): number => (f?.type === 'shape' ? f.fill?.alpha ?? 0 : 0);
         expect(fillOf(mark)).toBeGreaterThan(0);
         expect(fillOf(mark)).toBeLessThan(fillOf(solid));
+        // Its frame still reads clearly, as a mark painted on dark plating would (a berth's bay).
+        expect(mark?.type === 'shape' ? mark.stroke : undefined).toMatchObject({ width: 3, alpha: 0.8 });
         expect(label).toMatchObject({ type: 'label', text: 'oil stain' });
     });
 
