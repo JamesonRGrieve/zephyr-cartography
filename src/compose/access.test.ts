@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
-import { flightFor, stormDoorway } from './access';
-import type { RoleIndex } from './roles';
+import type { StampRole } from '../stamps/schema';
+import { flightFor, stormDoorway, wayDownOver } from './access';
+import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
 /** The test roles with only these ways between levels. */
@@ -52,6 +53,45 @@ describe('flightFor', () => {
         // With nothing else that climbs, it is taken anyway.
         const onlyTwoWay = withAccess(['test:stairs'], () => ({ climb: { kind: 'stairs', direction: 'both' } }));
         expect(flightFor('stairs', onlyTwoWay, seededRandom(1), at('inn', true)).stair?.key).toBe('test:stairs');
+    });
+});
+
+describe('wayDownOver', () => {
+    const ladder = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:ladder');
+    if (!ladder) {
+        throw new Error('the test roles have no ladder');
+    }
+    /** A ladder going down, drawn as `tags` say. */
+    const down = (id: string, tags: readonly string[], more: Partial<RoleStamp> = {}): RoleStamp => ({
+        ...ladder,
+        key: `test:${id}`,
+        tags,
+        climb: { kind: 'ladder', direction: 'down' },
+        ...more,
+    });
+    /** The key of what shows above the ladder with `pieces` loaded besides the test roles' ways. */
+    const over = (...pieces: readonly RoleStamp[]): string | undefined =>
+        wayDownOver(ladder, new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['stairs', [...(TEST_ROLES.get('stairs') ?? []), ...pieces]]]))?.key;
+
+    it('shows a built opening of the flight’s kind above it before a bare shaft, and only the map’s own turnable art', () => {
+        const shaft = down('shaft', ['drop', 'shaft']);
+        const well = down('well', ['ladder', 'well']);
+        expect(over(shaft, well)).toBe('test:well');
+        expect(over(shaft)).toBe('test:shaft');
+        // Another setting's well, or one drawn in perspective that cannot turn with the well, is never taken.
+        expect(over(shaft, down('borrowed-well', ['well'], { borrowed: true }))).toBe('test:shaft');
+        expect(over(down('upright-well', ['well'], { upright: true }))).toBeUndefined();
+        // The storm doors go down, but as a hatch, not a ladder: over a ladder with nothing else, a dark frame.
+        expect(over()).toBeUndefined();
+    });
+
+    it('shows a stair’s own steps above it, seen from above as from below; a frame over one drawn in perspective', () => {
+        const stairs = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:stairs');
+        if (!stairs) {
+            throw new Error('the test roles have no stairs');
+        }
+        expect(wayDownOver(stairs, TEST_ROLES)?.key).toBe('test:stairs');
+        expect(wayDownOver({ ...stairs, upright: true }, TEST_ROLES)).toBeUndefined();
     });
 });
 

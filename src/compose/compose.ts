@@ -8,7 +8,7 @@
  * as problems, never thrown. Everything is placed in grid squares from the
  * map's top-left corner. Pure and unit-tested.
  */
-import type { DoorSlot, Rect, Side } from '../generate/floor-plan';
+import type { DoorSlot, Rect, RoomCorner, Side } from '../generate/floor-plan';
 import { OPPOSITE_SIDE, roomSpec } from '../generate/floor-plan';
 import { seededRandom, type Random } from '../generate/random';
 import { SCENE_SPEC_SCHEMA_VERSION, type SceneSpecInput } from '../generate/spec';
@@ -17,7 +17,7 @@ import type { Point } from '../geometry/spline';
 import type { StampRole } from '../stamps/schema';
 import type { BiomeKind } from '../tools/biome';
 import { WALL_BAND_SQUARES } from '../tools/materials';
-import { flightFor, type StormDoorway, stormDoorway } from './access';
+import { flightFor, type StormDoorway, stormDoorway, wayDownOver } from './access';
 import { curtainFeatures, moatOutlines } from './curtain';
 import { districtFeatures } from './district';
 import { composeExterior } from './exterior';
@@ -153,7 +153,7 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
                 others.some((r) => [-1, 1].some((dx) => [-1, 1].some((dy) => inRect(r, { x: apex.x + dx * NUDGE, y: apex.y + dy * NUDGE }))))
             );
         };
-        const cut = chamferCorners(room.rect, chamfer);
+        const cut = chamferCorners(room.rect, chamfer, room.intent.chamferAt);
         const corners = cut.filter(enclosed);
         const furnished = furnishRoom(floor, narrowedIndex(stamps, preferences.get(roomPlace(called, room.key))), random, [...reserved, ...cut.map(boundsOf)]);
         const glows = furnished.stamps.some((s) => LIGHT_SOURCES.some((role) => roleOf.get(s.stamp) === role));
@@ -179,6 +179,7 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
                 slots,
                 { floor: room.intent.floor ?? building.floor, wall: building.wall, wallKind: building.wallKind, ceiling: true },
                 chamfer,
+                room.intent.chamferAt,
             ),
             key: `${called}:${room.key}`,
             // By night a room is lit by its hearth and lamps, not a flat light; one with neither keeps its own.
@@ -247,33 +248,34 @@ function hungDoor(slot: DoorSlot, rect: Rect, stamps: RoleIndex, tags: readonly 
 /** Degrees in a full turn. */
 const FULL_TURN = 360;
 
-/** The four triangles a chamfer of `c` squares cuts from `rect`'s corners; none for square corners. */
-function chamferCorners({ x, y, w, h }: Rect, c: number): Point[][] {
+/** The triangles a chamfer of `c` squares cuts from `rect`'s corners `at`, each with its apex (the rect's corner) first; none for square corners. */
+function chamferCorners({ x, y, w, h }: Rect, c: number, at: readonly RoomCorner[]): Point[][] {
     if (c <= 0) {
         return [];
     }
-    return [
-        [
+    const triangles: Readonly<Record<RoomCorner, Point[]>> = {
+        'top-left': [
             { x, y },
             { x: x + c, y },
             { x, y: y + c },
         ],
-        [
+        'top-right': [
             { x: x + w, y },
             { x: x + w, y: y + c },
             { x: x + w - c, y },
         ],
-        [
+        'bottom-right': [
             { x: x + w, y: y + h },
             { x: x + w - c, y: y + h },
             { x: x + w, y: y + h - c },
         ],
-        [
+        'bottom-left': [
             { x, y: y + h },
             { x, y: y + h - c },
             { x: x + c, y: y + h },
         ],
-    ];
+    };
+    return at.map((corner) => triangles[corner]);
 }
 
 /** Squares off a corner at which to look for a room wrapping it. */
@@ -299,28 +301,40 @@ interface MapContext {
 /**
  * A way's flights, one on each storey but the top of its run, each in the
  * lane beside the one below; in a well lying turned, the flights turned a
- * quarter with it, their lanes down it rather than across.
+ * quarter with it, their lanes down it rather than across. Over each, the
+ * floor above shows the way down: `wayDown` (a ladder's well) fitted to the
+ * opening, else a dark frame.
  */
-function flights(stair: RoleStamp, well: Well, count: number, lowest: number, levelOf: LevelOf): FeatureInput[] {
+function flights(
+    way: { readonly stair: RoleStamp; readonly wayDown: RoleStamp | undefined },
+    well: Well,
+    run: { readonly count: number; readonly lowest: number },
+    levelOf: LevelOf,
+): FeatureInput[] {
+    const { stair, wayDown } = way;
+    const { count, lowest } = run;
     const lanes = stairLanes(count);
     return Array.from({ length: count }, (_, n): FeatureInput[] => {
         const lane = (n % lanes) * stair.width + stair.width / 2;
         const [x, y] = well.turned ? [well.x + well.w / 2, well.y + lane] : [well.x + lane, well.y + well.h / 2];
         const [width, height] = well.turned ? [stair.height, stair.width] : [stair.width, stair.height];
-        // Where it comes up, the floor above is open: a dark hatchway, framed, so the way down is seen from above.
-        const opening: FeatureInput = {
-            type: 'shape',
-            kind: 'rectangle',
-            x,
-            y,
-            width,
-            height,
-            stroke: OPENING.stroke,
-            fill: OPENING.fill,
-            ...levelOf(lowest + n + 1),
-        };
-        const rotation = (stair.turn + (well.turned ? QUARTER_TURN : 0)) % FULL_TURN;
-        return [{ type: 'stamp', stamp: stair.key, x, y, rotation, ...levelOf(lowest + n) }, opening];
+        const turned = well.turned ? QUARTER_TURN : 0;
+        const above = levelOf(lowest + n + 1);
+        // Where it comes up, the floor above is open: the way down seen from above, its own art, else a dark hatchway, framed.
+        const opening: FeatureInput = wayDown
+            ? {
+                  type: 'stamp',
+                  stamp: wayDown.key,
+                  x,
+                  y,
+                  rotation: (wayDown.turn + turned) % FULL_TURN,
+                  scale: (wayDown.scale ?? 1) * Math.min(stair.width / wayDown.width, stair.height / wayDown.height),
+                  // The flight below is the way between the floors; this only shows it.
+                  inert: true,
+                  ...above,
+              }
+            : { type: 'shape', kind: 'rectangle', x, y, width, height, stroke: OPENING.stroke, fill: OPENING.fill, ...above };
+        return [{ type: 'stamp', stamp: stair.key, x, y, rotation: (stair.turn + turned) % FULL_TURN, ...levelOf(lowest + n) }, opening];
     }).flat();
 }
 
@@ -430,10 +444,19 @@ function composeBuilding(
     }
     // Each flight stands on the lower storey and climbs to the one above: up from the ground floor, up from each cellar.
     if (up?.stair && stairwell) {
-        features.push(...flights(up.stair, stairwell, building.floors.length, 0, levelOf));
+        features.push(
+            ...flights({ stair: up.stair, wayDown: wayDownOver(up.stair, stamps) }, stairwell, { count: building.floors.length, lowest: 0 }, levelOf),
+        );
     }
     if (down?.stair && cellarWell) {
-        features.push(...flights(down.stair, cellarWell, building.cellars.length, -building.cellars.length, levelOf));
+        features.push(
+            ...flights(
+                { stair: down.stair, wayDown: wayDownOver(down.stair, stamps) },
+                cellarWell,
+                { count: building.cellars.length, lowest: -building.cellars.length },
+                levelOf,
+            ),
+        );
     }
     if (doorway) {
         features.push(...stormDoorFeatures(doorway, building, called, levelOf));

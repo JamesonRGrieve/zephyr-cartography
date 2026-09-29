@@ -11,6 +11,7 @@
  * from here. v1 changes are additive only.
  */
 import { z } from 'zod';
+import { ROOM_CORNERS } from '../generate/floor-plan';
 import type { SpecIssue } from '../generate/spec';
 import { STAMP_ROLES } from '../stamps/schema';
 import { BIOMES } from '../tools/biome';
@@ -93,7 +94,7 @@ const anchor = z
 export const WALL_SIDES = ['top', 'right', 'bottom', 'left'] as const;
 
 /** A room's corners. */
-const CORNERS = ['top-left', 'top-right', 'bottom-right', 'bottom-left'] as const;
+const CORNERS = ROOM_CORNERS;
 
 /** Where along its wall a fixture stands: at the wall's start (its top or left end), middle or end, or spread evenly along it. */
 const ALONG = ['start', 'middle', 'end', 'spread'] as const;
@@ -385,6 +386,11 @@ const room = z
             .nullable()
             .default(null)
             .describe('Its corners cut off diagonally this many squares (an octagonal chamber), the cut corners solid masonry; null: square corners.'),
+        chamferAt: z
+            .array(z.enum(CORNERS))
+            .min(1)
+            .default([...CORNERS])
+            .describe('Which corners its chamfer cuts: all four (an octagonal chamber), or some (a hull tapering to its bow, a blunt stern).'),
         fixtures: z.array(fixture).default([]).describe('Named pieces it holds, placed first, each where asked.'),
         furnish: z
             .enum(['purpose', 'fixtures'])

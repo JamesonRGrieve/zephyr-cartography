@@ -308,9 +308,14 @@ describe('composeMap', () => {
         // Room keys stay unique across floors.
         expect(new Set(rooms.map((r) => r.key)).size).toBe(rooms.length);
         const stairs = spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:stairs' ? [f] : []));
-        expect(stairs.map((s) => s.level)).toEqual(['ground', 'floor-2']);
+        // Each flight, and its steps seen again from the floor above where it arrives.
+        expect(stairs.map((s) => s.level)).toEqual(['ground', 'floor-2', 'floor-2', 'floor-3']);
+        const [first, firstFromAbove, second, secondFromAbove] = stairs;
+        expect([firstFromAbove?.x, firstFromAbove?.y]).toEqual([first?.x, first?.y]);
+        expect([secondFromAbove?.x, secondFromAbove?.y]).toEqual([second?.x, second?.y]);
+        // Only the flights are ways between the floors: the steps seen from above are drawn, inert.
+        expect(stairs.map((s) => s.inert === true)).toEqual([false, true, false, true]);
         // A switchback: the second flight beside the first (one stair's width on), so their ways between floors never overlap.
-        const [first, second] = stairs;
         expect(second?.y).toBe(first?.y);
         expect((second?.x ?? 0) - (first?.x ?? 0)).toBeCloseTo(1);
         // Nothing else stands in the stairwell, on any floor.
@@ -669,6 +674,53 @@ describe('maps drawn to a brief', () => {
             TEST_ROLES,
         ).spec;
         expect(wrapped.features.filter((f) => f.type === 'region' && f.sharp === true && f.points.length === 3)).toHaveLength(4);
+    });
+
+    it('cuts only the corners a chamfer names: a hull tapered at its bow and blunt at its stern, its decks meeting square', () => {
+        const { spec } = composeMap(
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        width: 10,
+                        height: 16,
+                        entrance: 'south',
+                        rooms: [
+                            {
+                                key: 'bow',
+                                purpose: 'hall',
+                                rect: { x: 0, y: 0, w: 10, h: 8 },
+                                chamfer: 2,
+                                chamferAt: ['top-left', 'top-right'],
+                                opensTo: ['stern'],
+                            },
+                            {
+                                key: 'stern',
+                                purpose: 'hall',
+                                rect: { x: 0, y: 8, w: 10, h: 8 },
+                                chamfer: 2,
+                                chamferAt: ['bottom-right', 'bottom-left'],
+                                entrance: true,
+                            },
+                        ],
+                    },
+                ],
+            }),
+            TEST_ROLES,
+        );
+        const outline = (key: string): readonly { x: number; y: number }[] => {
+            const room = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(`:${key}`) === true);
+            return room?.type === 'room' ? room.points : [];
+        };
+        // Where the building stands on the map: the hull's left and its bow's front.
+        const left = Math.min(...outline('bow').map((p) => p.x));
+        const front = Math.min(...outline('bow').map((p) => p.y));
+        const has = (key: string, x: number, y: number): boolean => outline(key).some((p) => p.x === left + x && p.y === front + y);
+        // The bow's front corners cut, its back ones square where it meets the stern.
+        expect([has('bow', 0, 0), has('bow', 10, 0), has('bow', 10, 8), has('bow', 0, 8)]).toEqual([false, false, true, true]);
+        expect([has('stern', 0, 8), has('stern', 10, 8), has('stern', 10, 16), has('stern', 0, 16)]).toEqual([true, true, false, false]);
+        // Every cut corner faces the void: no masonry wedge pinches the hull between the decks.
+        expect(spec.features.some((f) => f.type === 'region' && f.sharp === true && f.points.length === 3)).toBe(false);
     });
 
     it('stands a map’s named pieces outside where asked, faced as asked, and paves hard standing crisp over the paths', () => {

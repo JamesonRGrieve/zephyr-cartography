@@ -36,6 +36,8 @@ export interface StampPlacement {
     readonly reads?: string;
     /** Drawn flipped left to right (the far end of a counter, capped by its end piece); as drawn by default. */
     readonly mirror?: boolean;
+    /** Drawn only, with none of its behaviour (walls, lights, doors, a way between levels): another placement of it carries that. */
+    readonly inert?: boolean;
 }
 
 /** A placed stamp; its one point is the footprint centre. */
@@ -148,7 +150,7 @@ export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlace
         scale,
         elevation: placement.elevation ?? 0,
         gridSize,
-        behaviour: behaviourOf(stamp, variant),
+        behaviour: placement.inert === true ? NO_BEHAVIOUR : behaviourOf(stamp, variant),
         silhouette: null,
         submap: null,
         pile: null,

@@ -161,6 +161,17 @@ describe('a mirrored stamp', () => {
     });
 });
 
+describe('an inert stamp', () => {
+    it('is drawn with none of its behaviour: another placement of it carries that', () => {
+        const lit = planDocuments(stampOf(lamp));
+        const inert = stampOf(lamp, { inert: true });
+        expect(lit.lights.length).toBeGreaterThan(0);
+        expect(inert.behaviour).toMatchObject({ light: null, occlusion: null, door: null, transition: null });
+        expect(planDocuments(inert).lights).toEqual([]);
+        expect(planDocuments(inert).tiles).toHaveLength(1);
+    });
+});
+
 describe('a stamp players read', () => {
     it('reads nothing unless given words, and blanks are nothing', () => {
         expect(stampOf(lamp).reads).toBeNull();

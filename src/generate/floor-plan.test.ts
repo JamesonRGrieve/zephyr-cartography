@@ -134,4 +134,24 @@ describe('roomSpec', () => {
         expect(bySegment.get(at(0, 5))).toMatchObject({ type: 'opening', state: 'open' });
         expect(spec.doors).toHaveLength(3);
     });
+
+    it('cuts every corner by default, and only those named when some are', () => {
+        const room = { x: 0, y: 0, w: 10, h: 6 };
+        expect(roomSpec(room, [], build, 2).points).toHaveLength(8);
+        expect(roomSpec(room, [], build, 2, ['top-left', 'top-right']).points).toEqual([
+            { x: 2, y: 0 },
+            { x: 8, y: 0 },
+            { x: 10, y: 2 },
+            { x: 10, y: 6 },
+            { x: 0, y: 6 },
+            { x: 0, y: 2 },
+        ]);
+        expect(roomSpec(room, [], build, 2, ['bottom-left']).points).toEqual([
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 6 },
+            { x: 2, y: 6 },
+            { x: 0, y: 4 },
+        ]);
+    });
 });

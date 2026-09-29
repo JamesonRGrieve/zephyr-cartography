@@ -199,43 +199,39 @@ function doorOf(slot: DoorSlot | undefined): DoorSettings {
 /** What a room is built of: its floor, its drawn walls, their Foundry kind, and whether it has a ceiling. */
 export type RoomBuild = Pick<FloorPlanOptions, 'floor' | 'wall' | 'wallKind' | 'ceiling'>;
 
+/** A room's corners, clockwise from the top-left. */
+export const ROOM_CORNERS = ['top-left', 'top-right', 'bottom-right', 'bottom-left'] as const;
+
+/** One of a room's corners. */
+export type RoomCorner = (typeof ROOM_CORNERS)[number];
+
 /**
- * A room spec over `room`, with a door in each of `slots`; its corners cut
- * off diagonally `chamfer` squares (an octagonal chamber), the doors kept to
- * the straight stretches between.
+ * A room spec over `room`, with a door in each of `slots`; the corners
+ * `cut` (all four by default) cut off diagonally `chamfer` squares (an
+ * octagonal chamber; a hull's tapered bow where only the front two are), the
+ * doors kept to the straight stretches between.
  */
-export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild, chamfer = 0): RoomSpec {
+export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild, chamfer = 0, cut: readonly RoomCorner[] = ROOM_CORNERS): RoomSpec {
     const { x, y, w, h } = room;
-    const c = chamfer;
-    // Each side's straight stretch, clockwise from the top: where it starts and ends.
-    const stretches: readonly (readonly [Corner, Corner])[] = [
-        [
-            { x: x + c, y },
-            { x: x + w - c, y },
-        ],
-        [
-            { x: x + w, y: y + c },
-            { x: x + w, y: y + h - c },
-        ],
-        [
-            { x: x + w - c, y: y + h },
-            { x: x + c, y: y + h },
-        ],
-        [
-            { x, y: y + h - c },
-            { x, y: y + c },
-        ],
+    const cutBy = (corner: RoomCorner): number => (cut.includes(corner) ? chamfer : 0);
+    const [topLeft, topRight, bottomRight, bottomLeft] = [cutBy('top-left'), cutBy('top-right'), cutBy('bottom-right'), cutBy('bottom-left')];
+    // Each side's straight stretch, clockwise from the top: where it starts and ends; and whether the corner it runs into is cut.
+    const stretches: readonly (readonly [Corner, Corner, boolean])[] = [
+        [{ x: x + topLeft, y }, { x: x + w - topRight, y }, topRight > 0],
+        [{ x: x + w, y: y + topRight }, { x: x + w, y: y + h - bottomRight }, bottomRight > 0],
+        [{ x: x + w - bottomRight, y: y + h }, { x: x + bottomLeft, y: y + h }, bottomLeft > 0],
+        [{ x, y: y + h - bottomLeft }, { x, y: y + topLeft }, topLeft > 0],
     ];
     const sides: readonly Side[] = ['top', 'right', 'bottom', 'left'];
     const points: Corner[] = [];
     const doorStarts: { at: Corner; slot: DoorSlot | undefined }[] = [];
     sides.forEach((side, i) => {
-        const [start, end] = stretches[i] ?? [];
+        const [start, end, cutAhead] = stretches[i] ?? [];
         if (start && end) {
             const onSide = slots.filter((s) => s.side === side);
             const along = sidePoints(start, end, onSide);
-            // Cut corners: the stretch ends short of the next side's start, and a diagonal runs between.
-            points.push(...along.points, ...(c > 0 ? [end] : []));
+            // A cut corner: the stretch ends short of the next side's start, and a diagonal runs between.
+            points.push(...along.points, ...(cutAhead === true ? [end] : []));
             doorStarts.push(...along.doorStarts.map((at, n) => ({ at, slot: onSide[n] })));
         }
     });

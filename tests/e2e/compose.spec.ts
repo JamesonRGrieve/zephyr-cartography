@@ -143,11 +143,14 @@ test('a two-storey building: native levels, outer walls stacked on the same peri
         const stairRegions = (scene?.regions.contents ?? [])
             .filter((r) => r.behaviors.contents.some((b) => b.type === 'changeLevel'))
             .map((r) => ({ levels: [...r.levels].map((id) => levels.find((l) => l.id === id)?.name ?? id).sort((a, b) => a.localeCompare(b)) }));
-        const stairTile = (scene?.tiles.contents ?? []).find((t) => t.texture.src?.includes('stairs') ?? false);
+        const isStairs = (t: { readonly texture: { readonly src: string | null } }): boolean => t.texture.src?.includes('stairs') ?? false;
+        const stairTile = (scene?.tiles.contents ?? []).find(isStairs);
         const upper = levels.find((l) => l.name === 'Upper floor')?.id ?? '';
+        // The flight's steps, seen again from the floor above: drawn there, no way of their own.
+        const stairsFromAbove = (scene?.tiles.contents ?? []).filter((t) => t !== stairTile && isStairs(t) && [...t.levels].includes(upper)).length;
         const onStair = (scene?.tiles.contents ?? []).filter(
             (t) =>
-                t !== stairTile &&
+                !isStairs(t) &&
                 [...t.levels].includes(upper) &&
                 stairTile !== undefined &&
                 Math.abs(t.x - stairTile.x) < grid &&
@@ -158,6 +161,7 @@ test('a two-storey building: native levels, outer walls stacked on the same peri
             perimeter,
             stairRegions,
             stairTile: stairTile !== undefined,
+            stairsFromAbove,
             onStair,
             fullPerimeter: 2 * (box.x1 - box.x0 + box.y1 - box.y0),
         };
@@ -168,6 +172,7 @@ test('a two-storey building: native levels, outer walls stacked on the same peri
     expect(found.perimeter).toEqual({ 'Ground floor': found.fullPerimeter, 'Upper floor': found.fullPerimeter });
     expect(found.stairTile).toBe(true);
     expect(found.stairRegions).toEqual([{ levels: ['Ground floor', 'Upper floor'] }]);
+    expect(found.stairsFromAbove).toBe(1);
     expect(found.onStair).toBe(0);
 
     await shootLevel(world, 'Ground floor', 'house-ground.png');
@@ -248,6 +253,58 @@ async function shootLevel(page: Page, levelName: string, shot: string): Promise<
     await frameScene(page, 'walls');
     await expect(page.locator('#board')).toHaveScreenshot(shot);
 }
+
+/** A hull tapered at its bow, a ladder down to its hold: its footprint in squares, and its intent. */
+const HULL = { x: 5, y: 2, w: 10, h: 11 };
+
+const LADDER_DOWN = {
+    schemaVersion: 1,
+    seed: 4,
+    width: 20,
+    height: 15,
+    ground: 'grassland',
+    buildings: [
+        {
+            key: 'hull',
+            at: { x: HULL.x, y: HULL.y },
+            width: HULL.w,
+            height: HULL.h,
+            cellarAccess: 'ladder',
+            rooms: [{ key: 'deck', purpose: 'hall', entrance: true, chamfer: 3, chamferAt: ['top-left', 'top-right'] }],
+            cellars: [{ name: 'Hold', rooms: [{ key: 'hold', purpose: 'storage' }] }],
+        },
+    ],
+};
+
+test('a hull cut at its bow alone, a ladder down to its hold: the one ladder the way between them, a dark hatchway above it', async ({ world }) => {
+    const outcome = await world.evaluate(async (intent) => {
+        const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
+        return composed?.ok === true ? { problems: composed.problems, built: composed.report.problems } : null;
+    }, LADDER_DOWN);
+    expect(outcome?.built).toEqual([]);
+    expect(outcome?.problems.every((p) => p.kind === 'no-stamp' || p.kind === 'placeholder')).toBe(true);
+
+    const found = await world.evaluate(() => {
+        const scene = canvas?.scene;
+        const levels = (scene?.levels.contents ?? []).map((l) => ({ id: l.id, name: l.name }));
+        const ground = levels.find((l) => l.name !== 'Hold')?.id ?? '';
+        // The deck's cut corners: the diagonal walls on its level.
+        const diagonals = (scene?.walls.contents ?? []).filter((w) => {
+            const [ax = 0, ay = 0, bx = 0, by = 0] = w.c;
+            return [...w.levels].includes(ground) && ax !== bx && ay !== by;
+        }).length;
+        const ways = (scene?.regions.contents ?? []).filter((r) => r.behaviors.contents.some((b) => b.type === 'changeLevel')).length;
+        // The fixture pack draws its ladder in its stairs' art; this building has no stair.
+        const ladders = (scene?.tiles.contents ?? []).filter((t) => t.texture.src?.includes('stairs') ?? false).length;
+        return { names: levels.map((l) => l.name), diagonals, ways, ladders };
+    });
+    expect(found.names).toContain('Hold');
+    // Its two bow corners cut, its stern square.
+    expect(found.diagonals).toBe(2);
+    // The fixture pack has no ladder going down to show from above: the ladder stands once, the deck over it a dark frame.
+    expect(found.ways).toBe(1);
+    expect(found.ladders).toBe(1);
+});
 
 /** An inn of six rooms in a wood, a river laid straight through where it stands. */
 const INN = {

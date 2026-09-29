@@ -1265,7 +1265,11 @@ or a tavern is. Composition is the layer above them (operator decisions,
     setting's is used and reported (`borrowed`, `borrowed-art`). A flight
     over a level below takes a way that only climbs, never one leading
     both up and down that would open onto it. Where a flight arrives, the
-    floor above shows a framed opening.
+    floor above shows the way down: a stair's own steps; over a ladder, a
+    way-down piece of its kind in the map's settings (a well or hatch
+    before a bare shaft); else a framed opening. What it shows is an
+    `inert` stamp (drawn, with none of its behaviour): the flight below is
+    the one way between the floors.
   - **Corridors.** A hall opening onto four or more rooms is laid as a
     corridor two squares wide down the long axis, its rooms along both
     sides, each sized for what it holds (an inn's guest rooms).
@@ -1329,7 +1333,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     `doorAt` places its doors along the walls it shares (a row of cells
     alike); `archTo` opens the whole shared wall as a doorless arch (a pier
     at each end where wide enough); `chamfer` cuts its corners (an octagonal
-    chamber), the cut corners masonry where another room wraps them, void
+    chamber), or only those `chamferAt` names (a hull's tapered bow, its blunt
+    stern), the cut corners masonry where another room wraps them, void
     where none does. A building's front door takes `frontDoorAt`, a width
     and `frontDoorOpen`; its `openings` take a width, `open`, and a `room`
     whose own wall they pierce where it stands short of the footprint's

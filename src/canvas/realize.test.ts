@@ -551,6 +551,23 @@ describe('realizeSpec', () => {
         ]);
     });
 
+    it('draws an inert stamp with none of its behaviour, the same stamp placed plainly keeping its own', async () => {
+        const h = makeHarness(SWITCH_STAMPS);
+        await realizeSpec(
+            h.c,
+            spec({
+                features: [
+                    { type: 'stamp', stamp: 'pack:lamp', x: 4, y: 4 },
+                    { type: 'stamp', stamp: 'pack:lamp', x: 6, y: 4, inert: true },
+                ],
+            }),
+            { origin: ORIGIN, gridSize: GRID },
+        );
+        const [plain, inert] = h.s.last().flatMap((f) => (f.type === 'stamp' ? [f] : []));
+        expect(inert?.behaviour).toMatchObject({ light: null, occlusion: null, door: null, transition: null, enterable: false, container: false });
+        expect(inert?.behaviour).not.toEqual(plain?.behaviour);
+    });
+
     it('puts map labels where the spec says, with Foundry’s defaults for what it leaves out', async () => {
         const h = makeHarness();
         await realizeSpec(h.c, spec({ features: [{ type: 'label', x: 5, y: 1, text: 'Hab District 4', colour: '#E0C080', rotation: 15 }] }), {

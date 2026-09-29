@@ -740,6 +740,26 @@
                                         }
                                     ]
                                 },
+                                "chamferAt": {
+                                    "default": [
+                                        "top-left",
+                                        "top-right",
+                                        "bottom-right",
+                                        "bottom-left"
+                                    ],
+                                    "description": "Which corners its chamfer cuts: all four (an octagonal chamber), or some (a hull tapering to its bow, a blunt stern).",
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": [
+                                            "top-left",
+                                            "top-right",
+                                            "bottom-right",
+                                            "bottom-left"
+                                        ]
+                                    }
+                                },
                                 "fixtures": {
                                     "default": [],
                                     "description": "Named pieces it holds, placed first, each where asked.",
@@ -1407,6 +1427,26 @@
                                                         "type": "null"
                                                     }
                                                 ]
+                                            },
+                                            "chamferAt": {
+                                                "default": [
+                                                    "top-left",
+                                                    "top-right",
+                                                    "bottom-right",
+                                                    "bottom-left"
+                                                ],
+                                                "description": "Which corners its chamfer cuts: all four (an octagonal chamber), or some (a hull tapering to its bow, a blunt stern).",
+                                                "minItems": 1,
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "top-left",
+                                                        "top-right",
+                                                        "bottom-right",
+                                                        "bottom-left"
+                                                    ]
+                                                }
                                             },
                                             "fixtures": {
                                                 "default": [],
@@ -2090,6 +2130,26 @@
                                                         "type": "null"
                                                     }
                                                 ]
+                                            },
+                                            "chamferAt": {
+                                                "default": [
+                                                    "top-left",
+                                                    "top-right",
+                                                    "bottom-right",
+                                                    "bottom-left"
+                                                ],
+                                                "description": "Which corners its chamfer cuts: all four (an octagonal chamber), or some (a hull tapering to its bow, a blunt stern).",
+                                                "minItems": 1,
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "top-left",
+                                                        "top-right",
+                                                        "bottom-right",
+                                                        "bottom-left"
+                                                    ]
+                                                }
                                             },
                                             "fixtures": {
                                                 "default": [],

@@ -54,6 +54,27 @@ const ownFirst = (stamps: readonly RoleStamp[], wanted: (s: RoleStamp) => boolea
 ];
 
 /**
+ * What the floor above a flight of `stair` shows of the way down: a stair's
+ * own steps, seen from above as from below (a spiral stair is the same
+ * spiral on both floors); over a ladder, a piece of its kind going down (its
+ * well) that turns with the well, of the map's own settings, the same one
+ * wherever it is asked: a built opening (a well, a hatch) before a bare
+ * shaft or a hole broken through. Undefined where there is none, or the
+ * stair is drawn in perspective and cannot turn: the opening is then a dark
+ * frame.
+ */
+export function wayDownOver(stair: RoleStamp, stamps: RoleIndex): RoleStamp | undefined {
+    if (stair.climb?.kind === 'stairs') {
+        return stair.upright ? undefined : stair;
+    }
+    const [own = []] = ownFirst(stamps.get('stairs') ?? [], (s) => s.climb?.direction === 'down' && s.climb.kind === stair.climb?.kind && !s.upright);
+    return own.find((s) => s.tags.some((tag) => BUILT_OPENING_TAGS.includes(tag))) ?? own[0];
+}
+
+/** Tags naming a way down built into a floor, as a building's is: not a shaft or a hole broken through. */
+const BUILT_OPENING_TAGS: readonly string[] = ['well', 'hatch', 'trapdoor', 'stairwell'];
+
+/**
  * The flight a building's `kind` of access takes: one of that kind that
  * climbs, else any that does, the map's own settings' before another's (a
  * ladder of the setting before another setting's staircase). `below` says

@@ -302,6 +302,12 @@ const stampSpec = z
         lights: z.array(text).default([]).describe("A light switch's other targets: ids of AmbientLights already on the scene, shown and hidden."),
         reads: text.optional().describe("What players read on it by hovering over it: a sign's words, a plaque's inscription."),
         mirror: z.boolean().optional().describe('Drawn flipped left to right, before its rotation (the far end of a counter).'),
+        inert: z
+            .boolean()
+            .optional()
+            .describe(
+                "Drawn only, with none of its behaviour (walls, lights, doors, a way between levels): another placement carries that (a flight's steps seen again from the floor above).",
+            ),
         level,
     })
     .strict()
