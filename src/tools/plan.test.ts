@@ -23,6 +23,33 @@ describe('planDocuments', () => {
         expect(plan?.walls.map((w) => w.segment)).toEqual([0, 1, 2, 3]);
         expect(plan?.lights).toHaveLength(1);
         expect(plan?.lights[0]?.x).toBe(50);
+    });
+
+    it('makes a shared wall a door where either room marks a door there, whatever opening the other marks', () => {
+        const right = square.map((p) => ({ x: p.x + 100, y: p.y }));
+        const a = makeRoom('a', 'dirt', square);
+        const b = makeRoom('b', 'dirt', right);
+        if (!a || !b) {
+            throw new Error('no rooms');
+        }
+        const shut = { ...NEW_DOOR, state: 'closed' as const };
+        const opening = { ...NEW_DOOR, type: 'opening' as const, state: 'open' as const };
+        // Segment 1 is the first room's right side, segment 3 the second's left: the wall they share.
+        for (const [first, second] of [
+            [withRoomDoor(a, 1, opening), withRoomDoor(b, 3, shut)],
+            [withRoomDoor(a, 1, shut), withRoomDoor(b, 3, opening)],
+        ] as const) {
+            const context = { features: [first, second], levels: [], terrainRegions: false, gridDistance: 5 };
+            const shared = [...planDocuments(first, context).walls, ...planDocuments(second, context).walls].filter((w) => w.a.x === 100 && w.b.x === 100);
+            expect(shared.map((w) => w.door)).toEqual(['door']);
+        }
+    });
+
+    it('leaves an opening unwalled: no wall and no door where the room is open to what lies beyond', () => {
+        const room = makeRoom('r', 'dirt', square);
+        const plan = room ? planDocuments(withRoomDoor(room, 1, { ...NEW_DOOR, type: 'opening', state: 'open' })) : null;
+        expect(plan?.walls.map((w) => w.segment)).toEqual([0, 2, 3]);
+        expect(plan?.walls.every((w) => w.door === 'none')).toBe(true);
         expect(plan?.tiles).toEqual([]);
     });
 

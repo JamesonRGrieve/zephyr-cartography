@@ -71,7 +71,8 @@ function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string,
     }
     if (spec.type === 'pin') {
         // A page with no entry is dropped, as the panel drops it.
-        const settings = { text: spec.text, entry: spec.entry, page: spec.page, icon: spec.icon, global: spec.global };
+        const { text, entry, page, icon, readable } = spec;
+        const settings = { text, entry, page, icon, global: spec.global, readable, size: spec.size === null ? null : scale.length(spec.size) };
         return { ...withPinSettings(makePin(id, scale.point(spec)), settings), level };
     }
     if (spec.type === 'shape') {
@@ -165,6 +166,8 @@ function placement(spec: Extract<FeatureSpec, { type: 'stamp' }>, scale: Scale):
         ...(spec.variant === undefined ? {} : { variant: spec.variant }),
         ...(spec.rotation === undefined ? {} : { rotation: spec.rotation }),
         ...(spec.scale === undefined ? {} : { scale: spec.scale }),
+        ...(spec.reads === undefined ? {} : { reads: spec.reads }),
+        ...(spec.mirror === true ? { mirror: true } : {}),
     };
 }
 

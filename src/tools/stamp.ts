@@ -32,6 +32,10 @@ export interface StampPlacement {
     readonly elevation?: number;
     /** Snap the footprint's top-left corner to the scene grid. */
     readonly snap?: boolean;
+    /** What players read on it by hovering over it (a sign's words); none by default. */
+    readonly reads?: string;
+    /** Drawn flipped left to right (the far end of a counter, capped by its end piece); as drawn by default. */
+    readonly mirror?: boolean;
 }
 
 /** A placed stamp; its one point is the footprint centre. */
@@ -64,6 +68,10 @@ export interface StampFeature extends FeatureCommon {
     readonly switchTargets: readonly SwitchTarget[];
     /** For a building with its floors in this scene, the levels of its upper floors, bottom to top; empty otherwise. */
     readonly floors: readonly string[];
+    /** What players read on it by hovering over it (a sign's words, a plaque's), or null. */
+    readonly reads: string | null;
+    /** Drawn flipped left to right, before its turn: everything placed on its art (lights, outline) flips with it. */
+    readonly mirror: boolean;
 }
 
 /** Grid size assumed for a persisted stamp that predates the field. */
@@ -101,6 +109,17 @@ export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour
     };
 }
 
+/** Text for players to read, or null for none (nothing, or only blanks). */
+// eslint-disable-next-line no-restricted-syntax -- boundary: reads persisted or placement text of any shape
+function readsOf(v: unknown): string | null {
+    return typeof v === 'string' && v.trim() !== '' ? v : null;
+}
+
+/** The same stamp with `reads` for players to read on hover, or nothing to read. */
+export function withStampReads(stamp: StampFeature, reads: string | null): StampFeature {
+    return { ...stamp, reads: readsOf(reads) };
+}
+
 /** Place a catalog stamp. The footprint scales from the pack's reference grid to `gridSize`. */
 export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlacement, gridSize: number): StampFeature {
     const variant = clampVariantIndex(stamp, placement.variant ?? stamp.defaultVariant);
@@ -135,6 +154,8 @@ export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlace
         pile: null,
         switchTargets: [],
         floors: [],
+        reads: readsOf(placement.reads),
+        mirror: placement.mirror === true,
         ...NEW_FEATURE,
     };
 }
@@ -176,7 +197,8 @@ export function withStampFrame(
  * of the unrotated image) in world coordinates, with the stamp's rotation applied.
  */
 export function stampPoint(feature: StampFeature, fraction: Point): Point {
-    return boxPoint(stampBox(feature), fraction);
+    // A mirrored stamp's art runs right to left: a point on it lies as far from its right edge as it was from its left.
+    return boxPoint(stampBox(feature), feature.mirror ? { x: 1 - fraction.x, y: fraction.y } : fraction);
 }
 
 /** The stamp's footprint as a box about its centre. */
@@ -243,6 +265,8 @@ export function parseStamp(v: unknown): StampFeature | null {
         pile: stringOrNull(v['pile']),
         switchTargets: parseSwitchTargets(v['switchTargets']),
         floors: stringArray(v['floors']),
+        reads: readsOf(v['reads']),
+        mirror: v['mirror'] === true,
         ...parseFeatureCommon(v),
     };
 }

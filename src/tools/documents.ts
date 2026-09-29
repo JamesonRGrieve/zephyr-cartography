@@ -163,10 +163,14 @@ export interface TileDoc {
     readonly rotation: number;
     readonly elevation: number;
     readonly level: string | null;
+    /** The other levels it shows on: those that see its own below them (a tree in the yard, seen from an upper storey). */
+    readonly seenFrom?: readonly string[];
     /** The feature that owns this tile, written to the tile's module flag. */
     readonly featureId: string;
     /** The tile's own behaviour as its pack declares it (opacity, occlusion, restrictions, video); left out, Foundry's defaults. */
     readonly look?: StampTile;
+    /** Its image flipped left to right. */
+    readonly mirror?: true;
 }
 
 /**
@@ -277,6 +281,10 @@ export interface NoteDoc {
     readonly icon: string | null;
     /** Shown to everyone whatever their tokens see (Foundry's `global`). */
     readonly global: boolean;
+    /** Text for players to read on hover: authorless, so players see it with no journal, and drawn with no icon. */
+    readonly readable: boolean;
+    /** Scene px across its icon (Foundry's `iconSize`); null for Foundry's own. */
+    readonly size: number | null;
 }
 
 /** A native Drawing: a map label's text, or a drawn shape. */

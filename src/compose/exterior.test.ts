@@ -3,16 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { composeMap } from './compose';
-import { zoneOutline } from './exterior';
+import { composeExterior, zoneOutline } from './exterior';
 import { type MapIntent, parseMapIntent, type ZoneIntent } from './intent';
 import { noiseField } from './noise';
+import { NO_PREFERENCES } from './preferences';
 import type { RoleIndex } from './roles';
 import { TEST_ROLES } from './test-roles';
 
 const MAP = { width: 20, height: 12 };
 const noise = noiseField(seededRandom(1), 4);
 
-const zone = (area: ZoneIntent['area']): ZoneIntent => ({ kind: 'woodland', area, density: 'normal', texture: null });
+const zone = (area: ZoneIntent['area']): ZoneIntent => ({ kind: 'woodland', area, density: 'normal', texture: null, soft: false });
 
 describe('zoneOutline', () => {
     it('covers the whole map and past its edges for everywhere', () => {
@@ -146,10 +147,10 @@ describe('bridges and yard pieces', () => {
         const noAltar = new Map([...TEST_ROLES].filter(([role]) => role !== 'altar'));
         const composed = composeMap(withProps, noAltar);
         expect(composed.spec.features).toContainEqual(expect.objectContaining({ type: 'stamp', stamp: 'test:well', x: 5, y: 5 }));
-        expect(composed.problems).toContainEqual({ kind: 'no-stamp', role: 'altar', wantedIn: 'hut' });
+        expect(composed.problems).toContainEqual({ kind: 'placeholder', piece: 'altar', wantedIn: 'hut' });
         expect(composeMap(crossing({ props: [{ role: 'altar', at: { x: 5, y: 5 } }] }), noAltar).problems).toContainEqual({
-            kind: 'no-stamp',
-            role: 'altar',
+            kind: 'placeholder',
+            piece: 'altar',
             wantedIn: 'outside',
         });
         // Asked for on a side, it stands there: east of the hut.
@@ -218,6 +219,47 @@ describe('bridges and yard pieces', () => {
             expect(carts.length).toBe(1);
             expect(carts.every((c) => c.type === 'stamp' && c.y > 12)).toBe(true);
         }
+    });
+
+    it('lays a yard round a site with no front door, with nothing on it where the packs have no stores, cart or pen at all', () => {
+        const intent = crossing({ paths: [], buildings: [] });
+        const site = { key: 'barn', footprint: { x: 8, y: 5, w: 12, h: 8 }, front: null, annexes: [], yard: true };
+        // No placeholders here: the roles are simply absent.
+        const bare: RoleIndex = new Map([...TEST_ROLES].filter(([role]) => !['storage', 'vehicle', 'enclosure', 'fodder'].includes(role)));
+        const { features } = composeExterior(intent, [site], bare, seededRandom(1), NO_PREFERENCES);
+        const standing = features.flatMap((f) => (f.type === 'stamp' ? [f.stamp] : []));
+        expect(standing.some((s) => ['test:storage', 'test:vehicle', 'test:enclosure'].includes(s))).toBe(false);
+        // Its trodden earth still lies round the building.
+        expect(features.some((f) => f.type === 'region' && f.biome === 'dirt')).toBe(true);
+    });
+
+    it('stands a pen with no cart to have, a cart with no pen, and a yard round a building with no front door', () => {
+        const barn = { x: 8, y: 5, w: 12, h: 8 };
+        const site = (frontDoor: boolean): ReturnType<typeof crossing> =>
+            crossing({
+                paths: [],
+                buildings: [
+                    {
+                        key: 'barn',
+                        at: { x: barn.x, y: barn.y },
+                        width: barn.w,
+                        height: barn.h,
+                        yard: true,
+                        frontDoor,
+                        rooms: [{ key: 'room', purpose: 'storage' }],
+                    },
+                ],
+            });
+        const without = (...roles: string[]): typeof TEST_ROLES => new Map([...TEST_ROLES].filter(([role]) => !roles.includes(role)));
+        const penOnly = composeMap(site(true), without('vehicle')).spec;
+        expect(stampsOf(penOnly, 'test:enclosure')).toBe(1);
+        expect(stampsOf(penOnly, 'test:vehicle') + stampsOf(penOnly, 'test:hauler')).toBe(0);
+        const cartOnly = composeMap(site(true), without('enclosure')).spec;
+        expect(stampsOf(cartOnly, 'test:enclosure')).toBe(0);
+        expect(stampsOf(cartOnly, 'test:vehicle') + stampsOf(cartOnly, 'test:hauler')).toBe(1);
+        // No way in at ground level: the yard still has its stores against the walls.
+        const shut = composeMap(site(false), TEST_ROLES).spec;
+        expect(stampsOf(shut, 'test:storage')).toBeGreaterThanOrEqual(2);
     });
 
     it('stacks a yard’s stores in clumps with open wall between, stands its cart, and lays nothing it has no art for', () => {

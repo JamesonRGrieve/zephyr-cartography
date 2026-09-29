@@ -530,6 +530,27 @@ describe('realizeSpec', () => {
         expect(h.d.notes.flat()).toHaveLength(2);
     });
 
+    it('makes signs readable on hover: a readable pin sized in squares, and a stamp that reads', async () => {
+        const h = makeHarness(SWITCH_STAMPS);
+        await realizeSpec(
+            h.c,
+            spec({
+                features: [
+                    { type: 'pin', x: 1, y: 1, text: 'NO LOITERING', readable: true, size: 0.8 },
+                    { type: 'stamp', stamp: 'pack:lamp', x: 4, y: 4, reads: 'Lamplighters’ guild' },
+                ],
+            }),
+            { origin: ORIGIN, gridSize: GRID },
+        );
+        const [pin, lamp] = h.s.last();
+        expect(pin).toMatchObject({ type: 'pin', text: 'NO LOITERING', readable: true, size: 80 });
+        expect(lamp).toMatchObject({ type: 'stamp', reads: 'Lamplighters’ guild' });
+        expect(h.d.notes.flat()).toEqual([
+            expect.objectContaining({ text: 'NO LOITERING', readable: true, size: 80 }),
+            expect.objectContaining({ text: 'Lamplighters’ guild', readable: true }),
+        ]);
+    });
+
     it('puts map labels where the spec says, with Foundry’s defaults for what it leaves out', async () => {
         const h = makeHarness();
         await realizeSpec(h.c, spec({ features: [{ type: 'label', x: 5, y: 1, text: 'Hab District 4', colour: '#E0C080', rotation: 15 }] }), {

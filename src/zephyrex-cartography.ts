@@ -10,6 +10,7 @@
  */
 import './styles/entry.css';
 import { type Brush, CartographyController } from './canvas/controller';
+import { LevelRoutedRenderer } from './canvas/level-renderer';
 import { IDLE, type Mode, modeForTool } from './canvas/modes';
 import { type FeatureRenderer, GraphicsFeatureRenderer } from './canvas/renderer';
 import { inOwnGroup, moduleTool, NATIVE_GROUPS, NATIVE_TOOLS, type NativeTool, nativeToolName } from './canvas/tool-placement';
@@ -32,6 +33,7 @@ import { withParticles } from './foundry/particles';
 import { type PathSettings, registerPathRuntime } from './foundry/path-runtime';
 import { registerPinRuntime } from './foundry/pin-runtime';
 import { createPixiSurface } from './foundry/pixi-surface';
+import { registerReadableNote } from './foundry/readable-note';
 import { activeScene, modifyBatch } from './foundry/scene-bridge';
 import { FoundrySceneStore } from './foundry/scene-store';
 import { createWorldScenes } from './foundry/scenes';
@@ -48,6 +50,7 @@ import { I18N } from './i18n';
 import { MODULE_ID } from './module-id';
 import type { BiomeKind } from './tools/biome';
 import { WALL_BAND_SQUARES } from './tools/materials';
+import { FLAG_KEY } from './tools/path';
 
 interface DrawState {
     controller: CartographyController;
@@ -57,6 +60,8 @@ interface DrawState {
     container: PIXI.Container;
     /** Where the painted map draws, in Foundry's primary group beneath tiles and tokens. */
     terrain: PIXI.Container;
+    /** Where the levels the viewed one sees below it draw, each at its own floor (made as needed). */
+    seenTerrains: PIXI.Container[];
     mode: Mode;
     /** A control point being dragged: moved, or (Shift) its path width set by distance from `anchor`. */
     drag: { id: string; index: number; kind: 'move' | 'width'; anchor: Point } | null;
@@ -93,7 +98,7 @@ const zones = registerZoneRuntime(() => state?.controller ?? null);
 followPileStates(() => state?.controller ?? null);
 
 registerAdvisorSettings();
-const generator = registerGeneratorRuntime(() => state?.controller ?? null, materials.forNewRooms, packs.stamps);
+const generator = registerGeneratorRuntime(() => state?.controller ?? null, materials.forNewRooms, packs.stamps, packs.settled);
 
 // A new brush size is the next stroke's; a new texture is picked up at once by a paint tool in hand.
 const paint = registerPaintRuntime(
@@ -137,7 +142,7 @@ const paths = registerPathRuntime(packs.textureRoles, (settings) => {
     }
 });
 
-registerApi(() => state?.controller ?? null, packs.stamps);
+registerApi(() => state?.controller ?? null, packs.stamps, packs.settled);
 
 // Newly loaded packs or another texture set re-render the layer, and the paint panel's textures.
 packs.onChange(() => {
@@ -174,6 +179,9 @@ function teardown(): void {
         state.renderer.clear();
         state.container.destroy({ children: true });
         state.terrain.destroy({ children: true });
+        for (const seenTerrain of state.seenTerrains) {
+            seenTerrain.destroy({ children: true });
+        }
         state = null;
     }
 }
@@ -442,9 +450,23 @@ function setupDrawLayer(): void {
     let built: CartographyController | null = null;
     const gridSize = canvas.grid?.size ?? 0;
     const wallBand = gridSize > 0 ? gridSize * WALL_BAND_SQUARES : undefined;
+    const viewed = canvas.level?.id ?? null;
+    // A level the viewed one sees below it (the yard round an upper storey) draws on its own layer at its own floor,
+    // beneath its tiles as Foundry sorts them; each is made when first needed and torn down with the rest.
+    const seenTerrains: PIXI.Container[] = [];
+    const seenSurface = (levelId: string): FeatureRenderer | null => {
+        const seenLevel = canvas.scene?.levels.contents.find((level) => level.id === levelId);
+        // Foundry's open-bottomed band (null) starts at no floor: the ground's own, 0.
+        const seenTerrain = seenLevel ? createTerrainLayer(seenLevel.elevation.bottom ?? 0) : null;
+        if (!seenTerrain) {
+            return null;
+        }
+        seenTerrains.push(seenTerrain);
+        return new GraphicsFeatureRenderer(createPixiSurface(seenTerrain, gridSize), packs.textures(), wallBand);
+    };
     const renderer = withParticles(
-        new GraphicsFeatureRenderer(createPixiSurface(terrain, gridSize), packs.textures(), wallBand),
-        canvas.level?.id ?? null,
+        new LevelRoutedRenderer(new GraphicsFeatureRenderer(createPixiSurface(terrain, gridSize), packs.textures(), wallBand), viewed, seenSurface),
+        viewed,
         () => (built ? { levels: built.levels, gridDistance: built.gridDistance } : null),
     );
     const makeId = (): string => foundry.utils.randomID();
@@ -482,6 +504,7 @@ function setupDrawLayer(): void {
         renderer,
         container,
         terrain,
+        seenTerrains,
         mode: IDLE,
         drag: null,
         painting: false,
@@ -519,6 +542,13 @@ Hooks.on('canvasReady', () => {
     setupDrawLayer();
 });
 
+// Features saved by another writer are drawn: another client, or a controller the canvas replaced mid-build.
+Hooks.on('updateScene', (scene, changed) => {
+    if (scene.id === canvas?.scene?.id && foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAG_KEY}`)) {
+        state?.controller.reloadIfChanged();
+    }
+});
+
 const TERRAIN_REGIONS_SETTING = 'terrainRegions';
 
 declare global {
@@ -549,6 +579,8 @@ Hooks.once('init', () => {
 
 // After every module's init, so a light switch's control extends whatever door control another module configured.
 Hooks.once('setup', registerSwitchDoorControl);
+// Likewise, a readable Note extends whatever Note class another module configured.
+Hooks.once('setup', registerReadableNote);
 
 type Tool = foundry.applications.ui.SceneControls.Tool;
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { NEW_PIN } from '../tools/pin';
 import { makeHarness } from './test-fakes';
 
-const tavern = { text: 'The Sump', entry: 'je1', page: 'pg2', icon: null, global: false };
+const tavern = { ...NEW_PIN, text: 'The Sump', entry: 'je1', page: 'pg2' };
 
 describe('map pins', () => {
     it('place a native Note on the level being edited, and its settings re-sync it', async () => {

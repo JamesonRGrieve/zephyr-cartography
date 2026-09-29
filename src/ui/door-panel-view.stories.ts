@@ -12,7 +12,7 @@ export interface DoorPanelArgs {
 const LABELS: DoorPanelLabels = {
     type: 'Door type',
     state: 'Door state',
-    types: { door: 'Door', secret: 'Secret door' },
+    types: { door: 'Door', secret: 'Secret door', opening: 'Opening (no door, no wall)' },
     states: { closed: 'Closed', open: 'Open', locked: 'Locked' },
     sound: 'Door sound',
     // A few of Foundry's own door sounds, as Foundry names them.

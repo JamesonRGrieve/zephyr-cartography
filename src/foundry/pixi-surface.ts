@@ -6,12 +6,12 @@
  * the only module that touches PIXI directly.
  *
  * A textured fill tiles from the scene's origin at the grid-relative
- * {@link tileSpan}, so overlapping fills of one texture line up. A feathered
+ * {@link tileSize}, so overlapping fills of one texture line up. A feathered
  * one softens only its mask's edge: blurring the fill itself would smear the
  * whole texture.
  */
 import type { DrawSurface } from '../canvas/renderer';
-import { isCompressedTexture, tileSpan } from '../tools/texture';
+import { isCompressedTexture, tileSize } from '../tools/texture';
 
 /** Blur strength (px) for a feathered (soft-edged) region boundary. */
 const FEATHER_BLUR = 6;
@@ -38,15 +38,107 @@ interface Bounds {
  */
 export function canvasTexture(url: string): PIXI.Texture {
     if (!isCompressedTexture(url)) {
-        const texture = PIXI.Texture.from(url);
-        // Terrain tiles repeat, and are drawn well below their own size: without mipmaps (PIXI builds them only for
-        // power-of-two images by default) a shrunk photo shimmers and aliases. Compressed art carries its own levels.
-        texture.baseTexture.wrapMode = PIXI.WRAP_MODES.REPEAT;
-        texture.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
-        return texture;
+        return powerOfTwoTexture(url);
     }
     const loaded = foundry.canvas.getTexture(url);
     return loaded instanceof PIXI.Texture ? loaded : PIXI.Texture.EMPTY;
+}
+
+/** The size of each image as drawn, before it was resampled to power-of-two sides: its tiles keep these proportions. */
+const IMAGE_SIZES = new WeakMap<PIXI.BaseTexture, { readonly width: number; readonly height: number }>();
+
+/** The size `base`'s image was drawn at: its own, not the power-of-two sides it was resampled to. */
+function imageSize(base: PIXI.BaseTexture): { readonly width: number; readonly height: number } {
+    return IMAGE_SIZES.get(base) ?? { width: base.width, height: base.height };
+}
+
+/**
+ * Each terrain image, loaded once and shared by every fill of it. Each fill
+ * gets its own Texture over it: a scene torn down destroys its fills'
+ * textures, and one shared texture would then draw nothing in the next.
+ */
+const TERRAIN_IMAGES = new Map<string, PIXI.BaseTexture>();
+
+/** Each terrain texture's image URL, for the squares its pack says one tile spans. */
+const TEXTURE_URLS = new WeakMap<PIXI.BaseTexture, string>();
+
+/** Grid squares one tile of an image spans, by URL, as the loaded packs' texture sets say; others take the default. */
+let tileSquares: ReadonlyMap<string, number> = new Map();
+
+/** Take the loaded packs' tile squares (`tileSquaresByUrl`): the canvas tiles each image at its own. */
+export function setTileSquares(squares: ReadonlyMap<string, number>): void {
+    tileSquares = squares;
+}
+
+/** Scene px one tile of `base`'s texture spans: its image's own proportions, at the squares its pack gives it. */
+export function tileOf(base: PIXI.BaseTexture, gridSize: number): { readonly width: number; readonly height: number } {
+    const own = imageSize(base);
+    const url = TEXTURE_URLS.get(base);
+    const squares = url === undefined ? undefined : tileSquares.get(url);
+    return tileSize(gridSize, own.width, own.height, squares);
+}
+
+/**
+ * The terrain texture for the image at `url`, resampled to power-of-two sides
+ * (an 819 × 818 photo to 1024 × 1024) as it loads. PIXI 7 tiles any other
+ * size in a shader that wraps its low-precision texture coordinates by hand,
+ * which draws thin dark seams across a large fill where tiles meet; a
+ * power-of-two texture it tiles by the GPU's own repeat. The texture is
+ * empty, and not yet valid, until the image arrives; its tiles keep the
+ * image's own proportions ({@link imageSize}). Terrain tiles are drawn well
+ * below their own size, so it is mipmapped: a shrunk photo would shimmer.
+ */
+function powerOfTwoTexture(url: string): PIXI.Texture {
+    const loaded = TERRAIN_IMAGES.get(url);
+    return new PIXI.Texture(loaded ?? loadPowerOfTwo(url));
+}
+
+/** Terrain images asked for and not yet arrived (or failed). */
+const LOADING = new Set<HTMLImageElement>();
+
+/** How many terrain images are still loading: a map is fully drawn once none are. */
+export function terrainImagesLoading(): number {
+    return LOADING.size;
+}
+
+/** Load the image at `url` into a base texture resampled to power-of-two sides, cached until it is destroyed. */
+function loadPowerOfTwo(url: string): PIXI.BaseTexture {
+    const pixels = document.createElement('canvas');
+    pixels.width = 0;
+    pixels.height = 0;
+    const resource = new PIXI.CanvasResource(pixels);
+    const base = new PIXI.BaseTexture(resource, { wrapMode: PIXI.WRAP_MODES.REPEAT, mipmap: PIXI.MIPMAP_MODES.ON });
+    TEXTURE_URLS.set(base, url);
+    // A destroyed image (a fill destroyed with its base) is loaded afresh next time it is wanted.
+    base.once('destroyed', () => {
+        if (TERRAIN_IMAGES.get(url) === base) {
+            TERRAIN_IMAGES.delete(url);
+        }
+    });
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.addEventListener(
+        'load',
+        () => {
+            LOADING.delete(image);
+            if (base.destroyed) {
+                return;
+            }
+            IMAGE_SIZES.set(base, { width: image.naturalWidth, height: image.naturalHeight });
+            pixels.width = PIXI.utils.nextPow2(image.naturalWidth);
+            pixels.height = PIXI.utils.nextPow2(image.naturalHeight);
+            pixels.getContext('2d')?.drawImage(image, 0, 0, pixels.width, pixels.height);
+            // Sized, the texture becomes valid and says so ('loaded'), as one PIXI loaded itself would.
+            resource.resize(pixels.width, pixels.height);
+        },
+        { once: true },
+    );
+    // A missing image leaves its fill empty; it is no longer awaited.
+    image.addEventListener('error', () => LOADING.delete(image), { once: true });
+    LOADING.add(image);
+    image.src = url;
+    TERRAIN_IMAGES.set(url, base);
+    return base;
 }
 
 /** Axis-aligned bounding box of a flat `[x, y, …]` polygon. */
@@ -78,7 +170,7 @@ interface TileTransform {
     readonly tileTransform: { rotation: number };
 }
 
-/** Size `sprite`'s tiles to {@link tileSpan} once its texture's size is known. */
+/** Size `sprite`'s tiles to {@link tileSize} once its texture's size is known. */
 function scaleTiles(sprite: PIXI.TilingSprite, tiles: TileTransform, gridSize: number): void {
     const base = sprite.texture.baseTexture;
     const apply = (): void => {
@@ -86,7 +178,9 @@ function scaleTiles(sprite: PIXI.TilingSprite, tiles: TileTransform, gridSize: n
         if (sprite.destroyed) {
             return;
         }
-        tiles.tileScale.set(tileSpan(gridSize, base.width) / base.width, tileSpan(gridSize, base.height) / base.height);
+        // The tile keeps the image's own proportions; the scale maps the pixels as they now are onto it.
+        const tile = tileOf(base, gridSize);
+        tiles.tileScale.set(tile.width / base.width, tile.height / base.height);
     };
     if (base.valid) {
         apply();
@@ -152,6 +246,17 @@ function maskSprite(texture: PIXI.RenderTexture, polygon: readonly number[]): PI
     return mask;
 }
 
+/**
+ * Destroy a drawn node, unless something already has: the canvas tears its
+ * layers down with their children on a redraw, and a Graphics destroyed
+ * twice throws (its geometry is gone).
+ */
+function discard(node: PIXI.DisplayObject): void {
+    if (!node.destroyed) {
+        node.destroy({ children: true });
+    }
+}
+
 /** Draw into `container` on a grid of `gridSize` px (0: none). */
 export function createPixiSurface(container: PIXI.Container, gridSize: number): DrawSurface {
     const nodes = new Map<string, Node>();
@@ -176,7 +281,7 @@ export function createPixiSurface(container: PIXI.Container, gridSize: number): 
         const drawn = nodes.get(id);
         if (drawn) {
             container.removeChild(drawn.node);
-            drawn.node.destroy({ children: true });
+            discard(drawn.node);
             release(drawn.mask, keep);
             nodes.delete(id);
         }
@@ -208,6 +313,8 @@ export function createPixiSurface(container: PIXI.Container, gridSize: number): 
             const pad = feather ? FEATHER_PAD : 0;
             const wrap = new PIXI.Container();
             const sprite = new PIXI.TilingSprite(canvasTexture(textureUrl), b.w + 2 * pad, b.h + 2 * pad);
+            // Named for the image it draws: its texture is resampled, so no longer carries the image's URL itself.
+            sprite.name = textureUrl;
             sprite.x = b.x - pad;
             sprite.y = b.y - pad;
             const tiles: TileTransform = sprite;
@@ -238,7 +345,7 @@ export function createPixiSurface(container: PIXI.Container, gridSize: number): 
                     kept.set(id, drawn.mask);
                 }
                 container.removeChild(drawn.node);
-                drawn.node.destroy({ children: true });
+                discard(drawn.node);
             }
             nodes.clear();
             spare = kept;

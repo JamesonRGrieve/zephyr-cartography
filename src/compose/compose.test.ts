@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { parseSceneSpec, type SceneSpec } from '../generate/spec';
+import { parseSceneSpec, type RoomSpec, type SceneSpec } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { composeMap, footprintOf } from './compose';
 import { type MapIntent, parseMapIntent } from './intent';
@@ -77,8 +77,10 @@ describe('composeMap', () => {
         for (const room of rooms) {
             expect(room.wall).toBe('wall.stone');
         }
-        // A shared wall's door belongs to one of its rooms: one per connection (three), and the front door.
-        expect(rooms.reduce((n, room) => n + room.doors.length, 0)).toBe(4);
+        // A shared wall's door belongs to one of its rooms, the other opening its side of the wall to it: one per connection (three), and the front door.
+        const all = rooms.flatMap((room) => room.doors);
+        expect(all.filter((d) => d.type === 'door')).toHaveLength(4);
+        expect(all.filter((d) => d.type === 'opening')).toHaveLength(3);
         const foot = { x: 10, y: 8, w: 12, h: 8 };
         const inside = spec.features.flatMap((f) =>
             f.type === 'stamp' && f.x > foot.x && f.x < foot.x + foot.w && f.y > foot.y && f.y < foot.y + foot.h ? [f.stamp] : [],
@@ -297,6 +299,8 @@ describe('composeMap', () => {
             ['floor-2', 'Bedrooms', false],
             ['floor-3', 'Floor 3', false],
         ]);
+        // Each upper storey sees the storeys below it, down to the ground (the yard round it); the ground sees none.
+        expect(spec.levels.map((l) => l.visibleLevels)).toEqual([[], ['ground'], ['ground', 'floor-2']]);
         // Everything is on a level: outdoors and the ground floor on the ground.
         expect(spec.features.every((f) => f.level !== undefined)).toBe(true);
         const rooms = spec.features.flatMap((f) => (f.type === 'room' ? [f] : []));
@@ -359,9 +363,18 @@ describe('composeMap', () => {
 
     it('reports what it could not do, once each: roles no stamp fills, rooms that do not fit, rooms it could not put side by side', () => {
         const empty = composeMap(INN_IN_THE_WOODS, new Map());
-        expect(empty.problems).toContainEqual({ kind: 'no-stamp', role: 'tree', wantedIn: 'woodland' });
-        expect(empty.problems).toContainEqual({ kind: 'no-stamp', role: 'table', wantedIn: 'inn/common' });
-        expect(empty.problems.filter((p) => p.kind === 'no-stamp' && p.role === 'tree')).toHaveLength(1);
+        // A role with a placeholder stands in as a labelled box; one without (the litter of a room) is left out. Each said once.
+        expect(empty.problems).toContainEqual({ kind: 'placeholder', piece: 'tree', wantedIn: 'woodland' });
+        expect(empty.problems).toContainEqual({ kind: 'placeholder', piece: 'table', wantedIn: 'inn/common' });
+        expect(empty.problems).toContainEqual({ kind: 'no-stamp', role: 'clutter', wantedIn: 'inn/common' });
+        expect(empty.problems.filter((p) => p.kind === 'placeholder' && p.piece === 'tree')).toHaveLength(1);
+        // The boxes are drawn where the pieces stand: a rectangle with its role written across it.
+        const shapes = empty.spec.features.filter((f) => f.type === 'shape' && f.kind === 'rectangle');
+        const labels = empty.spec.features.filter((f) => f.type === 'label');
+        expect(shapes.length).toBeGreaterThan(0);
+        expect(labels.length).toBe(shapes.length);
+        expect(labels.some((l) => l.text === 'table')).toBe(true);
+        expect(empty.spec.features.some((f) => f.type === 'stamp' && f.stamp.startsWith('placeholder:'))).toBe(false);
         const cramped = intentOf({ buildings: [{ key: 'hut', width: 3, height: 3, rooms: ['a', 'b', 'c', 'd'].map((key) => ({ key, purpose: 'cell' })) }] });
         expect(composeMap(cramped, TEST_ROLES).problems).toEqual([{ kind: 'rooms-do-not-fit', building: 'hut', width: 3, height: 3 }]);
         const strip = intentOf({
@@ -421,6 +434,8 @@ describe('composeMap', () => {
             ],
         });
         expect((composeMap(deep, TEST_ROLES).spec.levels ?? []).map((l) => l.name)).toEqual(['Cellar 2', 'Cellar', 'Ground floor']);
+        // Round a cellar's walls is the dark of the earth, never the scene's grey; the ground keeps its own look.
+        expect((composeMap(deep, TEST_ROLES).spec.levels ?? []).map((l) => l.backgroundColor)).toEqual(['#0c0c0e', '#0c0c0e', undefined]);
     });
 
     it('centres a building placed nowhere in particular, and composes an interior alone on a bare scene', () => {
@@ -572,5 +587,387 @@ describe('a roadside inn', () => {
         expect(well.x).toBeGreaterThan(inn.x - 7);
         const roads = spec.features.filter((f) => f.type === 'path' && f.kind === 'road');
         expect(roads.every((r) => r.type === 'path' && distanceToPolyline(well, r.points) > (r.halfWidth ?? 0))).toBe(true);
+    });
+});
+
+describe('maps drawn to a brief', () => {
+    const hall = { key: 'hall', purpose: 'hall', entrance: true, furnish: 'fixtures' };
+
+    it('sets the void round a map in its backdrop colour, on the scene’s own floor or every storey', () => {
+        const flat = composeMap(intentOf({ ground: null, backdrop: '#0c0c0e', buildings: [{ width: 6, height: 5, rooms: [hall] }] }), TEST_ROLES).spec;
+        expect(flat.levels).toEqual([{ key: 'ground', name: 'Ground floor', existing: true, backgroundColor: '#0c0c0e' }]);
+        const tall = composeMap(
+            intentOf({ backdrop: '#101010', buildings: [{ width: 8, height: 6, rooms: [hall], floors: [{ rooms: [{ key: 'up', purpose: 'bedroom' }] }] }] }),
+            TEST_ROLES,
+        ).spec;
+        expect((tall.levels ?? []).every((l) => l.backgroundColor === '#101010')).toBe(true);
+        expect(composeMap(intentOf({ buildings: [{ width: 6, height: 5, rooms: [hall] }] }), TEST_ROLES).spec.levels).toEqual([]);
+    });
+
+    it('lays heavy masonry round a building, broken at its doorway by a threshold of its floor', () => {
+        const { spec } = composeMap(
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        at: { x: 4, y: 4 },
+                        width: 8,
+                        height: 6,
+                        wallBand: 1,
+                        frontDoorAt: 3,
+                        frontDoorWidth: 2,
+                        floor: 'floor.concrete',
+                        wall: 'wall.stone',
+                        rooms: [hall],
+                    },
+                ],
+            }),
+            TEST_ROLES,
+        );
+        const bands = spec.features.filter((f) => f.type === 'region' && f.sharp === true && f.texture === 'wall.stone');
+        const threshold = spec.features.filter((f) => f.type === 'region' && f.sharp === true && f.texture === 'floor.concrete');
+        // Top, left and right whole; the bottom in two either side of the double door.
+        expect(bands).toHaveLength(5);
+        expect(threshold).toHaveLength(1);
+        const [door] = threshold;
+        expect(door?.type === 'region' && door.points.map((p) => p.x)).toEqual([7, 9, 9, 7]);
+    });
+
+    it('cuts a room’s corners into an octagon, the corners masonry where another room wraps them and void where none does', () => {
+        const chamber = { key: 'chamber', purpose: 'chapel', rect: { x: 4, y: 2, w: 8, h: 6 }, chamfer: 2, furnish: 'fixtures' };
+        const lone = composeMap(
+            intentOf({ ground: null, buildings: [{ width: 16, height: 10, rooms: [{ ...chamber, rect: { x: 0, y: 0, w: 16, h: 10 }, entrance: true }] }] }),
+            TEST_ROLES,
+        ).spec;
+        const room = lone.features.find((f) => f.type === 'room');
+        // Its corners cut: no point of its outline at a corner of its box.
+        const corners = [
+            [0, 0],
+            [16, 0],
+            [16, 10],
+            [0, 10],
+        ];
+        expect(room?.type === 'room' && room.points.some((p) => corners.some(([x, y]) => p.x === x && p.y === y))).toBe(false);
+        expect(lone.features.some((f) => f.type === 'region')).toBe(false);
+        const wrapped = composeMap(
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        width: 16,
+                        height: 10,
+                        rooms: [
+                            { key: 'ring-top', purpose: 'hall', rect: { x: 0, y: 0, w: 16, h: 2 }, entrance: true, opensTo: ['chamber'] },
+                            { key: 'ring-bottom', purpose: 'hall', rect: { x: 0, y: 8, w: 16, h: 2 } },
+                            { key: 'ring-left', purpose: 'hall', rect: { x: 0, y: 2, w: 4, h: 6 }, archTo: ['ring-top', 'ring-bottom'] },
+                            { key: 'ring-right', purpose: 'hall', rect: { x: 12, y: 2, w: 4, h: 6 }, archTo: ['ring-top', 'ring-bottom'] },
+                            chamber,
+                        ],
+                    },
+                ],
+            }),
+            TEST_ROLES,
+        ).spec;
+        expect(wrapped.features.filter((f) => f.type === 'region' && f.sharp === true && f.points.length === 3)).toHaveLength(4);
+    });
+
+    it('stands a map’s named pieces outside where asked, faced as asked, and paves hard standing crisp over the paths', () => {
+        const { spec, problems } = composeMap(
+            intentOf({
+                zones: [
+                    {
+                        kind: 'paving',
+                        texture: 'floor.concrete',
+                        area: {
+                            shape: 'polygon',
+                            points: [
+                                { x: 2, y: 2 },
+                                { x: 8, y: 2 },
+                                { x: 8, y: 6 },
+                                { x: 2, y: 6 },
+                            ],
+                        },
+                    },
+                ],
+                paths: [{ kind: 'road', from: 'west', to: 'east', meander: 0 }],
+                fixtures: [{ name: 'statue plinth', width: 3, height: 3, at: { x: 15, y: 10 }, facing: 'left' }],
+            }),
+            TEST_ROLES,
+        );
+        // No art draws it: its labelled box stands there, turned to face left.
+        expect(spec.features).toContainEqual(expect.objectContaining({ type: 'shape', kind: 'rectangle', x: 15, y: 10, width: 3, height: 3, rotation: 90 }));
+        expect(problems).toContainEqual({ kind: 'placeholder', piece: 'statue plinth', wantedIn: 'outside' });
+        const paving = spec.features.findIndex((f) => f.type === 'region' && f.texture === 'floor.concrete' && f.sharp === true);
+        const road = spec.features.findIndex((f) => f.type === 'path');
+        expect(paving).toBeGreaterThan(road);
+        // Soft paving (standing water, a stain) feathers its edge.
+        const soft = composeMap(
+            intentOf({ zones: [{ kind: 'paving', soft: true, texture: 'floor.mud', area: { shape: 'circle', centre: { x: 10, y: 10 }, radius: 2 } }] }),
+            TEST_ROLES,
+        ).spec;
+        expect(soft.features.some((f) => f.type === 'region' && f.texture === 'floor.mud' && f.sharp !== true)).toBe(true);
+    });
+
+    it('hangs only door art carrying one of the building’s door tags; with none, its rooms draw their doors, animated as the building asks', () => {
+        const seat = TEST_ROLES.get('seat')?.[0];
+        if (!seat) {
+            throw new Error('test seat');
+        }
+        const oak = { ...seat, key: 'test:oak-door', role: 'door' as const, tags: ['oak'], width: 1, height: 0.3, doorStates: { closed: 0 } };
+        const roles = new Map([...TEST_ROLES, ['door' as const, [oak]]]);
+        const tagged = (doorTags: string[]): ReturnType<typeof composeMap>['spec'] =>
+            composeMap(
+                intentOf({
+                    ground: null,
+                    buildings: [
+                        {
+                            width: 8,
+                            height: 6,
+                            doorTags,
+                            doorAnimation: 'slide',
+                            rooms: [
+                                { key: 'a', purpose: 'hall', entrance: true, furnish: 'fixtures', grime: 0 },
+                                { key: 'b', purpose: 'hall', opensTo: ['a'], furnish: 'fixtures', grime: 0 },
+                            ],
+                        },
+                    ],
+                }),
+                roles,
+            ).spec;
+        expect(tagged(['oak']).features.some((f) => f.type === 'stamp' && f.stamp === 'test:oak-door')).toBe(true);
+        const iron = tagged(['iron']);
+        expect(iron.features.some((f) => f.type === 'stamp' && f.stamp === 'test:oak-door')).toBe(false);
+        const doors = iron.features.flatMap((f) => (f.type === 'room' ? f.doors ?? [] : []));
+        expect(doors.length).toBeGreaterThan(0);
+        // Each door slides as the building asks; the other side of a door between rooms is an opening, the door being drawn once.
+        const hinged = doors.filter((d) => typeof d === 'object' && d.type === 'door');
+        expect(hinged.length).toBeGreaterThan(0);
+        expect(hinged.every((d) => typeof d === 'object' && d.animation === 'slide')).toBe(true);
+    });
+
+    it('hangs door art in each doorway as wide as it, in the state it stands in, the room keeping its wall there; an archway stays bare', () => {
+        const seat = TEST_ROLES.get('seat')?.[0];
+        if (!seat) {
+            throw new Error('test seat');
+        }
+        const door = { ...seat, key: 'test:door', role: 'door' as const, width: 1, height: 0.3, doorStates: { closed: 0, open: 1 } };
+        const roles = new Map([...TEST_ROLES, ['door' as const, [door]]]);
+        const { spec } = composeMap(
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        at: { x: 0, y: 0 },
+                        width: 12,
+                        height: 6,
+                        frontDoorAt: 2,
+                        rooms: [
+                            { key: 'a', purpose: 'hall', rect: { x: 0, y: 0, w: 6, h: 6 }, entrance: true, furnish: 'fixtures', grime: 0 },
+                            {
+                                key: 'b',
+                                purpose: 'hall',
+                                rect: { x: 6, y: 0, w: 6, h: 3 },
+                                opensTo: ['a'],
+                                doorOpen: true,
+                                doorAt: 0,
+                                furnish: 'fixtures',
+                                grime: 0,
+                            },
+                            { key: 'c', purpose: 'hall', rect: { x: 6, y: 3, w: 6, h: 3 }, archTo: ['a'], furnish: 'fixtures', grime: 0 },
+                        ],
+                    },
+                ],
+            }),
+            roles,
+        );
+        const doors = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:door');
+        // The front door, shut, across the bottom wall at its doorway; b's, open, in the wall it shares with a. None in c's arch.
+        expect(doors).toContainEqual(expect.objectContaining({ x: 2.5, y: 6, rotation: 180, variant: 0, scale: 1 }));
+        expect(doors).toContainEqual(expect.objectContaining({ x: 6, y: 0.5, variant: 1 }));
+        expect(doors).toHaveLength(2);
+        // The hung doorways are wall in the rooms' own outlines; the arch opens both rooms' sides of the wall.
+        const roomA = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(':a') === true);
+        expect(roomA?.type === 'room' && (roomA.doors ?? []).map((d) => d.type)).toEqual(['opening']);
+        const roomC = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(':c') === true);
+        expect(roomC?.type === 'room' && (roomC.doors ?? []).map((d) => d.type)).toEqual(['opening']);
+    });
+
+    it('lets players read a named piece’s words on hover, over its art or its box', () => {
+        const { spec } = composeMap(
+            intentOf({
+                width: 20,
+                height: 20,
+                fixtures: [
+                    { name: 'shop sign', width: 2, height: 1, at: { x: 5, y: 5 }, reads: 'OPEN LATE' },
+                    { name: 'clerk desk', role: 'desk', width: 1.5, height: 0.75, at: { x: 12, y: 12 }, reads: 'Tithe clerk — knock once' },
+                ],
+            }),
+            TEST_ROLES,
+        );
+        // No art draws the sign: a readable pin over its box.
+        expect(spec.features).toContainEqual(expect.objectContaining({ type: 'pin', x: 5, y: 5, text: 'OPEN LATE', readable: true }));
+        // Art draws the desk: the stamp reads.
+        expect(spec.features).toContainEqual(expect.objectContaining({ type: 'stamp', reads: 'Tithe clerk — knock once' }));
+    });
+
+    it('hides a secret door in both rooms’ walls: a native secret door, wall to look at from either side', () => {
+        const { spec } = composeMap(
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        at: { x: 0, y: 0 },
+                        width: 12,
+                        height: 6,
+                        rooms: [
+                            { key: 'crypt', purpose: 'hall', rect: { x: 0, y: 0, w: 6, h: 6 }, entrance: true, furnish: 'fixtures', grime: 0 },
+                            { key: 'vault', purpose: 'storage', rect: { x: 6, y: 0, w: 6, h: 6 }, secretTo: ['crypt'], furnish: 'fixtures', grime: 0 },
+                        ],
+                    },
+                ],
+            }),
+            TEST_ROLES,
+        );
+        const room = (key: string): RoomSpec | undefined => spec.features.find((f): f is RoomSpec => f.type === 'room' && f.key?.endsWith(`:${key}`) === true);
+        const shared = (r: RoomSpec | undefined): string[] => (r?.doors ?? []).filter((d) => r?.points[d.segment]?.x === 6).map((d) => d.type);
+        expect(shared(room('vault'))).toEqual(['secret']);
+        expect(shared(room('crypt'))).toEqual(['secret']);
+    });
+
+    it('opens a door between two rooms in both their walls: the door in the one that has it, an opening in the other’s', () => {
+        const { spec } = composeMap(
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        at: { x: 0, y: 0 },
+                        width: 12,
+                        height: 6,
+                        rooms: [
+                            { key: 'a', purpose: 'hall', rect: { x: 0, y: 0, w: 6, h: 6 }, entrance: true, furnish: 'fixtures', grime: 0 },
+                            { key: 'b', purpose: 'hall', rect: { x: 6, y: 0, w: 6, h: 6 }, opensTo: ['a'], doorAt: 0.5, furnish: 'fixtures', grime: 0 },
+                        ],
+                    },
+                ],
+            }),
+            TEST_ROLES,
+        );
+        const room = (key: string): RoomSpec | undefined => spec.features.find((f): f is RoomSpec => f.type === 'room' && f.key?.endsWith(`:${key}`) === true);
+        const sharedDoors = (r: RoomSpec | undefined): string[] =>
+            (r?.doors ?? []).filter((d) => r?.points[d.segment]?.x === 6).map((d) => `${d.type}:${d.state}`);
+        expect(sharedDoors(room('b'))).toEqual(['door:closed']);
+        expect(sharedDoors(room('a'))).toEqual(['opening:open']);
+    });
+
+    it('darkens the scene for dim or night lighting, never with the global light, and leaves it be by day', () => {
+        const scene = (lighting: string): SceneSpec['scene'] => {
+            const parsed = parseSceneSpec(composeMap(intentOf({ lighting }), TEST_ROLES).spec);
+            return parsed.ok ? parsed.spec.scene : undefined;
+        };
+        expect(scene('dim')).toMatchObject({ darkness: 0.55, globalLight: false });
+        expect(scene('night')).toMatchObject({ darkness: 0.85, globalLight: false });
+        expect(scene('day')).toBeUndefined();
+    });
+
+    it('keeps the outdoors on its own random stream: rearranging a room never replants the woods', () => {
+        const woods = (rooms: object[]): unknown[] =>
+            composeMap(
+                intentOf({
+                    seed: 5,
+                    zones: [{ kind: 'woodland', area: { shape: 'everywhere' } }],
+                    buildings: [{ at: { x: 12, y: 8 }, width: 8, height: 6, rooms }],
+                }),
+                TEST_ROLES,
+            ).spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:tree');
+        expect(woods([{ key: 'a', purpose: 'bedroom', entrance: true }])).toEqual(woods([{ key: 'a', purpose: 'kitchen', entrance: true }]));
+    });
+
+    it('composes a curtain wall with its moat, a district and hewn passages on one map, each drawn as its own', () => {
+        const kinds = (given: object): Record<string, number> => {
+            const counts: Record<string, number> = {};
+            for (const f of composeMap(intentOf({ width: 60, height: 40, ...given }), TEST_ROLES).spec.features) {
+                const key = f.type === 'region' ? `region:${f.biome}` : f.type === 'room' ? `room:${f.floor ?? ''}` : f.type;
+                counts[key] = (counts[key] ?? 0) + 1;
+            }
+            return counts;
+        };
+        const square = [
+            { x: 8, y: 8 },
+            { x: 24, y: 8 },
+            { x: 24, y: 24 },
+            { x: 8, y: 24 },
+        ];
+        // Four runs of wall and four corner towers in the wall's own masonry, and the moat's still water round them.
+        expect(kinds({ curtains: [{ points: square, moat: {} }] })).toMatchObject({ 'room:wall.stone': 8, 'region:water': 1 });
+        expect(kinds({ curtains: [{ points: square }] })).not.toHaveProperty(['region:water']);
+        // The district's blocks are walled roofs; the hewn passage is a ragged room of rubble.
+        expect(kinds({ districts: [{ area: { x: 32, y: 2, w: 26, h: 20 } }] })['room:floor.deck-plating']).toBeGreaterThan(1);
+        const tunnel = {
+            passages: [
+                {
+                    points: [
+                        { x: 32, y: 30 },
+                        { x: 56, y: 30 },
+                    ],
+                    width: 2,
+                },
+            ],
+        };
+        expect(kinds({ hewn: [tunnel] })).toMatchObject({ 'room:floor.rubble': 1 });
+    });
+
+    it('carries a named piece’s words onto its art, reports a porch’s missing art, and builds no porch with no front door', () => {
+        const building = (over: object): object => ({
+            key: 'shop',
+            width: 8,
+            height: 6,
+            porch: 2,
+            rooms: [
+                {
+                    key: 'front',
+                    purpose: 'storage',
+                    entrance: true,
+                    furnish: 'fixtures',
+                    fixtures: [{ name: 'shop sign', role: 'seat', width: 0.6, height: 0.6, reads: 'OPEN', place: { centre: true } }],
+                },
+            ],
+            ...over,
+        });
+        const noBenches = new Map([...TEST_ROLES].filter(([role]) => role !== 'bench'));
+        const { spec, problems } = composeMap(intentOf({ ground: null, buildings: [building({})] }), noBenches);
+        expect(spec.features.some((f) => f.type === 'stamp' && f.reads === 'OPEN')).toBe(true);
+        expect(problems.some((p) => 'wantedIn' in p && p.wantedIn === 'shop/porch')).toBe(true);
+        // With no way in at ground level there is no front door to stand a porch at.
+        const shut = composeMap(intentOf({ ground: null, buildings: [building({ frontDoor: false })] }), noBenches);
+        expect(shut.problems.some((p) => 'wantedIn' in p && p.wantedIn === 'shop/porch')).toBe(false);
+    });
+
+    it('reports a room’s named pieces no art draws, and those with no room where asked', () => {
+        const { problems } = composeMap(
+            intentOf({
+                buildings: [
+                    {
+                        key: 'hut',
+                        width: 6,
+                        height: 5,
+                        rooms: [
+                            {
+                                key: 'room',
+                                purpose: 'storage',
+                                entrance: true,
+                                furnish: 'fixtures',
+                                fixtures: [
+                                    { name: 'strange engine', width: 1, height: 1, place: { centre: true } },
+                                    { name: 'vast vat', role: 'storage', width: 30, height: 30, place: { centre: true } },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }),
+            TEST_ROLES,
+        );
+        expect(problems).toContainEqual({ kind: 'placeholder', piece: 'strange engine', wantedIn: 'hut/room' });
+        expect(problems).toContainEqual({ kind: 'no-room', piece: 'vast vat', wantedIn: 'hut/room' });
     });
 });

@@ -19,8 +19,14 @@ import type { StampAnchor, StampBack, StampHabitat, StampPlacement, StampRole } 
  * a tag matches a stamp carrying every tag in it.
  */
 const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly string[])[]])[] = [
+    // A pack's `tabletop` says outright it is set on a table, whatever else it is (a candle on a table, a bread board).
+    ['tabletop', ['tabletop']],
     ['stairs', ['stairs', 'staircase', 'ladder', 'lift', 'trapdoor', 'storm']],
     ['bridge', ['bridge']],
+    // A counter's lifting gate is a piece of the counter, not a door in a wall.
+    ['counter', ['counter-gate']],
+    // What hangs in a doorway (a timber door, a sliding bulkhead, a gate, a roller shutter): after the stairs, as a trapdoor climbs.
+    ['door', ['door', 'doors', 'gate', 'shutter', 'bulkhead']],
     ['well', ['well']],
     ['waymark', ['milestone', 'wayside', 'signpost']],
     // A bedroom's chest of drawers, wardrobe and washstand: before chest, as drawers are no trunk.
@@ -34,12 +40,12 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['light', ['brazier', 'candle', 'lantern', 'lamp']],
     ['restraint', ['restraint', 'interrogation']],
     ['desk', ['desk', 'workstation']],
-    ['shelf', ['shelf', 'archive']],
+    ['shelf', ['shelf', 'archive', 'bookcase']],
     ['counter', ['counter', 'stall']],
     // An upholstered chair is an armchair before it is a seat.
     ['armchair', ['armchair', 'wingback', ['padded', 'chair'], ['easy', 'chair']]],
     ['seat', ['chair', 'stool']],
-    ['bench', ['bench']],
+    ['bench', ['bench', 'settle']],
     ['pew', ['pew']],
     // A kitchen's prep table and chopping block are worked at, not eaten at.
     ['workbench', ['prep', 'chopping', 'butcher']],
@@ -47,6 +53,8 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['tabletop', [['table', 'clutter']]],
     ['table', ['table']],
     ['nightstand', ['nightstand', 'bedside']],
+    // A flower bed is a garden's, not a bedroom's.
+    ['flora', [['flower', 'bed']]],
     ['bed', ['bed', 'bunk', 'cot']],
     ['hearth', ['hearth', 'cook']],
     ['workbench', ['workbench', 'forge']],
@@ -106,6 +114,8 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
         ],
     ],
     ['rug', ['rug', 'carpet']],
+    // Flat marks on a floor or the ground (an oil stain, cracks, a scorch, a drift of dust): grime, never a piece that stands.
+    ['decal', ['decal', 'stain', 'grime', 'cracks', 'crack', 'scorch', 'dust', 'smear', 'grit']],
     ['tree', ['tree', 'copse']],
     ['shrub', ['bush', 'overgrowth']],
     ['log', ['log']],
@@ -219,6 +229,8 @@ const ROLE_PLACEMENT: Readonly<Record<StampRole, RolePlacement>> = {
     fodder: FREE,
     dresser: WALL,
     armchair: { ...FREE, against: 'corner' },
+    decal: FREE,
+    door: WALL,
 };
 
 /** Tags that say which ground land belongs on. */

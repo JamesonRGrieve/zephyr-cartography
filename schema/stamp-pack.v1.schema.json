@@ -127,7 +127,9 @@
                                     "enclosure",
                                     "fodder",
                                     "dresser",
-                                    "armchair"
+                                    "armchair",
+                                    "decal",
+                                    "door"
                                 ]
                             },
                             {
@@ -2121,6 +2123,26 @@
                         "additionalProperties": {
                             "type": "string",
                             "minLength": 1
+                        }
+                    },
+                    "fallback": {
+                        "description": "Ids of this pack's other texture sets that stand in, in order, for the wall textures this set lacks (a painted set borrowing grey photo concrete); omitted, the pack's sets in their listed order.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "tileSquares": {
+                        "description": "Texture role → grid squares one tile of the image spans along its shorter side, where the art is drawn to a scale (three riveted plates meant to be two squares each: 6); omitted, 2.",
+                        "type": "object",
+                        "propertyNames": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "additionalProperties": {
+                            "type": "number",
+                            "exclusiveMinimum": 0
                         }
                     }
                 },

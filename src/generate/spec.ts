@@ -42,7 +42,7 @@ export const SCENE_SPEC_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonR
 
 const PATH_KINDS = ['road', 'river'] as const satisfies readonly PathKind[];
 const SPEC_LIQUIDS = ['water', 'lava', 'poison', 'acid'] as const satisfies readonly Liquid[];
-const DOOR_TYPES = ['door', 'secret'] as const satisfies readonly RoomDoorType[];
+const DOOR_TYPES = ['door', 'secret', 'opening'] as const satisfies readonly RoomDoorType[];
 const DOOR_STATES = ['closed', 'open', 'locked'] as const satisfies readonly DoorState[];
 
 const text = z.string().min(1);
@@ -243,9 +243,11 @@ const roomSpec = z
         key: featureKey,
         points: z.array(point).min(3).describe('Boundary. Split an edge with a collinear point to put a door on part of it.'),
         floor: z
-            .union([biome, z.string().regex(/^floor\..+/)])
+            .union([biome, z.string().regex(/^(floor|wall)\..+/)])
             .optional()
-            .describe('A biome or a pack "floor.<name>" material (default: the room default).'),
+            .describe(
+                'A biome, a pack "floor.<name>" material, or a "wall.<name>" one where the floor is the top of masonry (a wall-walk); default: the room default.',
+            ),
         wall: z
             .string()
             .regex(/^wall\..+/)
@@ -298,6 +300,8 @@ const stampSpec = z
             .default([])
             .describe("A light switch's targets: the keys of the lamp stamps (with lit and unlit variants) and rooms it turns on and off."),
         lights: z.array(text).default([]).describe("A light switch's other targets: ids of AmbientLights already on the scene, shown and hidden."),
+        reads: text.optional().describe("What players read on it by hovering over it: a sign's words, a plaque's inscription."),
+        mirror: z.boolean().optional().describe('Drawn flipped left to right, before its rotation (the far end of a counter).'),
         level,
     })
     .strict()
@@ -367,6 +371,11 @@ const pinSpec = z
         page: text.nullable().default(null).describe('Id of the page within that entry; null: the whole entry.'),
         icon: text.nullable().default(null).describe("The icon's image path; null: Foundry's own."),
         global: z.boolean().default(false).describe('Shown to everyone whatever their tokens see.'),
+        readable: z
+            .boolean()
+            .default(false)
+            .describe('Text for players to read on hover (a sign, a plaque), with no journal for them to see and no icon over the art beneath.'),
+        size: positive.nullable().default(null).describe("Across the spot that shows its text on hover, in the spec's units; null: Foundry's own."),
         level,
     })
     .strict()

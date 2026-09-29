@@ -8,7 +8,7 @@
  * maps in the real asset pack's art.
  */
 import type { Page } from '@playwright/test';
-import { parseMapIntent } from '../../src/compose/intent';
+import { parseMapIntent, ROOM_PURPOSES } from '../../src/compose/intent';
 import { MAP_PRESETS, PRESET_INTENTS } from '../../src/compose/presets';
 import { expect, frameScene, freshScene, test } from './lib/foundry';
 import { activate, MODULE_ID } from './lib/pointer';
@@ -42,8 +42,11 @@ test('an intent composes into walls, a door, a road, storage against the walls a
     }, INTENT);
     expect(outcome?.paths).toBe(1);
     expect(outcome?.built).toEqual([]);
-    // The fixture pack has no shelves, clutter, shrubs or debris: each is reported once, and nothing else.
-    expect(outcome?.problems.map((p) => (p.kind === 'no-stamp' ? p.role : p.kind)).sort()).toEqual(['clutter', 'debris', 'shelf', 'shrub']);
+    // The fixture pack has no shelves, clutter, shrubs or debris: each is reported once, and nothing else. Shelves and shrubs
+    // still stand, as labelled boxes; clutter and debris, scattered by the dozen, have none.
+    const lacking = (p: NonNullable<typeof outcome>['problems'][number]): string =>
+        p.kind === 'no-stamp' ? p.role : p.kind === 'placeholder' ? `${p.piece} (boxed)` : p.kind;
+    expect(outcome?.problems.map(lacking).sort()).toEqual(['clutter', 'debris', 'shelf (boxed)', 'shrub (boxed)']);
 
     const docs = await world.evaluate(() => {
         const scene = canvas?.scene;
@@ -115,7 +118,8 @@ test('a two-storey building: native levels, outer walls stacked on the same peri
         return composed?.ok === true ? { problems: composed.problems, built: composed.report.problems } : null;
     }, TWO_STOREYS);
     expect(outcome?.built).toEqual([]);
-    expect(outcome?.problems.every((p) => p.kind === 'no-stamp')).toBe(true);
+    // Only what the fixture pack has no art for: left out, or standing as a labelled box.
+    expect(outcome?.problems.every((p) => p.kind === 'no-stamp' || p.kind === 'placeholder')).toBe(true);
 
     const found = await world.evaluate((house) => {
         const scene = canvas?.scene;
@@ -174,13 +178,17 @@ test('a roadside inn: its cellar a native level below the scene’s own floor, i
     world,
 }) => {
     await freshScene(world, 'Roadside inn', { width: 4800, height: 3600, gridSize: 100 });
-    const outcome = await world.evaluate(async (intent) => {
-        const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
-        return composed?.ok === true ? { problems: composed.problems.map((p) => p.kind), built: composed.report.problems } : null;
-    }, PRESET_INTENTS['roadside-inn']);
+    // In any setting: the fixture pack's stamps are test art, which belongs to none.
+    const outcome = await world.evaluate(
+        async (intent) => {
+            const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
+            return composed?.ok === true ? { problems: composed.problems.map((p) => p.kind), built: composed.report.problems } : null;
+        },
+        { ...PRESET_INTENTS['roadside-inn'], settings: [] },
+    );
     expect(outcome?.built).toEqual([]);
-    // The fixture pack's stairs and ladder belong to no setting: the inn borrows them, and says so.
-    expect(outcome?.problems).toContain('borrowed');
+    // No storm-door art, so a ladder stands in the areaway, and says so.
+    expect(outcome?.problems).toContain('stand-in');
 
     const found = await world.evaluate(() => {
         const scene = canvas?.scene;
@@ -197,10 +205,31 @@ test('a roadside inn: its cellar a native level below the scene’s own floor, i
                     .join(' + '),
             )
             .sort((a, b) => a.localeCompare(b));
-        return { levels, joins };
+        // What stands on each level, by the stamp each tile is named after.
+        const standing: Record<string, Record<string, number>> = {};
+        for (const tile of scene?.tiles.contents ?? []) {
+            const piece = tile.name ?? '';
+            for (const id of tile.levels) {
+                const level = (standing[nameOf(id)] ??= {});
+                level[piece] = (level[piece] ?? 0) + 1;
+            }
+        }
+        return { levels, joins, standing };
     });
     // Bottom to top: the cellar under the scene's own floor, the guest rooms over it.
     expect(found.levels.map((l) => l.name)).toEqual(['Cellar', 'Ground floor', 'Guest rooms']);
+    // Every guest room lived in: a bed, a dresser, a chair to sit in; the taproom's counter and hearth below.
+    const upstairs = found.standing['Guest rooms'] ?? {};
+    const downstairs = found.standing['Ground floor'] ?? {};
+    expect(upstairs['Bed']).toBe(8);
+    expect(upstairs['Dresser'] ?? 0).toBeGreaterThanOrEqual(8);
+    expect((upstairs['Armchair'] ?? 0) + (upstairs['Chair'] ?? 0)).toBeGreaterThanOrEqual(8);
+    expect(downstairs['Counter']).toBe(1);
+    expect(downstairs['Hearth'] ?? 0).toBeGreaterThanOrEqual(2);
+    // Outside: the well, the yard's pen and cart, the road's bridge over the river.
+    for (const piece of ['Well', 'Pen', 'Wagon', 'Bridge']) {
+        expect(downstairs[piece] ?? 0, piece).toBeGreaterThanOrEqual(1);
+    }
     const [cellar, ground, upper] = found.levels;
     expect(cellar?.top).toBe(ground?.bottom);
     expect(upper?.bottom).toBe(ground?.top);
@@ -247,6 +276,138 @@ const INN = {
     ],
 };
 
+test('a curtain wall with its moat, a walled city district and hewn tunnels compose into native walls, water and rooms', async ({ world }) => {
+    const grid = 50;
+    await freshScene(world, 'Walled town', { width: 40 * grid, height: 30 * grid, gridSize: grid });
+    const wall = [
+        { x: 4, y: 4 },
+        { x: 16, y: 4 },
+        { x: 16, y: 16 },
+        { x: 4, y: 16 },
+    ];
+    const tunnel = [
+        { x: 2, y: 24 },
+        { x: 20, y: 26 },
+        { x: 38, y: 24 },
+    ];
+    const outcome = await world.evaluate(
+        async (intent) => {
+            const api = game.modules?.get('zephyrex-cartography').api;
+            const composed = await api?.compose(intent);
+            if (composed?.ok !== true) {
+                return null;
+            }
+            const features = composed.report.features.map((id) => api?.controller()?.getFeature(id)).filter((f) => f !== null && f !== undefined);
+            return {
+                built: composed.report.problems,
+                rooms: features.filter((f) => f.type === 'room').length,
+                water: features.filter((f) => f.type === 'region' && f.biome === 'water').length,
+                walls: canvas?.scene?.walls.size ?? 0,
+                signs: (canvas?.scene?.notes.contents ?? []).map((note) => note.text),
+            };
+        },
+        {
+            schemaVersion: 1,
+            seed: 3,
+            width: 40,
+            height: 30,
+            ground: 'grassland',
+            // Square towers, one along the east side; a gate in the south wall and a breach in the north.
+            curtains: [
+                {
+                    points: wall,
+                    towers: { round: false, at: [{ x: 16, y: 10 }] },
+                    gates: [
+                        { edge: 2, width: 3 },
+                        { edge: 0, at: 0.3, state: 'gap' },
+                    ],
+                    moat: {},
+                },
+            ],
+            // A keep in the bailey, its hall drawn to a brief: a counter butting the wall, a sign players read, benches.
+            buildings: [
+                {
+                    key: 'keep',
+                    at: { x: 7, y: 7 },
+                    width: 6,
+                    height: 6,
+                    rooms: [
+                        {
+                            key: 'hall',
+                            purpose: 'hall',
+                            entrance: true,
+                            furnish: 'fixtures',
+                            fixtures: [
+                                {
+                                    name: 'bar counter',
+                                    role: 'counter',
+                                    width: 3,
+                                    height: 1,
+                                    facing: 'left',
+                                    open: ['bottom'],
+                                    place: { at: { x: 0.8, y: 0.4 } },
+                                },
+                                { name: 'tally board', width: 1, height: 0.2, reads: 'NO CREDIT', fixed: true, place: { wall: 'top', along: 'middle' } },
+                                {
+                                    name: 'bench',
+                                    role: 'bench',
+                                    width: 2,
+                                    height: 0.5,
+                                    count: 2,
+                                    place: { line: { from: { x: 0.2, y: 0.3 }, to: { x: 0.2, y: 0.7 } } },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+            districts: [
+                {
+                    area: { x: 20, y: 2, w: 18, h: 16 },
+                    frontage: 1,
+                    streetPieces: [{ name: 'street chest', role: 'storage', tags: ['loot'], width: 1, height: 0.8 }],
+                    roofPieces: [{ name: 'roof vent', width: 1.2, height: 1.2 }],
+                },
+            ],
+            hewn: [{ passages: [{ points: tunnel, width: 2 }], chambers: [{ centre: { x: 20, y: 26 }, width: 6, height: 5 }] }],
+        },
+    );
+    expect(outcome?.built).toEqual([]);
+    // Four runs of wall broken by the gate, four towers and the gate's passage; the district's blocks; the tunnels.
+    expect(outcome?.rooms).toBeGreaterThan(12);
+    expect(outcome?.water).toBe(1);
+    expect(outcome?.walls).toBeGreaterThan(40);
+    // The tally board's words are a Note players read on hover.
+    expect(outcome?.signs).toContain('NO CREDIT');
+});
+
+test('a building with a room of every purpose furnishes each in Foundry, into native tiles and walls, with nothing it could not build', async ({ world }) => {
+    const grid = 50;
+    await freshScene(world, 'Every purpose', { width: 44 * grid, height: 34 * grid, gridSize: grid });
+    const rooms = ROOM_PURPOSES.map((purpose, i) => ({ key: `r${i}`, purpose, ...(i === 0 ? { entrance: true } : { opensTo: ['r0'] }) }));
+    const outcome = await world.evaluate(
+        async (intent) => {
+            const api = game.modules?.get('zephyrex-cartography').api;
+            const composed = await api?.compose(intent);
+            if (composed?.ok !== true) {
+                return null;
+            }
+            const types = composed.report.features.map((id) => api?.controller()?.getFeature(id)?.type);
+            return {
+                built: composed.report.problems,
+                rooms: types.filter((t) => t === 'room').length,
+                tiles: canvas?.scene?.tiles.size ?? 0,
+                walls: canvas?.scene?.walls.size ?? 0,
+            };
+        },
+        { schemaVersion: 1, seed: 5, width: 44, height: 34, ground: null, buildings: [{ key: 'all', width: 40, height: 30, rooms }] },
+    );
+    expect(outcome?.built).toEqual([]);
+    expect(outcome?.rooms).toBe(ROOM_PURPOSES.length);
+    expect(outcome?.tiles).toBeGreaterThan(50);
+    expect(outcome?.walls).toBeGreaterThan(ROOM_PURPOSES.length * 4);
+});
+
 test('the Map builder composes an intent from a preset or pasted text, reporting what the packs lack', async ({ world }) => {
     await activate(world, MODULE_ID, 'road');
     await world.click('button[data-tool="generator"]');
@@ -269,8 +430,8 @@ test('the Map builder composes an intent from a preset or pasted text, reporting
     await intent.fill(JSON.stringify(INN));
     await panel.getByRole('button', { name: 'Compose', exact: true }).click();
     await expect(report).toContainText('Built', { timeout: 60_000 });
-    // The fixture pack has no tables or beds: each is reported where it was wanted.
-    await expect(report).toContainText('inn/bedroom: no loaded stamp is a bed');
+    // The fixture pack has no shelves: each room that wanted one reports it.
+    await expect(report).toContainText('inn/kitchen: no loaded stamp draws the shelf, so a labelled box stands in for it');
     const doors = await world.evaluate(() => (canvas?.scene?.walls.contents ?? []).filter((w) => w.door === 1).length);
     // Five connections between the rooms, and the front door.
     expect(doors).toBe(6);
@@ -286,7 +447,8 @@ test('every Map builder preset composes in Foundry into native documents, with n
     // One scene after another: each preset composed on a fresh scene its size.
     await MAP_PRESETS.reduce(async (previous, preset) => {
         await previous;
-        const intent = PRESET_INTENTS[preset];
+        // In any setting: the fixture pack's stamps are test art, which belongs to none.
+        const intent = { ...PRESET_INTENTS[preset], settings: [] };
         const parsed = parseMapIntent(intent);
         const size = parsed.ok ? { width: parsed.intent.width * GRID, height: parsed.intent.height * GRID, gridSize: GRID } : undefined;
         await freshScene(world, preset, size);

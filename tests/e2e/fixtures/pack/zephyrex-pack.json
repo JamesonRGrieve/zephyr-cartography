@@ -396,6 +396,350 @@
                     "height": 100
                 }
             ]
+        },
+        {
+            "id": "long-table",
+            "name": "Long Table",
+            "category": "Furniture",
+            "tags": [
+                "table"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 160,
+                    "height": 80
+                }
+            ]
+        },
+        {
+            "id": "round-table",
+            "name": "Round Table",
+            "category": "Furniture",
+            "tags": [
+                "round",
+                "table"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 100,
+                    "height": 100
+                }
+            ]
+        },
+        {
+            "id": "chair",
+            "name": "Chair",
+            "category": "Furniture",
+            "tags": [
+                "chair"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 50,
+                    "height": 50
+                }
+            ]
+        },
+        {
+            "id": "bench",
+            "name": "Bench",
+            "category": "Furniture",
+            "tags": [
+                "bench"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/fence.svg",
+                    "width": 160,
+                    "height": 40
+                }
+            ]
+        },
+        {
+            "id": "bed",
+            "name": "Bed",
+            "category": "Furniture",
+            "tags": [
+                "bed"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 100,
+                    "height": 200
+                }
+            ]
+        },
+        {
+            "id": "nightstand",
+            "name": "Nightstand",
+            "category": "Furniture",
+            "tags": [
+                "nightstand"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 50,
+                    "height": 50
+                }
+            ]
+        },
+        {
+            "id": "dresser",
+            "name": "Dresser",
+            "category": "Furniture",
+            "tags": [
+                "dresser"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 120,
+                    "height": 50
+                }
+            ]
+        },
+        {
+            "id": "armchair",
+            "name": "Armchair",
+            "category": "Furniture",
+            "tags": [
+                "armchair"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 80,
+                    "height": 80
+                }
+            ]
+        },
+        {
+            "id": "counter",
+            "name": "Counter",
+            "category": "Furniture",
+            "tags": [
+                "counter"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/fence.svg",
+                    "width": 300,
+                    "height": 80
+                }
+            ]
+        },
+        {
+            "id": "hearth",
+            "name": "Hearth",
+            "category": "Furniture",
+            "tags": [
+                "hearth"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 140,
+                    "height": 90
+                }
+            ]
+        },
+        {
+            "id": "tankards",
+            "name": "Tankards",
+            "category": "Furniture",
+            "tags": [
+                "table",
+                "clutter"
+            ],
+            "scale": "interior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 30,
+                    "height": 20
+                }
+            ]
+        },
+        {
+            "id": "pen",
+            "name": "Pen",
+            "category": "Grounds",
+            "tags": [
+                "pen"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/fence.svg",
+                    "width": 400,
+                    "height": 375
+                }
+            ]
+        },
+        {
+            "id": "hay",
+            "name": "Hay",
+            "category": "Grounds",
+            "tags": [
+                "hay"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 200,
+                    "height": 160
+                }
+            ]
+        },
+        {
+            "id": "wagon",
+            "name": "Wagon",
+            "category": "Grounds",
+            "tags": [
+                "wagon"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/hab.svg",
+                    "width": 200,
+                    "height": 120
+                }
+            ]
+        },
+        {
+            "id": "well",
+            "name": "Well",
+            "category": "Grounds",
+            "tags": [
+                "well"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 110,
+                    "height": 120
+                }
+            ]
+        },
+        {
+            "id": "tree",
+            "name": "Tree",
+            "category": "Grounds",
+            "tags": [
+                "tree"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/hab.svg",
+                    "width": 400,
+                    "height": 370
+                }
+            ]
+        },
+        {
+            "id": "mushrooms",
+            "name": "Mushrooms",
+            "category": "Grounds",
+            "tags": [
+                "mushroom"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 120,
+                    "height": 110
+                }
+            ]
+        },
+        {
+            "id": "bridge",
+            "name": "Bridge",
+            "category": "Grounds",
+            "tags": [
+                "bridge"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/fence.svg",
+                    "width": 200,
+                    "height": 300
+                }
+            ]
+        },
+        {
+            "id": "milestone",
+            "name": "Milestone",
+            "category": "Grounds",
+            "tags": [
+                "milestone"
+            ],
+            "scale": "exterior",
+            "perspective": "top-down",
+            "variants": [
+                {
+                    "state": "default",
+                    "image": "stamps/crate.svg",
+                    "width": 50,
+                    "height": 50
+                }
+            ]
         }
     ],
     "textureSets": [

@@ -177,9 +177,7 @@ test('the paint tool paints and blends in any texture of the active set, picked 
     const drawnIn = await world.evaluate(() => {
         const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
         return (terrain instanceof PIXI.Container ? terrain.children : []).flatMap((child) =>
-            child instanceof PIXI.Container
-                ? child.children.flatMap((grandchild) => (grandchild instanceof PIXI.TilingSprite ? [grandchild.texture.baseTexture.cacheId] : []))
-                : [],
+            child instanceof PIXI.Container ? child.children.flatMap((grandchild) => (grandchild instanceof PIXI.TilingSprite ? [grandchild.name] : [])) : [],
         );
     });
     expect(drawnIn).toEqual([expect.stringContaining('cobbles.svg')]);

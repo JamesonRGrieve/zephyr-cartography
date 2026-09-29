@@ -125,9 +125,9 @@ function thresholdData(threshold: WallThreshold, grid: SceneGrid): NonNullable<W
     };
 }
 
-/** Native Level membership; left out (every level) for a document on no level. */
-function levelsField(level: string | null): { levels?: string[] } {
-    return level === null ? {} : { levels: [level] };
+/** Native Level membership, with any other levels it shows on; left out (every level) for a document on no level. */
+function levelsField(level: string | null, seenFrom: readonly string[] = []): { levels?: string[] } {
+    return level === null ? {} : { levels: [level, ...seenFrom] };
 }
 
 export function wallCreateData(wall: WallDoc, grid: SceneGrid): WallCreateData {
@@ -167,6 +167,8 @@ export function noteCreateData(note: NoteDoc): NoteCreateData {
         pageId: note.page,
         global: note.global,
         ...(note.icon === null ? {} : { texture: { src: note.icon } }),
+        ...(note.size === null ? {} : { iconSize: note.size }),
+        ...(note.readable ? { author: null, flags: { [MODULE_ID]: { readable: true } } } : {}),
         ...levelsField(note.level),
     };
 }
@@ -347,10 +349,19 @@ function tileLookData(look: TileDoc['look']): Pick<TileCreateData, 'alpha' | 'hi
     };
 }
 
+/** A tile texture's horizontal scale that flips its image left to right. */
+const MIRRORED = -1;
+
 export function tileCreateData(tile: TileDoc): TileCreateData {
     return {
         name: tile.name,
-        texture: { src: tile.src, anchorX: TILE_ANCHOR, anchorY: TILE_ANCHOR, alphaThreshold: tile.look?.alphaThreshold },
+        texture: {
+            src: tile.src,
+            anchorX: TILE_ANCHOR,
+            anchorY: TILE_ANCHOR,
+            alphaThreshold: tile.look?.alphaThreshold,
+            ...(tile.mirror === true ? { scaleX: MIRRORED } : {}),
+        },
         ...tileLookData(tile.look),
         // Foundry stores tile positions as integers; round here so the read-back matches.
         x: Math.round(tile.x + tile.width * TILE_ANCHOR),
@@ -360,7 +371,7 @@ export function tileCreateData(tile: TileDoc): TileCreateData {
         rotation: tile.rotation,
         elevation: tile.elevation,
         flags: { [MODULE_ID]: { featureId: tile.featureId } },
-        ...levelsField(tile.level),
+        ...levelsField(tile.level, tile.seenFrom),
     };
 }
 

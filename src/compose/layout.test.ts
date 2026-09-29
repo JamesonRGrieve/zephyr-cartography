@@ -208,3 +208,80 @@ describe('a corridor', () => {
         expect(layout?.rooms.find((r) => r.key === 'corridor')?.rect).toMatchObject({ y: 0, w: 2, h: 14 });
     });
 });
+
+describe('doors as the design places them', () => {
+    const at = { x: 0, y: 0 };
+    const pinned = (rooms: object[], more: object = {}): BuildingIntent => building({ at, width: 20, height: 10, entrance: 'south', rooms, ...more });
+
+    it('opens a wide archway across the wall two rooms share, a pier left at each end; a narrow one wall to wall', () => {
+        const layout = layOut(
+            pinned([
+                { key: 'nave', purpose: 'chapel', rect: { x: 0, y: 0, w: 20, h: 6 }, entrance: true },
+                { key: 'narthex', purpose: 'hall', rect: { x: 0, y: 6, w: 17, h: 4 }, archTo: ['nave'] },
+                { key: 'closet', purpose: 'storage', rect: { x: 17, y: 6, w: 3, h: 3 }, archTo: ['narthex'] },
+            ]),
+            { x: 0, y: 0, w: 20, h: 10 },
+            1,
+        );
+        const arch = layout.doors.find((d) => d.room === 'narthex' && d.to === 'nave');
+        expect(arch?.slot).toMatchObject({ side: 'top', at: 1, width: 15, open: true });
+        // The closet's wall with the narthex is three squares, too narrow to keep piers: open end to end.
+        expect(layout.doors.find((d) => d.room === 'closet')?.slot).toMatchObject({ at: 6, width: 3, open: true });
+    });
+
+    it('puts a room’s doors where along the wall it asks, alike in a row of cells', () => {
+        const cells = [0, 5, 10, 15].map((x, i) => ({ key: `cell-${i}`, purpose: 'bedroom', rect: { x, y: 0, w: 5, h: 6 }, opensTo: ['hall'], doorAt: 0.25 }));
+        const layout = layOut(
+            pinned([...cells, { key: 'hall', purpose: 'hall', rect: { x: 0, y: 6, w: 20, h: 4 }, entrance: true }]),
+            { x: 0, y: 0, w: 20, h: 10 },
+            7,
+        );
+        // A quarter along each five-square wall: one square in.
+        expect(layout.doors.filter((d) => d.to === 'hall').map((d) => d.slot.at)).toEqual([1, 6, 11, 16]);
+    });
+
+    it('stands the front door where, as wide and as open as asked; other doorways out as wide, open, and on a named room’s own wall', () => {
+        const b = pinned(
+            [
+                { key: 'hall', purpose: 'hall', rect: { x: 0, y: 0, w: 20, h: 6 }, entrance: true },
+                { key: 'annex', purpose: 'storage', rect: { x: 0, y: 6, w: 8, h: 4 } },
+            ],
+            { frontDoorAt: 3, frontDoorWidth: 2, frontDoorOpen: true, openings: [{ side: 'south', at: 12, width: 3, open: true, room: 'hall' }] },
+        );
+        const layout = layOut(b, { x: 0, y: 0, w: 20, h: 10 }, 3);
+        // The hall does not reach the footprint's south edge; its own wall there still takes the opening.
+        const outs = layout.doors.filter((d) => d.to === null).map((d) => ({ room: d.room, ...d.slot }));
+        expect(outs).toContainEqual({ room: 'hall', side: 'bottom', at: 12, width: 3, open: true });
+        expect(layout.doors.find((d) => d.to === null)?.slot).toMatchObject({ width: 2, open: true });
+    });
+
+    it('gives a building no front door where it has none, only the openings asked', () => {
+        const b = pinned([{ key: 'hall', purpose: 'hall', rect: { x: 0, y: 0, w: 20, h: 10 }, entrance: true }], {
+            frontDoor: false,
+            openings: [{ side: 'north', at: 3 }],
+        });
+        const outs = layOut(b, { x: 0, y: 0, w: 20, h: 10 }, 3).doors.filter((d) => d.to === null);
+        expect(outs.map((d) => d.slot)).toEqual([{ side: 'top', at: 3 }]);
+    });
+
+    it('leaves a gap where a way out has no door at all: a street running on, a collapsed frontage', () => {
+        const b = pinned([{ key: 'street', purpose: 'hall', rect: { x: 0, y: 0, w: 20, h: 6 }, entrance: true }], {
+            height: 6,
+            entrance: 'west',
+            frontDoorAt: 1,
+            frontDoorWidth: 4,
+            frontDoorGap: true,
+            openings: [
+                { side: 'north', at: 5, width: 3, gap: true },
+                { side: 'north', at: 12, width: 1 },
+            ],
+        });
+        const layout = layOut(b, { x: 0, y: 0, w: 20, h: 6 }, 3);
+        const outs = layout.doors.filter((d) => d.to === null).map((d) => d.slot);
+        expect(outs).toEqual([
+            { side: 'left', at: 1, width: 4, open: true, arch: true },
+            { side: 'top', at: 5, width: 3, open: true, arch: true },
+            { side: 'top', at: 12 },
+        ]);
+    });
+});

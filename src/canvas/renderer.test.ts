@@ -4,6 +4,7 @@ import { tintToward } from '../tools/colour';
 import type { Feature } from '../tools/feature';
 import { NEW_FEATURE } from '../tools/feature-common';
 import { LIQUID_LOOKS, type CartographyPath } from '../tools/path';
+import { makePin } from '../tools/pin';
 import type { RegionFeature } from '../tools/region';
 import type { RoomFeature } from '../tools/room';
 import type { TextureResolver } from '../tools/texture';
@@ -25,9 +26,12 @@ class FakeSurface implements DrawSurface {
         angle: number;
     }[] = [];
     readonly removed: string[] = [];
+    /** Each flat fill's polygon, by id. */
+    readonly polygons = new Map<string, readonly number[]>();
     cleared = 0;
     fill(id: string, polygon: readonly number[], color: number, _alpha: number, feather: boolean): void {
         this.filled.push({ id, n: polygon.length, color, feather });
+        this.polygons.set(id, polygon);
     }
     fillTextured(id: string, polygon: readonly number[], textureFile: string, tint: number, alpha: number, feather: boolean, angle: number): void {
         this.textured.push({ id, n: polygon.length, polygon, textureFile, tint, alpha, feather, angle });
@@ -100,6 +104,14 @@ const room: RoomFeature = {
 };
 
 describe('GraphicsFeatureRenderer', () => {
+    it('draws nothing of its own for what is a native document alone: a pin is its Note', () => {
+        const surface = new FakeSurface();
+        new GraphicsFeatureRenderer(surface, RESOLVE).set('p', makePin('p', { x: 5, y: 5 }));
+        expect(surface.filled).toEqual([]);
+        expect(surface.textured).toEqual([]);
+        expect(surface.removed).toContain('p');
+    });
+
     it('textures a road ribbon (bundled tile)', () => {
         const s = new FakeSurface();
         new GraphicsFeatureRenderer(s, RESOLVE).set('a', road);
@@ -112,7 +124,14 @@ describe('GraphicsFeatureRenderer', () => {
         const s = new FakeSurface();
         new GraphicsFeatureRenderer(s, RESOLVE).set('r', river);
         expect(s.filled).toHaveLength(0);
-        expect(s.textured).toEqual([expect.objectContaining({ id: 'r', textureFile: 'water.jpg', tint: tintToward(LIQUID_LOOKS.water.shade, 0.5) })]);
+        expect(s.textured).toEqual([expect.objectContaining({ id: 'r', textureFile: 'water.jpg', tint: tintToward(LIQUID_LOOKS.water.shade, 0.25) })]);
+    });
+
+    it('draws water still, in the set’s shallows before its open sea: a moat or stream never has waves', () => {
+        const s = new FakeSurface();
+        const painted: TextureResolver = (role) => (['floor.calm-sea', 'floor.shallow-water'].includes(role) ? `${role}.jpg` : null);
+        new GraphicsFeatureRenderer(s, painted).set('r', river);
+        expect(s.textured[0]?.textureFile).toBe('floor.shallow-water.jpg');
     });
 
     it('draws each liquid in the first of its textures the set has, else ripples in its full shade', () => {
@@ -141,6 +160,76 @@ describe('GraphicsFeatureRenderer', () => {
         expect(s.textured.find((t) => t.id === 'm')).toMatchObject({ textureFile: 'procedural.grain.png', tint: 0x5a7b3c });
         expect(s.textured.find((t) => t.id === 'b')).toMatchObject({ textureFile: 'procedural.ripple.png', tint: 0x2f5d7c });
         expect(s.textured.find((t) => t.id === 'rm:wall:0')?.textureFile).toBe('procedural.grain.png');
+    });
+
+    it('breaks walls at doorways: a closed door shows its leaf across the gap, an open one swung into the room, a secret one is wall', () => {
+        const s = new FakeSurface();
+        const gr = new GraphicsFeatureRenderer(s, RESOLVE, 10);
+        const door = { type: 'door', sound: null, animation: null } as const;
+        gr.set('rm', {
+            ...room,
+            wall: 'wall.brick',
+            doors: [
+                { ...door, segment: 0, state: 'closed' },
+                { ...door, segment: 1, state: 'open' },
+                { ...door, type: 'secret', segment: 2, state: 'closed' },
+            ],
+        });
+        const sides = room.points.length;
+        // Walls on every side but the two doorways; the secret door is wall to look at.
+        expect(s.textured.filter((t) => t.id.startsWith('rm:wall:'))).toHaveLength(sides - 2);
+        // The closed door's leaf across its doorway along the top wall.
+        const across = s.polygons.get('rm:leaf:0') ?? [];
+        expect(Math.max(...across.filter((_, i) => i % 2 === 1))).toBeLessThan(10);
+        // The open doorway down the right wall is wide: double doors, each leaf half its width, swung in from either end.
+        const swung = ['rm:leaf:1', 'rm:leaf:2'].map((id) => s.polygons.get(id) ?? []);
+        for (const leaf of swung) {
+            const xs = leaf.filter((_, i) => i % 2 === 0);
+            expect(Math.min(...xs)).toBeCloseTo(100 - 50 - 2.25);
+            expect(Math.max(...xs)).toBeCloseTo(100 + 2.25);
+        }
+        expect(s.filled.filter((f) => f.id.startsWith('rm:leaf:'))).toHaveLength(3);
+    });
+
+    it('shows an open sliding or rising door as a bare doorway: its panel is in the wall or overhead', () => {
+        const s = new FakeSurface();
+        const gr = new GraphicsFeatureRenderer(s, RESOLVE, 10);
+        const door = { type: 'door', sound: null, state: 'open' } as const;
+        gr.set('rm', {
+            ...room,
+            wall: 'wall.brick',
+            doors: [
+                { ...door, segment: 0, animation: 'slide' },
+                { ...door, segment: 1, animation: 'ascend' },
+                { ...door, segment: 2, animation: 'swing' },
+                { ...door, segment: 3, animation: 'slide', state: 'closed' },
+            ],
+        });
+        // Only the swung door (wide: double leaves) and the shut sliding panel show leaves.
+        expect(s.filled.filter((f) => f.id.startsWith('rm:leaf:'))).toHaveLength(3);
+    });
+
+    it('draws the parapet round the top of masonry a shade darker than the stone within it', () => {
+        const resolve: TextureResolver = (role) => (role === 'wall.stone' ? 'stone.jpg' : null);
+        const walkway = new FakeSurface();
+        new GraphicsFeatureRenderer(walkway, resolve, 10).set('rm', { ...room, floor: 'wall.stone', wall: 'wall.stone' });
+        const plain = new FakeSurface();
+        new GraphicsFeatureRenderer(plain, resolve, 10).set('rm', { ...room, floor: 'dirt', wall: 'wall.stone' });
+        const band = (s: FakeSurface): number | undefined => s.textured.find((t) => t.id === 'rm:wall:0')?.tint;
+        expect(band(walkway)).toBeLessThan(band(plain) ?? 0);
+        // Concrete walls round a concrete floor read as walls the same way: a shade darker than the floor they enclose.
+        const concrete: TextureResolver = (role) => (role === 'wall.concrete' ? 'concrete-wall.jpg' : role === 'floor.concrete' ? 'concrete.jpg' : null);
+        const bunker = new FakeSurface();
+        new GraphicsFeatureRenderer(bunker, concrete, 10).set('rm', { ...room, floor: 'floor.concrete', wall: 'wall.concrete' });
+        expect(band(bunker)).toBe(band(walkway));
+    });
+
+    it('leaves an opening bare: no wall band across it, and no leaf', () => {
+        const s = new FakeSurface();
+        const gr = new GraphicsFeatureRenderer(s, RESOLVE, 10);
+        gr.set('rm', { ...room, wall: 'wall.brick', doors: [{ type: 'opening', sound: null, animation: null, segment: 1, state: 'open' }] });
+        expect(s.textured.filter((t) => t.id.startsWith('rm:wall:'))).toHaveLength(room.points.length - 1);
+        expect(s.filled.filter((f) => f.id.startsWith('rm:leaf:'))).toHaveLength(0);
     });
 
     it('lays a river’s bed beneath it, wider and feathered, and takes the bed away with the river', () => {
@@ -172,7 +261,7 @@ describe('GraphicsFeatureRenderer', () => {
         const s = new FakeSurface();
         new GraphicsFeatureRenderer(s, RESOLVE).set('b', lake);
         expect(s.filled).toHaveLength(0);
-        expect(s.textured).toEqual([expect.objectContaining({ id: 'b', textureFile: 'water.jpg', tint: tintToward(LIQUID_LOOKS.water.shade, 0.5) })]);
+        expect(s.textured).toEqual([expect.objectContaining({ id: 'b', textureFile: 'water.jpg', tint: tintToward(LIQUID_LOOKS.water.shade, 0.25) })]);
         const flowing = new FakeSurface();
         new GraphicsFeatureRenderer(flowing, RESOLVE).set('r', river);
         expect(flowing.textured[0]?.alpha).toBe(s.textured[0]?.alpha);

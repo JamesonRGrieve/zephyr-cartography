@@ -104,6 +104,12 @@ function problemLine(problem: ComposeProblem): string {
     if (problem.kind === 'stand-in') {
         return format(p.standIn, { wantedIn: problem.wantedIn, wanted: localize(ACCESS_NAMES[problem.wanted]), used: localize(ACCESS_NAMES[problem.used]) });
     }
+    if (problem.kind === 'placeholder') {
+        return format(p.placeholder, { wantedIn: problem.wantedIn, piece: problem.piece });
+    }
+    if (problem.kind === 'no-room') {
+        return format(p.noRoom, { wantedIn: problem.wantedIn, piece: problem.piece });
+    }
     return format(p.noStamp, { wantedIn: problem.wantedIn, role: problem.role });
 }
 
@@ -136,11 +142,16 @@ export interface GeneratorRuntime {
     readonly open: () => void;
 }
 
-/** `stamps` lists every stamp the loaded packs offer, which composed maps are furnished and dressed from. */
+/**
+ * `stamps` lists every stamp the loaded packs offer, which composed maps are
+ * furnished and dressed from; `packsSettled` resolves once they have loaded
+ * and the draw layer has been rebuilt for them.
+ */
 export function registerGeneratorRuntime(
     controller: () => CartographyController | null,
     roomMaterials: () => RoomMaterials,
     stamps: () => readonly CatalogStamp[],
+    packsSettled: () => Promise<void>,
 ): GeneratorRuntime {
     let form: GeneratorForm = DEFAULT_GENERATOR_FORM;
     let specText = '';
@@ -150,21 +161,28 @@ export function registerGeneratorRuntime(
     let busy = false;
     let mode: ComposeMode = 'algorithmic';
 
-    /** Run a build with the panel marked busy, then report `lines` of what it did. */
-    const run = async (work: () => Promise<readonly string[]>): Promise<void> => {
+    /**
+     * Run a build with the panel marked busy, then report `lines` of what it
+     * did. It waits for the packs to settle and builds with the controller
+     * that leaves: one torn down mid-build would leave its features undrawn.
+     * With no scene viewed by then, nothing is built.
+     */
+    const run = async (work: (active: CartographyController) => Promise<readonly string[]>): Promise<void> => {
         busy = true;
         panelWindow.refresh();
         try {
-            outcome = await work();
+            await packsSettled();
+            const active = controller();
+            outcome = active ? await work(active) : outcome;
         } finally {
             busy = false;
             panelWindow.refresh();
         }
     };
 
-    const build = async (active: CartographyController, spec: SceneSpec): Promise<void> => run(async () => reportLines(await buildOnScene(active, spec)));
+    const build = async (spec: SceneSpec): Promise<void> => run(async (active) => reportLines(await buildOnScene(active, spec)));
 
-    const compose = (active: CartographyController): void => {
+    const compose = (): void => {
         // eslint-disable-next-line no-restricted-syntax -- boundary: JSON.parse of the GM's text gives an untyped value, validated by parseMapIntent
         let json: unknown;
         try {
@@ -184,7 +202,7 @@ export function registerGeneratorRuntime(
         if (assisted) {
             outcome = [localize(I18N.generator.advising)];
         }
-        void run(async () => {
+        void run(async (active) => {
             const composed = await composeOnScene(active, parsed.intent, stamps(), assisted ? askAdvisor : null);
             return composed.ok
                 ? [...reportLines(composed.report), ...(composed.advised ? adviceLines(composed.advised) : []), ...composed.problems.map(problemLine)]
@@ -219,9 +237,8 @@ export function registerGeneratorRuntime(
                     panelWindow.refresh();
                 },
                 compose: () => {
-                    const active = controller();
-                    if (active && !busy) {
-                        compose(active);
+                    if (controller() && !busy) {
+                        compose();
                     }
                 },
                 setField: (field, typed) => {
@@ -239,25 +256,23 @@ export function registerGeneratorRuntime(
                     panelWindow.refresh();
                 },
                 generate: () => {
-                    const active = controller();
-                    if (!active || busy) {
+                    if (!controller() || busy) {
                         return;
                     }
                     const spec = generateFloorPlan(floorPlanOptions(form, roomMaterials()));
                     specText = JSON.stringify(spec, null, SPEC_INDENT);
-                    void build(active, spec);
+                    void build(spec);
                 },
                 setSpecText: (text) => {
                     specText = text;
                 },
                 buildSpec: () => {
-                    const active = controller();
-                    if (!active || busy) {
+                    if (!controller() || busy) {
                         return;
                     }
                     const parsed = parseSceneSpecJson(specText);
                     if (parsed.ok) {
-                        void build(active, parsed.spec);
+                        void build(parsed.spec);
                     } else {
                         outcome = [localize(I18N.generator.refused), ...parsed.issues.map(formatSpecIssue)];
                         panelWindow.refresh();

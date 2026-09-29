@@ -7,8 +7,9 @@
  * outer wall. The result is a scene spec in grid squares, from (0, 0).
  */
 import { DEFAULT_AREA_DISPLAY } from '../tools/area-effects';
+import type { DoorAnimationType } from '../tools/documents';
 import type { FloorMaterial, WallMaterial } from '../tools/materials';
-import { NEW_DOOR } from '../tools/room';
+import { type DoorSettings, NEW_DOOR } from '../tools/room';
 import { NO_SPAWN } from '../tools/spawn';
 import { NORMAL_COST } from '../tools/terrain-cost';
 import { DEFAULT_WALL_PRESET, type WallPreset } from '../tools/wall-presets';
@@ -61,10 +62,23 @@ export interface Rect {
 
 export type Side = 'top' | 'right' | 'bottom' | 'left';
 
+/** The side facing each: a wall's other face, a doorway seen from the room beyond it. */
+export const OPPOSITE_SIDE: Readonly<Record<Side, Side>> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+
 /** A one-square door on a room's side, starting `at` along it (absolute x for top/bottom, y for left/right). */
 export interface DoorSlot {
     readonly side: Side;
     readonly at: number;
+    /** Squares along the wall; omitted, one. */
+    readonly width?: number;
+    /** Standing open: a door left open, or an archway. */
+    readonly open?: boolean;
+    /** A doorless archway, never hung with a door. */
+    readonly arch?: boolean;
+    /** A secret door: wall to look at, a native secret door to find. */
+    readonly secret?: boolean;
+    /** How its door opens (a panel sliding into the wall, a shutter rising); omitted, Foundry's default swing. */
+    readonly animation?: DoorAnimationType;
 }
 
 interface Split {
@@ -157,55 +171,86 @@ interface Corner {
 }
 
 /** Points along one side, from `start` (exclusive of `end`), with an extra point at each end of every door on it. */
-function sidePoints(start: Corner, end: Corner, doorsAt: readonly number[]): { points: Corner[]; doorStarts: Corner[] } {
+function sidePoints(start: Corner, end: Corner, doorsAt: readonly DoorSlot[]): { points: Corner[]; doorStarts: Corner[] } {
     const horizontal = start.y === end.y;
     const forward = horizontal ? end.x > start.x : end.y > start.y;
     const along = (v: number): Corner => (horizontal ? { x: v, y: start.y } : { x: start.x, y: v });
     const from = horizontal ? start.x : start.y;
     const to = horizontal ? end.x : end.y;
-    // Walking backwards, a door square [at, at + 1] is entered at at + 1.
-    const entries = doorsAt.map((at) => (forward ? at : at + 1));
-    const exits = doorsAt.map((at) => (forward ? at + 1 : at));
+    // Walking backwards, a doorway [at, at + width] is entered at its far end.
+    const entries = doorsAt.map(({ at, width = 1 }) => (forward ? at : at + width));
+    const exits = doorsAt.map(({ at, width = 1 }) => (forward ? at + width : at));
     const inside = (v: number): boolean => (forward ? v > from && v < to : v < from && v > to);
     const breaks = [...new Set([...entries, ...exits].filter(inside))].sort((a, b) => (forward ? a - b : b - a));
     return { points: [start, ...breaks.map(along)], doorStarts: entries.map(along) };
 }
 
-/** A room's polygon, clockwise from its top-left corner, with a one-square segment for each of its doors. */
+/** The door in a doorway: an archway is an opening with no door and no wall; else a door, standing open where the slot says. */
+function doorOf(slot: DoorSlot | undefined): DoorSettings {
+    if (slot?.arch === true) {
+        return { ...NEW_DOOR, type: 'opening', state: 'open' };
+    }
+    if (slot?.secret === true) {
+        return { ...NEW_DOOR, type: 'secret' };
+    }
+    return { ...NEW_DOOR, ...(slot?.open === true ? { state: 'open' } : {}), ...(slot?.animation === undefined ? {} : { animation: slot.animation }) };
+}
+
 /** What a room is built of: its floor, its drawn walls, their Foundry kind, and whether it has a ceiling. */
 export type RoomBuild = Pick<FloorPlanOptions, 'floor' | 'wall' | 'wallKind' | 'ceiling'>;
 
-/** A room spec over `room`, with a one-square door in each of `slots`. */
-export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild): RoomSpec {
-    const corners: Corner[] = [
-        { x: room.x, y: room.y },
-        { x: room.x + room.w, y: room.y },
-        { x: room.x + room.w, y: room.y + room.h },
-        { x: room.x, y: room.y + room.h },
+/**
+ * A room spec over `room`, with a door in each of `slots`; its corners cut
+ * off diagonally `chamfer` squares (an octagonal chamber), the doors kept to
+ * the straight stretches between.
+ */
+export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild, chamfer = 0): RoomSpec {
+    const { x, y, w, h } = room;
+    const c = chamfer;
+    // Each side's straight stretch, clockwise from the top: where it starts and ends.
+    const stretches: readonly (readonly [Corner, Corner])[] = [
+        [
+            { x: x + c, y },
+            { x: x + w - c, y },
+        ],
+        [
+            { x: x + w, y: y + c },
+            { x: x + w, y: y + h - c },
+        ],
+        [
+            { x: x + w - c, y: y + h },
+            { x: x + c, y: y + h },
+        ],
+        [
+            { x, y: y + h - c },
+            { x, y: y + c },
+        ],
     ];
     const sides: readonly Side[] = ['top', 'right', 'bottom', 'left'];
     const points: Corner[] = [];
-    const doorStarts: Corner[] = [];
+    const doorStarts: { at: Corner; slot: DoorSlot | undefined }[] = [];
     sides.forEach((side, i) => {
-        const start = corners[i];
-        const end = corners[(i + 1) % corners.length];
+        const [start, end] = stretches[i] ?? [];
         if (start && end) {
-            const along = sidePoints(
-                start,
-                end,
-                slots.filter((s) => s.side === side).map((s) => s.at),
-            );
-            points.push(...along.points);
-            doorStarts.push(...along.doorStarts);
+            const onSide = slots.filter((s) => s.side === side);
+            const along = sidePoints(start, end, onSide);
+            // Cut corners: the stretch ends short of the next side's start, and a diagonal runs between.
+            points.push(...along.points, ...(c > 0 ? [end] : []));
+            doorStarts.push(...along.doorStarts.map((at, n) => ({ at, slot: onSide[n] })));
         }
     });
     const doors = doorStarts
-        .map((d) => points.findIndex((p) => p.x === d.x && p.y === d.y))
-        .filter((segment) => segment >= 0)
-        .map((segment) => ({ segment, ...NEW_DOOR }));
+        .map(({ at, slot }) => ({ segment: points.findIndex((p) => p.x === at.x && p.y === at.y), slot }))
+        .filter(({ segment }) => segment >= 0)
+        .map(({ segment, slot }) => ({ segment, ...doorOf(slot) }));
+    return outlineRoomSpec(points, o, doors);
+}
+
+/** A room spec walled along any outline `points` (a hewn cavern's), with the doors given by segment. */
+export function outlineRoomSpec(points: readonly Corner[], o: RoomBuild, doors: RoomSpec['doors'] = []): RoomSpec {
     return {
         type: 'room',
-        points,
+        points: [...points],
         floor: o.floor,
         wall: o.wall,
         wallKind: o.wallKind,
@@ -215,7 +260,7 @@ export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild): 
         effects: [],
         display: DEFAULT_AREA_DISPLAY,
         spawn: { ...NO_SPAWN, actors: [] },
-        doors,
+        doors: [...doors],
     };
 }
 

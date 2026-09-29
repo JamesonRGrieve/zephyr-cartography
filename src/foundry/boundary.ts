@@ -77,7 +77,14 @@ export interface LightCreateData extends OnLevels {
 export interface TileCreateData extends OnLevels {
     readonly name: string;
     /** The anchor is the point `x`, `y` names and the tile rotates about. */
-    readonly texture: { readonly src: string; readonly anchorX: number; readonly anchorY: number; readonly alphaThreshold?: number | undefined };
+    readonly texture: {
+        readonly src: string;
+        readonly anchorX: number;
+        readonly anchorY: number;
+        readonly alphaThreshold?: number | undefined;
+        /** -1 draws the image flipped left to right (Foundry's own mirroring). */
+        readonly scaleX?: number;
+    };
     readonly x: number;
     readonly y: number;
     readonly width: number;
@@ -305,6 +312,10 @@ export interface NoteCreateData extends OnLevels {
     readonly pageId: string | null;
     readonly global: boolean;
     readonly texture?: { readonly src: string };
+    readonly iconSize?: number;
+    /** No author: a Note with no journal is shown to players only when its author is none or a player (14.368 `Note#isVisible`). */
+    readonly author?: null;
+    readonly flags?: Readonly<Record<string, { readonly readable: true }>>;
 }
 
 /**

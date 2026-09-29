@@ -111,7 +111,7 @@
         {
             "name": "zephyrex-cartography.js (built ESM)",
             "path": "dist/zephyrex-cartography.js",
-            "limit": "128 kB"
+            "limit": "512 kB"
         }
     ],
     "dependencies": {

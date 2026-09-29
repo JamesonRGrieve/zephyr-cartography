@@ -18,6 +18,8 @@ const LABELS: PinLabels = {
     icon: 'Entry Icon',
     browse: 'Browse for Entry Icon',
     global: 'Globally Visible',
+    size: 'Icon Size',
+    readable: 'Players read it on hover (a sign; no icon drawn)',
 };
 
 /** A stand-in for Foundry's file picker: the path it would return. */
@@ -72,7 +74,11 @@ type Story = StoryObj<PinPanelArgs>;
 export const NewPin: Story = {};
 
 export const ChapelPage: Story = {
-    args: { settings: { text: 'District 4 Chapel', entry: 'je-hab', page: 'pg-chapel', icon: 'icons/svg/temple.svg', global: true } },
+    args: { settings: { ...NEW_PIN, text: 'District 4 Chapel', entry: 'je-hab', page: 'pg-chapel', icon: 'icons/svg/temple.svg', global: true } },
+};
+
+export const ReadableSign: Story = {
+    args: { settings: { ...NEW_PIN, text: 'OPEN LATE', readable: true, size: 60 } },
 };
 
 export const EntryNoLongerInTheJournal: Story = {

@@ -20,30 +20,33 @@
  * drawn afresh one by one, so they vary. Pure and unit-tested; positions are
  * in grid squares.
  */
-import type { Rect, Side } from '../generate/floor-plan';
+import { OPPOSITE_SIDE, type Rect, type Side } from '../generate/floor-plan';
 import { pick, randomInt, shuffled, type Random } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import type { RoomPurpose } from './intent';
+import { WALL_SIDES, type FixtureIntent, type RoomPurpose } from './intent';
+import { FACING_TURN, fittedTo, namedArt, namedBox, type PlacedPiece, runOf, standsAs } from './named';
+import { isPlaceholder } from './placeholders';
 import { isSurfaceRole } from './role-tags';
 import type { RoleIndex, RoleStamp } from './roles';
 
 /** A stamp placed by the composer: its catalog key, footprint centre in squares, and rotation in degrees. */
-export interface ComposedStamp {
-    readonly stamp: string;
-    readonly x: number;
-    readonly y: number;
-    readonly rotation: number;
-}
+export type ComposedStamp = PlacedPiece;
 
 /** A room as furnishing sees it: its floor, the doors in its walls, and which walls are the building's outside. */
 export interface RoomFloor {
     readonly key: string;
     readonly purpose: RoomPurpose;
     readonly rect: Rect;
-    readonly doors: readonly { readonly side: Side; readonly at: number }[];
+    readonly doors: readonly { readonly side: Side; readonly at: number; readonly width?: number }[];
     readonly outer: readonly Side[];
     /** The wall with the building's front door, when this room has it. */
     readonly entrance: Side | null;
+    /** Named pieces asked for, placed first, each where asked; none when omitted. */
+    readonly fixtures?: readonly FixtureIntent[];
+    /** Its fixtures then its purpose's template, or its fixtures alone; the former when omitted. */
+    readonly furnish?: 'purpose' | 'fixtures';
+    /** How much grime gathers on its floor, 0 none to 1 filthy; some when omitted. */
+    readonly grime?: number;
 }
 
 /** How many to place: exactly, between two bounds, one per `per` squares of the room's walls (at least one), or as many as fit. */
@@ -87,7 +90,16 @@ interface WallStep {
     readonly before?: StampRole;
     readonly standoff?: number;
     readonly behind?: StampRole;
+    /** Only these walls, in this order (a fixture asked for on one wall). */
+    readonly sides?: readonly Side[];
+    /** Where along its wall: the wall's start (top or left end), middle, end, or `count` spread evenly along it. */
+    readonly along?: Along;
+    /** Exactly there, never a little off it: a named fixture, the same in every room it stands in. */
+    readonly exact?: boolean;
 }
+
+/** Where along its wall a piece stands. */
+type Along = 'start' | 'middle' | 'end' | 'spread';
 
 type Step =
     | WallStep
@@ -202,7 +214,8 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
     ],
     'mess': [
         { kind: 'wall', role: 'counter', count: 1, prefer: 'inner' },
-        { kind: 'cluster', centre: 'table', around: ['bench', 'seat'], count: 'fill', sides: 2 },
+        // A mess (or a great hall) eats at long tables with benches down both sides, not round ones.
+        { kind: 'cluster', centre: 'table', around: ['bench', 'seat'], count: 'fill', sides: 2, shape: 'long' },
         { kind: 'dress', role: 'tabletop', count: [1, 3] },
         { kind: 'wall', role: 'icon', count: [0, 2] },
         { kind: 'corner', role: 'storage', count: [1, 2] },
@@ -272,7 +285,7 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
 };
 
 /** Squares kept clear inside a door: its width plus a margin either side, and how deep. */
-const DOOR_CLEAR = { margin: 0.25, depth: 1.5 } as const;
+export const DOOR_CLEAR = { margin: 0.25, depth: 1.5 } as const;
 
 /** Squares left between neighbouring pieces along a wall, and between a wall's ends and the first. */
 const ALONG_GAP = 0.15;
@@ -282,6 +295,9 @@ const WALKWAY = 0.8;
 
 /** Squares between a table and its seats. */
 const SEAT_GAP = 0.05;
+
+/** Squares along a table or a bar each seated person takes, at the least: their elbow room. */
+const SEAT_PITCH = 0.75;
 
 /** How far from the walls scattered things lie, in squares. */
 const SCATTER_BAND = 1.2;
@@ -297,6 +313,9 @@ const BACK_TO: Readonly<Record<Side, number>> = { top: 0, right: 90, bottom: 180
 
 const QUARTER_TURN = 90;
 const HALF_TURN = 180;
+
+/** A piece this many times longer than it is deep has a long way round: its footprint lies one way or the other. */
+const ELONGATED = 1.5;
 
 /**
  * Roles whose pieces have no back to set against a wall (a candle stand, a
@@ -337,11 +356,14 @@ class Floor {
     readonly onWall = new Map<StampRole, { readonly side: Side; readonly reach: Box }>();
     /** The tops of the tables, bars and desks placed, for what is set on them. */
     readonly surfaces: Box[] = [];
+    /** Each piece put, in order: its box and the turn it stands at (its back to the wall `BACK_TO` names). */
+    readonly stood: { readonly box: Box; readonly turn: number }[] = [];
     private readonly taken: Box[] = [];
     private readonly kept: Box[];
 
-    constructor(readonly room: RoomFloor, doors: readonly Box[]) {
-        this.kept = [...doors];
+    /** `ways` is floor always kept open: door approaches and the stairwell. */
+    constructor(readonly room: RoomFloor, private readonly ways: readonly Box[]) {
+        this.kept = [...ways];
     }
 
     /** Keep `box` open floor: nothing placed after stands there. */
@@ -353,7 +375,21 @@ class Floor {
         return within(box, this.room.rect) && !this.taken.some((t) => overlaps(t, box)) && (!keepClear || !this.kept.some((k) => overlaps(k, box)));
     }
 
-    /** Whether `stamp` can stand turned by `rotation`: art drawn with depth only as drawn, never turned. */
+    /**
+     * Whether `box` is free of every piece and of the ways in and up, though
+     * it stand in a piece's kept front: where a named fixture may be put on
+     * purpose (stools before a counter).
+     */
+    clearOfWays(box: Box): boolean {
+        return this.free(box, false) && !this.inWay(box);
+    }
+
+    /** Whether `box` lies across a way in or up: a door's approach or the stairwell. */
+    inWay(box: Box): boolean {
+        return this.ways.some((w) => overlaps(w, box));
+    }
+
+    /** Whether `stamp` can stand turned by `rotation`: isometric art only as drawn, never turned. */
     static stands(stamp: RoleStamp, rotation: number): boolean {
         return !stamp.upright || rotation % FULL_TURN === 0;
     }
@@ -364,10 +400,11 @@ class Floor {
             return false;
         }
         this.taken.push(box);
+        this.stood.push({ box, turn: rotation });
         if (clear) {
             this.kept.push(clear);
         }
-        this.placed.push({ stamp: stamp.key, x: box.x + box.w / 2, y: box.y + box.h / 2, rotation: (rotation + stamp.turn) % FULL_TURN });
+        this.placed.push(...composedIn(stamp, box, rotation));
         if (isSurfaceRole(stamp.role)) {
             this.surfaces.push(box);
         }
@@ -376,9 +413,12 @@ class Floor {
 
     /** Set a piece on a surface: it takes no floor, and stands on the surface when built. */
     setOn(stamp: RoleStamp, box: Box, rotation: number): void {
-        this.placed.push({ stamp: stamp.key, x: box.x + box.w / 2, y: box.y + box.h / 2, rotation: (rotation + stamp.turn) % FULL_TURN });
+        this.placed.push(...composedIn(stamp, box, rotation));
     }
 }
+
+/** `stamp` centred in `box`, turned `rotation` past as it is drawn, at the size it was fitted to: the piece, or a run's modules side by side along its width. */
+const composedIn = (stamp: RoleStamp, box: Box, rotation: number): ComposedStamp[] => standsAs(stamp, { x: box.x + box.w / 2, y: box.y + box.h / 2 }, rotation);
 
 /**
  * A strip `depth` deep inside `rect` along its `side`, from `t` for `along`:
@@ -391,9 +431,51 @@ const ALONG_WALL: Readonly<Record<Side, (rect: Rect, t: number, along: number, d
     right: (rect, t, along, depth, inset) => ({ x: rect.x + rect.w - inset - depth, y: t, w: depth, h: along }),
 };
 
+/** How much grime a room gathers when its intent says nothing: some. */
+const DEFAULT_GRIME = 0.5;
+
+/**
+ * Grime scattered at full measure: decals per square of floor; how far out
+ * from a wall one lies at most (in squares, most close in, where dirt
+ * gathers); and the tries each gets to find floor clear of a doorway.
+ */
+const GRIME = { perSquare: 0.1, reach: 1.4, tries: 6 } as const;
+
+const WALLS: readonly Side[] = ['top', 'right', 'bottom', 'left'];
+
+/**
+ * Decals (stains, cracks, dust) laid flat on the floor, `amount` of the full
+ * measure (0 none, 1 a filthy room), gathered along the walls and into the
+ * corners as dirt does, the open floor left mostly clean; never in a doorway
+ * or a stairwell. They lie beneath the furniture and take no floor from it.
+ */
+function scatterGrime(floor: Floor, decals: readonly RoleStamp[], amount: number, random: Random): void {
+    const { rect } = floor.room;
+    const count = Math.round(rect.w * rect.h * GRIME.perSquare * amount);
+    for (let n = 0; n < count && decals.length > 0; n++) {
+        for (let attempt = 0; attempt < GRIME.tries; attempt++) {
+            const decal = pick(random, decals);
+            const side = pick(random, WALLS);
+            if (decal === undefined || side === undefined) {
+                break;
+            }
+            const turn = decal.upright ? 0 : BACK_TO[side];
+            const sideways = turn % HALF_TURN !== 0;
+            const [along, depth] = sideways ? [decal.height, decal.width] : [decal.width, decal.height];
+            const { lo, hi } = wallSpan(rect, side);
+            // Squared, so most lie close in against the wall.
+            const box = ALONG_WALL[side](rect, lo + random() * Math.max(0, hi - lo - along), along, depth, random() ** 2 * GRIME.reach);
+            if (within(box, rect) && !floor.inWay(box)) {
+                floor.setOn(decal, box, turn);
+                break;
+            }
+        }
+    }
+}
+
 /** The clear approach inside a door in `rect`'s wall: nothing stands there, and no stairwell opens there. */
-export function doorApproach(rect: Rect, { side, at }: { readonly side: Side; readonly at: number }): Box {
-    return ALONG_WALL[side](rect, at - DOOR_CLEAR.margin, 1 + 2 * DOOR_CLEAR.margin, DOOR_CLEAR.depth, 0);
+export function doorApproach(rect: Rect, { side, at, width = 1 }: { readonly side: Side; readonly at: number; readonly width?: number }): Box {
+    return ALONG_WALL[side](rect, at - DOOR_CLEAR.margin, width + 2 * DOOR_CLEAR.margin, DOOR_CLEAR.depth, 0);
 }
 
 /** The clear approach inside each door of a room. */
@@ -417,8 +499,6 @@ function wallSpan(rect: Rect, side: Side): { lo: number; hi: number } {
     return side === 'top' || side === 'bottom' ? { lo: rect.x, hi: rect.x + rect.w } : { lo: rect.y, hi: rect.y + rect.h };
 }
 
-const OPPOSITE: Readonly<Record<Side, Side>> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
-
 /**
  * How far each wall is from the way in, lowest first: the wall facing the
  * front door, then one facing another door, then the other doorless walls,
@@ -428,10 +508,10 @@ function farFromDoors(room: RoomFloor, side: Side): number {
     if (room.doors.some((d) => d.side === side)) {
         return 3;
     }
-    if (room.entrance !== null && OPPOSITE[room.entrance] === side) {
+    if (room.entrance !== null && OPPOSITE_SIDE[room.entrance] === side) {
         return 0;
     }
-    return room.doors.some((d) => OPPOSITE[d.side] === side) ? 1 : 2;
+    return room.doors.some((d) => OPPOSITE_SIDE[d.side] === side) ? 1 : 2;
 }
 
 /** The room's walls, those it prefers first, each group in a seeded order. */
@@ -459,7 +539,8 @@ function wallOrder(room: RoomFloor, prefer: WallPreference | undefined, random: 
 function seatRow(floor: Floor, seat: RoleStamp, before: Box, side: Side): void {
     const horizontal = side === 'top' || side === 'bottom';
     const span = horizontal ? before.w : before.h;
-    const n = Math.max(1, Math.floor(span / (seat.width + ALONG_GAP)));
+    // A seat to each person's elbow room, however narrow its art: a small stool is no reason to pack a table with them.
+    const n = Math.max(1, Math.floor(span / Math.max(seat.width + ALONG_GAP, SEAT_PITCH)));
     const rotation = (BACK_TO[side] + FULL_TURN / 2) % FULL_TURN;
     for (let i = 0; i < n; i++) {
         const centre = (horizontal ? before.x : before.y) + (span * (i + 0.5)) / n;
@@ -551,23 +632,23 @@ function placeCompanions(floor: Floor, side: Side, t: number, stamp: RoleStamp, 
 function orderAlongWall(
     spots: readonly number[],
     count: Count,
-    wall: { readonly lo: number; readonly hi: number; readonly width: number; readonly quota: number },
+    wall: { readonly lo: number; readonly hi: number; readonly width: number; readonly quota: number; readonly along: Along; readonly exact: boolean },
     random: Random,
 ): number[] {
     if (count === 'fill') {
         return [...spots];
     }
-    const { lo, hi, width, quota } = wall;
-    const marks =
-        typeof count === 'object' && 'per' in count
-            ? Array.from({ length: quota }, (_, i) => lo + ((i + 0.5) * (hi - lo)) / quota - width / 2)
-            : [(lo + hi - width) / 2];
+    const { lo, hi, width, quota, along, exact } = wall;
+    const perWall = typeof count === 'object' && 'per' in count;
+    const single: Readonly<Record<Exclude<Along, 'spread'>, number>> = { start: lo + ALONG_GAP, middle: (lo + hi - width) / 2, end: hi - width - ALONG_GAP };
+    const marks = along === 'spread' || perWall ? Array.from({ length: quota }, (_, i) => lo + ((i + 0.5) * (hi - lo)) / quota - width / 2) : [single[along]];
     const nearest = (t: number): number => Math.min(...marks.map((m) => Math.abs(m - t)));
-    return [...spots].sort((a, b) => nearest(a) - nearest(b) + (random() - 0.5));
+    // Exact: the marks themselves first, then the nearest spots, in order; else the nearest, give or take.
+    return exact ? [...marks, ...[...spots].sort((a, b) => nearest(a) - nearest(b))] : [...spots].sort((a, b) => nearest(a) - nearest(b) + (random() - 0.5));
 }
 
 /**
- * The turn that stands `stamp` against the `side` wall. Art drawn with depth
+ * The turn that stands `stamp` against the `side` wall. Isometric art
  * stands only where it needs no turn: its back to the top wall, or, having no
  * back, unturned by any wall.
  */
@@ -598,7 +679,8 @@ function wallSpot(
     // Stood out from the wall, the floor behind it must be free too, for its companions and whoever works there.
     const behind = inset > 0 ? ALONG_WALL[side](rect, t, along, inset, 0) : null;
     // Its clear front may share floor with a door's approach: both are only floor kept open.
-    const clear = floor.free(box) && (stamp.clearance === 0 || floor.free(front, false)) && (behind === null || floor.free(behind));
+    // The floor behind it only needs no piece on it: a door there (the proprietor's, behind a counter) is walkable floor.
+    const clear = floor.free(box) && (stamp.clearance === 0 || floor.free(front, false)) && (behind === null || floor.free(behind, false));
     return clear ? { box, front, turn } : null;
 }
 
@@ -609,17 +691,21 @@ function placeOnWalls(floor: Floor, step: WallStep, draw: Draw, companions: Comp
     const { rect } = floor.room;
     const inset = step.standoff ?? 0;
     let stamp = draw();
-    const spacing = typeof step.count === 'object' && 'per' in step.count ? step.count.per : null;
-    for (const side of wallOrder(floor.room, step.prefer, random)) {
+    const along = step.along ?? 'middle';
+    // Spread along one wall: `count` of them, each its share of the wall.
+    const spread = along === 'spread' && typeof step.count === 'number' ? step.count : null;
+    const perSpacing = typeof step.count === 'object' && 'per' in step.count ? step.count.per : null;
+    for (const side of step.sides ?? wallOrder(floor.room, step.prefer, random)) {
         const { lo, hi } = wallSpan(rect, side);
         const spots: number[] = [];
         for (let t = lo + ALONG_GAP; t < hi - ALONG_GAP; t += WALL_STEP) {
             spots.push(t);
         }
         // Spaced pieces share out along every wall, each wall its share, evenly spaced along it.
-        const quota = spacing === null ? Number.POSITIVE_INFINITY : Math.max(1, Math.round((hi - lo) / spacing));
+        const spacing = spread === null ? perSpacing : (hi - lo) / spread;
+        const quota = spread ?? (spacing === null ? Number.POSITIVE_INFINITY : Math.max(1, Math.round((hi - lo) / spacing)));
         const placedAt: number[] = [];
-        const order = orderAlongWall(spots, step.count, { lo, hi, width: stamp.width, quota }, random);
+        const order = orderAlongWall(spots, step.count, { lo, hi, width: stamp.width, quota, along, exact: step.exact === true }, random);
         for (const t of order) {
             if (wanted <= 0) {
                 return asked;
@@ -645,7 +731,7 @@ function placeOnWalls(floor: Floor, step: WallStep, draw: Draw, companions: Comp
                 wanted -= 1;
                 stamp = draw();
             } else if (!Floor.stands(stamp, wallTurn(stamp, side))) {
-                // Drawn with depth, it stands by no wall but the top: another piece may, rather than this wall going bare.
+                // Drawn isometric, it stands by no wall but the top: another piece may, rather than this wall going bare.
                 stamp = draw();
             }
         }
@@ -653,11 +739,25 @@ function placeOnWalls(floor: Floor, step: WallStep, draw: Draw, companions: Comp
     return asked - wanted;
 }
 
+/** A room's corner, as its right or left and bottom or top. */
+interface Corner {
+    readonly right: boolean;
+    readonly bottom: boolean;
+}
+
+/** A room's four corners. */
+const CORNERS: readonly Corner[] = [
+    { right: false, bottom: false },
+    { right: true, bottom: false },
+    { right: true, bottom: true },
+    { right: false, bottom: true },
+];
+
 /** Roles set across a corner, facing out into the room: an easy chair, not a pile of stores. */
 const ACROSS_CORNER_ROLES: readonly StampRole[] = ['armchair'];
 
 /** The turn that sets a piece's back into a corner, facing out along the diagonal (clockwise, its back up at 0). */
-function acrossCorner({ right, bottom }: { readonly right: boolean; readonly bottom: boolean }): number {
+function acrossCorner({ right, bottom }: Corner): number {
     const eighth = FULL_TURN / 8;
     if (right) {
         return bottom ? HALF_TURN - eighth : eighth;
@@ -666,16 +766,11 @@ function acrossCorner({ right, bottom }: { readonly right: boolean; readonly bot
 }
 
 /** Place pieces in the room's free corners; how many it still wanted when the corners ran out. */
-function placeInCorners(floor: Floor, draw: Draw, count: Count, random: Random): number {
+function placeInCorners(floor: Floor, draw: Draw, count: Count, random: Random, only?: readonly Corner[]): number {
     const { rect } = floor.room;
     let wanted = howMany(count, random, floor.room.rect);
-    // Each corner as the room's left or right and top or bottom, the piece's back to the top or bottom wall.
-    const corners = shuffled(random, [
-        { right: false, bottom: false },
-        { right: true, bottom: false },
-        { right: true, bottom: true },
-        { right: false, bottom: true },
-    ]);
+    // Each corner as the room's left or right and top or bottom, the piece's back to the top or bottom wall; those asked for alone.
+    const corners = only ?? shuffled(random, CORNERS);
     let stamp = draw();
     for (const corner of corners) {
         // An easy chair drawn straight down sits across its corner, facing out into the room; it takes the square its
@@ -689,7 +784,7 @@ function placeInCorners(floor: Floor, draw: Draw, count: Count, random: Random):
             w,
             h,
         };
-        // A pile drawn with depth stands in any corner as drawn; one drawn straight down turns its back to the nearer wall.
+        // An isometric pile stands in any corner as drawn; one seen from above turns its back to the nearer wall.
         const square = BACK_TO[corner.bottom ? 'bottom' : 'top'];
         const rotation = stamp.upright ? 0 : across ? acrossCorner(corner) : square;
         if (wanted > 0 && floor.free(box) && floor.put(stamp, box, rotation, null)) {
@@ -750,13 +845,13 @@ function placeStack(floor: Floor, piece: RoleStamp, cell: Box, turned: boolean, 
     return floor.free(cell) && floor.put(piece, box, across ? QUARTER_TURN : 0, null);
 }
 
-/** How a room's tables are seated and laid: one row of seats drawn with depth above each, rows along the floor's length. */
+/** How a room's tables are seated and laid: one row of isometric seats above each, rows along the floor's length. */
 function clusterLie(given: Seating, rect: Rect): { seating: Seating; region: Box; turned: boolean } {
-    // Seats drawn with depth cannot be turned: one row of them, above each table, facing down onto it as drawn.
+    // Isometric seats cannot be turned: one row of them, above each table, facing down onto it as drawn.
     const seating: Seating = given.seat?.upright === true ? { ...given, sides: 1, round: false } : given;
     const region: Box = { x: rect.x + WALKWAY, y: rect.y + WALKWAY, w: rect.w - 2 * WALKWAY, h: rect.h - 2 * WALKWAY };
-    // Rows run along the room's long axis; a table drawn with depth lies as drawn, its rows along its own length, as do those
-    // seated by seats drawn with depth.
+    // Rows run along the room's long axis; an isometric table lies as drawn, its rows along its own length, as do those
+    // seated by isometric seats.
     const turned = seating.seat?.upright === true ? false : seating.table.upright ? seating.table.height > seating.table.width : region.h > region.w;
     return { seating, region, turned };
 }
@@ -847,7 +942,7 @@ function placeCluster(
     const tableBox: Box = turned
         ? { x: cell.x + across, y: cell.y + along, w: block.short, h: block.long }
         : { x: cell.x + along, y: cell.y + across, w: block.long, h: block.short };
-    // A table whose image is taller than wide is turned a quarter to lie along the block; one drawn with depth lies as drawn.
+    // A table whose image is taller than wide is turned a quarter to lie along the block; an isometric one lies as drawn.
     const lengthwise = table.width >= table.height;
     const rotation = table.upright ? 0 : (turned ? QUARTER_TURN : 0) + (lengthwise ? 0 : QUARTER_TURN);
     if (!floor.put(table, tableBox, (rotation + set) % FULL_TURN, null)) {
@@ -893,7 +988,7 @@ function placeScattered(floor: Floor, draw: Draw, count: Count, random: Random):
 /** A rug at the room's middle, lying along its long axis; beneath everything, so it takes no floor. */
 function placeUnderlay(floor: Floor, stamp: RoleStamp): void {
     const { rect } = floor.room;
-    // Along the room's long axis, unless drawn with depth: then as drawn.
+    // Along the room's long axis, unless isometric: then as drawn.
     const turned = !stamp.upright && rect.h > rect.w !== stamp.height > stamp.width;
     const w = turned ? stamp.height : stamp.width;
     const h = turned ? stamp.width : stamp.height;
@@ -911,29 +1006,57 @@ function placeUnderlay(floor: Floor, stamp: RoleStamp): void {
 const ROW_GAP = 0.3;
 const AISLE = 1;
 
+/** Squares deep a row of pews stands at most: the pew and the knees before it. */
+const PEW_ROW_DEPTH = 1;
+
+/**
+ * What stands in each row across `room` squares: the pew as drawn, two
+ * columns either side of an aisle where they fit; or, art drawn deeper than
+ * a row (a pew with its kneeler and floor round it), that art fitted to a
+ * row's depth and laid as a run of pews along each column where it is long
+ * enough, so the rows still fit a small chapel and still read as pews.
+ */
+function rowOf(pew: RoleStamp, room: number, aisle: number): { readonly piece: RoleStamp; readonly columns: number } {
+    if (pew.height <= PEW_ROW_DEPTH) {
+        return { piece: pew, columns: room >= 2 * pew.width + aisle ? 2 : 1 };
+    }
+    const one = fittedTo(pew, pew.width, PEW_ROW_DEPTH);
+    const columns = room >= 2 * one.width + aisle ? 2 : 1;
+    const span = Math.min(room, (room - (columns - 1) * aisle) / columns);
+    return { piece: runOf(pew, span, PEW_ROW_DEPTH) ?? fittedTo(pew, span, PEW_ROW_DEPTH), columns };
+}
+
 /**
  * Pews in rows facing the piece on the wall at `side` (its front `ahead`
  * squares deep kept open), filling towards the far wall with a walkway at
  * the back: two columns either side of a centre aisle where the room is
- * wide enough, else one down the middle.
+ * wide enough, else one down the middle. How many pews stood.
  */
-function placeRows(floor: Floor, pew: RoleStamp, side: Side, ahead: Box): void {
+function placeRows(floor: Floor, drawn: RoleStamp, side: Side, ahead: Box): number {
     const { rect } = floor.room;
     const horizontal = side === 'top' || side === 'bottom';
     // Along the facing wall, and away from it, in room coordinates.
     const across = horizontal ? { lo: rect.x, span: rect.w } : { lo: rect.y, span: rect.h };
     const inner = WALKWAY / 2;
-    const columns = across.span - 2 * inner >= 2 * pew.width + AISLE ? 2 : 1;
-    const used = columns * pew.width + (columns - 1) * AISLE;
-    const starts = Array.from({ length: columns }, (_, c) => across.lo + (across.span - used) / 2 + c * (pew.width + AISLE));
+    // The aisle runs from a door in the far wall to what the pews face, so the way in is the way up the nave, as wide as the
+    // door's kept approach so the back rows stand either side of it; with no such door, a centred aisle.
+    const door = floor.room.doors.find((d) => d.side === OPPOSITE_SIDE[side]);
+    const aisle = door === undefined ? AISLE : Math.max(AISLE, (door.width ?? 1) + 2 * DOOR_CLEAR.margin);
+    const { piece: pew, columns } = rowOf(drawn, across.span - 2 * inner, aisle);
+    const used = columns * pew.width + (columns - 1) * aisle;
+    const centred = across.lo + (across.span - used) / 2;
+    const [first, last] = [across.lo + inner, across.lo + across.span - inner - used];
+    const lo = columns === 2 && door !== undefined ? Math.min(last, Math.max(first, door.at + (door.width ?? 1) / 2 - aisle / 2 - pew.width)) : centred;
+    const starts = Array.from({ length: columns }, (_, c) => lo + c * (pew.width + aisle));
     // Rows start past the piece and its kept front, and stop a walkway short of the far wall.
     const nearEdge = { top: ahead.y + ahead.h, bottom: ahead.y, left: ahead.x + ahead.w, right: ahead.x }[side];
     const farEdge = { top: rect.y + rect.h, bottom: rect.y, left: rect.x + rect.w, right: rect.x }[side];
     const depth = Math.abs(farEdge - nearEdge) - WALKWAY;
     const rows = Math.max(0, Math.floor((depth + ROW_GAP) / (pew.height + ROW_GAP)));
     // The pews' backs are to the far wall, so their seats face the piece.
-    const rotation = BACK_TO[OPPOSITE[side]];
+    const rotation = BACK_TO[OPPOSITE_SIDE[side]];
     const away = side === 'top' || side === 'left' ? 1 : -1;
+    let stood = 0;
     for (let r = 0; r < rows; r++) {
         const depthStart = nearEdge + away * (ROW_GAP + r * (pew.height + ROW_GAP));
         const d0 = away > 0 ? depthStart : depthStart - pew.height;
@@ -941,9 +1064,11 @@ function placeRows(floor: Floor, pew: RoleStamp, side: Side, ahead: Box): void {
             const box: Box = horizontal ? { x: t, y: d0, w: pew.width, h: pew.height } : { x: d0, y: t, w: pew.height, h: pew.width };
             if (floor.free(box)) {
                 floor.put(pew, box, rotation, null);
+                stood += 1;
             }
         }
     }
+    return stood;
 }
 
 /** Squares kept between what is set on a surface and the surface's edge. */
@@ -1023,15 +1148,14 @@ const MATCHED_ROLES: readonly StampRole[] = ['table', 'seat', 'bench', 'bed', 'p
 /**
  * Pieces that serve for another's role when no stamp fills it: a kitchen's
  * work surface is a table, a desk a table to write at, a guest's chest a
- * store's, an easy chair a plain one. A nightstand has none: a barrel by a
- * bed reads as a store room, so a bed without one stands alone.
+ * store's. A nightstand or an easy chair has none (a barrel by a bed reads
+ * as a store room, a plain chair is no easy chair): where the map composes
+ * with placeholders, a labelled box shows it instead.
  */
 const STAND_INS: readonly (readonly [StampRole, StampRole])[] = [
     ['workbench', 'table'],
     ['desk', 'table'],
     ['chest', 'storage'],
-    // Without an easy chair, a plain one sits in the corner.
-    ['armchair', 'seat'],
 ];
 
 /** Roles a table stands in for as a surface to work at: only a long table serves. */
@@ -1040,9 +1164,11 @@ const SURFACE_STAND_INS: readonly StampRole[] = ['workbench', 'desk'];
 /** `stamps` with each role no stamp fills taking its stand-in's stamps. */
 function withStandIns(stamps: RoleIndex): RoleIndex {
     const filled = new Map(stamps);
+    // Real art only: a genuine stand-in (a long table to work at) beats a placeholder box, and a box never stands in.
+    const real = (role: StampRole): RoleStamp[] => (filled.get(role) ?? []).filter((s) => !isPlaceholder(s.key));
     for (const [role, standIn] of STAND_INS) {
-        const own = filled.get(role) ?? [];
-        const other = filled.get(standIn) ?? [];
+        const own = real(role);
+        const other = real(standIn);
         if (own.length === 0 && other.length > 0) {
             // A work surface is a long table to work along, never a round one to sit at, where there is a long one.
             const long = SURFACE_STAND_INS.includes(role) ? other.filter((s) => ofShape(s, 'long')) : [];
@@ -1076,9 +1202,31 @@ export function furnishRoom(
     given: RoleIndex,
     random: Random,
     reserved: readonly Box[] = [],
-): { stamps: ComposedStamp[]; missing: StampRole[]; borrowed: StampRole[] } {
+): { stamps: ComposedStamp[]; missing: StampRole[]; borrowed: StampRole[]; boxed: string[]; crowded: string[] } {
     const stamps = withStandIns(forPurpose(given, room.purpose));
     const floor = new Floor(room, [...doorApproaches(room), ...reserved]);
+    // The room's named pieces first, each where asked: in its role's art where a pack draws it, else a box with its name;
+    // those with no room even for their box are left off, and said so.
+    const boxed: string[] = [];
+    const crowded: string[] = [];
+    // Where each named fixture stood, for those placed before it.
+    const named = new Map<string, Floor['stood']>();
+    for (const fixture of room.fixtures ?? []) {
+        const from = floor.stood.length;
+        // Art asked for by its tags is what the intent named, whatever room its tags would keep it to.
+        const piece = namedArt(fixture, fixture.tags.length > 0 ? given : stamps);
+        const stood = piece === undefined ? 0 : placeFixture(floor, fixture, piece, named, random);
+        // Art that stands nowhere it is asked (isometric, it cannot turn to a side wall) gives way to its box.
+        const boxes = stood === 0 ? placeFixture(floor, fixture, namedBox(fixture), named, random) : 0;
+        if (stood === 0 && boxes > 0) {
+            boxed.push(fixture.name);
+        }
+        // Fewer than asked stood (a third server rack on a wall with room for two) is said, as none at all is.
+        if (Math.max(stood, boxes) < askedCount(fixture)) {
+            crowded.push(fixture.name);
+        }
+        named.set(fixture.name, [...(named.get(fixture.name) ?? []), ...floor.stood.slice(from)]);
+    }
     const chosen = new Map<StampRole, RoleStamp | undefined>();
     const choose = (role: StampRole): RoleStamp | undefined => {
         if (!chosen.has(role)) {
@@ -1106,18 +1254,243 @@ export function furnishRoom(
         return byShape.get(key);
     };
     const missing = new Set<StampRole>();
-    for (const step of ROOM_TEMPLATES[room.purpose]) {
-        if (required(step) && choose(mainRole(step)) === undefined) {
+    for (const step of room.furnish === 'fixtures' ? [] : ROOM_TEMPLATES[room.purpose]) {
+        const picked = choose(mainRole(step));
+        if (required(step) && (picked === undefined || isPlaceholder(picked.key))) {
             missing.add(mainRole(step));
         }
-        runStep(floor, step, { choose, drawOf, bulkiest, shaped, all: (role) => stamps.get(role) ?? [] }, random);
+        const leftOut = (role: StampRole): void => {
+            crowded.push(role);
+        };
+        runStep(floor, step, { choose, drawOf, bulkiest, shaped, all: (role) => stamps.get(role) ?? [], leftOut }, random);
     }
-    // Rugs lie beneath everything: first in the drawing order.
-    const rugs = new Set([...(stamps.get('rug') ?? [])].map((s) => s.key));
-    const placed = [...floor.placed.filter((p) => rugs.has(p.stamp)), ...floor.placed.filter((p) => !rugs.has(p.stamp))];
+    scatterGrime(
+        floor,
+        (given.get('decal') ?? []).filter((s) => !isPlaceholder(s.key)),
+        room.grime ?? DEFAULT_GRIME,
+        random,
+    );
+    // Grime and rugs lie beneath everything: first in the drawing order, the grime under the rugs.
+    const under = (role: StampRole): Set<string> => new Set((given.get(role) ?? []).map((s) => s.key));
+    const [grime, rugs] = [under('decal'), under('rug')];
+    const placed = [
+        ...floor.placed.filter((p) => grime.has(p.stamp)),
+        ...floor.placed.filter((p) => rugs.has(p.stamp)),
+        ...floor.placed.filter((p) => !grime.has(p.stamp) && !rugs.has(p.stamp)),
+    ];
     const lent = new Map([...stamps.values()].flat().flatMap((s) => (s.borrowed ? [[s.key, s.role] as const] : [])));
     const borrowed = [...new Set(placed.flatMap((p) => lent.get(p.stamp) ?? []))];
-    return { stamps: placed, missing: [...missing], borrowed };
+    return { stamps: placed, missing: [...missing], borrowed, boxed, crowded };
+}
+
+/** A fixture's area when it names none: the whole room. */
+const WHOLE_ROOM = { from: { x: 0, y: 0 }, to: { x: 1, y: 1 } } as const;
+
+/** A room's corners by name. */
+const NAMED_CORNERS: Readonly<Record<'top-left' | 'top-right' | 'bottom-right' | 'bottom-left', Corner>> = {
+    'top-left': { right: false, bottom: false },
+    'top-right': { right: true, bottom: false },
+    'bottom-right': { right: true, bottom: true },
+    'bottom-left': { right: false, bottom: true },
+};
+
+/**
+ * Place a named fixture where it asks: against a wall, in a corner, free at
+ * a point, along a line or in a grid, or in rows; how many it placed.
+ */
+/**
+ * How many of `fixture` must stand for it to be placed as asked: its `count`
+ * against a wall, in corners or along a line; at least one wherever else it
+ * goes (a grid, rows or the pieces before others set their own numbers).
+ */
+function askedCount(fixture: FixtureIntent): number {
+    const { place } = fixture;
+    return 'wall' in place || 'corner' in place || 'line' in place ? fixture.count : 1;
+}
+
+function placeFixture(floor: Floor, fixture: FixtureIntent, piece: RoleStamp, named: ReadonlyMap<string, Floor['stood']>, random: Random): number {
+    const draw = (): RoleStamp => piece;
+    const { place } = fixture;
+    if ('before' in place) {
+        return (named.get(place.before) ?? []).filter((target) => placeBefore(floor, piece, target, place)).length;
+    }
+    if ('wall' in place) {
+        const step: WallStep = {
+            kind: 'wall',
+            role: piece.role,
+            count: fixture.count,
+            along: place.along,
+            exact: true,
+            ...(place.wall === 'any' ? {} : { sides: [place.wall] }),
+            ...(place.standoff > 0 ? { standoff: place.standoff } : {}),
+        };
+        return placeOnWalls(floor, step, draw, NO_COMPANIONS, random);
+    }
+    if ('corner' in place) {
+        const left = placeInCorners(floor, draw, fixture.count, random, place.corner === 'any' ? undefined : [NAMED_CORNERS[place.corner]]);
+        return fixture.count - left;
+    }
+    const turn = FACING_TURN[fixture.facing];
+    // Isometric art is never turned: a long piece asked to face sideways would lie across its footprint.
+    if (piece.upright && turn % HALF_TURN !== 0 && Math.max(fixture.width, fixture.height) > ELONGATED * Math.min(fixture.width, fixture.height)) {
+        return 0;
+    }
+    const points = freePoints(fixture);
+    if (points !== null) {
+        // One of many (a grid, a line) may give a little within its share of the floor where a doorway's approach takes its spot.
+        const give = points.length > 1 ? cellGive(fixture) : { x: 0, y: 0 };
+        return points.filter((at) => NUDGES.some(([dx, dy]) => placeFree(floor, piece, { x: at.x + dx * give.x, y: at.y + dy * give.y }, turn, fixture.fixed)))
+            .length;
+    }
+    if (!('rows' in place)) {
+        return 0;
+    }
+    const { rect } = floor.room;
+    const { from, to } = place.area ?? WHOLE_ROOM;
+    const region: Rect = { x: rect.x + from.x * rect.w, y: rect.y + from.y * rect.h, w: (to.x - from.x) * rect.w, h: (to.y - from.y) * rect.h };
+    return placeRowsOf(floor, piece, region, place);
+}
+
+/** The wall a piece standing at `turn` has its back to. */
+const backSide = (turn: number): Side => WALL_SIDES.find((s) => BACK_TO[s] === ((turn % FULL_TURN) + FULL_TURN) % FULL_TURN) ?? 'top';
+
+/**
+ * One piece before `target`'s front (or at its back), `gap` out from it,
+ * centred on it and facing it (an isometric piece as drawn); left out
+ * where the floor there is taken or a way in. Whether it stood.
+ */
+function placeBefore(floor: Floor, piece: RoleStamp, target: Floor['stood'][number], { gap, behind }: { gap: number; behind: boolean }): boolean {
+    const back = backSide(target.turn);
+    // The side of the target it stands on; its own back to the far side, so it faces the target.
+    const front = behind ? back : OPPOSITE_SIDE[back];
+    const wanted = BACK_TO[front];
+    const rotation = Floor.stands(piece, wanted) ? wanted : 0;
+    const across = rotation % HALF_TURN !== 0;
+    const w = across ? piece.height : piece.width;
+    const h = across ? piece.width : piece.height;
+    const { box: t } = target;
+    const cx = t.x + t.w / 2 - w / 2;
+    const cy = t.y + t.h / 2 - h / 2;
+    const at: Readonly<Record<Side, Box>> = {
+        top: { x: cx, y: t.y - gap - h, w, h },
+        bottom: { x: cx, y: t.y + t.h + gap, w, h },
+        left: { x: t.x - gap - w, y: cy, w, h },
+        right: { x: t.x + t.w + gap, y: cy, w, h },
+    };
+    return floor.clearOfWays(at[front]) && floor.put(piece, at[front], rotation, null);
+}
+
+/** Where a piece of many tries to stand, in turn: its own spot, then a little off it each way (in shares of its cell's give). */
+const NUDGES: readonly (readonly [number, number])[] = [
+    [0, 0],
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+];
+
+/** Share of a grid cell's or a line step's size a piece may stand off its spot. */
+const CELL_GIVE = 0.25;
+
+/** How far (fractions of the room) a piece of a grid or a line may stand off its spot: a quarter of its cell each way. */
+function cellGive({ place, count }: FixtureIntent): { x: number; y: number } {
+    if ('grid' in place) {
+        const { from, to } = place.area ?? WHOLE_ROOM;
+        return { x: ((to.x - from.x) / place.grid.columns) * CELL_GIVE, y: ((to.y - from.y) / place.grid.rows) * CELL_GIVE };
+    }
+    if ('line' in place) {
+        const { from, to } = place.line;
+        const step = 1 / Math.max(1, count - 1);
+        return { x: Math.abs(to.x - from.x) * step * CELL_GIVE, y: Math.abs(to.y - from.y) * step * CELL_GIVE };
+    }
+    return { x: 0, y: 0 };
+}
+
+/** The points (fractions of the room) a free-standing fixture's pieces stand at: its centre, its point, along its line or over its grid; null for rows. */
+function freePoints(fixture: FixtureIntent): { x: number; y: number }[] | null {
+    const { place, count } = fixture;
+    if ('centre' in place) {
+        return [{ x: 0.5, y: 0.5 }];
+    }
+    if ('at' in place) {
+        return [place.at];
+    }
+    if ('line' in place) {
+        const { from, to } = place.line;
+        return Array.from({ length: count }, (_, i) => {
+            const t = count === 1 ? 0.5 : i / (count - 1);
+            return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+        });
+    }
+    if ('grid' in place) {
+        const { columns, rows } = place.grid;
+        const { from, to } = place.area ?? WHOLE_ROOM;
+        return Array.from({ length: columns * rows }, (_, i) => ({
+            x: from.x + ((to.x - from.x) * ((i % columns) + 0.5)) / columns,
+            y: from.y + ((to.y - from.y) * (Math.floor(i / columns) + 0.5)) / rows,
+        }));
+    }
+    return null;
+}
+
+/**
+ * One piece standing free, centred at `at` (fractions of the room), turned
+ * `turn` (an isometric piece as drawn), kept wholly inside the room;
+ * left out where the floor there is taken or kept clear. Whether it stood.
+ */
+function placeFree(floor: Floor, piece: RoleStamp, at: { readonly x: number; readonly y: number }, turn: number, fixed = false): boolean {
+    const { rect } = floor.room;
+    const rotation = Floor.stands(piece, turn) ? turn : 0;
+    const across = rotation % HALF_TURN !== 0;
+    const w = across ? piece.height : piece.width;
+    const h = across ? piece.width : piece.height;
+    const clamp = (v: number, lo: number, span: number, size: number): number => Math.min(Math.max(v - size / 2, lo), lo + span - size);
+    const box: Box = { x: clamp(rect.x + at.x * rect.w, rect.x, rect.w, w), y: clamp(rect.y + at.y * rect.h, rect.y, rect.h, h), w, h };
+    if (fixed) {
+        // Exactly where the design puts it (hung above, laid flush, or blocking the way on purpose); it keeps no floor from others.
+        floor.setOn(piece, box, rotation);
+        return true;
+    }
+    return floor.clearOfWays(box) && floor.put(piece, box, rotation, null);
+}
+
+/**
+ * Pieces in rows filling `rect` (the room, or part of it), piece against
+ * piece in each row, an `aisle` between rows and at their ends, the rows
+ * along its long axis or across it; `max` rows at most. A piece drawn with
+ * depth is never turned: its rows run as it is drawn. How many it placed.
+ */
+function placeRowsOf(floor: Floor, piece: RoleStamp, rect: Rect, place: Extract<FixtureIntent['place'], { readonly rows: 'along' | 'across' }>): number {
+    const longX = rect.w >= rect.h;
+    const alongX = place.rows === 'along' ? longX : !longX;
+    const rotation = alongX || piece.upright ? 0 : QUARTER_TURN;
+    const [pw, ph] = rotation === 0 ? [piece.width, piece.height] : [piece.height, piece.width];
+    // Along a row, and across the rows, in room terms.
+    const [reach, breadth, step, depth] = alongX ? [rect.w, rect.h, pw, ph] : [rect.h, rect.w, ph, pw];
+    const { aisle } = place;
+    // Round the whole room, an aisle is kept along its walls too; an area given is filled to its edges.
+    const margin = place.area === undefined ? aisle : 0;
+    const fit = Math.floor((breadth - 2 * margin + aisle) / (depth + aisle));
+    const rows = Math.min(fit, place.max ?? fit);
+    const perRow = Math.floor((reach - 2 * margin) / step);
+    const first = (breadth - (rows * depth + (rows - 1) * aisle)) / 2;
+    const start = (reach - perRow * step) / 2;
+    let placed = 0;
+    for (let r = 0; r < rows; r++) {
+        const b = first + r * (depth + aisle);
+        const row = Array.from({ length: perRow }, (_, i): Box => {
+            const a = start + i * step;
+            return alongX ? { x: rect.x + a, y: rect.y + b, w: pw, h: ph } : { x: rect.x + b, y: rect.y + a, w: pw, h: ph };
+        });
+        // A row stands whole or not at all: rows of pews or cabinets are even, never ragged where a doorway cuts one short.
+        if (row.every((box) => floor.clearOfWays(box) && Floor.stands(piece, rotation))) {
+            for (const box of row) {
+                floor.put(piece, box, rotation, null);
+            }
+            placed += row.length;
+        }
+    }
+    return placed;
 }
 
 /** How a room's steps draw its pieces: the one kind of a matched role, a fresh pick per piece, the bulkiest kind of a role, one kind of a shape. */
@@ -1128,6 +1501,8 @@ interface Pieces {
     readonly shaped: (role: StampRole, shape: TableShape) => RoleStamp | undefined;
     /** Every piece the room may draw for a role. */
     readonly all: (role: StampRole) => readonly RoleStamp[];
+    /** Say a role the room's design needs found no room at all (its pews), rather than leave it out silently. */
+    readonly leftOut: (role: StampRole) => void;
 }
 
 /** A stack's least share of the bulkiest piece's floor: smaller pieces would read as clutter, not a stack. */
@@ -1158,7 +1533,7 @@ function runCluster(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, piec
     if (placed > 0 || step.orWall !== true) {
         return;
     }
-    // A seat drawn with depth faces only down: its table stands against the bottom wall, the seat above it.
+    // An isometric seat faces only down: its table stands against the bottom wall, the seat above it.
     const prefer: WallPreference | undefined = seat?.upright === true ? 'bottom' : undefined;
     const wall: WallStep = { kind: 'wall', role: step.centre, count: 1, ...(seat ? { front: seat.role } : {}), ...(prefer ? { prefer } : {}) };
     placeOnWalls(floor, wall, () => table, { ...NO_COMPANIONS, seat }, random);
@@ -1213,7 +1588,9 @@ function runStep(floor: Floor, step: Step, pieces: Pieces, random: Random): void
             const stamp = choose(step.role);
             if (stamp) {
                 const { side, reach } = floor.onWall.get(step.facing) ?? facingWall(floor.room, random);
-                placeRows(floor, stamp, side, reach);
+                if (placeRows(floor, stamp, side, reach) === 0) {
+                    pieces.leftOut(step.role);
+                }
             }
             return;
         }

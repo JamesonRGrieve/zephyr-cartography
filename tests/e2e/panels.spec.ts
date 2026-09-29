@@ -78,6 +78,14 @@ test('the zone panel is usable, as placing a zone opens it', async ({ world }) =
     await holdView(world);
     await clickScene(world, OPEN_GROUND);
     await expectUsable(world, 'zone');
+    // Each of Foundry's shapes in turn, the zone reshaped to it keeping about the same reach.
+    const shape = world.locator('#zc-zone-shape');
+    for (const kind of ['ellipse', 'ring', 'cone', 'line', 'rectangle', 'cells', 'emanation', 'circle']) {
+        // eslint-disable-next-line no-await-in-loop -- sequential: each reshape re-renders the panel the next one reads
+        await shape.selectOption(kind);
+        // eslint-disable-next-line no-await-in-loop -- see above
+        await expect(world.locator('#zc-zone-shape')).toHaveValue(kind);
+    }
 });
 
 test('the area effects panel is usable, as clicking a room with the effects tool opens it', async ({ world }) => {

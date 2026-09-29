@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
+import type { Feature } from '../tools/feature';
 import { NO_DOCS } from '../tools/generated-docs';
 import { NEW_DOOR } from '../tools/room';
 import { makeHarness as make } from './test-fakes';
@@ -236,6 +237,94 @@ describe('CartographyController', () => {
         c.load();
         expect(r.cleared).toBe(1);
         expect(r.setIds).toEqual(['a']);
+    });
+
+    it('takes features saved by another writer, and leaves its own as they are', () => {
+        const { c, r, s } = make();
+        const road = (id: string): Feature => ({
+            type: 'path',
+            id,
+            kind: 'road',
+            points: [
+                { x: 0, y: 0 },
+                { x: 5, y: 5 },
+            ],
+            halfWidths: [10, 10],
+            walls: null,
+            river: null,
+            docs: NO_DOCS,
+            level: null,
+        });
+        s.data = [road('a')];
+        c.load();
+        // Saved as it holds them: no redraw.
+        c.reloadIfChanged();
+        expect(r.cleared).toBe(1);
+        // Saved by another (a controller replaced mid-build, another client): taken and drawn.
+        s.data = [road('a'), road('b')];
+        c.reloadIfChanged();
+        expect(r.cleared).toBe(2);
+        expect(r.setIds).toEqual(['a', 'a', 'b']);
+    });
+
+    it('cancels a drawing without a trace, and previews a point dragged without saving it', () => {
+        const { c, r, s } = make();
+        c.begin({ type: 'region', biome: 'sand' }, 'click');
+        c.addPoint({ x: 0, y: 0 });
+        c.cancel();
+        expect(c.drawing).toBe(false);
+        s.data = [
+            {
+                type: 'region',
+                id: 'a',
+                biome: 'sand',
+                texture: null,
+                sharp: false,
+                points: [
+                    { x: 0, y: 0 },
+                    { x: 5, y: 0 },
+                    { x: 5, y: 5 },
+                ],
+                docs: NO_DOCS,
+                level: null,
+            },
+        ];
+        c.load();
+        const previews = r.previews;
+        c.previewVertexMove('a', 1, { x: 9, y: 0 });
+        c.previewVertexMove('missing', 1, { x: 9, y: 0 });
+        expect(r.previews).toBe(previews + 1);
+        c.clearPreview();
+        expect(s.saved).toEqual([]);
+    });
+
+    it('reorders a feature to the front, the back, and one step either way', async () => {
+        const { c, s } = make();
+        const region = (id: string): Feature => ({
+            type: 'region',
+            id,
+            biome: 'sand',
+            texture: null,
+            sharp: false,
+            points: [
+                { x: 0, y: 0 },
+                { x: 5, y: 0 },
+                { x: 5, y: 5 },
+            ],
+            docs: NO_DOCS,
+            level: null,
+        });
+        s.data = ['a', 'b', 'c'].map(region);
+        c.load();
+        const order = (): string[] => s.last().map((f) => f.id);
+        await c.toFront('a');
+        expect(order()).toEqual(['b', 'c', 'a']);
+        await c.lower('a');
+        expect(order()).toEqual(['b', 'a', 'c']);
+        await c.toBack('c');
+        expect(order()).toEqual(['c', 'b', 'a']);
+        await c.raise('c');
+        expect(order()).toEqual(['b', 'c', 'a']);
     });
 
     it('removes a feature and persists', async () => {

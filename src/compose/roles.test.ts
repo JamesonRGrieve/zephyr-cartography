@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { type CatalogStamp, loadPacks } from '../stamps/catalog';
-import { roleIndex } from './roles';
+import { partsOf, roleIndex } from './roles';
 
 function stamps(defs: readonly object[], referenceGridSize = 100): readonly CatalogStamp[] {
     const packs = loadPacks([{ moduleId: 'pack', manifest: { schemaVersion: 1, id: 'pack', name: 'Pack', referenceGridSize, stamps: defs } }]);
@@ -16,6 +16,62 @@ const stampDef = (id: string, over: object): object => ({
     perspective: 'top-down',
     variants: [{ state: 'intact', image: `stamps/${id}.png`, width: 200, height: 100 }],
     ...over,
+});
+
+describe('roleIndex run parts', () => {
+    const variant = (id: string, width: number, height: number): object => ({ variants: [{ state: 'bare', image: `stamps/${id}.png`, width, height }] });
+
+    it('never offers an end, corner or gate piece alone, and stands a section of its kind between two of its ends', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('oak-section', { tags: ['oak', 'table', 'section'], ...variant('oak-section', 200, 100) }),
+                stampDef('oak-end', { tags: ['oak', 'table', 'end'], ...variant('oak-end', 100, 125) }),
+                stampDef('pine-table', { tags: ['pine', 'table'], ...variant('pine-table', 200, 100) }),
+                stampDef('brass-segment', { tags: ['brass', 'counter', 'counter-segment'], ...variant('brass-segment', 100, 50) }),
+                stampDef('brass-end', { tags: ['brass', 'counter', 'counter-end'], ...variant('brass-end', 100, 100) }),
+                stampDef('brass-corner', { tags: ['brass', 'counter', 'counter-corner'], ...variant('brass-corner', 100, 100) }),
+                stampDef('brass-gate', { tags: ['brass', 'counter', 'gate', 'counter-gate'], ...variant('brass-gate', 100, 60) }),
+            ]),
+            [],
+        );
+        const tables = index.get('table') ?? [];
+        expect(tables.map((t) => t.key)).toEqual(['pack:oak-section', 'pack:pine-table']);
+        // The oak section, 2 × 1, between its ends fitted to its depth (1.25 × 1 drawn 0.8 wide): one table 3.6 long.
+        const oak = tables[0];
+        expect(oak?.width).toBeCloseTo(3.6);
+        expect(oak?.run).toMatchObject({ count: 1, module: { key: 'pack:oak-section' }, cap: { key: 'pack:oak-end', height: 1 } });
+        expect(oak?.run?.cap?.width).toBeCloseTo(0.8);
+        // A table of another kind has no end of its own: it stands as drawn.
+        expect(tables[1]?.run).toBeUndefined();
+        // The counter's gate is a piece of the counter, never a door; it, the corner and the end stand only in a run.
+        expect(index.get('counter')?.map((c) => c.key)).toEqual(['pack:brass-segment']);
+        expect(index.get('counter')?.[0]?.run?.cap?.key).toBe('pack:brass-end');
+        // Its gate and corner ride on it, for a named piece asking for them.
+        expect(partsOf(index, 'counter').map((p) => p.key)).toEqual(['pack:brass-corner', 'pack:brass-gate']);
+        expect(partsOf(index, 'table')).toEqual([]);
+        expect(index.get('door')).toBeUndefined();
+    });
+});
+
+describe('roleIndex door art', () => {
+    it('knows which variant shows each state of a door: the first of each, for hanging it shut or open', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('oak-door', {
+                    role: 'door',
+                    door: { type: 'door' },
+                    variants: [
+                        { state: 'shut', image: 'stamps/shut.png', width: 100, height: 20, doorState: 'closed' },
+                        { state: 'ajar', image: 'stamps/ajar.png', width: 100, height: 20, doorState: 'open' },
+                        { state: 'barred', image: 'stamps/barred.png', width: 100, height: 20, doorState: 'closed' },
+                        { state: 'plain', image: 'stamps/plain.png', width: 100, height: 20 },
+                    ],
+                }),
+            ]),
+            [],
+        );
+        expect(index.get('door')?.[0]?.doorStates).toEqual({ closed: 0, open: 1 });
+    });
 });
 
 describe('roleIndex', () => {
@@ -42,6 +98,7 @@ describe('roleIndex', () => {
                 climb: null,
                 borrowed: false,
                 purposes: [],
+                tags: [],
             },
         ]);
         expect(index.get('table')).toEqual([
@@ -58,27 +115,33 @@ describe('roleIndex', () => {
                 climb: null,
                 borrowed: false,
                 purposes: [],
+                tags: [],
             },
         ]);
         // Neither a role nor a tag that makes one: only ever placed by hand.
         expect([...index.values()].flat().map((s) => s.key)).not.toContain('pack:statue');
     });
 
-    it('never turns art drawn with depth, and uses art drawn straight down wherever a role has any', () => {
+    it('never turns isometric art, turns art seen from above, and uses only art seen from above wherever a role has any', () => {
         const drawn = roleIndex(
             stamps([
                 stampDef('crates', { tags: ['crates'], perspective: 'isometric', placement: { back: 'left' } }),
+                stampDef('desk', { tags: ['desk'], perspective: 'central', placement: { back: 'left' } }),
                 stampDef('tower', { tags: ['silo'], perspective: 'central', scale: 'exterior' }),
                 stampDef('plan-bed', { tags: ['bed'], perspective: 'orthographic' }),
+                stampDef('centre-bed', { tags: ['bed'], perspective: 'central' }),
                 stampDef('front-bed', { tags: ['bed'], perspective: 'isometric' }),
             ]),
             [],
         );
         // Its back is its top, whatever the pack says, and it stands as drawn.
         expect(drawn.get('storage')).toEqual([expect.objectContaining({ key: 'pack:crates', upright: true, turn: 0, width: 2, height: 1 })]);
+        // Central art turns like a plan: its back is the pack's, turned to the top.
+        expect(drawn.get('desk')).toEqual([expect.objectContaining({ key: 'pack:desk', upright: false, turn: 90, width: 1, height: 2 })]);
+        // A structure stands upright whatever its art.
         expect(drawn.get('structure')).toEqual([expect.objectContaining({ upright: true })]);
-        // Beds drawn straight down exist, so the front-on one is left out.
-        expect(drawn.get('bed')?.map((s) => s.key)).toEqual(['pack:plan-bed']);
+        // Beds seen from above exist, so the front-on one is left out.
+        expect(drawn.get('bed')?.map((s) => s.key)).toEqual(['pack:plan-bed', 'pack:centre-bed']);
     });
 
     it('takes a role its pack does not name from its tags, standing as that role does', () => {

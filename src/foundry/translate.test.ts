@@ -156,6 +156,25 @@ describe('lightCreateData', () => {
     });
 });
 
+describe('tileCreateData for a mirrored stamp', () => {
+    it('flips its image with Foundry’s own texture scale', () => {
+        const tile = {
+            name: 'End',
+            src: 'a.png',
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            rotation: 0,
+            elevation: 0,
+            level: null,
+            featureId: 'f',
+            mirror: true as const,
+        };
+        expect(tileCreateData(tile).texture).toEqual({ src: 'a.png', anchorX: 0.5, anchorY: 0.5, scaleX: -1 });
+    });
+});
+
 describe('tileCreateData', () => {
     it('places the tile by its centre anchor, with its level and owning feature flag', () => {
         expect(
@@ -172,6 +191,9 @@ describe('tileCreateData', () => {
             flags: { 'zephyrex-cartography': { featureId: 'f1' } },
             levels: ['L1'],
         });
+        // Shown on the levels that see its own as well.
+        const seen = { name: 'Lamp', src: 'a.png', x: 10, y: 20, width: 30, height: 40, rotation: 0, elevation: 0, level: 'L1', featureId: 'f1' };
+        expect(tileCreateData({ ...seen, seenFrom: ['L2'] }).levels).toEqual(['L1', 'L2']);
     });
 });
 
@@ -269,7 +291,19 @@ describe('sceneSettingsData', () => {
 });
 
 describe('noteCreateData', () => {
-    const note = { x: 10.4, y: 20.6, elevation: 5, level: 'lv1', text: 'The Sump', entry: 'je1', page: 'pg1', icon: null, global: true };
+    const note = {
+        x: 10.4,
+        y: 20.6,
+        elevation: 5,
+        level: 'lv1',
+        text: 'The Sump',
+        entry: 'je1',
+        page: 'pg1',
+        icon: null,
+        global: true,
+        readable: false,
+        size: null,
+    };
 
     it('writes a Note at whole pixels, opening its journal page, with Foundry’s icon when it has none', () => {
         expect(noteCreateData(note)).toEqual({ x: 10, y: 21, elevation: 5, text: 'The Sump', entryId: 'je1', pageId: 'pg1', global: true, levels: ['lv1'] });
@@ -282,6 +316,36 @@ describe('noteCreateData', () => {
             pageId: null,
             global: true,
             texture: { src: 'icons/svg/tankard.svg' },
+        });
+    });
+});
+
+describe('noteCreateData for a sign', () => {
+    it('writes a readable Note authorless, so players see it with no journal, flagged to draw no icon, at its size', () => {
+        const sign = {
+            x: 50,
+            y: 60,
+            elevation: 0,
+            level: null,
+            text: 'OPEN LATE',
+            entry: null,
+            page: null,
+            icon: null,
+            global: false,
+            readable: true,
+            size: 48,
+        };
+        expect(noteCreateData(sign)).toEqual({
+            x: 50,
+            y: 60,
+            elevation: 0,
+            text: 'OPEN LATE',
+            entryId: null,
+            pageId: null,
+            global: false,
+            iconSize: 48,
+            author: null,
+            flags: { 'zephyrex-cartography': { readable: true } },
         });
     });
 });

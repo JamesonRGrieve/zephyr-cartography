@@ -56,6 +56,58 @@ function allReachable(layout: BuildingLayout, start: string): boolean {
     return layout.rooms.every((r) => seen.has(r.key));
 }
 
+describe('a stair climbing into a guest corridor', () => {
+    /** An inn: its taproom below, eight guest rooms off one corridor above. */
+    const INN = buildingOf({
+        width: 14,
+        height: 11,
+        rooms: [
+            { key: 'hall', purpose: 'hall', entrance: true, opensTo: ['common', 'kitchen'] },
+            { key: 'common', purpose: 'common-room', size: 3 },
+            { key: 'kitchen', purpose: 'kitchen' },
+        ],
+        floors: [
+            {
+                rooms: [
+                    { key: 'corridor', purpose: 'hall', opensTo: ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'] },
+                    ...['r1', 'r2', 'r3', 'r4', 'r5', 'r6'].map((key) => ({ key, purpose: 'bedroom' })),
+                ],
+            },
+        ],
+    });
+    const INN_FOOTPRINT = { x: 0, y: 0, w: 14, h: 11 };
+    /** A spiral stair: about a square and a half each way. */
+    const SPIRAL: Wells = { up: { w: 1.4, h: 1.4 }, down: null };
+
+    it('widens the corridor to hold its stairwell, so the stair arrives in the corridor, never in a guest’s room', () => {
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const storeys = layOutStoreys(INN, INN_FOOTPRINT, SPIRAL, seededRandom(seed));
+            const upstairs = storeys?.floors[0];
+            const well = storeys?.stairwell;
+            if (!upstairs || !well) {
+                throw new Error(`seed ${seed}: no storeys or no stairwell`);
+            }
+            const corridor = upstairs.rooms.find((r) => r.key === 'corridor');
+            expect(Math.min(corridor?.rect.w ?? 0, corridor?.rect.h ?? 0)).toBe(3);
+            const holder = upstairs.rooms.find(
+                (r) => well.x >= r.rect.x && well.y >= r.rect.y && well.x + well.w <= r.rect.x + r.rect.w && well.y + well.h <= r.rect.y + r.rect.h,
+            );
+            expect(holder?.key).toBe('corridor');
+            // Every guest room still opens off the corridor.
+            expect(upstairs.unmet).toEqual([]);
+        }
+    });
+
+    it('lies a long stairwell turned along a corridor that runs the other way', () => {
+        const long: Wells = { up: { w: 1, h: 2.5 }, down: null };
+        const storeys = layOutStoreys(INN, INN_FOOTPRINT, long, seededRandom(1));
+        const well = storeys?.stairwell;
+        // The footprint is wider than deep, so its corridor runs across it and a stair lying along it is turned.
+        expect(well?.turned).toBe(true);
+        expect([well?.w, well?.h]).toEqual([2.5, 1]);
+    });
+});
+
 describe('layOutStoreys', () => {
     it('lays every floor over the same footprint, so its outer walls stand on the ones below', () => {
         const storeys = layOutStoreys(HOUSE, FOOTPRINT, STAIR, seededRandom(1));
@@ -123,6 +175,21 @@ describe('layOutStoreys', () => {
             }
             expect(box.x >= hall.x && box.y >= hall.y && box.x + box.w <= hall.x + hall.w && box.y + box.h <= hall.y + hall.h).toBe(true);
         }
+    });
+
+    it('stands the stairwell in the room the intent names for it, rather than the hall', () => {
+        const kitchenStair = buildingOf({ ...HOUSE, accessRoom: 'common' });
+        for (const seed of [1, 2, 3]) {
+            const storeys = layOutStoreys(kitchenStair, FOOTPRINT, STAIR, seededRandom(seed));
+            const box = storeys?.stairwell;
+            const common = storeys?.ground.rooms.find((r) => r.key === 'common')?.rect;
+            if (!box || !common) {
+                throw new Error(`seed ${seed}: no stairwell`);
+            }
+            expect(box.x >= common.x && box.y >= common.y && box.x + box.w <= common.x + common.w && box.y + box.h <= common.y + common.h).toBe(true);
+        }
+        // Naming a room the ground floor lacks is refused.
+        expect(parseMapIntent({ schemaVersion: 1, buildings: [{ ...HOUSE, accessRoom: 'attic' }] }).ok).toBe(false);
     });
 
     it('gives only the ground floor a front door', () => {

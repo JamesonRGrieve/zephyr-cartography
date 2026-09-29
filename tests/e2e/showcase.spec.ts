@@ -9,8 +9,10 @@
  * spec runs only where it is installed among the test modules
  * (`FOUNDRY_TEST_MODULES`); elsewhere it skips.
  */
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import type { Page } from '@playwright/test';
-import { parseMapIntent } from '../../src/compose/intent';
+import { type MapIntent, parseMapIntent } from '../../src/compose/intent';
 import { type MapPreset, PRESET_INTENTS } from '../../src/compose/presets';
 import { expect, frameScene, freshScene, moduleActive, type SceneSize, test } from './lib/foundry';
 
@@ -167,3 +169,97 @@ test('the manufactorum preset: rows of machines, an overseer’s post, stores, a
 test('the void port preset: craft on a landing field, industry beside it, a road to the port office', async ({ world }) => {
     await showcase(world, 'void-port', 'Void port', 'void-port', { x: 20, y: 16, scale: CLOSE_UP_SCALE / 4 }, false);
 });
+
+/**
+ * Review renders of any map intents, for judging a composition by eye
+ * against a reference: every `*.json` intent in `SHOWCASE_INTENTS` is
+ * composed on a scene its size and each of its levels shot, whole and close
+ * on its buildings, into `SHOWCASE_OUT` with what the composer reported
+ * (`<name>.problems.json`). They are looked at, never compared with a stored
+ * screenshot; without the two directories there is nothing to render.
+ */
+const INTENTS_DIR = process.env['SHOWCASE_INTENTS'];
+const OUT_DIR = process.env['SHOWCASE_OUT'];
+const REVIEW_INTENTS = INTENTS_DIR === undefined ? [] : readdirSync(INTENTS_DIR).filter((file) => file.endsWith('.json'));
+
+/** The scene centre and scale that frame an intent's buildings together, or its whole map when it has none. */
+function buildingsView(page: Page, intent: MapIntent): CloseUp {
+    const boxes = intent.buildings.map((b) => ({ x: b.at?.x ?? 0, y: b.at?.y ?? 0, w: b.width, h: b.height }));
+    const bounds =
+        boxes.length === 0
+            ? { x: 0, y: 0, w: intent.width, h: intent.height }
+            : {
+                  x: Math.min(...boxes.map((b) => b.x)),
+                  y: Math.min(...boxes.map((b) => b.y)),
+                  w: Math.max(...boxes.map((b) => b.x + b.w)) - Math.min(...boxes.map((b) => b.x)),
+                  h: Math.max(...boxes.map((b) => b.y + b.h)) - Math.min(...boxes.map((b) => b.y)),
+              };
+    // A little room round them, for what stands outside their walls.
+    const around = { width: (bounds.w + REVIEW_MARGIN) * GRID, height: (bounds.h + REVIEW_MARGIN) * GRID, gridSize: GRID };
+    return { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2, scale: fitScale(page, around) };
+}
+
+/** Squares of ground shown round the buildings in a review close-up. */
+const REVIEW_MARGIN = 4;
+
+for (const file of REVIEW_INTENTS) {
+    test(`review render: ${file}`, async ({ world }) => {
+        test.skip(OUT_DIR === undefined, 'SHOWCASE_OUT names no directory to write the renders to');
+        const parsed = parseMapIntent(JSON.parse(readFileSync(join(INTENTS_DIR ?? '', file), 'utf8')));
+        if (!parsed.ok) {
+            throw new Error(`${file}: ${JSON.stringify(parsed.issues)}`);
+        }
+        const { intent } = parsed;
+        const size: SceneSize = { width: intent.width * GRID, height: intent.height * GRID, gridSize: GRID };
+        const shot = basename(file, '.json');
+        await freshScene(world, shot, size);
+        await usePaintedSet(world);
+        const problems = await world.evaluate(async (given) => {
+            const composed = await game.modules?.get('zephyrex-cartography').api.compose(given);
+            if (!composed) {
+                return ['no module API'];
+            }
+            return composed.ok ? [...composed.report.problems, ...composed.problems].map((p) => JSON.stringify(p)) : composed.issues.map((i) => i.message);
+        }, intent);
+        mkdirSync(OUT_DIR ?? '', { recursive: true });
+        writeFileSync(join(OUT_DIR ?? '', `${shot}.problems.json`), `${JSON.stringify(problems, null, 2)}\n`);
+        const levels = await world.evaluate(() => (canvas?.scene?.levels.contents ?? []).map((l) => l.name));
+        const view = buildingsView(world, intent);
+        // One level after another on the one canvas.
+        await levels.reduce(async (previous, level) => {
+            await previous;
+            await shootReview(world, level, size, view, join(OUT_DIR ?? '', `${shot}.${level.toLowerCase().replace(/[^a-z0-9]+/gu, '-')}`));
+        }, Promise.resolve());
+    });
+}
+
+/** View the level named `level` and shoot it whole as `<path>.png` and close on its buildings as `<path>.close-up.png`, as players see it. */
+async function shootReview(page: Page, level: string, size: SceneSize, view: CloseUp, path: string): Promise<void> {
+    await page.evaluate(async (named) => {
+        const scene = canvas?.scene;
+        await scene?.view({ level: scene.levels.contents.find((l) => l.name === named)?.id ?? '' });
+    }, level);
+    await expect.poll(async () => page.evaluate(() => canvas?.ready === true)).toBe(true);
+    // Whatever images there are, loaded; a level of placeholders alone may have none.
+    const loaded = async (): Promise<boolean> =>
+        page.evaluate(
+            () =>
+                (canvas?.tiles?.placeables ?? []).filter((t) => t.visible).every((t) => t.mesh?.texture?.valid === true) &&
+                game.modules?.get('zephyrex-cartography').api.terrainImagesLoading() === 0,
+        );
+    await expect.poll(loaded, { timeout: IMAGES_LOAD_MS }).toBe(true);
+    // As players see it: no grid over the art, no wall lines (the Walls layer is left inactive).
+    await page.evaluate(async () => {
+        await canvas?.scene?.update({ grid: { alpha: 0 } });
+    });
+    await expect.poll(async () => page.evaluate(() => canvas?.ready === true)).toBe(true);
+    await frameScene(page, null, size, fitScale(page, size));
+    await page.locator('#board').screenshot({ path: `${path}.png` });
+    await page.evaluate(
+        async ({ x, y, scale }) => {
+            await canvas?.animatePan({ x, y, scale, duration: 0 });
+        },
+        { x: view.x * GRID, y: view.y * GRID, scale: view.scale },
+    );
+    await page.locator('#board').screenshot({ path: `${path}.close-up.png` });
+}

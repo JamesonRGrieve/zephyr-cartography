@@ -21,7 +21,9 @@ import type { BiomeKind } from '../tools/biome';
 import { detour, grown } from './detour';
 import type { Anchor, Density, Edge, MapIntent, PathIntent, PropIntent, ZoneIntent, ZoneKind } from './intent';
 import type { PlacedDoor } from './layout';
+import { FACING_TURN, namedArt, namedBox, standsAs } from './named';
 import { noiseField, type NoiseField } from './noise';
+import { isPlaceholder, missing } from './placeholders';
 import { narrowed, type Preferences, zonePlace } from './preferences';
 import type { ComposeProblem } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
@@ -54,6 +56,7 @@ const ZONE_GROUND: Readonly<Record<ZoneKind, BiomeKind>> = {
     fortified: 'dirt',
     landing: 'rock',
     lake: 'water',
+    paving: 'rock',
 };
 
 /**
@@ -133,6 +136,8 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
     ],
     // Open water: nothing stands in it; its shore is dressed instead.
     lake: [],
+    // Hard standing laid to its exact outline (a ramp, a plaza, an apron): kept open.
+    paving: [],
 };
 
 /** Every role a zone of `kind` is dressed with. */
@@ -161,6 +166,7 @@ const ZONE_HABITATS: Readonly<Record<ZoneKind, readonly StampHabitat[]>> = {
     fortified: ['ruin', 'urban', 'rocky'],
     landing: ['urban'],
     lake: ['marsh'],
+    paving: ['urban'],
 };
 
 /** Rocks along a riverbank: any that belong outdoors on open ground. */
@@ -344,7 +350,8 @@ const OUTSIDE: Readonly<Record<Side, (f: Rect, at: number, out: number) => Point
 /** The ground `out` squares outside a building's front door (or the middle of its front, without one). */
 function beforeDoor(site: Site, out: number): Point {
     const { footprint: f, front } = site;
-    return front ? OUTSIDE[front.slot.side](f, front.slot.at, out) : OUTSIDE.bottom(f, f.x + f.w / 2 - 0.5, out);
+    // Before the middle of a door wider than a square (double doors).
+    return front ? OUTSIDE[front.slot.side](f, front.slot.at + ((front.slot.width ?? 1) - 1) / 2, out) : OUTSIDE.bottom(f, f.x + f.w / 2 - 0.5, out);
 }
 
 /** The ground a step outside a building's front door, where a path to it arrives. */
@@ -720,7 +727,7 @@ function segmentsCross(a: Point, b: Point, c: Point, d: Point): Point | null {
     return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? { x: a.x + r.x * t, y: a.y + r.y * t } : null;
 }
 
-/** Degrees off square an upright bridge (drawn with depth, never turned) may lie from the road and still carry it. */
+/** Degrees off square an upright bridge (isometric, never turned) may lie from the road and still carry it. */
 const UPRIGHT_BRIDGE_SLACK = 20;
 
 /** The rotation that lays `stamp` along a road running `along`, or null when it would need a turn it cannot take. */
@@ -815,8 +822,11 @@ function placeProps(
     const problems: ComposeProblem[] = [];
     for (const prop of props) {
         const stamp = pick(random, stamps.get(prop.role) ?? []);
+        const lacking = missing(prop.role, 'beside' in prop ? prop.beside.building : OUTSIDE_PLACE, stamp);
+        if (lacking) {
+            problems.push(lacking);
+        }
         if (!stamp) {
-            problems.push({ kind: 'no-stamp', role: prop.role, wantedIn: 'beside' in prop ? prop.beside.building : 'outside' });
             continue;
         }
         const site = 'beside' in prop ? sites.find((s) => s.key === prop.beside.building) : undefined;
@@ -828,6 +838,9 @@ function placeProps(
     }
     return { features, problems };
 }
+
+/** Where a piece outside was wanted, as a problem names it when it stands clear of any building. */
+const OUTSIDE_PLACE = 'outside';
 
 /** How far (squares) a yard's trodden earth reaches round its building, and what it is drawn in. */
 const YARD_EARTH = 1.5;
@@ -996,8 +1009,10 @@ function storesAlong(site: Site, side: Side, stores: readonly RoleStamp[], keepo
             const r = Math.max(stamp.width, stamp.height) / 2;
             // After the first, a piece may stand before the last, a rank out from the wall, rather than beside it.
             const ranked = n > 0 && random() < YARD.ranked;
-            const p = OUTSIDE[side](f, (ranked ? along - 2 * r : along) + r - 0.5, r + YARD.gap + (ranked ? 2 * r : 0));
-            if (clear(p, r * 0.9)) {
+            const start = ranked ? along - 2 * r : along;
+            const p = OUTSIDE[side](f, start + r - 0.5, r + YARD.gap + (ranked ? 2 * r : 0));
+            // Within its own wall's run: never round the corner, into the next side's clumps.
+            if (start >= lo && start + 2 * r <= hi && clear(p, r * 0.9)) {
                 standing.push({ x: p.x, y: p.y, r });
                 out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
             }
@@ -1056,13 +1071,15 @@ export function composeExterior(
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     if (intent.ground !== null) {
-        const everywhere: ZoneIntent = { kind: 'meadow', area: { shape: 'everywhere' }, density: 'normal', texture: null };
+        const everywhere: ZoneIntent = { kind: 'meadow', area: { shape: 'everywhere' }, density: 'normal', texture: null, soft: false };
         const points = zoneOutline(everywhere, intent, noiseField(random, EDGE_SCALE));
         features.push({ type: 'region', biome: intent.ground, points, ...textured(intent.groundTexture) });
     }
     const outlines = intent.zones.map((zone) => ({ zone, outline: zoneOutline(zone, intent, noiseField(random, EDGE_SCALE)) }));
     const isLake = ({ zone }: { zone: ZoneIntent }): boolean => zone.kind === 'lake';
-    for (const { zone, outline } of outlines.filter((o) => !isLake(o))) {
+    // Water and paving lie over the paths, crisp to their outlines; every other zone's ground lies under them.
+    const laidOver = ({ zone }: { zone: ZoneIntent }): boolean => zone.kind === 'lake' || zone.kind === 'paving';
+    for (const { zone, outline } of outlines.filter((o) => !laidOver(o))) {
         features.push({ type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, ...textured(zone.texture) });
     }
     // A working yard's ground is trodden earth round the building, under its paths.
@@ -1092,7 +1109,7 @@ export function composeExterior(
         map: { x: 0, y: 0, w: intent.width, h: intent.height },
         sites,
         paths,
-        clearings: outlines.filter(({ zone }) => zone.kind === 'clearing').map(({ outline }) => flat(outline)),
+        clearings: outlines.filter(({ zone }) => zone.kind === 'clearing' || zone.kind === 'paving').map(({ outline }) => flat(outline)),
         waters: outlines.filter(({ zone }) => zone.kind === 'lake').map(({ outline }) => outline),
         props,
     };
@@ -1117,13 +1134,28 @@ export function composeExterior(
     // water showing through that band draws the shore across the river as a hairline. Crisp, the lake stacks water on
     // bed as the river does, both tiled from the scene's origin, so the two meet unseen; the reeds and rocks of its
     // shore and the canopies over it soften the edge on land.
-    for (const { zone, outline } of outlines.filter(isLake)) {
-        features.push(
-            { type: 'region', biome: LAKE_BED, points: outline, sharp: true },
-            { type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, sharp: true, ...textured(zone.texture) },
-        );
+    for (const { zone, outline } of outlines.filter(laidOver)) {
+        features.push(...(isLake({ zone }) ? [{ type: 'region' as const, biome: LAKE_BED, points: outline, sharp: true }] : []), {
+            type: 'region',
+            biome: ZONE_GROUND[zone.kind],
+            points: outline,
+            sharp: !zone.soft,
+            ...textured(zone.texture),
+        });
     }
-    // The intent's own pieces stand first; everything scattered after keeps clear of them.
+    // The intent's own pieces stand first, its named ones exactly where asked; everything scattered after keeps clear of them.
+    for (const fixture of intent.fixtures) {
+        const art = namedArt(fixture, stamps);
+        const piece = art ?? namedBox(fixture);
+        if (art === undefined) {
+            problems.push({ kind: 'placeholder', piece: fixture.name, wantedIn: OUTSIDE_PLACE });
+        }
+        const { x, y } = fixture.at;
+        props.push({ x, y, r: footprintRadius(piece) });
+        // Isometric art stands as drawn; anything else faces the way asked.
+        const turn = piece.upright ? 0 : FACING_TURN[fixture.facing];
+        features.push(...standsAs(piece, { x, y }, turn).map((s) => ({ type: 'stamp' as const, ...s })));
+    }
     const placedProps = placeProps(intent.props, sites, stamps, keepout, props, random);
     features.push(...placedProps.features);
     problems.push(...placedProps.problems);
@@ -1136,8 +1168,9 @@ export function composeExterior(
     outlines.forEach(({ zone, outline }, i) => {
         for (const dressing of ZONE_DRESSING[zone.kind]) {
             const choices = narrowed(inHabitat(stamps, dressing.role, ZONE_HABITATS[zone.kind]), preferences.get(zonePlace(i))?.get(dressing.role));
-            if (choices.length === 0) {
-                problems.push({ kind: 'no-stamp', role: dressing.role, wantedIn: zone.kind });
+            const lacking = choices.every((s) => isPlaceholder(s.key)) ? missing(dressing.role, zone.kind, choices[0]) : null;
+            if (lacking) {
+                problems.push(lacking);
             }
             features.push(
                 ...(dressing.perimeter

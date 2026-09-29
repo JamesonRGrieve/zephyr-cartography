@@ -204,6 +204,70 @@ plus a link flag. It never rewrites content the plugin did not create.
 
 ---
 
+## Composed map quality — the operator's requirements (binding)
+
+The composer's output is judged against the operator's reference maps (the
+Gemini renders beside each prompt in the campaign's `map-prompts/` and
+`Locations/**/*.map.*`). These requirements stand for all composing work
+(operator, 2026-09-28):
+
+- **High-quality maps, judged hyper-critically.** Never present a composed
+  map, or call a composing change done, until its layout is as good as or
+  better than the reference's, looked at as players see it (review renders
+  without the grid or wall-control lines). Describe what was built; the
+  operator is the judge of looks.
+- **Layout and design are the engine's job; art is not an excuse.** Stamps
+  can be improved later with images; the layout algorithm and the design
+  cannot. A piece no stamp draws stands as a labelled box its size (a
+  placeholder), and every placeholder is handed to the stamp agent to be
+  prompted, with its fitted size and the intent it serves.
+- **Test against every map prompt**, not one: every prompt in the campaign's
+  `map-prompts/` has an intent in `map-prompts/intents/`, composed and
+  rendered (`showcase.spec.ts` "review render") and compared with its
+  reference, the roadside inn preset included. Only once every map passes
+  does the full test suite run. Ship interiors and fantasy layouts (castles
+  with `curtains`, forest clearings, dungeons with `secretTo` doors and hewn
+  caves) are held to the same bar: their briefs live in the campaign's
+  `map-prompts/briefs/`, rendered and reviewed like the prompts.
+- **Use Foundry, never imitate it.** Shade and shadow come from Foundry's
+  lighting engine (native lights, cut by native walls, darkness), never from
+  painted shadow bands; doors, walls and levels are native documents.
+- **Rough-hewn passages.** Tunnels, caves and dug passages are organic,
+  ragged outlines (`hewn`), never rectangles.
+- **Doors are drawn in their walls** in art that has closed and open states
+  (and locked where it matters), switched with the native door's state;
+  never only a door-control icon. Without such art the doorway still shows
+  its door, closed across the gap or swung open.
+  A doorway is drawn as what it is: a hinged door swings, a sliding panel
+  or shutter (`doorAnimation`) leaves a bare doorway when open, and a way
+  with no door at all (a street running on off the map, a collapsed
+  frontage, a breach: `gap`, `frontDoorGap`) is an **opening**, with no
+  door, no leaf and no wall. A door between two rooms breaks both rooms'
+  walls; it is drawn once. A building with no way in at ground level (a
+  guest floor reached by its stair) has no front door (`frontDoor: false`).
+- **Walls read as walls**: thick bands in a wall material, broken at every
+  doorway.
+- **Nothing is dropped silently.** A named piece with no room where it was
+  asked is reported (`no-room`), never left off quietly.
+- **Signs can be read.** Words on the map that players should read (a
+  shop sign, a plaque, a notice) are a named fixture's `reads`: a native
+  Note players read on hover, with no icon over the art.
+- **Art must match the shape asked.** Art that fills under half a named
+  piece's footprint, or art drawn with depth asked to face sideways, would
+  misdraw the plan. A long piece of a modular role (shelving, benches,
+  lockers, a bank of consoles) is drawn as a run of its art side by side;
+  otherwise its labelled box stands in until art of its shape exists.
+- **Frame to the prompt.** Where the prompt has ways leading on off the map,
+  the map ends at the building so they do; otherwise the surround beyond
+  the walls is solid black (`backdrop`).
+- **Cities are dense and irregular** (`districts`): blocks with setbacks,
+  yards and courtyards, streets and alleys, walled so no token walks into a
+  building; never a ruled grid of identical lots.
+- **The prompt governs where a reference ignored it** (ships drawn into an
+  empty berth, a tunnel maze for a straight street): follow the prompt.
+
+---
+
 ## Feature scope and status
 
 **Scene controls [done]:** a tool that makes a native document type sits in
@@ -254,11 +318,16 @@ that type's own control group, after Foundry's tools
   its colour.
 - **Texture tiling.** Every textured fill, painted ground and splat blends
   alike, tiles from the **scene's origin**, never its own corner, so
-  overlapping fills of one texture meet without a seam. A tile spans
-  `TEXTURE_TILE_SQUARES` (2) grid squares whatever the image's own size
-  (`tileSpan`; its own size on a gridless scene), which keeps full-detail
-  photos sharp. Terrain textures are mipmapped (PIXI mipmaps only
-  power-of-two images by default) and wrap. A feathered fill blurs only its
+  overlapping fills of one texture meet without a seam. A tile keeps the
+  image's own proportions, its shorter side `TEXTURE_TILE_SQUARES` (2) grid
+  squares whatever the image's own size (`tileSize`; its own size on a
+  gridless scene), which keeps full-detail photos sharp and never squashes a
+  tall plank texture square. Terrain textures are mipmapped and wrap, and
+  are resampled to power-of-two sides as they load (`powerOfTwoTexture`):
+  PIXI 7 tiles any other size in a shader that wraps its low-precision
+  coordinates by hand, which drew thin dark seams across large fills.
+  They load asynchronously; the module API's `terrainImagesLoading()`
+  counts those still on their way (the review renders wait for none). A feathered fill blurs only its
   **mask's** edge (rendered to a texture); blurring the fill would smear the
   texture itself. The splat shader runs in high precision: medium precision
   rounds large scene coordinates to whole texels.
@@ -338,6 +407,17 @@ tool; an auto `AmbientLightDocument` per room at its centroid.
   lights and regions get `levels`, so vision is per floor. Submap teleports
   use `destinations`, `placement: relative` and a choice when there are
   several.
+- **Seen levels.** A level shows the levels below it that its native Level
+  sees (`visibility.levels`): viewing an upper storey, the yard, road and
+  trees round it show beneath its floor, never a grey void. Foundry draws a
+  placeable only on its own levels, so a stamp's tile also belongs to every
+  level that sees its own (`seenFrom`), and which levels each sees is part
+  of the planning signature, so changing it re-syncs them. The painted map
+  of a seen level draws on a terrain layer of its own at that level's floor
+  (`LevelRoutedRenderer`), beneath its tiles as Foundry sorts the canvas;
+  it is seen, never picked or edited. Composed maps give each upper storey
+  the storeys below it down to the ground. Proven in
+  `tests/e2e/levels.spec.ts`.
 
 **Submaps [done]:** an enterable stamp (a building, a hab) gets an "Interior"
 button on its Tile HUD. The GM either creates a new interior scene (gridded like
@@ -547,8 +627,9 @@ These make everything after them cheaper and safer, so they come first.
 - **[done] Per-level images.** A `Level` carries its `art`: the native
   Level's `background`, `foreground` and `fog` image paths. The levels panel
   sets each by typing a path or with Foundry's file picker, and a scene spec
-  level entry sets them too. Art never re-syncs features: `planningLevels`
-  leaves it out.
+  level entry sets them too. Images and look never re-sync features:
+  `planningLevels` leaves them out, keeping only which levels each sees
+  (see Seen levels).
   - **[done] The rest of the Level's look.** `LevelArt` holds everything
     the native Level draws with: the background colour, the background and
     foreground tints and alpha thresholds, the images' placement
@@ -896,6 +977,30 @@ These make everything after them cheaper and safer, so they come first.
   - The scene spec takes `pin` entries.
   - Foundry stamps a Note's `author` [14.353] with the user who creates it.
   - Proven in `tests/e2e/pointer.spec.ts`.
+  - **[done] Readable pins: words players read on hover** (a sign, a
+    plaque, graffiti). A pin can be `readable`, and any pin can size its
+    hover spot (`size`, Foundry's `iconSize`, never under its 32 px least).
+    - Foundry already shows a Note's text on hover, and the Map Note toggle
+      that shows Notes to players is on by default. A Note with no journal
+      is shown to players only when its author is none or a player
+      (`Note#isVisible`, 14.368), so a readable Note is created with no
+      author; a GM may write that, the server keeps it.
+    - It carries the module's `readable` flag. At `setup`, the module
+      subclasses whatever `CONFIG.Note.objectClass` is configured, so another
+      module's override still applies to other Notes: a flagged Note draws
+      no icon, background or border, so the art beneath is what shows,
+      except to the GM on the Notes layer, who finds and edits it there.
+    - **A stamp can read too** (`reads`): its own readable Note at its
+      centre, its hover spot as wide as the footprint is long (a thin sign's
+      depth would leave a spot too small to find). It is one
+      of the stamp's generated documents, so it moves, undoes and erases
+      with it. The scene spec's stamps take `reads`, and a composed named
+      fixture's `reads` lands on its art (a run's middle module) or, where
+      no art draws it, as a readable pin over its labelled box.
+    - The pin panel sets both (Foundry's Icon Size label, the module's own
+      for readable). A sign placed by hand is read through a readable pin
+      over it. Proven in `tests/e2e/structures.spec.ts`, as the GM (the
+      suite has no player user to prove the player's view).
 - **[done] Drawings: map labels.** A `label` feature (`tools/label.ts`) is
   text on the map, realised as a native text Drawing on its level: a
   rectangle with no fill and no line, centred on the label's point and
@@ -1088,12 +1193,13 @@ or a tavern is. Composition is the layer above them (operator decisions,
   one stamp per room; its other pieces vary piece by piece.
 - **Perspective** (pack `perspective`: `orthographic` straight down,
   `isometric` with depth and no vanishing point, `central` one-point; the
-  old `top-down` reads as orthographic). Only orthographic art is ever
-  turned: art drawn with depth turned half round stands upside down. So it
-  stands as drawn, its back to the top wall or unturned in a corner, and a
-  role with any orthographic art uses only that (`Floor.put` refuses a
-  turn outright). A light has no back, so light art drawn with depth
-  still stands by any wall, unturned. Seats drawn with depth seat each
+  old `top-down` reads as orthographic). Art seen from above (orthographic
+  or central) is turned like a plan; only the look of the turn differs
+  (operator ruling, 2026-09-28). Isometric art turned half round stands
+  upside down, so it stands as drawn, its back to the top wall or unturned
+  in a corner, and a role with any art seen from above uses only that
+  (`Floor.put` refuses a turn outright). A light has no back, so isometric
+  light art still stands by any wall, unturned. Isometric seats seat each
   table from above only, in rows across the room.
 - **Interior.** A building's footprint, floor and wall materials, wall kind
   and rooms, each with a purpose (common room, bar, kitchen, storage,
@@ -1135,7 +1241,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
   of several levels the map drawn and edited is the viewed level's.
   - **Cellars** (`cellars`) lie below the ground floor on levels added
     beneath the scene's own (spec levels before the `existing` one go
-    below it), round a well of their own clear of the stairwell up. Each
+    below it), round a well of their own clear of the stairwell up. Round
+    a cellar's walls lies the dark of the earth (the map's `backdrop`, else
+    near-black), never the scene's grey; upper storeys see the storeys below
+    them instead (see Seen levels). Each
     way takes the access asked for (`floorAccess`, `cellarAccess`: stairs
     or a ladder; `compose/access.ts`), else another kind that climbs,
     reported as a stand-in. A stair climbs from hall to hall: the floors
@@ -1180,8 +1289,17 @@ or a tavern is. Composition is the layer above them (operator decisions,
     too big for the floor left stands against a wall, its chair before it.
   - **Stand-ins inside.** A role no stamp fills takes a fitting other
     one's: a work surface or desk is a long table (never a round one), a
-    guest's chest is storage, an easy chair a plain one. A nightstand has
-    none: a barrel by a bed reads as a store room. A room keeps out pieces
+    guest's chest is storage. A nightstand or an easy chair has none: a
+    barrel by a bed reads as a store room, a plain chair is no easy chair.
+  - **Placeholders** (`compose/placeholders.ts`). A role no loaded stamp
+    fills still stands where the layout wants it, as a labelled box its
+    usual size (a dark translucent rectangle, its role written across it,
+    wrapped to fit and reading upward along a box standing upright, both
+    native Drawings), reported as a `placeholder` problem: the map shows
+    every piece its design calls for until the art exists. A real stand-in
+    beats a box. Roles scattered by the dozen (clutter, what is set on a
+    table, ground litter), shaped by what they serve (a stair, a bridge)
+    or laid only to dress a floor (a rug, a decal) have none. A room keeps out pieces
     whose tags name another kind of room (a medicae bed, a cell's bunk)
     unless nothing else fills the role. A guest room holds a person's
     chest, not a store's crates; votive candles and censers are a shrine's
@@ -1189,6 +1307,69 @@ or a tavern is. Composition is the layer above them (operator decisions,
     chests, clutter, tabletop, lamps) keep art drawn with depth beside
     top-down art, for variety; piles drawn with depth line any wall, and
     a store's rows stack its larger pieces, varied.
+- **Drawn to a brief.** An intent can place a design exactly, as a map
+  prompt describes it:
+  - **Named fixtures** (a room's `fixtures`, `furnish: 'fixtures'` for them
+    alone). Each is a named piece: its role and tags choose the art, its
+    size is the design's (the art is fitted to it, whichever way round art
+    drawn with depth fits larger), and one name draws the same art in every
+    room (`compose/named.ts`). No art: a labelled box. It stands against a
+    wall exactly at its start, middle or end (or spread), in a corner, at a
+    point, along a line, over a grid (a piece gives a quarter of its cell
+    rather than be lost to a doorway), in rows (whole rows only, filling an
+    area given to its edges), or before or behind another named fixture,
+    facing it. A `fixed` one (a sign hung over a door, a floor inlay, rubble
+    spilling from a collapsed doorway) stands exactly where asked, even
+    across a doorway, and keeps no floor from others. A room's `doorOpen`
+    leaves its doors standing open. A run's `open` ends (map sides across
+    its front, for a piece standing where asked) take no end piece, so two
+    runs butt square into one piece: an L-shaped bar is two counters, the
+    short leg open where it meets the long one and where it meets the wall.
+  - **Rooms and doors.** Every room of a floor may give its `rect`; a room's
+    `doorAt` places its doors along the walls it shares (a row of cells
+    alike); `archTo` opens the whole shared wall as a doorless arch (a pier
+    at each end where wide enough); `chamfer` cuts its corners (an octagonal
+    chamber), the cut corners masonry where another room wraps them, void
+    where none does. A building's front door takes `frontDoorAt`, a width
+    and `frontDoorOpen`; its `openings` take a width, `open`, and a `room`
+    whose own wall they pierce where it stands short of the footprint's
+    edge. `wallBand` lays heavy masonry round the footprint, broken at the
+    doorways by a threshold of the floor.
+  - **Outside.** The map's own `fixtures` (named pieces at points), `paving`
+    zones (hard standing laid crisp to their outline over the paths, or
+    `soft` for standing water or a stain), a `backdrop` colour for the void
+    round a ship or a tunnel (each level's background), and `lighting: dim`
+    (half dark, no global light: rooms lit by their own lights and lamps,
+    Foundry's walls cutting the light, which is what shades a map).
+  - **Hewn passages** (`hewn`, `compose/hewn.ts`): tunnels (lines with a
+    width that swells and pinches) and chambers (irregular blobs) cut
+    through rock, their union rasterised, traced by marching squares and
+    simplified into ragged walled rooms; rock left inside a loop stands as
+    a walled pillar, and a passage running off the map opens off it.
+  - **Districts** (`districts`, `compose/district.ts`): a stretch of city
+    cut into blocks by streets and, deeper, alleys; each block a walled roof
+    (so no one walks into it) standing back from its streets by differing
+    amounts, some losing a corner to a yard, larger ones keeping a
+    courtyard; the ground kept open (a chapel, its forecourt) carved out
+    first with a street round it. Street pieces stand against the
+    frontages, roof pieces on the roofs.
+  - **Grime.** Decal art (`decal` role: stains, cracks, scorch, dust) is
+    strewn along a room's walls and into its corners by its `grime`
+    (default some), never across a doorway, beneath everything else.
+  - The outdoors draws from its own random stream, so rearranging a room
+    never replants the woods.
+- **Walls and doors as drawn.** A room's wall band (half a square) is
+  broken at each doorway (a secret door stays wall to look at). A doorway
+  is hung with **door art** where it exists (`door` role: top-down art with
+  a pack `door` and variants carrying `doorState`, carrying one of the
+  building's `doorTags`, as wide as the doorway within a quarter square):
+  the door stamp lies along the wall across it, scaled to its width, in the
+  variant for its state (open where the doorway stands open), and the room
+  keeps its wall there for the stamp to cut, so the stamp is the native
+  door and its art follows the door's state in play. An archway is never
+  hung. Without door art the room draws the door itself: its leaf across the
+  gap when shut, swung into the room from its hinge when open (double doors,
+  a leaf from each end, in a doorway wider than a square and a half).
 - **Night** (intent `lighting`): the scene goes dark, and a room is lit by
   its hearth and lamps (pack lights), keeping its own flat light only when
   it has neither. Common rooms, halls and chapels get a lamp for every
@@ -1244,6 +1425,15 @@ or a tavern is. Composition is the layer above them (operator decisions,
 - **Where.** The module API's `compose(intent)`, and the Map builder's
   Compose section: a preset or pasted intent, "Compose map", and "Another
   layout" to reseed. Problems are listed, localised.
+- **Builds survive a redrawn canvas.** Loading packs, or choosing another
+  texture set, rebuilds the draw layer with a new controller, and so does
+  any canvas redraw (a build's own new levels). Composing and building
+  (the API and the Map builder) wait for the packs to settle
+  (`PackRuntime.settled`) and build with the controller that leaves. A
+  controller whose scene's features are saved by another writer (another
+  client, or one the canvas replaced mid-build) takes them and redraws
+  (`reloadIfChanged`, on `updateScene`), telling lists apart by feature
+  id so its own saves never redraw. `tests/e2e/canvas.spec.ts` proves it.
 - **Two modes** (operator decision, 2026-09-27): algorithmic, and
   AI-assisted, where a language model (Qwen by default) helps
   (`compose/assist.ts`, pure; `foundry/advisor.ts`, the call).

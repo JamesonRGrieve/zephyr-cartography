@@ -58,6 +58,8 @@
                 "RoomsDoNotFit": "{building}: its rooms do not fit a {width} × {height} footprint, so it was left out.",
                 "NotBeside": "{building}: {room} could not be put beside {other}, so they are joined through other rooms.",
                 "NoStamp": "{wantedIn}: no loaded stamp is a {role}, so none was placed.",
+                "Placeholder": "{wantedIn}: no loaded stamp draws the {piece}, so a labelled box stands in for it.",
+                "NoRoom": "{wantedIn}: there is no room for the {piece} where it was asked, so it was left off.",
                 "NoStairwell": "{building}: its floors could not share a place for a stair, so they are not joined.",
                 "Borrowed": "{wantedIn}: the map's settings have no way between levels, so {used} was borrowed from another setting.",
                 "StandIn": "{wantedIn}: no loaded stamp is {wanted}, so {used} stands in.",
@@ -138,7 +140,8 @@
         "Pins": {
             "Title": "Map pin",
             "None": "None",
-            "Browse": "Browse for the icon"
+            "Browse": "Browse for the icon",
+            "Readable": "Players read it on hover (a sign; no icon drawn)"
         },
         "Zones": {
             "Title": "Zone",
@@ -235,7 +238,8 @@
             "Remove": "Remove door",
             "Types": {
                 "Door": "Door",
-                "Secret": "Secret door"
+                "Secret": "Secret door",
+                "Opening": "Opening (no door, no wall)"
             },
             "States": {
                 "Closed": "Closed",

@@ -34,6 +34,7 @@ import {
     NO_LEVEL_ART,
     onLevel,
     planningLevels,
+    seenBelow,
     sortLevels,
 } from '../tools/levels';
 import type { FloorMaterial, WallMaterial } from '../tools/materials';
@@ -698,8 +699,8 @@ export class CartographyController {
 
     /** Draw a feature if it is on the active level, otherwise make sure it is not drawn. */
     private show(feature: Feature): void {
-        if (feature.type === 'room') {
-            // A room can change what nests in what, so the whole draw order is rebuilt.
+        if (feature.type === 'room' || this.seen(feature)) {
+            // A room can change what nests in what, and a seen level lies beneath the active one: the whole draw order is rebuilt.
             this.redraw();
         } else if (this.visible(feature)) {
             this.renderer.set(feature.id, feature);
@@ -1037,6 +1038,25 @@ export class CartographyController {
 
     get drawing(): boolean {
         return this.session !== null;
+    }
+
+    /**
+     * Take the scene's saved features where they are not the ones this
+     * controller holds: another client's edit, or a controller torn down
+     * mid-build (the canvas redrawn while a map was composed) saving after
+     * this one loaded, which would leave its features undrawn. Features are
+     * told apart by id, so this controller's own saves never redraw; nothing
+     * is taken mid-transaction.
+     */
+    reloadIfChanged(): void {
+        if (this.writing > 0 || this.batching) {
+            return;
+        }
+        const saved = this.store.load();
+        const same = saved.length === this.features.length && saved.every((feature, i) => feature.id === this.features[i]?.id);
+        if (!same) {
+            this.load();
+        }
     }
 
     load(): void {
@@ -2043,11 +2063,22 @@ export class CartographyController {
 
     private redraw(): void {
         this.renderer.clear();
+        // What the active level sees below it (the yard round an upper storey) first, beneath its own; seen, never edited.
+        for (const seen of seenBelow(this.levelList, this.active)) {
+            for (const f of drawOrder(this.features.filter((feature) => feature.level === seen.id))) {
+                this.renderer.set(f.id, f);
+            }
+        }
         for (const f of drawOrder(this.features)) {
             if (this.visible(f)) {
                 this.renderer.set(f.id, f);
             }
         }
         this.redrawSplats();
+    }
+
+    /** Whether `feature` is on a level the active one sees below it: drawn beneath, never picked. */
+    private seen(feature: Feature): boolean {
+        return feature.level !== null && seenBelow(this.levelList, this.active).some((level) => level.id === feature.level);
     }
 }

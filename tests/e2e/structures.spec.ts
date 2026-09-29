@@ -1,6 +1,122 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { expect, frameScene, test } from './lib/foundry';
 
+test('what the GM edits reaches Foundry: draw order, a room’s materials, a crate’s state, a level’s band, an empty level removed', async ({ world }) => {
+    const result = await world.evaluate(async () => {
+        const api = game.modules?.get('zephyrex-cartography').api;
+        const square = (x: number): { x: number; y: number }[] => [
+            { x, y: 2 },
+            { x: x + 3, y: 2 },
+            { x: x + 3, y: 5 },
+            { x, y: 5 },
+        ];
+        const built = await api?.buildSpec({
+            schemaVersion: 1,
+            levels: [
+                { key: 'g', name: 'Ground' },
+                { key: 'u', name: 'Loft' },
+                { key: 'e', name: 'Empty' },
+            ],
+            features: [
+                { type: 'region', biome: 'sand', points: square(1), level: 'g' },
+                { type: 'region', biome: 'forest', points: square(6), level: 'g' },
+                { type: 'room', points: square(11), level: 'g' },
+                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 8, y: 8, level: 'g' },
+            ],
+        });
+        const controller = api?.controller();
+        if (built?.ok !== true || !controller) {
+            return null;
+        }
+        const [sand, forest, room, crate] = built.report.features;
+        const order = (): string[] => (canvas?.scene?.getFlag('zephyrex-cartography', 'features') ?? []).map((f) => f.id);
+        await controller.toFront(sand ?? '');
+        const fronted = order();
+        await controller.lower(sand ?? '');
+        const lowered = order();
+        await controller.toBack(sand ?? '');
+        await controller.raise(sand ?? '');
+        const raised = order();
+        const materials = await controller.setRoomMaterials(room ?? '', { floor: 'stone', wall: null, wallKind: 'solid', ceiling: false });
+        const tileBefore = canvas?.scene?.tiles.contents[0]?.texture.src;
+        await controller.cycleStampVariant(crate ?? '');
+        const tileAfter = canvas?.scene?.tiles.contents[0]?.texture.src;
+        const loft = canvas?.scene?.levels.contents.find((l) => l.name === 'Loft');
+        const empty = canvas?.scene?.levels.contents.find((l) => l.name === 'Empty');
+        const banded = await controller.setLevelBand(loft?.id ?? '', 40, 60);
+        const removed = await controller.removeLevel(empty?.id ?? '');
+        return {
+            ids: { sand, forest, room, crate },
+            fronted,
+            lowered,
+            raised,
+            materials,
+            floor: controller.getFeature(room ?? '')?.type === 'room',
+            tileChanged: tileBefore !== tileAfter,
+            banded,
+            loftBand: canvas?.scene?.levels.contents.find((l) => l.name === 'Loft')?.elevation.bottom,
+            removed,
+            emptyGone: !(canvas?.scene?.levels.contents ?? []).some((l) => l.name === 'Empty'),
+        };
+    });
+    if (!result) {
+        throw new Error('spec not built');
+    }
+    const { ids } = result;
+    expect(result.fronted).toEqual([ids.forest, ids.room, ids.crate, ids.sand]);
+    expect(result.lowered).toEqual([ids.forest, ids.room, ids.sand, ids.crate]);
+    // To the back, then one step up: second.
+    expect(result.raised).toEqual([ids.forest, ids.sand, ids.room, ids.crate]);
+    expect(result.materials).toBe(true);
+    expect(result.floor).toBe(true);
+    // The crate shows its next state: smashed.
+    expect(result.tileChanged).toBe(true);
+    expect(result.banded).toBe(true);
+    expect(result.loftBand).toBe(40);
+    expect(result.removed).toBe(true);
+    expect(result.emptyGone).toBe(true);
+});
+
+test('zones of every shape, sized in grid squares, become regions in Foundry’s own shapes at the grid’s scale', async ({ world }) => {
+    const shapes = await world.evaluate(async () => {
+        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+            schemaVersion: 1,
+            units: 'grid',
+            features: [
+                { type: 'zone', x: 3, y: 3, name: 'Ellipse', shape: { kind: 'ellipse', radiusX: 2, radiusY: 1 } },
+                { type: 'zone', x: 8, y: 3, name: 'Ring', shape: { kind: 'ring', radius: 2, innerWidth: 0.5, outerWidth: 0.5 } },
+                { type: 'zone', x: 13, y: 3, name: 'Cone', shape: { kind: 'cone', radius: 3, angle: 60, curvature: 'flat' } },
+                { type: 'zone', x: 3, y: 9, name: 'Line', shape: { kind: 'line', length: 4, width: 1 } },
+                { type: 'zone', x: 8, y: 9, name: 'Rectangle', shape: { kind: 'rectangle', width: 3, height: 2 } },
+                {
+                    type: 'zone',
+                    x: 13,
+                    y: 9,
+                    name: 'Cells',
+                    shape: {
+                        kind: 'cells',
+                        cells: [
+                            { i: 0, j: 0 },
+                            { i: 0, j: 1 },
+                            { i: 1, j: 1 },
+                        ],
+                    },
+                },
+            ],
+        });
+        const grid = canvas?.grid?.size ?? 0;
+        return {
+            grid,
+            regions: (canvas?.scene?.regions.contents ?? []).map((r) => ({ name: r.name, types: r.shapes.map((s) => s.type) })),
+            ellipse: canvas?.scene?.regions.contents.find((r) => r.name === 'Ellipse')?.shapes[0],
+        };
+    });
+    const typeOf = (zone: string): string | undefined => shapes.regions.find((r) => r.name === zone)?.types[0];
+    expect(['Ellipse', 'Ring', 'Cone', 'Line', 'Rectangle', 'Cells'].map(typeOf)).toEqual(['ellipse', 'ring', 'cone', 'line', 'rectangle', 'grid']);
+    // Sized at the grid's scale: two squares across, one down.
+    expect(shapes.ellipse).toMatchObject({ radiusX: 2 * shapes.grid, radiusY: shapes.grid });
+});
+
 test('a room of window walls gets Foundry’s window walls, and its door stays solid', async ({ world }) => {
     const walls = await world.evaluate(async () => {
         await game.modules?.get('zephyrex-cartography').api.buildSpec({
@@ -579,4 +695,47 @@ test('a blend on a level bakes into the native Level’s background, and unbakin
     const unbaked = await world.evaluate(async () => game.modules?.get('zephyrex-cartography').api.controller()?.unbakeSplat());
     expect(unbaked).toBe(true);
     await expect.poll(background).toBe('modules/zc-e2e-pack/masks/sand-rock.png');
+});
+
+test('a sign’s words are a readable Note: authorless, so players see it with no journal, and drawn with no icon over the art', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [
+                { type: 'pin', x: 2, y: 2, text: 'NO LOITERING', readable: true, size: 0.8 },
+                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 6, y: 6, reads: 'Property of the Munitorum' },
+            ],
+        });
+        canvas?.tokens?.activate();
+    });
+    const signs = async (): Promise<unknown[]> =>
+        world.evaluate(() =>
+            (canvas?.scene?.notes.contents ?? []).map((note) => {
+                const shown = note.object?.controlIcon;
+                return {
+                    text: note.text,
+                    author: note._source.author,
+                    readable: foundry.utils.getProperty(note.flags, 'zephyrex-cartography.readable'),
+                    iconSize: note.iconSize,
+                    tooltip: note.object?.tooltip?.text,
+                    iconShown: shown ? shown.icon.visible || shown.bg.visible || shown.border.visible : null,
+                };
+            }),
+        );
+    // The crate's hover spot is as wide as its footprint is long: one square.
+    await expect.poll(signs).toEqual([
+        { text: 'NO LOITERING', author: null, readable: true, iconSize: 80, tooltip: 'NO LOITERING', iconShown: false },
+        { text: 'Property of the Munitorum', author: null, readable: true, iconSize: 100, tooltip: 'Property of the Munitorum', iconShown: false },
+    ]);
+    // The GM finds and edits them on the Notes layer, where their icons show.
+    const onNotes = async (): Promise<(boolean | undefined)[]> =>
+        world.evaluate(() => {
+            canvas?.notes?.activate();
+            return (canvas?.notes?.placeables ?? []).map((note) => {
+                note.renderFlags.set({ refreshState: true });
+                note.applyRenderFlags();
+                return note.controlIcon?.icon.visible;
+            });
+        });
+    await expect.poll(onNotes).toEqual([true, true]);
 });

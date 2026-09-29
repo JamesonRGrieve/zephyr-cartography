@@ -6,11 +6,13 @@ import { floorMaterials, isFloorMaterial, materialName, parseWallMaterial, wallM
 const roles = ['grassland', 'road', 'wall.brick', 'floor.oak', 'floor.flagstone', 'wall.', 'floor.'];
 
 describe('room materials', () => {
-    it('accepts biomes and floor roles as floors, and nothing else', () => {
+    it('accepts biomes, floor roles and wall roles (the top of masonry, a wall-walk) as floors, and nothing else', () => {
         expect(isFloorMaterial('dirt')).toBe(true);
         expect(isFloorMaterial('floor.oak')).toBe(true);
         expect(isFloorMaterial('floor.')).toBe(false);
-        expect(isFloorMaterial('wall.brick')).toBe(false);
+        expect(isFloorMaterial('wall.brick')).toBe(true);
+        expect(isFloorMaterial('wall.')).toBe(false);
+        expect(isFloorMaterial('road')).toBe(false);
         expect(isFloorMaterial(3)).toBe(false);
     });
 

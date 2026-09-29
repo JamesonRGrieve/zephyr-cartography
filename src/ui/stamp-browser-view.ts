@@ -114,8 +114,9 @@ function settingsBar(view: BrowserView, labels: BrowserLabels, handlers: Browser
         return null;
     }
     const group = el('fieldset', 'tw-flex tw-flex-wrap tw-items-center tw-gap-3 tw-px-2 tw-py-0 tw-m-0 tw-border-0');
-    group.append(el('legend', 'tw-sr-only', labels.settings));
-    group.append(el('span', 'tw-text-xs', labels.settings));
+    // One legend, seen and read: floated, it sits in the row before the boxes rather than over the group's border, in
+    // the panel's own label type rather than the theme's capitals.
+    group.append(el('legend', 'tw-float-left tw-p-0 tw-m-0 tw-text-xs tw-font-normal tw-normal-case tw-tracking-normal', labels.settings));
     for (const entry of view.settings) {
         const id = `zc-stamp-setting-${entry.setting}`;
         const label = el('label', 'tw-flex tw-items-center tw-gap-1 tw-text-xs');

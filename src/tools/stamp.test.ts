@@ -4,8 +4,9 @@ import { catalogStamps } from '../canvas/test-fakes';
 import { deletePoint, movePoint } from './edit';
 import { NO_DOCS } from './generated-docs';
 import { featureHit } from './hit';
+import { type Level, NO_LEVEL_ART } from './levels';
 import { planDocuments } from './plan';
-import { behaviourOf, makeStamp, parseStamp, stampCorners, stampPoint, withStampFrame, withStampVariant } from './stamp';
+import { behaviourOf, makeStamp, parseStamp, stampCorners, stampPoint, withStampFrame, withStampReads, withStampVariant } from './stamp';
 
 const [lamp, crate] = catalogStamps([
     {
@@ -128,6 +129,60 @@ describe('planDocuments for a stamp', () => {
     });
 });
 
+describe('a stamp on a level another sees', () => {
+    it('shows its tile on the levels that see its own below them, and only there', () => {
+        const band = (id: string, bottom: number, visibleLevels: string[] = []): Level => ({
+            id,
+            name: id,
+            bottom,
+            top: bottom + 10,
+            art: { ...NO_LEVEL_ART, visibleLevels },
+        });
+        const levels = [band('ground', 0), band('upper', 10, ['ground']), band('cellar', -10)];
+        const context = { features: [], levels, terrainRegions: false, gridDistance: 5 };
+        expect(planDocuments({ ...stampOf(lamp), level: 'ground' }, context).tiles[0]?.seenFrom).toEqual(['upper']);
+        expect(planDocuments({ ...stampOf(lamp), level: 'cellar' }, context).tiles[0]).not.toHaveProperty('seenFrom');
+        expect(planDocuments(stampOf(lamp), context).tiles[0]).not.toHaveProperty('seenFrom');
+    });
+});
+
+describe('a mirrored stamp', () => {
+    it('is drawn flipped left to right, and what sits on its art flips with it', () => {
+        const plain = stampOf(lamp);
+        const mirrored = stampOf(lamp, { mirror: true });
+        expect(plain.mirror).toBe(false);
+        expect(mirrored.mirror).toBe(true);
+        expect(planDocuments(plain).tiles[0]).not.toHaveProperty('mirror');
+        expect(planDocuments(mirrored).tiles[0]?.mirror).toBe(true);
+        // A point a quarter in from the art's left edge lies a quarter in from its right once mirrored (the lamp is 50 wide).
+        expect(stampPoint(plain, { x: 0.25, y: 0.5 })).toEqual({ x: 487.5, y: 500 });
+        expect(stampPoint(mirrored, { x: 0.25, y: 0.5 })).toEqual({ x: 512.5, y: 500 });
+        expect(parseStamp(JSON.parse(JSON.stringify(mirrored)))?.mirror).toBe(true);
+    });
+});
+
+describe('a stamp players read', () => {
+    it('reads nothing unless given words, and blanks are nothing', () => {
+        expect(stampOf(lamp).reads).toBeNull();
+        expect(stampOf(lamp, { reads: '   ' }).reads).toBeNull();
+        expect(withStampReads(stampOf(lamp), 'OPEN').reads).toBe('OPEN');
+        expect(withStampReads(stampOf(lamp, { reads: 'OPEN' }), null).reads).toBeNull();
+        expect(planDocuments(stampOf(lamp)).notes).toEqual([]);
+    });
+
+    it('plans a readable Note at its centre on its floor, its hover spot as wide as it is long', () => {
+        const plan = planDocuments({ ...stampOf(lamp, { reads: 'OPEN LATE' }), elevation: 2 });
+        expect(plan.notes).toEqual([
+            { x: 500, y: 500, elevation: 2, level: null, text: 'OPEN LATE', entry: null, page: null, icon: null, global: false, readable: true, size: 100 },
+        ]);
+    });
+
+    it('keeps its hover spot at least as large as Foundry takes', () => {
+        const small = { ...stampOf(lamp, { reads: 'x' }), width: 10, height: 12 };
+        expect(planDocuments(small).notes[0]?.size).toBe(32);
+    });
+});
+
 describe('planDocuments for a lit stamp', () => {
     it('emits the variant light at the centre, radii in px, following elevation', () => {
         const plan = planDocuments({ ...stampOf(lamp), elevation: 4 });
@@ -174,8 +229,14 @@ describe('parseStamp', () => {
     });
 
     it('round-trips a placed stamp through JSON', () => {
-        const s = stampOf(lamp, { rotation: 15 });
+        const s = stampOf(lamp, { rotation: 15, reads: 'Mind the step' });
         expect(parseStamp(JSON.parse(JSON.stringify(s)))).toEqual(s);
+    });
+
+    it('reads nothing on a stamp saved before stamps could be read, or with words of no kind', () => {
+        const { reads: _omitted, ...legacy } = stampOf(lamp);
+        expect(parseStamp(legacy)?.reads).toBeNull();
+        expect(parseStamp({ ...legacy, reads: 7 })?.reads).toBeNull();
     });
 
     it('keeps a stamp with an unreadable behaviour, but inert', () => {

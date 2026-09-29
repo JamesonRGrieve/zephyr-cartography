@@ -147,9 +147,13 @@ export interface Level {
     readonly art: LevelArt;
 }
 
-/** The levels as features see them: art changes what Foundry draws, never what the plugin plans. */
+/**
+ * The levels as features see them: their images and look change what
+ * Foundry draws, never what the plugin plans; which levels each sees does
+ * (a stamp's tile shows on the levels that see its own).
+ */
 export function planningLevels(levels: readonly Level[]): string {
-    return JSON.stringify(levels.map(({ art: _art, ...planned }) => planned));
+    return JSON.stringify(levels.map(({ art, ...planned }) => ({ ...planned, sees: art.visibleLevels })));
 }
 
 /** Height given to a new level when the scene's grid is unknown, in scene distance units; editable afterwards. */
@@ -158,6 +162,16 @@ const DEFAULT_LEVEL_HEIGHT = 10;
 /** Levels ordered bottom to top. */
 export function sortLevels(levels: readonly Level[]): Level[] {
     return [...levels].sort((a, b) => a.bottom - b.bottom);
+}
+
+/**
+ * The levels below `active` that it sees (its visible levels), lowest first:
+ * what shows round an upper storey (the yard, the road) is drawn beneath its
+ * own floor. A level seen above would lie over it, so only those below count.
+ */
+export function seenBelow(levels: readonly Level[], active: string | null): Level[] {
+    const viewed = findLevel(levels, active);
+    return viewed === null ? [] : sortLevels(levels.filter((level) => viewed.art.visibleLevels.includes(level.id) && level.bottom < viewed.bottom));
 }
 
 export function findLevel(levels: readonly Level[], id: string | null): Level | null {

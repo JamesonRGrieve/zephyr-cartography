@@ -53,6 +53,7 @@ const ROLES = new Map([
                     climb: null,
                     borrowed: false,
                     purposes: [],
+                    tags: [],
                 }),
                 key: 'test:round-table',
             },

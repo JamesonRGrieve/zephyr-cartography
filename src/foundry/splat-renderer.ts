@@ -9,8 +9,8 @@
 import type { SplatRenderer } from '../canvas/controller';
 import { roleLook } from '../canvas/renderer';
 import { MAX_SPLAT_LAYERS, type SplatLayer } from '../tools/splat';
-import { tileSpan, type TextureResolver } from '../tools/texture';
-import { canvasTexture } from './pixi-surface';
+import type { TextureResolver } from '../tools/texture';
+import { canvasTexture, tileOf } from './pixi-surface';
 
 const VERTEX = `
 precision highp float;
@@ -114,7 +114,11 @@ interface ChannelUniforms {
 function tileSizes(textures: readonly PIXI.Texture[], gridSize: number): number[] {
     return textures.flatMap((texture) => {
         const base = texture.baseTexture;
-        return base.valid ? [tileSpan(gridSize, base.width), tileSpan(gridSize, base.height)] : [PENDING_TILE, PENDING_TILE];
+        if (!base.valid) {
+            return [PENDING_TILE, PENDING_TILE];
+        }
+        const tile = tileOf(base, gridSize);
+        return [tile.width, tile.height];
     });
 }
 

@@ -6,10 +6,12 @@
  * the concrete PIXI surface lives at the Foundry boundary, keeping this pure.
  */
 import { brushOutline, buildRibbon, RIBBON_SAMPLES, ribbonOutline } from '../geometry/ribbon';
-import { perimeterSegments, segmentBand } from '../geometry/wall';
+import { perimeterSegments, type Segment, segmentBand } from '../geometry/wall';
 import { BIOME_STYLES, isBiomeKind, type BiomeKind } from '../tools/biome';
 import { tintToward } from '../tools/colour';
+import type { DoorAnimationType } from '../tools/documents';
 import { type Feature, isAnchored } from '../tools/feature';
+import { materialName } from '../tools/materials';
 import type { CartographyPath, Liquid } from '../tools/path';
 import { proceduralRole, type Pattern } from '../tools/procedural';
 import { regionOutline } from '../tools/region';
@@ -25,6 +27,9 @@ const TEXTURE_ALPHA = 1;
 /** Neutral (no-op) multiply tint for a naturally-coloured texture. */
 const NO_TINT = 0xffffff;
 
+/** The multiply tint of a parapet round the top of masonry, against the same stone underfoot within it. */
+const PARAPET_TINT = 0x8a8a8a;
+
 interface RibbonStyle {
     readonly fill: number;
     readonly alpha: number;
@@ -35,9 +40,12 @@ const ROAD_STYLE: RibbonStyle = { fill: 0x6b5a44, alpha: 0.85 };
 const PREVIEW_STYLE: RibbonStyle = { fill: 0xff9c00, alpha: 0.4 };
 
 /** How opaque each liquid is: water lets its bed show through, lava hides it. */
-const LIQUID_ALPHA: Record<Liquid, number> = { water: 0.7, lava: 0.92, poison: 0.8, acid: 0.8 };
+const LIQUID_ALPHA: Record<Liquid, number> = { water: 0.85, lava: 0.92, poison: 0.8, acid: 0.8 };
 
-/** Texture roles a liquid is drawn in, the first the active set has; with none, it ripples. */
+/**
+ * Texture roles a liquid is drawn in, the first the active set has; with none, it ripples. Water is still water (a moat, a
+ * stream), never an open sea's waves; lightly tinted and nearly opaque, it reads as water, never as a dark road.
+ */
 const LIQUID_ROLES: Record<Liquid, readonly string[]> = {
     water: ['water', 'floor.shallow-water', 'floor.calm-sea'],
     lava: ['lava'],
@@ -50,7 +58,7 @@ const LIQUID_ROLES: Record<Liquid, readonly string[]> = {
  * has its own colour and takes the shade gently, while the lava tile is dark
  * rock that the shade turns molten.
  */
-const LIQUID_TINT_STRENGTH: Record<Liquid, number> = { water: 0.5, lava: 1, poison: 0.6, acid: 0.6 };
+const LIQUID_TINT_STRENGTH: Record<Liquid, number> = { water: 0.25, lava: 1, poison: 0.6, acid: 0.6 };
 
 /** Texture roles of the untextured water biomes, the first the active set has; with none, they ripple. */
 const OPEN_WATER_ROLES: Readonly<Partial<Record<BiomeKind, readonly string[]>>> = {
@@ -229,22 +237,96 @@ function outlineAndStyle(feature: Feature, resolve: TextureResolver): Filled {
 
 const PREVIEW_ID = '__preview__';
 
-/** The drawn wall bands of a room: one band per perimeter segment, in its wall material. */
-function wallBands(feature: Feature, resolve: TextureResolver, bandWidth: number): Filled[] {
-    if (feature.type !== 'room' || feature.wall === null) {
+/** A door's leaf where no door art draws it: a share of the wall band thick, in timber. */
+const DOOR_LEAF = { share: 0.45, colour: 0x5a3d28 } as const;
+
+/** Doors that open out of sight: into the wall, or up or down out of the doorway. */
+const RETRACTED: ReadonlySet<DoorAnimationType> = new Set<DoorAnimationType>(['slide', 'ascend', 'descend']);
+
+/** A doorway wider than this many wall bands (a square and a half) has double doors, two leaves each half its width. */
+const DOUBLE_LEAF_BANDS = 3;
+
+/**
+ * Which way into a room from its outline's edges: 1 where the interior lies
+ * to the right of each edge as it runs (screen coordinates, y down), -1
+ * where to the left, by the outline's winding.
+ */
+function insideTurn(points: readonly { x: number; y: number }[]): number {
+    const twice = points.reduce((sum, p, i) => {
+        const q = points[(i + 1) % points.length] ?? p;
+        return sum + p.x * q.y - q.x * p.y;
+    }, 0);
+    return twice >= 0 ? 1 : -1;
+}
+
+/**
+ * An open door's leaves swung into the room from their hinges: one leaf
+ * from the doorway's start, as long as the doorway is wide; a doorway wider
+ * than `doubleFrom` (double doors) two, each half, from either end.
+ */
+function swungOpen(seg: Segment, inward: number, doubleFrom: number): Segment[] {
+    const dx = seg.b.x - seg.a.x;
+    const dy = seg.b.y - seg.a.y;
+    const span = Math.hypot(dx, dy);
+    if (span === 0) {
         return [];
     }
-    const { texture, tint } = texturing(resolve, [feature.wall], NO_TINT, 'grain', WALL_FALLBACK);
+    const [nx, ny] = [(-dy / span) * inward, (dx / span) * inward];
+    const swing = (hinge: { x: number; y: number }, reach: number): Segment => ({ a: hinge, b: { x: hinge.x + nx * reach, y: hinge.y + ny * reach } });
+    return span > doubleFrom ? [swing(seg.a, span / 2), swing(seg.b, span / 2)] : [swing(seg.a, span)];
+}
+
+/**
+ * The drawn walls of a room: one band per perimeter segment in its wall
+ * material. A doorway breaks the band (a secret door is wall to look at): a
+ * closed door shows its leaf across the gap, an open one its leaves swung
+ * into the room, an opening nothing. Shade is
+ * Foundry's: its lights are cut by the native walls.
+ */
+function wallBands(feature: Feature, resolve: TextureResolver, bandWidth: number): Readonly<Record<'leaf' | 'wall', Filled[]>> {
+    if (feature.type !== 'room' || feature.wall === null) {
+        return { leaf: [], wall: [] };
+    }
+    // A room floored in its own masonry (a wall-walk, a tower's top), or in the stuff its walls are made of (concrete within
+    // concrete), keeps its walls a shade darker, so its rim still reads against the floor.
+    const alike = materialName(feature.floor) === materialName(feature.wall);
+    const { texture, tint } = texturing(resolve, [feature.wall], alike ? PARAPET_TINT : NO_TINT, 'grain', WALL_FALLBACK);
+    const doorways = new Map(feature.doors.filter((d) => d.type !== 'secret').map((d) => [d.segment, d]));
+    const segments = perimeterSegments(feature.points);
+    const walls = segments.filter((_, i) => !doorways.has(i));
+    const inward = insideTurn(feature.points);
+    const leaves = segments.flatMap((seg, i): Filled[] => {
+        const door = doorways.get(i);
+        if (door === undefined || door.type === 'opening') {
+            return [];
+        }
+        const leaf = (s: Segment): Filled => ({
+            outline: segmentBand(s, bandWidth * DOOR_LEAF.share),
+            fill: DOOR_LEAF.colour,
+            alpha: 1,
+            texture: null,
+            tint: NO_TINT,
+            feather: false,
+        });
+        if (door.state !== 'open') {
+            return [leaf(seg)];
+        }
+        // A panel slid into the wall or a shutter raised leaves a bare doorway; a hinged leaf stands swung into the room.
+        return RETRACTED.has(door.animation ?? 'swing') ? [] : swungOpen(seg, inward, bandWidth * DOUBLE_LEAF_BANDS).map(leaf);
+    });
     // Each band's texture is turned to its wall, so courses of brick and grain of planks run along it.
-    return perimeterSegments(feature.points).map((seg) => ({
-        outline: segmentBand(seg, bandWidth),
-        fill: WALL_FALLBACK,
-        alpha: 1,
-        texture,
-        tint,
-        feather: false,
-        angle: Math.atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x),
-    }));
+    const bands = walls.map(
+        (seg): Filled => ({
+            outline: segmentBand(seg, bandWidth),
+            fill: WALL_FALLBACK,
+            alpha: 1,
+            texture,
+            tint,
+            feather: false,
+            angle: Math.atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x),
+        }),
+    );
+    return { leaf: leaves, wall: bands };
 }
 
 export class GraphicsFeatureRenderer implements FeatureRenderer {
@@ -259,7 +341,9 @@ export class GraphicsFeatureRenderer implements FeatureRenderer {
         this.removeExtras(id);
         const below = underlays(feature, this.resolve).map((fill, i) => this.drawExtra(`${id}:bed:${i}`, fill));
         this.draw(id, outlineAndStyle(feature, this.resolve));
-        const above = wallBands(feature, this.resolve, this.wallBand).map((band, i) => this.drawExtra(`${id}:wall:${i}`, band));
+        // The leaves of closed doors, then the walls over them.
+        const walls = wallBands(feature, this.resolve, this.wallBand);
+        const above = (['leaf', 'wall'] as const).flatMap((part) => walls[part].map((fill, i) => this.drawExtra(`${id}:${part}:${i}`, fill)));
         const drawn = [...below, ...above];
         if (drawn.length > 0) {
             this.extras.set(id, drawn);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * The door panel for a room door: its Foundry door type (door or secret) and
+ * The door panel for a room door: its type (a Foundry door, a secret door, or
+ * an opening with no door and no wall), its
  * state (closed, open, locked), or removing it. A pure function from the
  * door's settings to elements; unit-tested under happy-dom.
  */
@@ -28,7 +29,7 @@ export interface DoorPanelHandlers {
     readonly remove: () => void;
 }
 
-const TYPES: readonly RoomDoorType[] = ['door', 'secret'];
+const TYPES: readonly RoomDoorType[] = ['door', 'secret', 'opening'];
 const STATES: readonly DoorState[] = ['closed', 'open', 'locked'];
 
 /** The select value standing for "Foundry's default" (null). */

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { polygonArea } from '../geometry/trace';
-import { DEFAULT_FLOOR_PLAN, generateFloorPlan, type FloorPlanOptions } from './floor-plan';
+import { DEFAULT_FLOOR_PLAN, generateFloorPlan, roomSpec, type FloorPlanOptions } from './floor-plan';
 import { parseSceneSpec, type RoomSpec } from './spec';
 
 function rooms(o: FloorPlanOptions): RoomSpec[] {
@@ -110,5 +110,28 @@ describe('generateFloorPlan', () => {
         expect(all).toHaveLength(1);
         expect(all[0]?.doors).toHaveLength(1);
         expect(rooms({ ...DEFAULT_FLOOR_PLAN, width: 4, height: 4, minRoom: 3, entrance: false })[0]?.doors).toEqual([]);
+    });
+});
+
+describe('roomSpec', () => {
+    const build = { floor: 'dirt', wall: null, wallKind: 'solid', ceiling: true } as const;
+
+    it('puts a shut door, an open one, and an archway as an opening with no door, each on its own segment', () => {
+        const spec = roomSpec(
+            { x: 0, y: 0, w: 10, h: 6 },
+            [
+                { side: 'top', at: 2 },
+                { side: 'bottom', at: 4, width: 2, open: true },
+                { side: 'left', at: 1, width: 4, open: true, arch: true },
+            ],
+            build,
+        );
+        const bySegment = new Map(spec.doors.map((d) => [d.segment, d]));
+        const at = (x: number, y: number): number => spec.points.findIndex((p) => p.x === x && p.y === y);
+        expect(bySegment.get(at(2, 0))).toMatchObject({ type: 'door', state: 'closed' });
+        // The bottom runs right to left, so its doorway is entered at its far end.
+        expect(bySegment.get(at(6, 6))).toMatchObject({ type: 'door', state: 'open' });
+        expect(bySegment.get(at(0, 5))).toMatchObject({ type: 'opening', state: 'open' });
+        expect(spec.doors).toHaveLength(3);
     });
 });

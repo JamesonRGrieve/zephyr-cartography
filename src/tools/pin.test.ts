@@ -4,10 +4,10 @@ import { deletePoint, movePoint } from './edit';
 import { NO_DOCS } from './generated-docs';
 import { featureHit } from './hit';
 import { NO_LEVEL_ART } from './levels';
-import { makePin, NEW_PIN, parsePin, PIN_HIT_RADIUS, pinPoint, pinSettingsOf, withPinSettings } from './pin';
+import { makePin, MIN_NOTE_SIZE, NEW_PIN, parsePin, PIN_HIT_RADIUS, pinPoint, pinSettingsOf, withPinSettings } from './pin';
 import { NO_PLAN, planDocuments } from './plan';
 
-const settings = { text: 'The Sump', entry: 'je1', page: 'pg1', icon: 'icons/svg/tankard.svg', global: true };
+const settings = { text: 'The Sump', entry: 'je1', page: 'pg1', icon: 'icons/svg/tankard.svg', global: true, readable: false, size: 60 };
 
 describe('pins', () => {
     it('stand at one point and start as Foundry makes a note: no text, journal or icon', () => {
@@ -21,6 +21,18 @@ describe('pins', () => {
         const pin = makePin('p', { x: 0, y: 0 });
         expect(pinSettingsOf(withPinSettings(pin, settings))).toEqual(settings);
         expect(withPinSettings(pin, { ...settings, entry: null }).page).toBeNull();
+    });
+
+    it('never size their icon below the least Foundry takes, and keep it whole', () => {
+        const pin = makePin('p', { x: 0, y: 0 });
+        expect(withPinSettings(pin, { ...settings, size: 10 }).size).toBe(MIN_NOTE_SIZE);
+        expect(withPinSettings(pin, { ...settings, size: 70.6 }).size).toBe(71);
+        expect(withPinSettings(pin, { ...settings, size: null }).size).toBeNull();
+    });
+
+    it('can be words for players to read on hover, with no journal: a sign', () => {
+        const sign = withPinSettings(makePin('p', { x: 0, y: 0 }), { ...NEW_PIN, text: 'OPEN LATE', readable: true, size: 50 });
+        expect(planDocuments(sign).notes).toEqual([expect.objectContaining({ text: 'OPEN LATE', readable: true, size: 50, entry: null })]);
     });
 
     it('plan one Note on their level, and nothing else', () => {
@@ -43,7 +55,15 @@ describe('pins', () => {
     it('round-trip through the scene flag, and a malformed entry is dropped', () => {
         const pin = { ...withPinSettings(makePin('p', { x: 1, y: 2 }), settings), docs: { ...NO_DOCS, notes: ['n0'] } };
         expect(parsePin(JSON.parse(JSON.stringify(pin)))).toEqual(pin);
-        expect(parsePin({ type: 'pin', id: 'q', points: [{ x: 1, y: 1 }], text: 3, global: 'yes' })).toMatchObject({ text: '', global: false, entry: null });
+        expect(parsePin({ type: 'pin', id: 'q', points: [{ x: 1, y: 1 }], text: 3, global: 'yes', readable: 'yes', size: 'big' })).toMatchObject({
+            text: '',
+            global: false,
+            entry: null,
+            readable: false,
+            size: null,
+        });
+        // A pin saved before signs were readable is an ordinary one, its icon Foundry's size.
+        expect(parsePin({ type: 'pin', id: 'q', points: [{ x: 1, y: 1 }] })).toMatchObject({ readable: false, size: null });
         expect(parsePin({ type: 'pin', id: 'q', points: [] })).toBeNull();
         expect(parsePin({ type: 'stamp', id: 'q', points: [{ x: 1, y: 1 }] })).toBeNull();
     });

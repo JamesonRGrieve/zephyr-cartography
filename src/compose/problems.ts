@@ -21,6 +21,10 @@ export type ComposeProblem =
     | { readonly kind: 'not-beside'; readonly building: string; readonly room: string; readonly other: string }
     /** A role no loaded stamp fills, where it was wanted: a zone's kind, or a building's room. */
     | { readonly kind: 'no-stamp'; readonly role: StampRole; readonly wantedIn: string }
+    /** A piece (a role, or a room's named fixture) no loaded stamp draws, a labelled box of its size standing in where it was wanted. */
+    | { readonly kind: 'placeholder'; readonly piece: string; readonly wantedIn: string }
+    /** A room's named fixture with no room left where it was asked (other pieces, a doorway's approach), so it is not on the map. */
+    | { readonly kind: 'no-room'; readonly piece: string; readonly wantedIn: string }
     /** A building of several floors whose floors could not agree on a place for the stair, which goes without one. */
     | { readonly kind: 'no-stairwell'; readonly building: string };
 

@@ -14,7 +14,21 @@ function stamp(
     upright = false,
 ): RoleStamp {
     // Land stamps belong on every kind of ground, so every zone can be dressed.
-    return { key: `test:${id}`, role, width, height, turn, against, clearance, upright, habitats: STAMP_HABITATS, climb: null, borrowed: false, purposes: [] };
+    return {
+        key: `test:${id}`,
+        role,
+        width,
+        height,
+        turn,
+        against,
+        clearance,
+        upright,
+        habitats: STAMP_HABITATS,
+        climb: null,
+        borrowed: false,
+        purposes: [],
+        tags: [],
+    };
 }
 
 /** A way between levels: a flight or ladder climbing from where it stands, or a hatch going down from it. */

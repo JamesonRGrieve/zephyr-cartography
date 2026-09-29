@@ -13,6 +13,16 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['candle', 'cluster'])).toBe('light');
         expect(roleFromTags(['interrogation', 'chair'])).toBe('restraint');
         expect(roleFromTags(['shrine', 'shelf'])).toBe('shelf');
+        expect(roleFromTags(['bookcase', 'setting-fantasy'])).toBe('shelf');
+        // Tagged tabletop, it is set on a table, even a candle (it still gives its light there) or a bread board.
+        expect(roleFromTags(['tabletop', 'candle'])).toBe('tabletop');
+        expect(roleFromTags(['tabletop', 'bread', 'board'])).toBe('tabletop');
+        expect(roleFromTags(['flower', 'bed', 'setting-fantasy'])).toBe('flora');
+        expect(roleFromTags(['double', 'bed'])).toBe('bed');
+        expect(roleFromTags(['high', 'backed', 'settle'])).toBe('bench');
+        // A counter's lifting gate is part of the counter; a gate in a wall is a door.
+        expect(roleFromTags(['brass', 'counter', 'gate', 'counter-gate'])).toBe('counter');
+        expect(roleFromTags(['picket', 'gate'])).toBe('door');
         expect(roleFromTags(['prep', 'table', 'setting-fantasy'])).toBe('workbench');
         expect(roleFromTags(['chopping', 'block'])).toBe('workbench');
         // Every tag of a combination: table clutter lies on a table, a table alone is one, clutter alone is clutter.

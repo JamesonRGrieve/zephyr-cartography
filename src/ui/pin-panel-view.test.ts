@@ -69,6 +69,20 @@ describe('map pin panel', () => {
         expect(input(root, 'pin-global').checked).toBe(false);
     });
 
+    it('makes a pin words for players to read on hover, sized to the sign, or Foundry’s size left empty', () => {
+        const root = mount(stories.ReadableSign);
+        expect(input(root, 'pin-readable').checked).toBe(true);
+        expect(input(root, 'pin-size').value).toBe('60');
+        input(root, 'pin-readable').click();
+        expect(input(root, 'pin-readable').checked).toBe(false);
+        change(input(root, 'pin-size'), '-3');
+        expect(input(root, 'pin-size').value).toBe('60');
+        change(input(root, 'pin-size'), '90');
+        expect(input(root, 'pin-size').value).toBe('90');
+        change(input(root, 'pin-size'), '');
+        expect(input(root, 'pin-size').value).toBe('');
+    });
+
     it('keeps an entry no longer in the journal selectable rather than changing the pin', () => {
         const root = mount(stories.EntryNoLongerInTheJournal);
         expect(select(root, 'zc-pin-entry').value).toBe('je-gone');
@@ -76,7 +90,7 @@ describe('map pin panel', () => {
     });
 
     it('renders every story', () => {
-        for (const story of [stories.NewPin, stories.ChapelPage, stories.EntryNoLongerInTheJournal]) {
+        for (const story of [stories.NewPin, stories.ChapelPage, stories.ReadableSign, stories.EntryNoLongerInTheJournal]) {
             expect(mount(story).querySelector('#zc-pin-entry')).not.toBeNull();
         }
     });

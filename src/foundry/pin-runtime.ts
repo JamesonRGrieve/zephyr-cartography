@@ -24,6 +24,8 @@ function labels(): PinLabels {
         icon: localize('NOTE.FIELDS.texture.src.label'),
         browse: localize(I18N.pins.browse),
         global: localize('NOTE.FIELDS.global.label'),
+        size: localize('NOTE.FIELDS.iconSize.label'),
+        readable: localize(I18N.pins.readable),
     };
 }
 

@@ -161,6 +161,41 @@ test('a room under another level has a ceiling Foundry treats as a solid surface
     expect(result.fromUpper).toEqual([ceiling]);
 });
 
+test('an upper level that sees the ground shows it beneath: its painted ground at the ground’s floor, its stamps’ tiles', async ({ world }) => {
+    const ids = await world.evaluate(async () => {
+        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+            schemaVersion: 1,
+            levels: [
+                { key: 'ground', name: 'Yard' },
+                { key: 'upper', name: 'Loft', visibleLevels: ['ground'] },
+            ],
+            features: [
+                { type: 'stroke', biome: 'forest', radius: 2, points: [{ x: 5, y: 5 }], level: 'ground' },
+                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 5, y: 5, level: 'ground' },
+            ],
+        });
+        const levels = canvas?.scene?.levels.contents ?? [];
+        const ground = levels.find((l) => l.name === 'Yard');
+        const upper = levels.find((l) => l.name === 'Loft');
+        await canvas?.scene?.view({ level: upper?.id ?? '' });
+        return { ground: ground?.id ?? '', upper: upper?.id ?? '', groundFloor: ground?.elevation.bottom ?? null };
+    });
+    // The crate's tile is on the loft too, so Foundry draws it there.
+    const crateLevels = async (): Promise<string[]> => world.evaluate(() => [...(canvas?.scene?.tiles.contents[0]?.levels ?? [])].sort());
+    await expect.poll(crateLevels).toEqual([ids.ground, ids.upper].sort());
+    // The yard's painted ground draws on its own terrain layer, at the yard's floor, beneath the loft's.
+    const layers = async (): Promise<{ elevation: number; fills: number }[]> =>
+        world.evaluate(() =>
+            (canvas?.primary?.children ?? [])
+                .filter((child) => child.name === 'zephyrex-cartography-terrain')
+                .map((child) => ({
+                    elevation: 'elevation' in child ? Number(child.elevation) : Number.NaN,
+                    fills: child instanceof PIXI.Container ? child.children.length : 0,
+                })),
+        );
+    await expect.poll(async () => (await layers()).find((layer) => layer.elevation === ids.groundFloor)?.fills).toBe(1);
+});
+
 test('a level’s own images are its native Level background, foreground and fog', async ({ world }) => {
     const result = await world.evaluate(async () => {
         const art = { background: 'modules/zc-e2e-pack/stamps/hab.svg', foreground: null, fog: 'modules/zc-e2e-pack/stamps/crate.svg' };

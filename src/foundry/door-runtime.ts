@@ -28,7 +28,7 @@ function labels(): DoorPanelLabels {
     return {
         type: localize(d.type),
         state: localize(d.state),
-        types: { door: localize(d.types.door), secret: localize(d.types.secret) },
+        types: { door: localize(d.types.door), secret: localize(d.types.secret), opening: localize(d.types.opening) },
         states: { closed: localize(d.states.closed), open: localize(d.states.open), locked: localize(d.states.locked) },
         sound: localize(d.sound),
         animation: localize(d.animation),

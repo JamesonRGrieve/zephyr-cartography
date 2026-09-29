@@ -13,6 +13,7 @@ import { parseSceneSpec, type SceneSpec, type SpecIssue } from '../generate/spec
 import { MODULE_ID } from '../module-id';
 import type { CatalogStamp } from '../stamps/catalog';
 import { buildOnScene, type ComposeOutcome, composeOnScene } from './build-spec';
+import { terrainImagesLoading } from './pixi-surface';
 import { spawnInto, type SpawnResult } from './spawner';
 
 /** Revision of the API shape; additive changes keep it. */
@@ -42,6 +43,8 @@ interface CartographyApi {
      * permission) are thrown as they are.
      */
     readonly spawn: (featureId: string) => Promise<SpawnResult>;
+    /** How many terrain images are still loading; the drawn map is complete once none are. */
+    readonly terrainImagesLoading: () => number;
 }
 
 declare global {
@@ -54,17 +57,23 @@ declare global {
     }
 }
 
-/** `stamps` lists every stamp the loaded packs offer, for composing. */
-export function registerApi(controller: () => CartographyController | null, stamps: () => readonly CatalogStamp[]): void {
+/**
+ * `stamps` lists every stamp the loaded packs offer, for composing, and
+ * `packsSettled` resolves once they have loaded and the draw layer has been
+ * rebuilt for them: building waits for it, and builds with the controller it
+ * leaves (one torn down mid-build would leave its features undrawn).
+ */
+export function registerApi(controller: () => CartographyController | null, stamps: () => readonly CatalogStamp[], packsSettled: () => Promise<void>): void {
     const api: CartographyApi = {
         version: API_VERSION,
         controller,
         buildSpec: async (spec) => {
-            const active = controller();
             const parsed = parseSceneSpec(spec);
             if (!parsed.ok) {
                 return { ok: false, issues: parsed.issues };
             }
+            await packsSettled();
+            const active = controller();
             if (!active) {
                 return { ok: false, issues: [{ path: '', message: 'no scene is being viewed' }] };
             }
@@ -72,11 +81,12 @@ export function registerApi(controller: () => CartographyController | null, stam
         },
         generateFloorPlan: (options = {}) => generateFloorPlan({ ...DEFAULT_FLOOR_PLAN, ...options }),
         compose: async (intent) => {
-            const active = controller();
             const parsed = parseMapIntent(intent);
             if (!parsed.ok) {
                 return { ok: false, issues: parsed.issues };
             }
+            await packsSettled();
+            const active = controller();
             if (!active) {
                 return { ok: false, issues: [{ path: '', message: 'no scene is being viewed' }] };
             }
@@ -88,6 +98,7 @@ export function registerApi(controller: () => CartographyController | null, stam
             const regionId = active?.areaRegionId(featureId) ?? null;
             return settings === null || regionId === null ? { spawned: 0, missing: [] } : spawnInto(regionId, settings.spawn);
         },
+        terrainImagesLoading,
     };
     Hooks.once('init', () => {
         const cartography = game.modules?.get(MODULE_ID);

@@ -25,8 +25,9 @@ const STAMP_SCALES = ['system', 'planet', 'regional', 'city', 'exterior', 'inter
  * How a stamp's image is drawn: `orthographic` straight down (a plan view,
  * which can be turned any way on a map); `isometric` a three-quarter or
  * front-on view with depth but no vanishing point; `central` from above in
- * one-point perspective, its sides converging. Only orthographic art can be
- * turned: anything drawn with depth turned half round stands upside down.
+ * one-point perspective, its sides converging. Orthographic and central art
+ * can be turned, since both look down on the piece; isometric art turned
+ * half round stands upside down.
  * `top-down` is the old name for orthographic, still read as it.
  */
 const STAMP_PERSPECTIVES = ['orthographic', 'isometric', 'central', 'top-down'] as const;
@@ -409,6 +410,8 @@ export const STAMP_ROLES = [
     'fodder',
     'dresser',
     'armchair',
+    'decal',
+    'door',
 ] as const;
 
 /** An image's edges, as a piece's back. */
@@ -508,6 +511,18 @@ const textureSetSchema = z
             .record(text, text)
             .optional()
             .describe('Texture role → a browser image the panels show for a compressed texture; a compressed role without one shows its colour.'),
+        fallback: z
+            .array(text)
+            .optional()
+            .describe(
+                "Ids of this pack's other texture sets that stand in, in order, for the wall textures this set lacks (a painted set borrowing grey photo concrete); omitted, the pack's sets in their listed order.",
+            ),
+        tileSquares: z
+            .record(text, z.number().positive())
+            .optional()
+            .describe(
+                'Texture role → grid squares one tile of the image spans along its shorter side, where the art is drawn to a scale (three riveted plates meant to be two squares each: 6); omitted, 2.',
+            ),
     })
     .strict();
 

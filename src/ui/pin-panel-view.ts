@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * The map pin panel: its text, the journal entry and page it opens (chosen
- * from the world's journal), its icon (typed or browsed for), and whether
- * everyone sees it. Named with Foundry's own Note sheet strings. A pure
+ * from the world's journal), its icon (typed or browsed for) and its size,
+ * whether everyone sees it, and whether players read it on hover with no icon
+ * drawn (a sign's words). Named with Foundry's own Note sheet strings. A pure
  * function from the pin's settings and the journal to elements; unit-tested
  * under happy-dom.
  */
@@ -30,6 +31,9 @@ export interface PinLabels {
     readonly icon: string;
     readonly browse: string;
     readonly global: string;
+    /** The icon's size, in px; left empty, Foundry's own. */
+    readonly size: string;
+    readonly readable: string;
 }
 
 export interface PinHandlers {
@@ -86,8 +90,23 @@ export function renderPinPanel(root: HTMLElement, panel: PinPanel, labels: PinLa
             }),
             browse,
         ),
+        labelledInput(labels.size, 'number', settings.size === null ? '' : String(settings.size), 'pin-size', (typed) => {
+            if (typed.trim() === '') {
+                set({ size: null });
+                return true;
+            }
+            const size = Number(typed);
+            if (!Number.isFinite(size) || size <= 0) {
+                return false;
+            }
+            set({ size });
+            return true;
+        }),
         labelledCheckbox(labels.global, settings.global, 'pin-global', (everywhere) => {
             set({ global: everywhere });
+        }),
+        labelledCheckbox(labels.readable, settings.readable, 'pin-readable', (readable) => {
+            set({ readable });
         }),
     ]);
 }

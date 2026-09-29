@@ -13,7 +13,7 @@
  * rooms. Every room is reachable: where asked-for doors leave a room cut
  * off, doors are added between rooms that touch. Pure and unit-tested.
  */
-import type { DoorSlot, Rect, Side } from '../generate/floor-plan';
+import { type DoorSlot, OPPOSITE_SIDE, type Rect, type Side } from '../generate/floor-plan';
 import { randomInt, shuffled, type Random } from '../generate/random';
 import type { BuildingIntent, Edge, RoomIntent } from './intent';
 
@@ -55,15 +55,13 @@ export interface BuildingLayout {
 
 const SIDE_OF_EDGE: Readonly<Record<Edge, Side>> = { north: 'top', east: 'right', south: 'bottom', west: 'left' };
 
-const OPPOSITE: Readonly<Record<Side, Side>> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
-
 /** Each room's doors as it sees them: its own, and the ones its neighbours opened into its walls. */
 export function doorsOf(layout: BuildingLayout, key: string): DoorSlot[] {
     return layout.doors.flatMap((d) => {
         if (d.room === key) {
             return [d.slot];
         }
-        return d.to === key ? [{ side: OPPOSITE[d.slot.side], at: d.slot.at }] : [];
+        return d.to === key ? [{ ...d.slot, side: OPPOSITE_SIDE[d.slot.side] }] : [];
     });
 }
 
@@ -71,7 +69,7 @@ export function doorsOf(layout: BuildingLayout, key: string): DoorSlot[] {
 function neighbours(rooms: readonly RoomIntent[]): Map<string, Set<string>> {
     const graph = new Map(rooms.map((r) => [r.key, new Set<string>()]));
     for (const r of rooms) {
-        for (const other of r.opensTo) {
+        for (const other of [...r.opensTo, ...r.archTo, ...r.secretTo]) {
             graph.get(r.key)?.add(other);
             graph.get(other)?.add(r.key);
         }
@@ -79,20 +77,26 @@ function neighbours(rooms: readonly RoomIntent[]): Map<string, Set<string>> {
     return graph;
 }
 
-/** Each pair of rooms the intent asks to open onto each other, once, whichever of them names the other. */
-function askedPairs(rooms: readonly RoomIntent[]): [string, string][] {
-    const pairs: [string, string][] = [];
-    const seen = new Set<string>();
+/** How two rooms the intent joins are joined: a door, a doorless archway, or a secret door that looks like wall. */
+type Joint = 'door' | 'arch' | 'secret';
+
+/** Each pair of rooms the intent asks to open onto each other, once, whichever of them names the other; an archway or a secret door where either asks for one. */
+function askedPairs(rooms: readonly RoomIntent[]): [string, string, Joint][] {
+    const pairs = new Map<string, [string, string, Joint]>();
     for (const room of rooms) {
-        for (const other of room.opensTo) {
+        const asked: [string, Joint][] = [
+            ...room.archTo.map((o): [string, Joint] => [o, 'arch']),
+            ...room.secretTo.map((o): [string, Joint] => [o, 'secret']),
+            ...room.opensTo.map((o): [string, Joint] => [o, 'door']),
+        ];
+        for (const [other, joint] of asked) {
             const id = [room.key, other].sort().join('\u0000');
-            if (!seen.has(id)) {
-                seen.add(id);
-                pairs.push([room.key, other]);
+            if (!pairs.has(id)) {
+                pairs.set(id, [room.key, other, joint]);
             }
         }
     }
-    return pairs;
+    return [...pairs.values()];
 }
 
 /** The entrance room: the one marked, else the first. */
@@ -186,7 +190,7 @@ const SPINE_ROOMS = 4;
 const SPINE_EVERY = 8;
 
 /** A corridor's width in squares: two abreast. */
-const CORRIDOR_WIDTH = 2;
+export const CORRIDOR_WIDTH = 2;
 
 /** `rooms` along one side of a corridor: `band` split along its length by the rooms' sizes, each at least a room wide. */
 function sideRooms(band: Rect, rooms: readonly RoomIntent[], lengthwiseX: boolean): PlacedRoom[] | null {
@@ -211,7 +215,7 @@ function sideRooms(band: Rect, rooms: readonly RoomIntent[], lengthwiseX: boolea
  * rooms, in a seeded order, split between its two sides. Null when no hall
  * opens onto so many, or the rooms do not fit.
  */
-function spine(rect: Rect, rooms: readonly RoomIntent[], random: Random): PlacedRoom[] | null {
+function spine(rect: Rect, rooms: readonly RoomIntent[], random: Random, width: number): PlacedRoom[] | null {
     const graph = neighbours(rooms);
     const hall = rooms
         .filter((r) => r.purpose === 'hall' && (graph.get(r.key)?.size ?? 0) >= SPINE_ROOMS)
@@ -221,8 +225,8 @@ function spine(rect: Rect, rooms: readonly RoomIntent[], random: Random): Placed
     }
     const lengthwiseX = rect.w >= rect.h;
     const depth = lengthwiseX ? rect.h : rect.w;
-    const near = Math.floor((depth - CORRIDOR_WIDTH) / 2);
-    const far = depth - CORRIDOR_WIDTH - near;
+    const near = Math.floor((depth - width) / 2);
+    const far = depth - width - near;
     const others = shuffled(
         random,
         rooms.filter((r) => r !== hall),
@@ -231,18 +235,28 @@ function spine(rect: Rect, rooms: readonly RoomIntent[], random: Random): Placed
     const bands: [Rect, Rect, Rect] = lengthwiseX
         ? [
               { ...rect, h: near },
-              { ...rect, y: rect.y + near, h: CORRIDOR_WIDTH },
-              { ...rect, y: rect.y + near + CORRIDOR_WIDTH, h: far },
+              { ...rect, y: rect.y + near, h: width },
+              { ...rect, y: rect.y + near + width, h: far },
           ]
         : [
               { ...rect, w: near },
-              { ...rect, x: rect.x + near, w: CORRIDOR_WIDTH },
-              { ...rect, x: rect.x + near + CORRIDOR_WIDTH, w: far },
+              { ...rect, x: rect.x + near, w: width },
+              { ...rect, x: rect.x + near + width, w: far },
           ];
     const [first, corridor, second] = bands;
     const oneSide = sideRooms(first, others.slice(0, half), lengthwiseX);
     const otherSide = sideRooms(second, others.slice(half), lengthwiseX);
     return oneSide && otherSide ? [...oneSide, { key: hall.key, intent: hall, rect: corridor }, ...otherSide] : null;
+}
+
+/** The rooms where the intent places every one (`rect`, from the building's corner), in scene squares; null unless all are placed. */
+function pinnedRooms(rooms: readonly RoomIntent[], footprint: Rect): PlacedRoom[] | null {
+    const placed = rooms.flatMap((room) =>
+        room.rect === undefined
+            ? []
+            : [{ key: room.key, intent: room, rect: { x: footprint.x + room.rect.x, y: footprint.y + room.rect.y, w: room.rect.w, h: room.rect.h } }],
+    );
+    return placed.length === rooms.length ? placed : null;
 }
 
 /** The wall `a` and `b` share, as the side of `a` it is on and its extent along that side, or null if they do not touch. */
@@ -281,11 +295,15 @@ function outerStretch(room: Rect, side: Side, footprint: Rect): { from: number; 
         (side === 'bottom' && room.y + room.h === footprint.y + footprint.h) ||
         (side === 'left' && room.x === footprint.x) ||
         (side === 'right' && room.x + room.w === footprint.x + footprint.w);
-    if (!flush) {
-        return null;
-    }
-    return side === 'top' || side === 'bottom' ? { from: room.x, to: room.x + room.w } : { from: room.y, to: room.y + room.h };
+    return flush ? edgeSpan(room, side) : null;
 }
+
+/** The extent of `room`'s `side` wall along it. */
+const edgeSpan = (room: Rect, side: Side): { from: number; to: number } =>
+    side === 'top' || side === 'bottom' ? { from: room.x, to: room.x + room.w } : { from: room.y, to: room.y + room.h };
+
+/** Squares of wall an archway leaves standing at each end of the wall it opens. */
+const ARCH_PIER = 1;
 
 /** Doors: every asked-for adjacency that touches, then enough more between touching rooms that every room is reached. */
 function interiorDoors(rooms: readonly PlacedRoom[], random: Random): { doors: PlacedDoor[]; unmet: [string, string][] } {
@@ -296,20 +314,34 @@ function interiorDoors(rooms: readonly PlacedRoom[], random: Random): { doors: P
         const up = joined.get(key) ?? key;
         return up === key ? key : rootOf(up);
     };
-    const connect = (a: PlacedRoom, b: PlacedRoom): boolean => {
+    const connect = (a: PlacedRoom, b: PlacedRoom, joint: Joint = 'door'): boolean => {
         const wall = sharedWall(a.rect, b.rect);
         if (!wall) {
             return false;
         }
-        doors.push({ room: a.key, to: b.key, slot: { side: wall.side, at: doorAt(wall.from, wall.to, random) } });
+        const span = wall.to - wall.from;
+        if (joint === 'arch') {
+            // The whole wall they share open, but for a pier at each end where it is wide enough to keep them (a corridor's mouth is open wall to wall).
+            const pier = span > 2 * ARCH_PIER + 1 ? ARCH_PIER : 0;
+            doors.push({ room: a.key, to: b.key, slot: { side: wall.side, at: wall.from + pier, width: span - 2 * pier, open: true, arch: true } });
+        } else {
+            // Where either room asks, there along the wall they share: a row of cells with their doors alike.
+            const asked = a.intent.doorAt ?? b.intent.doorAt;
+            const at = asked === null ? doorAt(wall.from, wall.to, random) : wall.from + Math.round(asked * (span - 1));
+            // Standing open where either room is left open.
+            const leftOpen = a.intent.doorOpen || b.intent.doorOpen;
+            // A secret door is found shut: never left standing open.
+            const state = joint === 'secret' ? { secret: true } : leftOpen ? { open: true } : {};
+            doors.push({ room: a.key, to: b.key, slot: { side: wall.side, at, ...state } });
+        }
         joined.set(rootOf(a.key), rootOf(b.key));
         return true;
     };
     const byKey = new Map(rooms.map((r) => [r.key, r]));
-    for (const [a, b] of askedPairs(rooms.map((r) => r.intent))) {
+    for (const [a, b, joint] of askedPairs(rooms.map((r) => r.intent))) {
         const from = byKey.get(a);
         const to = byKey.get(b);
-        if (from && to && !connect(from, to)) {
+        if (from && to && !connect(from, to, joint)) {
             unmet.push([a, b]);
         }
     }
@@ -329,21 +361,56 @@ function interiorDoors(rooms: readonly PlacedRoom[], random: Random): { doors: P
     return { doors, unmet };
 }
 
-/** The front door, in the entrance room's outer wall on the side the building faces, else its nearest outer wall. */
-function frontDoor(rooms: readonly PlacedRoom[], entrance: RoomIntent, facing: Edge, footprint: Rect, random: Random): PlacedDoor | null {
+/**
+ * The front door, in the entrance room's outer wall on the side the building
+ * faces, else its nearest outer wall; `at` squares along the facing side
+ * where asked and that stretch of wall is the entrance room's.
+ */
+function frontDoor(
+    rooms: readonly PlacedRoom[],
+    entrance: RoomIntent,
+    front: { readonly facing: Edge; readonly at: number | null; readonly width: number; readonly open: boolean; readonly gap: boolean },
+    footprint: Rect,
+    random: Random,
+): PlacedDoor | null {
     const room = rooms.find((r) => r.key === entrance.key);
     if (!room) {
         return null;
     }
-    const wanted = SIDE_OF_EDGE[facing];
+    const wanted = SIDE_OF_EDGE[front.facing];
     const sides: readonly Side[] = [wanted, ...(['bottom', 'right', 'left', 'top'] as const).filter((s) => s !== wanted)];
+    const { width } = front;
     for (const side of sides) {
         const stretch = outerStretch(room.rect, side, footprint);
-        if (stretch) {
-            return { room: room.key, to: null, slot: { side, at: doorAt(stretch.from, stretch.to, random) } };
+        if (stretch && stretch.to - stretch.from >= width) {
+            const asked = front.at === null || side !== wanted ? null : (side === 'top' || side === 'bottom' ? footprint.x : footprint.y) + front.at;
+            const at = asked !== null && asked >= stretch.from && asked + width <= stretch.to ? asked : doorAt(stretch.from, stretch.to - width + 1, random);
+            return { room: room.key, to: null, slot: { side, at, ...(width > 1 ? { width } : {}), ...doorway(front) } };
         }
     }
     return null;
+}
+
+/** The building's other doorways out: each in the room whose outer wall holds it, where one does. */
+function openingDoors(rooms: readonly PlacedRoom[], openings: BuildingIntent['openings'], footprint: Rect): PlacedDoor[] {
+    return openings.flatMap(({ side: edge, at, width, open: leftOpen, gap, room: named }) => {
+        const side = SIDE_OF_EDGE[edge];
+        const along = side === 'top' || side === 'bottom' ? footprint.x + at : footprint.y + at;
+        const room = rooms.find((r) => {
+            // A named room's own wall on that side, wherever it stands; else the wall on the footprint's edge.
+            const stretch = named === undefined ? outerStretch(r.rect, side, footprint) : r.key === named ? edgeSpan(r.rect, side) : null;
+            return stretch !== null && along >= stretch.from && along + width <= stretch.to;
+        });
+        return room ? [{ room: room.key, to: null, slot: { side, at: along, ...(width > 1 ? { width } : {}), ...doorway({ open: leftOpen, gap }) } }] : [];
+    });
+}
+
+/** A way out's doorway: a gap with no door at all (drawn as an archway, never hung), a door standing open, or a shut one. */
+function doorway(way: { readonly open: boolean; readonly gap: boolean }): { readonly open?: true; readonly arch?: true } {
+    if (way.gap) {
+        return { open: true, arch: true };
+    }
+    return way.open ? { open: true } : {};
 }
 
 /** How good a layout is: asked-for adjacencies met, the entrance on its side, rooms well proportioned. */
@@ -364,6 +431,8 @@ export interface StoreyOptions {
     readonly front: boolean;
     /** A layout this refuses is never chosen, however it scores: an upper floor must hold the stairwell below. */
     readonly accept: (layout: BuildingLayout) => boolean;
+    /** Squares across a corridor, where the storey is laid round one (wider where a stair climbs into it); two when omitted. */
+    readonly corridor?: number;
 }
 
 const GROUND_FLOOR: StoreyOptions = { front: true, accept: () => true };
@@ -385,17 +454,37 @@ export function layOutBuilding(
         return null;
     }
     const rooms: [RoomIntent, ...RoomIntent[]] = [first, ...others];
+    const pinned = pinnedRooms(rooms, footprint);
     let best: { layout: BuildingLayout; score: number } | null = null;
     for (let attempt = 0; attempt < LAYOUT_TRIES; attempt++) {
-        // A corridor with rooms along it is tried beside the splits, and wins where it meets the adjacency they cannot.
+        // Rooms each placed by the intent are laid as given; else a corridor with rooms along it is tried beside the splits,
+        // and wins where it meets the adjacency they cannot.
         const placed =
-            attempt % SPINE_EVERY === 0
-                ? spine(footprint, rooms, random) ?? place(footprint, roomOrder(rooms, random), random)
-                : place(footprint, roomOrder(rooms, random), random);
+            pinned ??
+            (attempt % SPINE_EVERY === 0
+                ? spine(footprint, rooms, random, options.corridor ?? CORRIDOR_WIDTH) ?? place(footprint, roomOrder(rooms, random), random)
+                : place(footprint, roomOrder(rooms, random), random));
         if (placed) {
             const { doors, unmet } = interiorDoors(placed, random);
-            const front = options.front ? frontDoor(placed, entranceRoom(rooms), building.entrance, footprint, random) : null;
-            const layout = { rooms: placed, doors: front ? [...doors, front] : doors, unmet };
+            const front =
+                options.front && building.frontDoor
+                    ? frontDoor(
+                          placed,
+                          entranceRoom(rooms),
+                          {
+                              facing: building.entrance,
+                              at: building.frontDoorAt,
+                              width: building.frontDoorWidth,
+                              open: building.frontDoorOpen,
+                              gap: building.frontDoorGap,
+                          },
+                          footprint,
+                          random,
+                      )
+                    : null;
+            // Its other doorways out after the front door, which stays the first way out.
+            const waysOut = options.front ? openingDoors(placed, building.openings, footprint) : [];
+            const layout = { rooms: placed, doors: [...doors, ...(front ? [front] : []), ...waysOut], unmet };
             if (!options.accept(layout)) {
                 continue;
             }

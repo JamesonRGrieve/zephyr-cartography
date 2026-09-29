@@ -69,6 +69,8 @@ export const I18N = {
             roomsDoNotFit: key('Generator.ComposeProblems.RoomsDoNotFit'),
             notBeside: key('Generator.ComposeProblems.NotBeside'),
             noStamp: key('Generator.ComposeProblems.NoStamp'),
+            placeholder: key('Generator.ComposeProblems.Placeholder'),
+            noRoom: key('Generator.ComposeProblems.NoRoom'),
             noStairwell: key('Generator.ComposeProblems.NoStairwell'),
             borrowed: key('Generator.ComposeProblems.Borrowed'),
             standIn: key('Generator.ComposeProblems.StandIn'),
@@ -188,6 +190,7 @@ export const I18N = {
         title: key('Pins.Title'),
         none: key('Pins.None'),
         browse: key('Pins.Browse'),
+        readable: key('Pins.Readable'),
     },
     zones: {
         title: key('Zones.Title'),
@@ -244,7 +247,7 @@ export const I18N = {
         animation: key('Doors.Animation'),
         foundryDefault: key('Doors.FoundryDefault'),
         remove: key('Doors.Remove'),
-        types: { door: key('Doors.Types.Door'), secret: key('Doors.Types.Secret') },
+        types: { door: key('Doors.Types.Door'), secret: key('Doors.Types.Secret'), opening: key('Doors.Types.Opening') },
         states: { closed: key('Doors.States.Closed'), open: key('Doors.States.Open'), locked: key('Doors.States.Locked') },
     },
     lights: {

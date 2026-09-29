@@ -9,7 +9,7 @@
  * borrowed from another setting, is reported. Pure and unit-tested;
  * positions are in grid squares.
  */
-import type { DoorSlot, Rect, Side } from '../generate/floor-plan';
+import { type DoorSlot, OPPOSITE_SIDE, type Rect, type Side } from '../generate/floor-plan';
 import { pick, type Random } from '../generate/random';
 import type { AccessKind, Edge } from './intent';
 import type { ComposeProblem } from './problems';
@@ -84,8 +84,6 @@ export interface StormDoorway {
 /** Each map edge as the side of a footprint facing it. */
 const EDGE_SIDE: Readonly<Record<Edge, Side>> = { north: 'top', east: 'right', south: 'bottom', west: 'left' };
 
-const OPPOSITE: Readonly<Record<Side, Side>> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
-
 /** The rotation that sets a piece beside the footprint's `side` with its back (its image top) to the building's wall. */
 const BACK_TO_BUILDING: Readonly<Record<Side, number>> = { bottom: 0, left: 90, top: 180, right: 270 };
 
@@ -136,7 +134,7 @@ export function stormDoorway(
     const at = (side === 'top' || side === 'bottom' ? areaway.x : areaway.y) + Math.floor((along - 1) / 2);
     return {
         areaway,
-        door: { side: OPPOSITE[side], at },
+        door: { side: OPPOSITE_SIDE[side], at },
         through: { side, at },
         piece: stamp
             ? {

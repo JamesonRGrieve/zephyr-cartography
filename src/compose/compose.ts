@@ -8,21 +8,28 @@
  * as problems, never thrown. Everything is placed in grid squares from the
  * map's top-left corner. Pure and unit-tested.
  */
-import type { Rect, Side } from '../generate/floor-plan';
-import { roomSpec } from '../generate/floor-plan';
+import type { DoorSlot, Rect, Side } from '../generate/floor-plan';
+import { OPPOSITE_SIDE, roomSpec } from '../generate/floor-plan';
 import { seededRandom, type Random } from '../generate/random';
 import { SCENE_SPEC_SCHEMA_VERSION, type SceneSpecInput } from '../generate/spec';
+import { boundsOf } from '../geometry/bounds';
+import type { Point } from '../geometry/spline';
 import type { StampRole } from '../stamps/schema';
+import type { BiomeKind } from '../tools/biome';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { flightFor, type StormDoorway, stormDoorway } from './access';
+import { curtainFeatures, moatOutlines } from './curtain';
+import { districtFeatures } from './district';
 import { composeExterior } from './exterior';
 import { type Box, type ComposedStamp, furnishRoom, type RoomFloor } from './furnish';
-import type { BuildingIntent, MapIntent } from './intent';
+import { hewnFeatures } from './hewn';
+import { type BuildingIntent, type MapIntent, WALL_SIDES, type ZoneIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
+import { drawPlaceholders, isPlaceholder, missing, withPlaceholders } from './placeholders';
 import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './preferences';
 import { type ComposeProblem, distinctProblems } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
-import { layOutStoreys, type Wells } from './storeys';
+import { layOutStoreys, type Well, type Wells } from './storeys';
 
 type FeatureInput = SceneSpecInput['features'][number];
 
@@ -60,7 +67,16 @@ function outerSides(rect: Rect, footprint: Rect): Side[] {
     return sides;
 }
 
-const stampFeature = (s: ComposedStamp): FeatureInput => ({ type: 'stamp', stamp: s.stamp, x: s.x, y: s.y, rotation: s.rotation });
+const stampFeature = (s: ComposedStamp): FeatureInput => ({
+    type: 'stamp',
+    stamp: s.stamp,
+    x: s.x,
+    y: s.y,
+    rotation: s.rotation,
+    ...(s.scale === undefined ? {} : { scale: s.scale }),
+    ...(s.reads === undefined ? {} : { reads: s.reads }),
+    ...(s.mirror === true ? { mirror: true } : {}),
+});
 
 /**
  * Lanes in a stairwell: one flight for a building of two floors; for more, a
@@ -104,6 +120,14 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
     const problems: ComposeProblem[] = layout.unmet.map(([room, other]) => ({ kind: 'not-beside', building: called, room, other }));
     const rooms: FeatureInput[] = [];
     const furniture: FeatureInput[] = [];
+    // Doorways hung with door art: the art is the door (it cuts the wall and is the native door), so the room keeps its wall there.
+    const hung = new Map(
+        layout.doors.flatMap((d) => {
+            const rect = layout.rooms.find((r) => r.key === d.room)?.rect;
+            const door = rect === undefined ? null : hungDoor(d.slot, rect, stamps, building.doorTags);
+            return door === null ? [] : [[d, { ...door, ...onLevel }] as const];
+        }),
+    );
     for (const room of layout.rooms) {
         // Furnished inside its walls' inner faces: a composed building's walls are always drawn, half their thickness into the room.
         const inset = WALL_BAND_SQUARES / 2;
@@ -114,23 +138,149 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
             doors: doorsOf(layout, room.key),
             outer: outerSides(room.rect, footprint),
             entrance: layout.doors.find((d) => d.room === room.key && d.to === null)?.slot.side ?? null,
+            fixtures: room.intent.fixtures,
+            furnish: room.intent.furnish,
+            grime: room.intent.grime,
         };
-        const furnished = furnishRoom(floor, narrowedIndex(stamps, preferences.get(roomPlace(called, room.key))), random, reserved);
+        // A chamfered room's cut corners are masonry: nothing stands in them.
+        const chamfer = room.intent.chamfer ?? 0;
+        // Where another room wraps a cut corner, the corner is solid masonry between them; against the open void it stays void.
+        const others = layout.rooms.filter((r) => r.key !== room.key).map((r) => r.rect);
+        const enclosed = (corner: readonly Point[]): boolean => {
+            const [apex] = corner;
+            return (
+                apex !== undefined &&
+                others.some((r) => [-1, 1].some((dx) => [-1, 1].some((dy) => inRect(r, { x: apex.x + dx * NUDGE, y: apex.y + dy * NUDGE }))))
+            );
+        };
+        const cut = chamferCorners(room.rect, chamfer);
+        const corners = cut.filter(enclosed);
+        const furnished = furnishRoom(floor, narrowedIndex(stamps, preferences.get(roomPlace(called, room.key))), random, [...reserved, ...cut.map(boundsOf)]);
         const glows = furnished.stamps.some((s) => LIGHT_SOURCES.some((role) => roleOf.get(s.stamp) === role));
-        const slots = layout.doors.flatMap((d) => (d.room === room.key ? [d.slot] : []));
+        // Its own doorways, and each neighbour's into it as an opening in its side of the wall: the door is the neighbour's to draw.
+        const slots = layout.doors.flatMap((d) => {
+            if (hung.has(d)) {
+                return [];
+            }
+            if (d.room === room.key) {
+                return [building.doorAnimation === null ? d.slot : { ...d.slot, animation: building.doorAnimation }];
+            }
+            if (d.to !== room.key) {
+                return [];
+            }
+            // A secret door stays wall to look at from both sides; any other opens this room's side of the wall to it.
+            const side = OPPOSITE_SIDE[d.slot.side];
+            return [d.slot.secret === true ? { ...d.slot, side } : { ...d.slot, side, open: true, arch: true }];
+        });
+        rooms.push(...corners.map((points): FeatureInput => ({ type: 'region', biome: 'rock', texture: building.wall, sharp: true, points, ...onLevel })));
         rooms.push({
-            ...roomSpec(room.rect, slots, { floor: room.intent.floor ?? building.floor, wall: building.wall, wallKind: building.wallKind, ceiling: true }),
+            ...roomSpec(
+                room.rect,
+                slots,
+                { floor: room.intent.floor ?? building.floor, wall: building.wall, wallKind: building.wallKind, ceiling: true },
+                chamfer,
+            ),
             key: `${called}:${room.key}`,
             // By night a room is lit by its hearth and lamps, not a flat light; one with neither keeps its own.
             lit: !(night && glows),
             ...onLevel,
         });
         furniture.push(...furnished.stamps.map((s) => ({ ...stampFeature(s), ...onLevel })));
-        problems.push(...furnished.missing.map((role) => ({ kind: 'no-stamp' as const, role, wantedIn: `${called}/${room.key}` })));
+        problems.push(...furnished.missing.flatMap((role) => missing(role, `${called}/${room.key}`, stamps.get(role)?.[0]) ?? []));
+        problems.push(...furnished.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: `${called}/${room.key}` })));
+        problems.push(...furnished.crowded.map((piece) => ({ kind: 'no-room' as const, piece, wantedIn: `${called}/${room.key}` })));
         problems.push(...furnished.borrowed.map((role) => ({ kind: 'borrowed-art' as const, role, wantedIn: `${called}/${room.key}` })));
     }
-    return { features: [...rooms, ...furniture], problems };
+    return { features: [...rooms, ...hung.values(), ...furniture], problems };
 }
+
+/** How far (squares) door art's width may differ from its doorway's and still hang there. */
+const DOOR_FIT = 0.25;
+
+/** The turn that stands a piece's back to each wall of a room. */
+const BACK_TO_WALL: Readonly<Record<Side, number>> = { top: 0, right: 90, bottom: 180, left: 270 };
+
+/**
+ * Door art hung in the doorway `slot` of a room over `rect`: top-down art
+ * with a door, carrying one of `tags` (any, when none), as wide as the
+ * doorway give or take; laid along the wall across the doorway, scaled to
+ * its width, in the variant showing its state (open where the doorway stands
+ * open, else closed). None for an archway, a secret door (wall to look at)
+ * or where no such art is loaded: the room then draws the doorway itself.
+ */
+function hungDoor(slot: DoorSlot, rect: Rect, stamps: RoleIndex, tags: readonly string[]): FeatureInput | null {
+    if (slot.arch === true || slot.secret === true) {
+        return null;
+    }
+    const width = slot.width ?? 1;
+    const fits = (stamps.get('door') ?? []).filter(
+        (s) =>
+            !s.upright &&
+            s.doorStates !== undefined &&
+            !isPlaceholder(s.key) &&
+            (tags.length === 0 || tags.some((t) => s.tags.includes(t))) &&
+            Math.abs(s.width - width) <= DOOR_FIT,
+    );
+    const art = [...fits].sort((a, b) => Math.abs(a.width - width) - Math.abs(b.width - width))[0];
+    if (art === undefined) {
+        return null;
+    }
+    const mid = slot.at + width / 2;
+    const centre: Readonly<Record<Side, Point>> = {
+        top: { x: mid, y: rect.y },
+        bottom: { x: mid, y: rect.y + rect.h },
+        left: { x: rect.x, y: mid },
+        right: { x: rect.x + rect.w, y: mid },
+    };
+    const states = art.doorStates ?? {};
+    const variant = (slot.open === true ? states.open : undefined) ?? states.closed ?? 0;
+    return {
+        type: 'stamp',
+        stamp: art.key,
+        ...centre[slot.side],
+        rotation: (BACK_TO_WALL[slot.side] + art.turn) % FULL_TURN,
+        variant,
+        scale: (art.scale ?? 1) * (width / art.width),
+    };
+}
+
+/** Degrees in a full turn. */
+const FULL_TURN = 360;
+
+/** The four triangles a chamfer of `c` squares cuts from `rect`'s corners; none for square corners. */
+function chamferCorners({ x, y, w, h }: Rect, c: number): Point[][] {
+    if (c <= 0) {
+        return [];
+    }
+    return [
+        [
+            { x, y },
+            { x: x + c, y },
+            { x, y: y + c },
+        ],
+        [
+            { x: x + w, y },
+            { x: x + w, y: y + c },
+            { x: x + w - c, y },
+        ],
+        [
+            { x: x + w, y: y + h },
+            { x: x + w - c, y: y + h },
+            { x: x + w, y: y + h - c },
+        ],
+        [
+            { x, y: y + h },
+            { x, y: y + h - c },
+            { x: x + c, y: y + h },
+        ],
+    ];
+}
+
+/** Squares off a corner at which to look for a room wrapping it. */
+const NUDGE = 0.01;
+
+/** Whether `p` lies inside `r`. */
+const inRect = (r: Rect, p: Point): boolean => p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h;
 
 /** A storey's level: its key on a map with levels, else none. */
 type LevelOf = (storey: number) => { level?: string };
@@ -146,27 +296,36 @@ interface MapContext {
     readonly depth: number;
 }
 
-/** A way's flights, one on each storey but the top of its run, each in the lane beside the one below. */
-function flights(stair: RoleStamp, well: Box, count: number, lowest: number, levelOf: LevelOf): FeatureInput[] {
+/**
+ * A way's flights, one on each storey but the top of its run, each in the
+ * lane beside the one below; in a well lying turned, the flights turned a
+ * quarter with it, their lanes down it rather than across.
+ */
+function flights(stair: RoleStamp, well: Well, count: number, lowest: number, levelOf: LevelOf): FeatureInput[] {
     const lanes = stairLanes(count);
     return Array.from({ length: count }, (_, n): FeatureInput[] => {
-        const x = well.x + (n % lanes) * stair.width + stair.width / 2;
-        const y = well.y + well.h / 2;
+        const lane = (n % lanes) * stair.width + stair.width / 2;
+        const [x, y] = well.turned ? [well.x + well.w / 2, well.y + lane] : [well.x + lane, well.y + well.h / 2];
+        const [width, height] = well.turned ? [stair.height, stair.width] : [stair.width, stair.height];
         // Where it comes up, the floor above is open: a dark hatchway, framed, so the way down is seen from above.
         const opening: FeatureInput = {
             type: 'shape',
             kind: 'rectangle',
             x,
             y,
-            width: stair.width,
-            height: stair.height,
+            width,
+            height,
             stroke: OPENING.stroke,
             fill: OPENING.fill,
             ...levelOf(lowest + n + 1),
         };
-        return [{ type: 'stamp', stamp: stair.key, x, y, rotation: stair.turn, ...levelOf(lowest + n) }, opening];
+        const rotation = (stair.turn + (well.turned ? QUARTER_TURN : 0)) % FULL_TURN;
+        return [{ type: 'stamp', stamp: stair.key, x, y, rotation, ...levelOf(lowest + n) }, opening];
     }).flat();
 }
+
+/** Degrees in a quarter turn. */
+const QUARTER_TURN = 90;
 
 /** How an opening in the floor above a flight is drawn: near black, framed in dark timber. */
 const OPENING = {
@@ -283,7 +442,7 @@ function composeBuilding(
     if (porch) {
         const furnished = furnishRoom(porch.floor, narrowedIndex(stamps, preferences.get(roomPlace(called, PORCH))), random);
         features.push(boardsOver(porch.floor.rect, levelOf(0)), ...furnished.stamps.map((s) => ({ ...stampFeature(s), ...levelOf(0) })));
-        problems.push(...furnished.missing.map((role) => ({ kind: 'no-stamp' as const, role, wantedIn: `${called}/${PORCH}` })));
+        problems.push(...furnished.missing.flatMap((role) => missing(role, `${called}/${PORCH}`, stamps.get(role)?.[0]) ?? []));
     }
     return {
         features,
@@ -295,8 +454,6 @@ function composeBuilding(
 
 /** The porch's name among a building's places. */
 const PORCH = 'porch';
-
-const OPPOSITE_SIDE: Readonly<Record<Side, Side>> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
 
 /**
  * A porch `depth` squares deep along the front door's wall, the entrance
@@ -324,24 +481,62 @@ function porchOf(ground: BuildingLayout, footprint: Rect, depth: number): { floo
 
 /** Boards laid over `rect` on the ground, crisp-edged: a porch's deck, storm doors without their art. */
 function boardsOver(rect: Rect, level: { level?: string }): FeatureInput {
-    const { x, y, w, h } = rect;
-    return {
-        type: 'region',
-        biome: 'dirt',
-        texture: BOARDS,
-        sharp: true,
-        points: [
-            { x, y },
-            { x: x + w, y },
-            { x: x + w, y: y + h },
-            { x, y: y + h },
-        ],
-        ...level,
-    };
+    return crispRegion(rect, BOARDS, level, 'dirt');
 }
 
 /** The texture boards are drawn in outside: a porch's deck, storm doors without their art. */
 const BOARDS = 'floor.wooden-planks';
+
+/**
+ * A band `depth` squares deep of the building's wall material laid round the
+ * outside of its footprint, crisp-edged, broken where a doorway goes out: the
+ * heavy masonry of a chapel or a bunker, its drawn walls the band's inner face.
+ */
+function wallBand(
+    footprint: Rect,
+    depth: number,
+    textures: { readonly wall: string; readonly floor: string },
+    doorways: readonly DoorSlot[],
+    level: { level?: string },
+): FeatureInput[] {
+    const { x, y, w, h } = footprint;
+    // Each side's strip, the corners with the top and bottom, as [start, end] along it and its box for a stretch.
+    const sides: Readonly<Record<Side, { from: number; to: number; box: (a: number, b: number) => Rect }>> = {
+        top: { from: x - depth, to: x + w + depth, box: (a, b) => ({ x: a, y: y - depth, w: b - a, h: depth }) },
+        bottom: { from: x - depth, to: x + w + depth, box: (a, b) => ({ x: a, y: y + h, w: b - a, h: depth }) },
+        left: { from: y, to: y + h, box: (a, b) => ({ x: x - depth, y: a, w: depth, h: b - a }) },
+        right: { from: y, to: y + h, box: (a, b) => ({ x: x + w, y: a, w: depth, h: b - a }) },
+    };
+    return WALL_SIDES.flatMap((side) => {
+        const { from, to, box } = sides[side];
+        const gaps = doorways.filter((d) => d.side === side).map((d) => [d.at, d.at + (d.width ?? 1)] as const);
+        const cuts = [from, ...gaps.flat().sort((a, b) => a - b), to];
+        const stretches: Rect[] = [];
+        for (let i = 0; i + 1 < cuts.length; i += 2) {
+            const [a = from, b = to] = [cuts[i], cuts[i + 1]];
+            if (b > a) {
+                stretches.push(box(a, b));
+            }
+        }
+        // The masonry, and each doorway's passage through it paved as the building's floor: a threshold, not a hole.
+        return [...stretches.map((r) => crispRegion(r, textures.wall, level)), ...gaps.map(([a, b]) => crispRegion(box(a, b), textures.floor, level))];
+    });
+}
+
+/** `rect` laid crisp-edged in `texture`, as ground of `biome` (stone, unless said). */
+const crispRegion = ({ x, y, w, h }: Rect, texture: string, level: { level?: string }, biome: BiomeKind = 'rock'): FeatureInput => ({
+    type: 'region',
+    biome,
+    texture,
+    sharp: true,
+    points: [
+        { x, y },
+        { x: x + w, y },
+        { x: x + w, y: y + h },
+        { x, y: y + h },
+    ],
+    ...level,
+});
 
 /** The storm door's areaway, walled on the top cellar with its door through, and the piece that joins it to the ground. */
 function stormDoorFeatures(doorway: StormDoorway, building: BuildingIntent, called: string, levelOf: LevelOf): FeatureInput[] {
@@ -376,15 +571,21 @@ function levelKey(storey: number): string {
     if (storey === 0) {
         return GROUND_LEVEL;
     }
-    return storey > 0 ? `floor-${storey + 1}` : `cellar-${-storey}`;
+    return storey > 0 ? `floor-${storey + 1}` : `${CELLAR_KEY}${-storey}`;
 }
+
+/** What a cellar level's key starts with. */
+const CELLAR_KEY = 'cellar-';
+
+/** The colour round a cellar's walls on a map with no backdrop: the dark of the earth it is dug into. */
+const UNDERGROUND = '#0c0c0e';
 
 /**
  * The scene's levels for a map whose deepest building has `depth` cellars
  * and tallest `height` floors, bottom to top: the cellars, then the scene's
  * own floor as the ground, then the floors above.
  */
-function levelsFor(intent: MapIntent, depth: number, height: number): { key: string; name: string; existing?: boolean }[] {
+function levelsFor(intent: MapIntent, depth: number, height: number): { key: string; name: string; existing?: boolean; visibleLevels?: string[] }[] {
     const cellars = Array.from({ length: depth }, (_, i) => {
         const n = depth - i;
         const named = intent.buildings.find((b) => b.cellars[n - 1]?.name !== undefined)?.cellars[n - 1]?.name;
@@ -392,7 +593,9 @@ function levelsFor(intent: MapIntent, depth: number, height: number): { key: str
     });
     const floors = Array.from({ length: height }, (_, i) => {
         const named = intent.buildings.find((b) => b.floors[i]?.name !== undefined)?.floors[i]?.name;
-        return { key: levelKey(i + 1), name: named ?? `Floor ${i + 2}` };
+        // An upper storey sees the storeys below it down to the ground: the yard, the road, the ground floor's roofs round it.
+        const below = Array.from({ length: i + 1 }, (_unused, storey) => levelKey(storey));
+        return { key: levelKey(i + 1), name: named ?? `Floor ${i + 2}`, visibleLevels: below };
     });
     return [...cellars, { key: GROUND_LEVEL, name: GROUND_LEVEL_NAME, existing: true }, ...floors];
 }
@@ -400,23 +603,48 @@ function levelsFor(intent: MapIntent, depth: number, height: number): { key: str
 /** A cellar level's name when the intent gives none. */
 const CELLAR_NAME = 'Cellar';
 
-/** A night scene: dark, and lit only by its lights, never Foundry's global light. */
-const NIGHT = { darkness: 0.85, globalLight: false } as const;
+/** Offset from the map's seed of the outdoors' own random stream. */
+const OUTDOOR_STREAM = 0x9e3779b9;
+
+/** Offset from the map's seed of the moats' own random stream: their banks never move with anything else. */
+const MOAT_STREAM = 0x85ebca6b;
+
+/**
+ * How dark each lighting leaves the scene, never with Foundry's global
+ * light: by night lit by its lights alone; dim (an interior, the underhive)
+ * half dark, each room lit by its own light and its lamps, the walls cutting
+ * the light as Foundry casts it. By day the scene is left as it is.
+ */
+const LIGHTING_SCENE = {
+    day: null,
+    dim: { darkness: 0.55, globalLight: false },
+    night: { darkness: 0.85, globalLight: false },
+} as const;
 
 /** The ground level's key and name on a map with levels. */
 const GROUND_LEVEL = 'ground';
 const GROUND_LEVEL_NAME = 'Ground floor';
 
 /** Compose `intent` with the stamps `stamps` offers, drawing each place's pieces from those `preferences` chose for it (none: any). */
-export function composeMap(intent: MapIntent, stamps: RoleIndex, preferences: Preferences = NO_PREFERENCES): Composition {
+export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Preferences = NO_PREFERENCES): Composition {
     const random = seededRandom(intent.seed);
+    // A role no loaded stamp fills still stands where it is wanted, as a labelled box its size.
+    const stamps = withPlaceholders(loaded);
     const depth = Math.max(0, ...intent.buildings.map((b) => b.cellars.length));
     const height = Math.max(0, ...intent.buildings.map((b) => b.floors.length));
     // A map with a building of more than one storey puts everything on levels: outside and the ground floors on the ground level.
     const layered = depth + height > 0;
-    const levels = layered ? levelsFor(intent, depth, height) : [];
+    // A backdrop is each level's colour; a map of one storey then names the scene's own floor to carry it.
+    const { backdrop } = intent;
+    const bare = layered ? levelsFor(intent, depth, height) : backdrop === null ? [] : [{ key: GROUND_LEVEL, name: GROUND_LEVEL_NAME, existing: true }];
+    // A cellar lies in the earth: round its walls is nothing to see, never the scene's grey, whatever the map's backdrop is.
+    const levels = bare.map((l) => {
+        const colour = backdrop ?? (l.key.startsWith(CELLAR_KEY) ? UNDERGROUND : null);
+        return colour === null ? l : { ...l, backgroundColor: colour };
+    });
     const levelOf: LevelOf = (storey) => (layered ? { level: levelKey(storey) } : {});
     const night = intent.lighting === 'night';
+    const scene = LIGHTING_SCENE[intent.lighting];
     const composed = intent.buildings.map((building, i) => {
         const footprint = footprintOf(building, intent);
         return {
@@ -425,24 +653,55 @@ export function composeMap(intent: MapIntent, stamps: RoleIndex, preferences: Pr
             ...composeBuilding(building, buildingName(building, i), footprint, { stamps, random, levelOf, night, preferences, depth }),
         };
     });
+    // Curtain walls round baileys and camps; nothing outdoors grows or stands on their masonry.
+    const curtains = intent.curtains.flatMap((c) => curtainFeatures(c, levelOf(0)));
+    const masonry = curtains.flatMap((f): Rect[] => (f.type === 'room' ? [boundsOf(f.points)] : []));
+    // A curtain's moat is still water like any lake: its shore dressed, nothing growing in it.
+    const moatRandom = seededRandom(intent.seed + MOAT_STREAM);
+    const moats = intent.curtains.flatMap((c) =>
+        moatOutlines(c, moatRandom).map(
+            (points): ZoneIntent => ({ kind: 'lake', area: { shape: 'polygon', points }, density: 'normal', texture: null, soft: false }),
+        ),
+    );
     const exterior = composeExterior(
-        intent,
-        composed.map(({ building, footprint, ground, annexes }) => ({
-            key: building.key,
-            footprint,
-            front: ground?.doors.find((d) => d.to === null) ?? null,
-            annexes,
-            yard: building.yard,
-        })),
+        { ...intent, zones: [...intent.zones, ...moats] },
+        [
+            ...composed.map(({ building, footprint, ground, annexes }) => ({
+                key: building.key,
+                footprint,
+                front: ground?.doors.find((d) => d.to === null) ?? null,
+                annexes,
+                yard: building.yard,
+            })),
+            ...masonry.map((footprint) => ({ key: undefined, footprint, front: null, annexes: [], yard: false })),
+        ],
         stamps,
-        random,
+        // Its own stream from the seed: rearranging a room never replants the woods outside.
+        seededRandom(intent.seed + OUTDOOR_STREAM),
         preferences,
     );
     const outside = layered ? exterior.features.map((f) => ({ ...f, level: GROUND_LEVEL })) : exterior.features;
+    // Heavy masonry round a building's footprint, over the ground outside and broken at its doorways out.
+    const bands = composed.flatMap(({ building, footprint, ground }) =>
+        building.wallBand === null
+            ? []
+            : wallBand(
+                  footprint,
+                  building.wallBand,
+                  { wall: building.wall, floor: building.floor },
+                  (ground?.doors ?? []).filter((d) => d.to === null).map((d) => d.slot),
+                  levelOf(0),
+              ),
+    );
+    // Passages hewn through the rock, walled along their ragged edges.
+    // And the city's blocks, walled so none is walked into, their streets dressed against the frontages.
+    const districts = intent.districts.map((d) => districtFeatures(d, stamps, random, levelOf(0)));
+    const hewn = [...intent.hewn.flatMap((network) => hewnFeatures(network, intent, random, levelOf(0))), ...districts.flatMap((d) => d.features)];
+    const streetBoxes = districts.flatMap((d) => d.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: 'street' })));
     // Ground first, then roads and rivers, then vegetation, then the buildings standing on it all.
-    const features = [...outside, ...composed.flatMap((c) => c.features)];
+    const features = drawPlaceholders([...outside, ...hewn, ...curtains, ...bands, ...composed.flatMap((c) => c.features)]);
     return {
-        spec: { schemaVersion: SCENE_SPEC_SCHEMA_VERSION, units: 'grid', levels, features, ...(night ? { scene: NIGHT } : {}) },
-        problems: distinctProblems([...exterior.problems, ...composed.flatMap((c) => c.problems)]),
+        spec: { schemaVersion: SCENE_SPEC_SCHEMA_VERSION, units: 'grid', levels, features, ...(scene === null ? {} : { scene }) },
+        problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems)]),
     };
 }

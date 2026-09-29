@@ -24,12 +24,14 @@ import {
     shownImage,
     textureResolver,
     textureSetChoices,
+    tileSquaresByUrl,
     type TextureResolver,
     type TextureSetRef,
 } from '../tools/texture';
 import type { BrowserLabels } from '../ui/stamp-browser-view';
 import { format, localize } from './localize';
 import { fetchPacks } from './packs';
+import { setTileSquares } from './pixi-surface';
 import { patternImage } from './procedural-textures';
 import { type ArmedStamp, createStampBrowser } from './stamp-browser';
 import { doorStateFromDs, tileFrame } from './translate';
@@ -70,6 +72,8 @@ export interface PackRuntime {
     readonly chooseTextureSet: (key: string) => Promise<void>;
     /** Run `listener` whenever the loaded packs or the chosen texture set change. */
     readonly onChange: (listener: () => void) => void;
+    /** Resolves once the packs have loaded and every change in hand has rebuilt the draw layer. */
+    readonly settled: () => Promise<void>;
 }
 
 function browserLabels(): BrowserLabels {
@@ -138,9 +142,19 @@ export function registerPackRuntime(controller: () => CartographyController | nu
     let byKey = new Map<string, CatalogStamp>();
     let textureSets: readonly TextureSetRef[] = [];
     const listeners: (() => void)[] = [];
+    let firstLoaded = (): void => undefined;
+    /**
+     * Every pack change in hand, the packs' first load among them. Each
+     * rebuilds the draw layer with a new controller, so what writes to the
+     * scene (composing) waits for them: a controller rebuilt mid-write would
+     * load the features half written and draw none of the rest.
+     */
+    let settling = new Promise<void>((resolve) => {
+        firstLoaded = resolve;
+    });
     /** The chosen texture set, loaded: its compressed images are in Foundry's texture cache before anything redraws with them. */
-    const notifyChange = (): void => {
-        void (async (): Promise<void> => {
+    const notifyChange = async (): Promise<void> => {
+        const change = (async (): Promise<void> => {
             // Foundry's loader decodes KTX2 and Basis (14.362); a failed one logs and the fill falls back to its colour.
             await Promise.all(
                 compressedTextures(activeSet()).map(async (url) =>
@@ -154,6 +168,10 @@ export function registerPackRuntime(controller: () => CartographyController | nu
                 listener();
             }
         })();
+        // A failed change is reported where it is awaited; later waiters still go ahead once it has ended.
+        const ended = change.catch(() => undefined);
+        settling = Promise.all([settling, ended]).then(() => undefined);
+        await change;
     };
     // Foundry keeps a reference to this object; filling it once packs load populates the settings dropdown.
     const textureChoices: Record<string, string> = {};
@@ -186,11 +204,20 @@ export function registerPackRuntime(controller: () => CartographyController | nu
     Hooks.once('init', registerSettings);
 
     const loadAllPacks = async (): Promise<void> => {
+        try {
+            await loadPacksOnce();
+        } finally {
+            firstLoaded();
+        }
+    };
+
+    const loadPacksOnce = async (): Promise<void> => {
         const fetched = await fetchPacks();
         const loaded = loadPacks(fetched.sources);
         stamps = loaded.stamps;
         byKey = new Map(stamps.map((s) => [s.key, s]));
         textureSets = loaded.textureSets;
+        setTileSquares(tileSquaresByUrl(textureSets));
         Object.assign(textureChoices, textureSetChoices(textureSets));
         for (const failure of fetched.failures) {
             ui.notifications?.error(format(I18N.notifications.packFetchFailed, { module: failure.moduleId, message: failure.message }));
@@ -199,7 +226,7 @@ export function registerPackRuntime(controller: () => CartographyController | nu
             console.error(`${MODULE_ID} | stamp pack ${error.moduleId} is invalid`, error.issues);
             ui.notifications?.error(format(I18N.notifications.packInvalid, { module: error.moduleId, count: String(error.issues.length) }));
         }
-        notifyChange();
+        await notifyChange();
     };
 
     Hooks.once('init', () => {
@@ -211,7 +238,9 @@ export function registerPackRuntime(controller: () => CartographyController | nu
             type: String,
             choices: textureChoices,
             default: '',
-            onChange: notifyChange,
+            onChange: () => {
+                void notifyChange();
+            },
         });
     });
 
@@ -311,7 +340,8 @@ export function registerPackRuntime(controller: () => CartographyController | nu
     });
 
     return {
-        textures: () => textureResolver(activeSet(), patternImage),
+        settled: async () => settling,
+        textures: () => textureResolver(activeSet(), patternImage, textureSets),
         previews: () => previewResolver(activeSet(), patternImage),
         textureRoles: () => Object.keys(activeSet()?.textures ?? {}),
         textureSets: () => textureSets,

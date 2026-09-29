@@ -1656,7 +1656,7 @@
                                 "description": "Boundary. Split an edge with a collinear point to put a door on part of it."
                             },
                             "floor": {
-                                "description": "A biome or a pack \"floor.<name>\" material (default: the room default).",
+                                "description": "A biome, a pack \"floor.<name>\" material, or a \"wall.<name>\" one where the floor is the top of masonry (a wall-walk); default: the room default.",
                                 "anyOf": [
                                     {
                                         "type": "string",
@@ -1678,7 +1678,7 @@
                                     },
                                     {
                                         "type": "string",
-                                        "pattern": "^floor\\..+"
+                                        "pattern": "^(floor|wall)\\..+"
                                     }
                                 ]
                             },
@@ -2204,7 +2204,8 @@
                                             "type": "string",
                                             "enum": [
                                                 "door",
-                                                "secret"
+                                                "secret",
+                                                "opening"
                                             ]
                                         },
                                         "state": {
@@ -2366,6 +2367,15 @@
                                     "minLength": 1
                                 }
                             },
+                            "reads": {
+                                "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "mirror": {
+                                "description": "Drawn flipped left to right, before its rotation (the far end of a counter).",
+                                "type": "boolean"
+                            },
                             "level": {
                                 "description": "Key of an entry in `levels`. Omitted: the feature shows on every level.",
                                 "type": "string",
@@ -2447,6 +2457,24 @@
                                 "default": false,
                                 "description": "Shown to everyone whatever their tokens see.",
                                 "type": "boolean"
+                            },
+                            "readable": {
+                                "default": false,
+                                "description": "Text for players to read on hover (a sign, a plaque), with no journal for them to see and no icon over the art beneath.",
+                                "type": "boolean"
+                            },
+                            "size": {
+                                "default": null,
+                                "description": "Across the spot that shows its text on hover, in the spec's units; null: Foundry's own.",
+                                "anyOf": [
+                                    {
+                                        "type": "number",
+                                        "exclusiveMinimum": 0
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
                             },
                             "level": {
                                 "description": "Key of an entry in `levels`. Omitted: the feature shows on every level.",

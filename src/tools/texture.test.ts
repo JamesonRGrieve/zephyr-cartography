@@ -15,7 +15,8 @@ import {
     textureResolver,
     textureSetChoices,
     textureSwatches,
-    tileSpan,
+    tileSize,
+    tileSquaresByUrl,
 } from './texture';
 
 describe('texture choices', () => {
@@ -37,11 +38,28 @@ describe('texture choices', () => {
     });
 });
 
-describe('tileSpan', () => {
+describe('tileSize', () => {
     it('tiles a texture every few grid squares whatever its own size, or at its own size with no grid', () => {
-        expect(tileSpan(100, 1024)).toBe(100 * TEXTURE_TILE_SQUARES);
-        expect(tileSpan(100, 512)).toBe(100 * TEXTURE_TILE_SQUARES);
-        expect(tileSpan(0, 512)).toBe(512);
+        expect(tileSize(100, 1024, 1024)).toEqual({ width: 100 * TEXTURE_TILE_SQUARES, height: 100 * TEXTURE_TILE_SQUARES });
+        expect(tileSize(100, 512, 512)).toEqual({ width: 100 * TEXTURE_TILE_SQUARES, height: 100 * TEXTURE_TILE_SQUARES });
+        expect(tileSize(0, 512, 256)).toEqual({ width: 512, height: 256 });
+    });
+
+    it('looks up the squares a set gives each texture by its image, ignoring roles the set has no image for', () => {
+        const set = { key: 'p:s', name: 'S', textures: { 'floor.plate': 'plate.png', 'dirt': 'dirt.png' }, tileSquares: { 'floor.plate': 6, 'floor.gone': 3 } };
+        expect([...tileSquaresByUrl([set, { key: 'p:t', name: 'T', textures: { dirt: 'd2.png' } }])]).toEqual([['plate.png', 6]]);
+    });
+
+    it('spans the squares a pack gives a texture drawn to a scale', () => {
+        // Three riveted plates meant to be two squares each: a tile of six squares.
+        expect(tileSize(100, 600, 600, 6)).toEqual({ width: 600, height: 600 });
+        expect(tileSize(100, 512, 1024, 3)).toEqual({ width: 300, height: 600 });
+    });
+
+    it('keeps a texture that is not square in its own proportions, its shorter side the tile’s squares', () => {
+        // A plank texture twice as tall as wide: two squares across, four down, never squashed square.
+        expect(tileSize(100, 512, 1024)).toEqual({ width: 100 * TEXTURE_TILE_SQUARES, height: 2 * 100 * TEXTURE_TILE_SQUARES });
+        expect(tileSize(100, 1000, 500)).toEqual({ width: 2 * 100 * TEXTURE_TILE_SQUARES, height: 100 * TEXTURE_TILE_SQUARES });
     });
 });
 
@@ -120,6 +138,31 @@ describe('texture sets', () => {
         expect(resolve('road')).toBeNull();
         expect(textureResolver(null, PATTERNS)('grassland')).toBeNull();
         expect(textureResolver(null, PATTERNS)('procedural.ripple')).toBe('pattern:ripple');
+        // With no set chosen, a wall still comes from any set that has it.
+        const walled = [{ key: 'a:photo', name: 'Photo', textures: { 'wall.stone': 'modules/a/stone.jpg' } }];
+        expect(textureResolver(null, PATTERNS, walled)('wall.stone')).toBe('modules/a/stone.jpg');
+    });
+
+    it('borrows a wall role the set lacks from another set, never a floor or ground role', () => {
+        const painted = { key: 'p:paint', name: 'Painted', textures: { grassland: 'modules/p/grass.png' } };
+        const photo = { key: 'a:photo', name: 'Photo', textures: { 'wall.stone': 'modules/a/stone.jpg', 'road': 'modules/a/road.jpg' } };
+        const resolve = textureResolver(painted, PATTERNS, [painted, photo]);
+        expect(resolve('wall.stone')).toBe('modules/a/stone.jpg');
+        expect(resolve('road')).toBeNull();
+        expect(resolve('grassland')).toBe('modules/p/grass.png');
+        expect(resolve('wall.brick')).toBeNull();
+    });
+
+    it('borrows first from the sets a set names as its fallback, in its order, then from the rest as listed', () => {
+        const warm = { key: 'p:warm', name: 'Warm', textures: { 'wall.concrete': 'modules/p/beige.jpg', 'wall.brick': 'modules/p/brick.jpg' } };
+        const grey = { key: 'p:grey', name: 'Grey', textures: { 'wall.concrete': 'modules/p/grey.jpg' } };
+        const painted = { key: 'p:paint', name: 'Painted', textures: {}, fallback: ['grey'] };
+        const resolve = textureResolver(painted, PATTERNS, [warm, grey, painted]);
+        expect(resolve('wall.concrete')).toBe('modules/p/grey.jpg');
+        // A wall the named set lacks still comes from the rest.
+        expect(resolve('wall.brick')).toBe('modules/p/brick.jpg');
+        // Without a fallback, the sets as listed.
+        expect(textureResolver({ ...painted, fallback: undefined }, PATTERNS, [warm, grey])('wall.concrete')).toBe('modules/p/beige.jpg');
     });
 
     it('offers each set by name as a setting choice', () => {

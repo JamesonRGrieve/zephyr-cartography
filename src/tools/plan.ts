@@ -30,7 +30,7 @@ import type { Feature } from './feature';
 import { labelBox, labelPoint, labelSettingsOf } from './label';
 import { adjacentLevel, findLevel, levelElevation, type Level } from './levels';
 import type { CartographyPath } from './path';
-import { pinPoint, pinSettingsOf } from './pin';
+import { MIN_NOTE_SIZE, NEW_PIN, pinPoint, pinSettingsOf } from './pin';
 import { regionOutline, type RegionFeature } from './region';
 import { roomDoorLook, roomLight, roomWalls, type RoomDoor, type RoomFeature } from './room';
 import { shapeBox } from './shape';
@@ -94,8 +94,11 @@ function pathWalls(path: CartographyPath, kind: WallPreset, floor: Floor): WallD
 }
 
 /** A stamp's own tile, as its unrotated top-left, rotated about its centre (the boundary anchors it for v14). */
-function stampTile(stamp: StampFeature, floor: Floor): TileDoc {
+function stampTile(stamp: StampFeature, floor: Floor, levels: readonly Level[]): TileDoc {
     const c = stampCentre(stamp);
+    // Foundry draws a tile only on its own levels: it shows too on those that see its level below them.
+    const own = floor.level;
+    const seenFrom = own === null ? [] : levels.filter((level) => level.art.visibleLevels.includes(own)).map((level) => level.id);
     return {
         name: stamp.name,
         src: stamp.src,
@@ -106,8 +109,10 @@ function stampTile(stamp: StampFeature, floor: Floor): TileDoc {
         rotation: stamp.rotation,
         elevation: floor.elevation + stamp.elevation,
         level: floor.level,
+        ...(seenFrom.length > 0 ? { seenFrom } : {}),
         featureId: stamp.id,
         ...(stamp.behaviour.tile === null || stamp.behaviour.tile === undefined ? {} : { look: stamp.behaviour.tile }),
+        ...(stamp.mirror ? { mirror: true } : {}),
     };
 }
 
@@ -390,7 +395,7 @@ function stampPlan(stamp: StampFeature, context: PlanContext): DocumentPlan {
     return {
         ...NO_PLAN,
         walls: [...(door ? [door] : []), ...stampWalls(stamp, floor), ...stampBodyWalls(stamp, floor)],
-        tiles: [stampTile(stamp, floor)],
+        tiles: [stampTile(stamp, floor, context.levels)],
         lights: light ? [light] : [],
         regions: [
             ...transitionRegions(stamp, context.levels),
@@ -402,7 +407,22 @@ function stampPlan(stamp: StampFeature, context: PlanContext): DocumentPlan {
             ].filter((r): r is RegionDoc => r !== null),
         ],
         sounds: sound ? [sound] : [],
+        notes: stampReading(stamp, floor),
     };
+}
+
+/**
+ * What players read on a stamp: a readable Note at its centre, its hover spot
+ * as wide as the footprint is long, so hovering anywhere along a sign shows
+ * its words (a thin sign's own depth would leave a spot too small to find).
+ */
+function stampReading(stamp: StampFeature, floor: Floor): NoteDoc[] {
+    if (stamp.reads === null) {
+        return [];
+    }
+    const size = Math.max(MIN_NOTE_SIZE, Math.round(Math.max(stamp.width, stamp.height)));
+    const reading = { ...NEW_PIN, text: stamp.reads, readable: true, size };
+    return [{ ...stampCentre(stamp), elevation: floor.elevation + stamp.elevation, level: floor.level, ...reading }];
 }
 
 /**
@@ -454,8 +474,11 @@ function roomCeiling(room: RoomFeature, levels: readonly Level[]): RegionDoc | n
     };
 }
 
-/** A stretch of room wall, as a door if `door` is set; tagged with the perimeter segment it comes from. */
-function roomWallDoc(part: Segment, door: RoomDoor | null, segment: number, level: string | null, kind: PresetWall): WallDoc {
+/** A stretch of room wall, as a door if `door` is set, none where it is an opening; tagged with the perimeter segment it comes from. */
+function roomWallDoc(part: Segment, door: RoomDoor | null, segment: number, level: string | null, kind: PresetWall): WallDoc | null {
+    if (door?.type === 'opening') {
+        return null;
+    }
     if (door !== null) {
         // A door is a door, whatever the walls around it are: it blocks everything while shut.
         return { a: part.a, b: part.b, door: door.type, doorState: door.state, look: roomDoorLook(door), blocks: BLOCKS_ALL, level, segment };
@@ -464,13 +487,19 @@ function roomWallDoc(part: Segment, door: RoomDoor | null, segment: number, leve
     return kind.threshold === undefined ? wall : { ...wall, threshold: kind.threshold };
 }
 
+/** What a shared stretch is, given this room's door on it and the later room's: a door either marks, else an opening either marks, else wall. */
+function stretchDoor(own: RoomDoor | null, covering: RoomDoor | null): RoomDoor | null {
+    return [own, covering].find((d) => d !== null && d.type !== 'opening') ?? own ?? covering;
+}
+
 /**
  * A room's perimeter walls, sharing edges with its neighbours on the same floor
  * without doubling them:
  * - door-stamp openings are cut out (the stamps supply those door walls);
  * - a stretch shared with an earlier room is cut out, because the earlier room
  *   owns it;
- * - a stretch this room owns is a door if either room marks it as one.
+ * - a stretch this room owns is a door if either room marks it as one, else
+ *   left open (no wall) if either marks it an opening.
  */
 function roomPlan(room: RoomFeature, context: PlanContext): DocumentPlan {
     const floor = floorOf(room, context);
@@ -491,9 +520,16 @@ function roomPlan(room: RoomFeature, context: PlanContext): DocumentPlan {
         ...NO_PLAN,
         walls: roomWalls(room).flatMap((wall) =>
             cutSegment(wall, cuts, OPENING_TOLERANCE).flatMap((piece) =>
-                splitSegment(piece, laterDoors, OPENING_TOLERANCE).map((part) =>
-                    roomWallDoc(part, wall.door ?? (part.covered ? coveringDoor(part) : null), wall.segment, floor.level, presetWall(room.wallKind)),
-                ),
+                splitSegment(piece, laterDoors, OPENING_TOLERANCE).flatMap((part) => {
+                    const doc = roomWallDoc(
+                        part,
+                        stretchDoor(wall.door, part.covered ? coveringDoor(part) : null),
+                        wall.segment,
+                        floor.level,
+                        presetWall(room.wallKind),
+                    );
+                    return doc === null ? [] : [doc];
+                }),
             ),
         ),
         lights: room.lit && light.dim > 0 ? [{ source: { kind: 'room' }, ...light, elevation: floor.elevation, level: floor.level }] : [],

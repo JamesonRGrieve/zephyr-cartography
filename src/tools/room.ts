@@ -25,9 +25,10 @@ export const DEFAULT_FLOOR: BiomeKind = 'dirt';
 /** Bright light covers this fraction of the room light's dim radius. */
 const ROOM_BRIGHT_FRACTION = 0.5;
 
-export type RoomDoorType = 'door' | 'secret';
+/** A Foundry door, a secret one, or an opening: a gap in the wall with no door and no wall (an archway, a breach). */
+export type RoomDoorType = 'door' | 'secret' | 'opening';
 
-const DOOR_TYPES: readonly RoomDoorType[] = ['door', 'secret'];
+const DOOR_TYPES: readonly RoomDoorType[] = ['door', 'secret', 'opening'];
 const DOOR_STATES: readonly DoorState[] = ['closed', 'open', 'locked'];
 
 /** A door on one of the room's perimeter segments. */
@@ -59,7 +60,7 @@ export function roomDoorLook(door: RoomDoor): DoorLook {
  */
 export interface RoomFeature extends FeatureCommon, Costed, Affected {
     readonly type: 'room';
-    /** Floor material: a biome, or a pack `floor.<name>` role. */
+    /** Floor material: a biome, a pack `floor.<name>` role, or a `wall.<name>` role (the top of masonry). */
     readonly floor: FloorMaterial;
     /** Visible wall material (a pack `wall.<name>` role), or null for walls that are not drawn. */
     readonly wall: WallMaterial;

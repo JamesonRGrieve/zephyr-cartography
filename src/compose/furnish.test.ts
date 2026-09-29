@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
 import { type ComposedStamp, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
-import { ROOM_PURPOSES } from './intent';
-import type { RoleStamp } from './roles';
+import { type FixtureIntent, ROOM_PURPOSES } from './intent';
+import { withPlaceholders } from './placeholders';
+import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
 const byKey = new Map([...TEST_ROLES.values()].flat().map((s) => [s.key, s]));
@@ -22,8 +23,11 @@ interface Box {
 function boxOf(placed: ComposedStamp): Box {
     const stamp: RoleStamp | undefined = byKey.get(placed.stamp);
     const radians = ((placed.rotation - (stamp?.turn ?? 0)) * Math.PI) / 180;
-    const w = Math.abs((stamp?.width ?? 0) * Math.cos(radians)) + Math.abs((stamp?.height ?? 0) * Math.sin(radians));
-    const h = Math.abs((stamp?.width ?? 0) * Math.sin(radians)) + Math.abs((stamp?.height ?? 0) * Math.cos(radians));
+    // Drawn at a multiple of its art's size where fitted (a pew shrunk to a row's depth).
+    const scale = placed.scale ?? 1;
+    const [sw, sh] = [(stamp?.width ?? 0) * scale, (stamp?.height ?? 0) * scale];
+    const w = Math.abs(sw * Math.cos(radians)) + Math.abs(sh * Math.sin(radians));
+    const h = Math.abs(sw * Math.sin(radians)) + Math.abs(sh * Math.cos(radians));
     return { x: placed.x - w / 2, y: placed.y - h / 2, w, h };
 }
 
@@ -122,6 +126,7 @@ describe('furnishRoom', () => {
             climb: null,
             borrowed: false,
             purposes: [],
+            tags: [],
         };
         const pew: RoleStamp = {
             key: 'test:pew',
@@ -136,6 +141,7 @@ describe('furnishRoom', () => {
             climb: null,
             borrowed: false,
             purposes: [],
+            tags: [],
         };
         const roles = new Map([...TEST_ROLES, ['table', [table]], ['bench', [pew]]] as const);
         const placed = furnishRoom(COMMON, roles, seededRandom(1)).stamps;
@@ -170,6 +176,19 @@ describe('furnishRoom', () => {
         }
     });
 
+    it('eats at long tables in a mess, never round ones, where the pack draws both', () => {
+        const hall: RoomFloor = { ...COMMON, purpose: 'mess', rect: { x: 0, y: 0, w: 10, h: 10 }, doors: [{ side: 'bottom', at: 4 }], outer: ['top'] };
+        const long = TEST_ROLES.get('table')?.[0];
+        if (!long) {
+            throw new Error('test table');
+        }
+        const round = { ...long, key: 'round-table', width: 1, height: 1 };
+        const roles = new Map([...TEST_ROLES].map(([role, stamps]) => [role, role === 'table' ? [round, ...stamps] : stamps]));
+        const tables = furnishRoom(hall, roles, seededRandom(1)).stamps.filter((p) => roleOf(p) === 'table' || p.stamp === 'round-table');
+        expect(tables.length).toBeGreaterThan(0);
+        expect(tables.every((t) => t.stamp !== 'round-table')).toBe(true);
+    });
+
     it('puts a bar’s counter against an inner wall, stools before it facing it', () => {
         const bar: RoomFloor = {
             key: 'bar',
@@ -191,6 +210,11 @@ describe('furnishRoom', () => {
             expect(stool.y).toBeLessThan(counter?.y ?? 0);
             expect(stool.rotation).toBe(0);
         }
+        // Each to a person's elbow room, never packed shoulder to shoulder by a narrow stool's art.
+        const xs = stools.map((s) => s.x).sort((a, b) => a - b);
+        xs.slice(1).forEach((x, i) => {
+            expect(x - (xs[i] ?? 0)).toBeGreaterThanOrEqual(0.75 - EPSILON);
+        });
     });
 
     it('lays a bedroom’s rug beneath everything, and its beds against the walls', () => {
@@ -311,6 +335,33 @@ describe('a chapel', () => {
         expect(pews.some((p) => p.x < middle)).toBe(true);
         expect(pews.some((p) => p.x > middle)).toBe(true);
         expect(pews.every((p) => Math.abs(p.x - middle) >= 0.5)).toBe(true);
+    });
+
+    it('fits pew art drawn deeper than a row to a row’s depth, as runs of pews along each column', () => {
+        // The test pew is drawn 2 × 1.66: as drawn, a row of them would be two thirds of a square too deep.
+        const pews = furnish(NAVE).filter((p) => roleOf(p) === 'pew');
+        expect(pews.length).toBeGreaterThanOrEqual(6);
+        for (const pew of pews) {
+            expect(Math.min(boxOf(pew).w, boxOf(pew).h)).toBeLessThanOrEqual(1 + EPSILON);
+        }
+    });
+
+    it('runs its aisle up from a door in the far wall to the altar', () => {
+        const shallow: RoleIndex = new Map(
+            [...TEST_ROLES].map(([role, stamps]) => [role, role === 'pew' ? stamps.map((s) => ({ ...s, height: 0.8 })) : stamps]),
+        );
+        const wide: RoomFloor = { ...NAVE, rect: { x: 0, y: 0, w: 12, h: 12 }, doors: [{ side: 'bottom', at: 7 }] };
+        const pews = furnishRoom(wide, shallow, seededRandom(1)).stamps.filter((p) => roleOf(p) === 'pew');
+        expect(pews.some((p) => p.x < 7.5)).toBe(true);
+        expect(pews.some((p) => p.x > 7.5)).toBe(true);
+        // Nothing stands in the aisle between the door and the altar.
+        expect(pews.every((p) => boxOf(p).x + boxOf(p).w <= 7 + EPSILON || boxOf(p).x >= 8 - EPSILON)).toBe(true);
+    });
+
+    it('says so when its pews find no room at all, rather than leaving the nave empty silently', () => {
+        const cramped: RoomFloor = { ...NAVE, rect: { x: 0, y: 0, w: 3, h: 3 }, doors: [{ side: 'bottom', at: 1 }] };
+        expect(furnishRoom(cramped, TEST_ROLES, seededRandom(1)).crowded).toContain('pew');
+        expect(furnishRoom(NAVE, TEST_ROLES, seededRandom(1)).crowded).not.toContain('pew');
     });
 
     it('is lit along its walls, one light to every eight squares of wall, so a great nave is lit end to end', () => {
@@ -459,6 +510,7 @@ describe('variety', () => {
             climb: null,
             borrowed: false,
             purposes: [],
+            tags: [],
         });
         const chair = (id: string): RoleStamp => ({
             key: `test:${id}`,
@@ -473,6 +525,7 @@ describe('variety', () => {
             climb: null,
             borrowed: false,
             purposes: [],
+            tags: [],
         });
         // No benches, so the common room's tables are seated with chairs.
         const roles = new Map([
@@ -609,9 +662,12 @@ describe('the grim far future’s rooms', () => {
         const alone = furnishRoom({ ...closet, doors: [{ side: 'bottom', at: 1 }] }, chairless, seededRandom(1)).stamps;
         expect(alone.filter((p) => p.stamp === 'test:writing-table')).toHaveLength(1);
         expect(alone.some((p) => p.stamp === 'test:seat')).toBe(false);
-        // Without an easy chair, a plain one takes the corner.
-        const plain = furnishRoom(lived, new Map([...TEST_ROLES].filter(([role]) => role !== 'armchair')), seededRandom(1)).stamps;
-        expect(plain.some((p) => p.stamp === 'test:seat' && (p.x < 1 || p.x > 3) && (p.y < 1 || p.y > 4))).toBe(true);
+        // Without an easy chair, no plain chair pretends to be one: the corner is left for its placeholder, or empty.
+        const plain = furnishRoom(lived, new Map([...TEST_ROLES].filter(([role]) => role !== 'armchair')), seededRandom(1));
+        expect(plain.missing).toContain('armchair');
+        expect(plain.stamps.some((p) => p.stamp === 'test:seat' && (p.x < 1 || p.x > 3) && (p.y < 1 || p.y > 4))).toBe(false);
+        const boxed = furnishRoom(lived, withPlaceholders(new Map([...TEST_ROLES].filter(([role]) => role !== 'armchair'))), seededRandom(1)).stamps;
+        expect(boxed.some((p) => p.stamp === 'placeholder:0.8x0.8:armchair')).toBe(true);
     });
 
     it('keeps pieces that name another kind of room out of a room, unless nothing else fills the role', () => {
@@ -676,5 +732,326 @@ describe('the grim far future’s rooms', () => {
             expect(tables.length).toBeGreaterThan(0);
             expect(tables.every((p) => p.stamp === 'test:table')).toBe(true);
         }
+    });
+});
+
+/** A named fixture with the intent's defaults, `over` what it asks. */
+function fixture(over: Partial<FixtureIntent> & Pick<FixtureIntent, 'name' | 'place'>): FixtureIntent {
+    return { tags: [], width: 1, height: 1, count: 1, facing: 'bottom', fixed: false, open: [], ...over };
+}
+
+/** A room of fixtures alone, 10 × 8 inside its walls, its one door in the middle of its bottom wall. */
+const HALL: RoomFloor = {
+    key: 'hall',
+    purpose: 'office',
+    rect: { x: 0, y: 0, w: 10, h: 8 },
+    doors: [{ side: 'bottom', at: 4.5 }],
+    outer: [],
+    entrance: 'bottom',
+    furnish: 'fixtures',
+    grime: 0,
+};
+
+/** Placed boxes by their label (placeholder keys carry it). */
+const labelled = (placed: readonly ComposedStamp[], label: string): ComposedStamp[] => placed.filter((p) => p.stamp.endsWith(`:${label}`));
+
+describe('rooms furnished by purpose', () => {
+    const table = TEST_ROLES.get('table')?.[0];
+    const tabletop = TEST_ROLES.get('tabletop')?.[0];
+    if (!table || !tabletop) {
+        throw new Error('test table');
+    }
+
+    it('stands long tables drawn with depth as drawn, never turned, and sets nothing on one too big for it', () => {
+        const roles = new Map([
+            ...TEST_ROLES,
+            ['table' as const, [{ ...table, key: 'test:trestle', upright: true, width: 2, height: 0.8 }]],
+            ['tabletop' as const, [{ ...tabletop, key: 'test:banquet', width: 3, height: 3 }]],
+        ]);
+        const mess: RoomFloor = { ...HALL, key: 'mess', purpose: 'mess', furnish: 'purpose', fixtures: [] };
+        const { stamps } = furnishRoom(mess, roles, seededRandom(1));
+        const trestles = stamps.filter((s) => s.stamp === 'test:trestle');
+        expect(trestles.length).toBeGreaterThan(0);
+        expect(trestles.every((s) => s.rotation === 0)).toBe(true);
+        expect(stamps.some((s) => s.stamp === 'test:banquet')).toBe(false);
+    });
+
+    it('seats a narrow chapel in one column of pews, its aisle beside them, lined up with a door in the far wall', () => {
+        const narrow: RoomFloor = { ...HALL, key: 'chapel', purpose: 'chapel', furnish: 'purpose', fixtures: [], rect: { x: 0, y: 0, w: 4, h: 10 } };
+        const pews = furnishRoom(narrow, TEST_ROLES, seededRandom(1)).stamps.filter((s) => s.stamp === 'test:pew');
+        expect(pews.length).toBeGreaterThan(0);
+        expect(pews.every((p) => p.x > 0 && p.x < 4)).toBe(true);
+        // A wide chapel whose door is in the wall across from its altar lines its aisle up with the door.
+        const wide: RoomFloor = { ...HALL, key: 'chapel', purpose: 'chapel', furnish: 'purpose', fixtures: [] };
+        const rows = furnishRoom(wide, TEST_ROLES, seededRandom(1)).stamps.filter((s) => s.stamp === 'test:pew');
+        expect(rows.length).toBeGreaterThan(1);
+        // With its only door in a side wall, the aisle runs up the middle.
+        const sideDoor: RoomFloor = { ...wide, doors: [{ side: 'left', at: 3, width: 1 }], entrance: 'left' };
+        expect(furnishRoom(sideDoor, TEST_ROLES, seededRandom(1)).stamps.filter((s) => s.stamp === 'test:pew').length).toBeGreaterThan(1);
+    });
+
+    it('draws a fixture asking for art by its tags from all the art there is, whatever room its tags would keep it to', () => {
+        const store: RoomFloor = { ...HALL, key: 'store', purpose: 'storage' };
+        const bed = TEST_ROLES.get('bed')?.[0];
+        if (!bed) {
+            throw new Error('test bed');
+        }
+        const cot = { ...bed, key: 'test:cot', tags: ['cot'] };
+        const roles = new Map([...TEST_ROLES, ['bed' as const, [cot]]]);
+        const asked = fixture({ name: 'watchman’s cot', role: 'bed', tags: ['cot'], width: 1.2, height: 2, place: { at: { x: 0.5, y: 0.4 } } });
+        expect(furnishRoom({ ...store, fixtures: [asked] }, roles, seededRandom(1)).stamps.some((s) => s.stamp === 'test:cot')).toBe(true);
+    });
+});
+
+describe('stand-ins', () => {
+    const office: RoomFloor = { ...HALL, key: 'office', purpose: 'office', furnish: 'purpose', fixtures: [] };
+    const table = TEST_ROLES.get('table')?.[0];
+    if (!table) {
+        throw new Error('test table');
+    }
+    const long = { ...table, key: 'test:long-table' };
+    const round = { ...table, key: 'test:round-table', width: 1, height: 1, tags: ['round'] };
+    const noDesks = (tables: (typeof table)[]): typeof TEST_ROLES =>
+        new Map([...[...TEST_ROLES].filter(([role]) => role !== 'desk'), ['table' as const, tables]]);
+
+    it('gives a room with no desk art a long table to write at, never a round one where it has a long one', () => {
+        const drawn = furnishRoom(office, noDesks([round, long]), seededRandom(1)).stamps.map((s) => s.stamp);
+        expect(drawn).toContain('test:long-table');
+        expect(drawn).not.toContain('test:round-table');
+    });
+
+    it('makes do with the only table it has, round or not, rather than leave the desk out', () => {
+        const drawn = furnishRoom(office, noDesks([round]), seededRandom(1)).stamps.map((s) => s.stamp);
+        expect(drawn).toContain('test:round-table');
+    });
+});
+
+describe('named fixtures', () => {
+    it('stands each where asked: against a wall exactly in its middle, in a corner, at a point; boxed where no art draws it', () => {
+        const { stamps, boxed } = furnishRoom(
+            {
+                ...HALL,
+                fixtures: [
+                    fixture({ name: 'banner', width: 2, height: 0.3, place: { wall: 'top', along: 'middle', standoff: 0 } }),
+                    fixture({ name: 'crate', place: { corner: 'top-right' } }),
+                    fixture({ name: 'plinth', width: 2, height: 2, place: { at: { x: 0.5, y: 0.5 } } }),
+                ],
+            },
+            TEST_ROLES,
+            seededRandom(1),
+        );
+        const [banner] = labelled(stamps, 'banner');
+        expect(banner).toMatchObject({ x: 5, y: 0.15 });
+        expect(labelled(stamps, 'crate')[0]).toMatchObject({ x: 9.5, y: 0.5 });
+        expect(labelled(stamps, 'plinth')[0]).toMatchObject({ x: 5, y: 4 });
+        expect(boxed).toEqual(['banner', 'crate', 'plinth']);
+    });
+
+    it('boxes a long piece asked to face sideways whose art is drawn with depth, which would lie across its footprint', () => {
+        const base = TEST_ROLES.get('desk')?.[0];
+        if (!base) {
+            throw new Error('test desk');
+        }
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['desk', [{ ...base, key: 'test:deep-desk', upright: true, width: 2, height: 1 }]]]);
+        const run = (facing: 'left' | 'bottom'): string[] =>
+            furnishRoom(
+                { ...HALL, fixtures: [fixture({ name: 'long desk', role: 'desk', width: 2, height: 1, facing, place: { at: { x: 0.5, y: 0.5 } } })] },
+                roles,
+                seededRandom(1),
+            ).boxed;
+        expect(run('left')).toEqual(['long desk']);
+        expect(run('bottom')).toEqual([]);
+    });
+
+    it('leaves off, and says so, a fixture with no room where it was asked, not calling it a placeholder', () => {
+        const { stamps, boxed, crowded } = furnishRoom(
+            {
+                ...HALL,
+                fixtures: [
+                    fixture({ name: 'plinth', width: 2, height: 2, place: { at: { x: 0.5, y: 0.5 } } }),
+                    fixture({ name: 'statue', width: 2, height: 2, place: { at: { x: 0.5, y: 0.5 } } }),
+                ],
+            },
+            TEST_ROLES,
+            seededRandom(1),
+        );
+        expect(labelled(stamps, 'statue')).toHaveLength(0);
+        expect(crowded).toEqual(['statue']);
+        expect(boxed).toEqual(['plinth']);
+    });
+
+    it('says so when fewer of a fixture stand than asked, not only when none does', () => {
+        // Six three-square cabinets asked against one wall of the hall: it holds fewer.
+        const { crowded } = furnishRoom(
+            { ...HALL, fixtures: [fixture({ name: 'cabinet', width: 3, height: 0.6, count: 6, place: { wall: 'top', along: 'spread', standoff: 0 } })] },
+            TEST_ROLES,
+            seededRandom(1),
+        );
+        expect(crowded).toEqual(['cabinet']);
+        const { crowded: none } = furnishRoom(
+            { ...HALL, fixtures: [fixture({ name: 'cabinet', width: 1, height: 0.6, count: 2, place: { wall: 'top', along: 'spread', standoff: 0 } })] },
+            TEST_ROLES,
+            seededRandom(1),
+        );
+        expect(none).toEqual([]);
+    });
+
+    it('draws a fixture in its role’s art carrying its tags, fitted to its size, the same art in every room', () => {
+        const desk = fixture({ name: 'clerk desk', role: 'desk', width: 3, height: 1.6, place: { at: { x: 0.5, y: 0.3 } } });
+        const first = furnishRoom({ ...HALL, fixtures: [desk] }, TEST_ROLES, seededRandom(1)).stamps;
+        const second = furnishRoom({ ...HALL, fixtures: [desk] }, TEST_ROLES, seededRandom(99)).stamps;
+        expect(first[0]?.stamp).toBe('test:desk');
+        expect(first[0]?.stamp).toBe(second[0]?.stamp);
+        expect(first[0]?.scale).toBeCloseTo(2);
+    });
+
+    it('seats a chair before a desk facing it, and another behind it', () => {
+        const { stamps } = furnishRoom(
+            {
+                ...HALL,
+                fixtures: [
+                    fixture({ name: 'desk', width: 2, height: 1, place: { at: { x: 0.5, y: 0.4 } } }),
+                    fixture({ name: 'visitor', width: 0.6, height: 0.6, place: { before: 'desk', gap: 0.1, behind: false } }),
+                    fixture({ name: 'clerk', width: 0.6, height: 0.6, place: { before: 'desk', gap: 0.1, behind: true } }),
+                ],
+            },
+            TEST_ROLES,
+            seededRandom(1),
+        );
+        const [desk] = labelled(stamps, 'desk');
+        const [visitor] = labelled(stamps, 'visitor');
+        const [clerk] = labelled(stamps, 'clerk');
+        // The desk faces down the page: its visitor below it, its clerk above, each centred on it and turned to face it.
+        expect(visitor).toMatchObject({ x: desk?.x, rotation: 180 });
+        expect(clerk).toMatchObject({ x: desk?.x, rotation: 0 });
+        expect((visitor?.y ?? 0) - (desk?.y ?? 0)).toBeCloseTo(0.5 + 0.1 + 0.3);
+        expect((desk?.y ?? 0) - (clerk?.y ?? 0)).toBeCloseTo(0.5 + 0.1 + 0.3);
+    });
+
+    it('fills an area given with whole rows only: a row a doorway would cut short is left out', () => {
+        // Rows along the room's long side (across the page here), piece against piece.
+        const rows = fixture({ name: 'pew', width: 2, height: 0.8, place: { rows: 'along', aisle: 0.5, area: { from: { x: 0, y: 0 }, to: { x: 1, y: 1 } } } });
+        const { stamps } = furnishRoom({ ...HALL, fixtures: [rows] }, TEST_ROLES, seededRandom(1));
+        const pews = labelled(stamps, 'pew');
+        const ys = [...new Set(pews.map((p) => p.y.toFixed(3)))];
+        // Every row the same length, the area filled to its edges: five pews across 10 squares.
+        expect(pews.length % ys.length).toBe(0);
+        expect(pews.length / ys.length).toBe(5);
+        // The door's approach at the bottom takes the last row whole.
+        expect(Math.max(...pews.map((p) => p.y))).toBeLessThan(8 - 1.5);
+    });
+
+    it('stands pieces on any wall, off it by a standoff, in any corner, along a line, and over a whole room’s grid', () => {
+        const { stamps } = furnishRoom(
+            {
+                ...HALL,
+                fixtures: [
+                    fixture({ name: 'rack', width: 2, height: 0.5, place: { wall: 'any', along: 'start', standoff: 0.5 } }),
+                    fixture({ name: 'sack', place: { corner: 'any' } }),
+                    fixture({ name: 'post', width: 0.5, height: 0.5, count: 1, place: { line: { from: { x: 0.2, y: 0.4 }, to: { x: 0.8, y: 0.4 } } } }),
+                    fixture({ name: 'lamp', width: 0.5, height: 0.5, count: 3, place: { line: { from: { x: 0.2, y: 0.6 }, to: { x: 0.8, y: 0.6 } } } }),
+                    fixture({ name: 'stool', width: 0.5, height: 0.5, place: { grid: { columns: 2, rows: 1 } } }),
+                ],
+            },
+            TEST_ROLES,
+            seededRandom(1),
+        );
+        // Off its wall by the standoff: its back half a square clear of whichever wall it took.
+        const [rack] = labelled(stamps, 'rack');
+        const clear = rack === undefined ? 0 : Math.min(rack.y - 0.25, rack.x - 0.25, 10 - rack.x - 0.25, 8 - rack.y - 0.25);
+        expect(clear).toBeCloseTo(0.5);
+        expect(labelled(stamps, 'sack')).toHaveLength(1);
+        // A line of one stands at its middle; a line of three at both ends and the middle.
+        expect(labelled(stamps, 'post')[0]).toMatchObject({ x: 5, y: 3.2 });
+        expect(labelled(stamps, 'lamp').map((p) => p.x)).toEqual([2, 5, 8]);
+        // A grid over the whole room: each piece in the middle of its cell.
+        expect(labelled(stamps, 'stool').map((p) => [p.x, p.y])).toEqual([
+            [2.5, 4],
+            [7.5, 4],
+        ]);
+    });
+
+    it('lays rows across a room as well as along it, no more than asked, and never turns art drawn with depth to do it', () => {
+        // Clear of the doorway in the middle of the bottom wall: rows stand whole or not at all.
+        const area = { from: { x: 0, y: 0 }, to: { x: 0.4, y: 0.8 } };
+        const across = fixture({ name: 'cabinet', width: 1, height: 0.6, place: { rows: 'across', aisle: 1, max: 2, area } });
+        const cabinets = labelled(furnishRoom({ ...HALL, fixtures: [across] }, TEST_ROLES, seededRandom(1)).stamps, 'cabinet');
+        // The area is taller than wide, so rows across it run side to side: two of them, no more, each piece unturned.
+        expect(cabinets.length).toBeGreaterThan(2);
+        expect(new Set(cabinets.map((c) => c.y)).size).toBe(2);
+        expect(cabinets.every((c) => c.rotation === 0)).toBe(true);
+        // Rows along it run down it: each piece turned a quarter to lie along its row.
+        const along = fixture({ name: 'locker', width: 1, height: 0.6, place: { rows: 'along', aisle: 1, max: 2, area } });
+        const lockers = labelled(furnishRoom({ ...HALL, fixtures: [along] }, TEST_ROLES, seededRandom(1)).stamps, 'locker');
+        expect(lockers.length).toBeGreaterThan(2);
+        expect(new Set(lockers.map((c) => c.x)).size).toBe(2);
+        expect(lockers.every((c) => c.rotation === 90)).toBe(true);
+        const desk = TEST_ROLES.get('desk')?.[0];
+        if (!desk) {
+            throw new Error('test desk');
+        }
+        const upright = new Map([...TEST_ROLES, ['desk' as const, [{ ...desk, key: 'test:tall-desk', upright: true }]]]);
+        const rows = fixture({ name: 'desk row', role: 'desk', tags: [], width: 1.5, height: 0.75, place: { rows: 'along', aisle: 1, max: 1, area } });
+        const drawn = furnishRoom({ ...HALL, fixtures: [rows] }, upright, seededRandom(1)).stamps.filter((s) => s.stamp === 'test:tall-desk');
+        expect(drawn.length).toBeGreaterThan(0);
+        expect(drawn.every((d) => d.rotation === 0)).toBe(true);
+    });
+
+    it('lets a piece of a grid give a little within its cell rather than be lost to a doorway', () => {
+        const grid = fixture({
+            name: 'desk',
+            width: 1,
+            height: 0.6,
+            place: { grid: { columns: 3, rows: 2 }, area: { from: { x: 0.2, y: 0.5 }, to: { x: 0.8, y: 0.9 } } },
+        });
+        expect(labelled(furnishRoom({ ...HALL, fixtures: [grid] }, TEST_ROLES, seededRandom(1)).stamps, 'desk')).toHaveLength(6);
+    });
+
+    it('stands a fixed piece exactly where asked even across a doorway, taking no floor from others', () => {
+        const { stamps } = furnishRoom(
+            {
+                ...HALL,
+                fixtures: [
+                    fixture({ name: 'rubble spill', width: 3, height: 1.5, fixed: true, place: { at: { x: 0.5, y: 0.95 } } }),
+                    fixture({ name: 'crate', place: { at: { x: 0.5, y: 0.95 } } }),
+                ],
+            },
+            TEST_ROLES,
+            seededRandom(1),
+        );
+        expect(labelled(stamps, 'rubble spill')).toHaveLength(1);
+        // The crate still keeps the door's approach clear.
+        expect(labelled(stamps, 'crate')).toHaveLength(0);
+    });
+
+    it('strews grime along the walls, never across a doorway, beneath everything else', () => {
+        const debris = byKey.get('test:debris');
+        if (!debris) {
+            throw new Error('test debris');
+        }
+        const decal: RoleStamp = { ...debris, key: 'test:stain', role: 'decal', width: 0.8, height: 0.6 };
+        const roles = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['decal', [decal]]]);
+        const room: RoomFloor = { ...HALL, fixtures: [fixture({ name: 'plinth', width: 2, height: 2, place: { centre: true } })], grime: 1 };
+        const { stamps } = furnishRoom(room, withPlaceholders(roles), seededRandom(3));
+        const stains = stamps.filter((p) => p.stamp === 'test:stain');
+        expect(stains.length).toBeGreaterThan(3);
+        // First in the drawing order: beneath the plinth.
+        expect(stamps.findIndex((p) => p.stamp !== 'test:stain')).toBe(stains.length);
+        for (const s of stains) {
+            // Near a wall (within its reach and its own size).
+            const nearest = Math.min(s.x, 10 - s.x, s.y, 8 - s.y);
+            expect(nearest).toBeLessThanOrEqual(1.4 + 0.8);
+            // Out of the door's approach (4.25..5.75 across, the bottom 1.5 squares).
+            expect(s.y > 6.5 && s.x > 4.25 - 0.4 && s.x < 5.75 + 0.4).toBe(false);
+        }
+        // None where the room gathers no grime.
+        expect(furnishRoom({ ...room, grime: 0 }, withPlaceholders(roles), seededRandom(3)).stamps.some((p) => p.stamp === 'test:stain')).toBe(false);
+        // Grime drawn with depth lies as drawn against every wall, never turned.
+        const drift: RoleStamp = { ...decal, key: 'test:drift', upright: true };
+        const drifts = furnishRoom(room, withPlaceholders(new Map([...roles, ['decal', [drift]]])), seededRandom(3)).stamps.filter(
+            (p) => p.stamp === 'test:drift',
+        );
+        expect(drifts.length).toBeGreaterThan(3);
+        expect(drifts.every((p) => p.rotation === 0)).toBe(true);
     });
 });

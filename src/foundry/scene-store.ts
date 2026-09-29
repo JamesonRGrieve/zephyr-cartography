@@ -6,6 +6,13 @@ import { parseFeatures, type Feature } from '../tools/feature';
 import { FLAG_KEY } from '../tools/path';
 import type { FoundryScene } from './boundary';
 
+declare global {
+    interface FlagConfig {
+        /** The scene's features, as saved: read back through `parseFeatures`, which drops whatever is malformed. */
+        Scene: { 'zephyrex-cartography': { features: readonly Feature[] } };
+    }
+}
+
 export class FoundrySceneStore implements SceneStore {
     constructor(private readonly getScene: () => FoundryScene | null) {}
 

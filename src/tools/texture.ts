@@ -21,6 +21,22 @@ export interface TextureSetRef {
     readonly name: string;
     readonly textures: Readonly<Record<string, string>>;
     readonly previews?: Readonly<Record<string, string>> | undefined;
+    /** Ids of this pack's sets that stand in, in order, for the wall textures this set lacks. */
+    readonly fallback?: readonly string[] | undefined;
+    /** Role → grid squares one tile of its image spans, where the pack says; else {@link TEXTURE_TILE_SQUARES}. */
+    readonly tileSquares?: Readonly<Record<string, number>> | undefined;
+}
+
+/** The grid squares one tile of each texture image spans, by its URL, where a set says: the canvas tiles it at that. */
+export function tileSquaresByUrl(sets: readonly TextureSetRef[]): Map<string, number> {
+    return new Map(
+        sets.flatMap((set) =>
+            Object.entries(set.tileSquares ?? {}).flatMap(([role, squares]) => {
+                const image = set.textures[role];
+                return image === undefined ? [] : [[image, squares] as const];
+            }),
+        ),
+    );
 }
 
 /** Resolves a texture role to an image URL, or null to use the flat colour. */
@@ -84,13 +100,25 @@ export const BIOME_TINT: Record<BiomeKind, number> = {
 export const TEXTURE_TILE_SQUARES = 2;
 
 /**
- * Scene px one tile of a texture `side` px across spans: {@link TEXTURE_TILE_SQUARES}
- * grid squares, or its own size on a scene with no grid. Every fill tiles from
- * the scene's origin at this size, so overlapping fills of one texture meet
- * without a seam.
+ * Scene px one tile of a texture `width` by `height` px spans, in its own
+ * proportions: its shorter side `squares` grid squares (the pack's, else
+ * {@link TEXTURE_TILE_SQUARES}),
+ * its longer side as much more as the image is (a tall plank texture is not
+ * squashed square); its own size on a scene with no grid. Every fill tiles
+ * from the scene's origin at this size, so overlapping fills of one texture
+ * meet without a seam.
  */
-export function tileSpan(gridSize: number, side: number): number {
-    return gridSize > 0 ? gridSize * TEXTURE_TILE_SQUARES : side;
+export function tileSize(
+    gridSize: number,
+    width: number,
+    height: number,
+    squares: number = TEXTURE_TILE_SQUARES,
+): { readonly width: number; readonly height: number } {
+    if (gridSize <= 0 || width <= 0 || height <= 0) {
+        return { width, height };
+    }
+    const scale = (gridSize * squares) / Math.min(width, height);
+    return { width: width * scale, height: height * scale };
 }
 
 /** Texture role of a road (a river is drawn in its liquid's). */
@@ -148,15 +176,38 @@ export function pickTextureSet(sets: readonly TextureSetRef[], chosen: string): 
 
 /**
  * A resolver over one texture set, plus the procedural patterns (`patterns`
- * gives each one's image). A pack role the set lacks resolves to null, and
- * the renderer falls back to a pattern.
+ * gives each one's image). A wall role the set lacks is borrowed from the
+ * first of `others` that has it: a wall drawn in real masonry, never a flat
+ * grey band. Any other role the set lacks resolves to null, and the renderer
+ * falls back to a pattern.
  */
-export function textureResolver(set: TextureSetRef | null, patterns: (pattern: Pattern) => string): TextureResolver {
+export function textureResolver(set: TextureSetRef | null, patterns: (pattern: Pattern) => string, others: readonly TextureSetRef[] = []): TextureResolver {
     return (role) => {
         const pattern = patternOf(role);
-        return pattern === null ? set?.textures[role] ?? null : patterns(pattern);
+        if (pattern !== null) {
+            return patterns(pattern);
+        }
+        const own = set?.textures[role];
+        if (own !== undefined) {
+            return own;
+        }
+        return role.startsWith(WALL_ROLE_PREFIX)
+            ? standIns(set, others)
+                  .map((other) => other.textures[role])
+                  .find((image) => image !== undefined) ?? null
+            : null;
     };
 }
+
+/** The sets that stand in for `set`'s missing walls, in order: those it names as its `fallback`, then the rest as listed. */
+function standIns(set: TextureSetRef | null, others: readonly TextureSetRef[]): TextureSetRef[] {
+    const pack = set === null ? '' : set.key.slice(0, set.key.indexOf(':') + 1);
+    const named = (set?.fallback ?? []).flatMap((id) => others.filter((other) => other.key === `${pack}${id}`));
+    return [...named, ...others.filter((other) => !named.includes(other))];
+}
+
+/** The prefix of the texture roles walls are drawn in (`wall.stone`, `wall.brick`). */
+const WALL_ROLE_PREFIX = 'wall.';
 
 /**
  * The images panels show for one texture set's roles: each role's preview, or

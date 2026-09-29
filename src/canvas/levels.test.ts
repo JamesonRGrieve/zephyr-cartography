@@ -106,6 +106,27 @@ describe('CartographyController levels', () => {
         expect(c.activeLevel).toBeNull();
     });
 
+    it('draws the levels the active one sees below it beneath its own, and picks only its own', async () => {
+        const { c, r, l } = makeHarness();
+        await drawRoom(c); // p1, no level
+        await c.addLevel('above', 'Ground'); // active lv1
+        await drawRoom(c); // p2 on lv1
+        await c.addLevel('above', 'Upper'); // active lv2
+        // The upper storey sees the ground below it (the yard round it).
+        l.levels = l.levels.map((level) => (level.id === 'lv2' ? { ...level, art: { ...NO_LEVEL_ART, visibleLevels: ['lv1'] } } : level));
+        c.setActiveLevel('lv1');
+        await c.reloadLevels();
+        r.setIds.length = 0;
+        c.setActiveLevel('lv2');
+        // The ground's room first, beneath; then the upper storey's own.
+        expect(r.setIds).toEqual(['p2', 'p1']);
+        expect(c.hitTest({ x: 90, y: 10 })).toBe('p1');
+        // Seen from the ground, the upper storey is not drawn.
+        r.setIds.length = 0;
+        c.setActiveLevel('lv1');
+        expect(r.setIds).toEqual(['p1', 'p2']);
+    });
+
     it('drops the features of a level deleted outside the plugin, from the scene and the undo history', async () => {
         const { c, l, s } = makeHarness();
         await drawRoom(c); // p1, no level
@@ -154,12 +175,24 @@ describe('CartographyController levels', () => {
         c.setActiveLevel('lv1');
         await drawRoom(c);
         const writes = d.writes.length;
-        const art = { ...NO_LEVEL_ART, background: 'maps/ground.webp', fog: 'maps/fog.webp', backgroundColor: '#202020', visibleLevels: ['lv0'] };
+        const art = { ...NO_LEVEL_ART, background: 'maps/ground.webp', fog: 'maps/fog.webp', backgroundColor: '#202020' };
         expect(await c.setLevelArt('lv1', art)).toBe(true);
         expect(l.levels[0]?.art).toEqual(art);
         expect(c.levels[0]?.art).toEqual(art);
         expect(d.writes).toHaveLength(writes);
         expect(await c.setLevelArt('nope', art)).toBe(false);
+    });
+
+    it('re-syncs what stands on the levels when which levels one sees changes: a stamp’s tile shows on those that see its own', async () => {
+        const { c, d } = makeHarness();
+        await c.addLevel('above', 'Ground');
+        await c.addLevel('above', 'Upper');
+        c.setActiveLevel('lv1');
+        await drawRoom(c);
+        const writes = d.writes.length;
+        const upper = c.levels.find((level) => level.id === 'lv2');
+        expect(await c.setLevelArt('lv2', { ...(upper?.art ?? NO_LEVEL_ART), visibleLevels: ['lv1'] })).toBe(true);
+        expect(d.writes.length).toBeGreaterThan(writes);
     });
 
     it('gives a room on an upper level a solid floor over the level below, and a ground-floor room none', async () => {

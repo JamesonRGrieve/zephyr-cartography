@@ -2,7 +2,8 @@
 /**
  * A building's storeys. Every floor is laid out over the same footprint, so
  * each floor's outer walls stand exactly on the ones below. A stairwell, the
- * size of the stair the building gets, is fixed in one place on every floor:
+ * size of the stair the building gets and lying either way round, is fixed
+ * in one place on every floor:
  * wholly inside one room on each, clear of every door's approach, so the
  * stair is reached from a doorway on every floor. The ground floor is laid
  * out first; a spot it holds is then tried on each floor above, whose layout
@@ -14,9 +15,9 @@
 import type { Rect } from '../generate/floor-plan';
 import { shuffled, type Random } from '../generate/random';
 import { WALL_BAND_SQUARES } from '../tools/materials';
-import { type Box, doorApproach, overlaps, within } from './furnish';
+import { type Box, DOOR_CLEAR, doorApproach, overlaps, within } from './furnish';
 import type { BuildingIntent } from './intent';
-import { type BuildingLayout, doorsOf, layOutBuilding } from './layout';
+import { type BuildingLayout, CORRIDOR_WIDTH, doorsOf, layOutBuilding } from './layout';
 
 /** Squares kept between a stairwell and its room's walls: the wall's own band and a step round it. */
 const STAIRWELL_MARGIN = WALL_BAND_SQUARES / 2 + 0.25;
@@ -35,9 +36,14 @@ const SPOT_TRIES = 12;
 export interface Storeys {
     readonly ground: BuildingLayout;
     readonly floors: readonly (BuildingLayout | null)[];
-    readonly stairwell: Box | null;
+    readonly stairwell: Well | null;
     readonly cellars: readonly (BuildingLayout | null)[];
-    readonly cellarWell: Box | null;
+    readonly cellarWell: Well | null;
+}
+
+/** A stairwell: where it stands, and whether it lies turned a quarter from its stair as drawn (its flights across the other way). */
+export interface Well extends Box {
+    readonly turned: boolean;
 }
 
 /** The size of the well each way needs: its flights side by side; null for none. */
@@ -65,15 +71,34 @@ function fromWall(room: LaidRoom, box: Box): number {
     return Math.min(box.x - x, x + w - (box.x + box.w), box.y - y, y + h - (box.y + box.h)) - STAIRWELL_MARGIN;
 }
 
-/** Every place in `footprint` a stairwell `size` could go, on a half-square step, in a seeded order. */
-function spots(footprint: Rect, size: { readonly w: number; readonly h: number }, random: Random): Box[] {
-    const found: Box[] = [];
-    for (let x = footprint.x + STAIRWELL_MARGIN; x + size.w <= footprint.x + footprint.w - STAIRWELL_MARGIN; x += SPOT_STEP) {
-        for (let y = footprint.y + STAIRWELL_MARGIN; y + size.h <= footprint.y + footprint.h - STAIRWELL_MARGIN; y += SPOT_STEP) {
-            found.push({ x, y, w: size.w, h: size.h });
+/** Every place in `footprint` a stairwell `size` could go, either way round, on a half-square step, in a seeded order. */
+function spots(footprint: Rect, size: { readonly w: number; readonly h: number }, random: Random): Well[] {
+    const found: Well[] = [];
+    // A square well turned is the same well.
+    const turns = size.w === size.h ? [false] : [false, true];
+    for (const turned of turns) {
+        const [w, h] = turned ? [size.h, size.w] : [size.w, size.h];
+        for (let x = footprint.x + STAIRWELL_MARGIN; x + w <= footprint.x + footprint.w - STAIRWELL_MARGIN; x += SPOT_STEP) {
+            for (let y = footprint.y + STAIRWELL_MARGIN; y + h <= footprint.y + footprint.h - STAIRWELL_MARGIN; y += SPOT_STEP) {
+                found.push({ x, y, w, h, turned });
+            }
         }
     }
     return shuffled(random, found);
+}
+
+/**
+ * Squares across a corridor a stair of `size` climbs into, narrowest first:
+ * two abreast, or wide enough to hold its stairwell lying along it off both
+ * its walls; then a doorway's approach wider, so a stair too long to fit
+ * between the doors along it stands against one wall, the far wall's
+ * doorways clear of it.
+ */
+function corridorsFor(size: { readonly w: number; readonly h: number }): number[] {
+    const depth = Math.min(size.w, size.h);
+    const narrow = Math.max(CORRIDOR_WIDTH, Math.ceil(depth + 2 * STAIRWELL_MARGIN));
+    const wide = Math.max(narrow, Math.ceil(depth + STAIRWELL_MARGIN + DOOR_CLEAR.depth));
+    return wide > narrow ? [narrow, wide] : [narrow];
 }
 
 /**
@@ -117,26 +142,48 @@ function withCellars(
  */
 function hallToHall(building: BuildingIntent, footprint: Rect, wells: Wells, random: Random): Storeys | null {
     const size = wells.up;
-    if (building.floors.length === 0 || size === null) {
+    // A stair the intent puts in a room of its own choosing stands there, not in whatever hall the floors share.
+    if (building.floors.length === 0 || size === null || building.accessRoom !== null) {
         return null;
     }
-    const above = building.floors.map((storey) => layOutBuilding(building, footprint, random, { front: false, accept: () => true }, storey.rooms));
+    for (const corridor of corridorsFor(size)) {
+        const landed = landedAt(building, footprint, wells, random, { size, corridor });
+        if (landed) {
+            return landed;
+        }
+    }
+    return null;
+}
+
+/** The storeys of `hallToHall` with the floors above laid round a corridor `corridor` squares across; null where they cannot land. */
+function landedAt(
+    building: BuildingIntent,
+    footprint: Rect,
+    wells: Wells,
+    random: Random,
+    { size, corridor }: { readonly size: { readonly w: number; readonly h: number }; readonly corridor: number },
+): Storeys | null {
+    const above = building.floors.map((storey) => layOutBuilding(building, footprint, random, { front: false, accept: () => true, corridor }, storey.rooms));
     const floors = above.flatMap((layout) => (layout ? [layout] : []));
     if (floors.length !== above.length || !floors.some(hasHall)) {
         return null;
     }
     const landings = spots(footprint, size, random).filter((box) => floors.every((layout) => inHall(layout, box)));
-    const ground = layOutBuilding(building, footprint, random, { front: true, accept: (layout) => landings.some((box) => inHall(layout, box)) });
+    // The stair climbs from the ground floor's hall where one of its layouts puts the hall under the landing; else from
+    // whichever room is there (an inn's stair up from its common room). Where it arrives is what matters: the corridor.
+    const ground =
+        layOutBuilding(building, footprint, random, { front: true, accept: (layout) => landings.some((box) => inHall(layout, box)) }) ??
+        layOutBuilding(building, footprint, random, { front: true, accept: (layout) => landings.some((box) => holdsStairwell(layout, box)) });
     if (!ground) {
         return null;
     }
-    // Against a wall of the ground floor's room, as a built stair stands.
+    // In the hall where it can be, and against a wall of the ground floor's room, as a built stair stands.
     const [stairwell] = landings
         .flatMap((box) => {
-            const room = inHall(ground, box) ? stairwellRoom(ground, box) : undefined;
-            return room ? [{ box, away: fromWall(room, box) }] : [];
+            const room = stairwellRoom(ground, box);
+            return room ? [{ box, hall: inHall(ground, box) ? 0 : 1, away: fromWall(room, box) }] : [];
         })
-        .sort((a, b) => a.away - b.away)
+        .sort((a, b) => a.hall - b.hall || a.away - b.away)
         .map(({ box }) => box);
     return stairwell ? withCellars(building, footprint, wells, random, { ground, floors, stairwell }) : null;
 }
@@ -160,10 +207,12 @@ function stack(
     storeys: BuildingIntent['floors'],
     shared: { readonly building: BuildingIntent; readonly footprint: Rect; readonly size: Wells['up']; readonly clear: Box | null },
     random: Random,
-): { layouts: (BuildingLayout | null)[]; well: Box | null } {
+): { layouts: (BuildingLayout | null)[]; well: Well | null } {
     const { building, footprint, size, clear } = shared;
+    // A storey laid round a corridor makes it wide enough to hold the stairwell, so the stair lands in it.
+    const widened = size === null ? {} : { corridor: corridorsFor(size)[0] ?? CORRIDOR_WIDTH };
     const each = (accept: (layout: BuildingLayout) => boolean): (BuildingLayout | null)[] =>
-        storeys.map((storey) => layOutBuilding(building, footprint, random, { front: false, accept }, storey.rooms));
+        storeys.map((storey) => layOutBuilding(building, footprint, random, { front: false, accept, ...widened }, storey.rooms));
     if (storeys.length === 0 || size === null) {
         return { layouts: each(() => true), well: null };
     }
@@ -172,7 +221,8 @@ function stack(
     const held = spots(footprint, size, random)
         .flatMap((box) => {
             const room = stairwellRoom(ground, box);
-            return room && (clear === null || !overlaps(box, clear)) ? [{ box, room }] : [];
+            const asked = building.accessRoom === null || room?.key === building.accessRoom;
+            return room && asked && (clear === null || !overlaps(box, clear)) ? [{ box, room }] : [];
         })
         .sort((a, b) => hallFirst(a.room) - hallFirst(b.room) || fromWall(a.room, a.box) - fromWall(b.room, b.box))
         .map(({ box }) => box);
@@ -180,10 +230,10 @@ function stack(
     // Tried first in the halls of every storey that has one; anywhere each storey holds it only when that keeps more rooms
     // beside those they open onto (a stair too deep for a corridor must not cost the corridor its rooms).
     const search = (
-        spotsTried: readonly Box[],
+        spotsTried: readonly Well[],
         holds: (layout: BuildingLayout, box: Box) => boolean,
-    ): { layouts: BuildingLayout[]; well: Box; unmet: number } | null => {
-        let best: { layouts: BuildingLayout[]; well: Box; unmet: number } | null = null;
+    ): { layouts: BuildingLayout[]; well: Well; unmet: number } | null => {
+        let best: { layouts: BuildingLayout[]; well: Well; unmet: number } | null = null;
         for (const box of spotsTried.slice(0, SPOT_TRIES)) {
             const layouts = each((layout) => holds(layout, box));
             const laid = layouts.flatMap((l) => (l ? [l] : []));

@@ -11,6 +11,7 @@ import {
     NO_LEVEL_ART,
     onLevel,
     planningLevels,
+    seenBelow,
     sortLevels,
     type Level,
     type LevelArt,
@@ -24,9 +25,11 @@ const levels: Level[] = [
 ];
 
 describe('planningLevels', () => {
-    it('changes with a band or a name, but not with a level’s art', () => {
+    it('changes with a band, a name or the levels one sees, but not with a level’s images or look', () => {
         const painted = levels.map((level) => ({ ...level, art: { ...NO_LEVEL_ART, background: 'floor.webp' } }));
         expect(planningLevels(painted)).toBe(planningLevels(levels));
+        const seeing = levels.map((level) => (level.id === 'upper' ? { ...level, art: { ...NO_LEVEL_ART, visibleLevels: ['ground'] } } : level));
+        expect(planningLevels(seeing)).not.toBe(planningLevels(levels));
         expect(planningLevels(levels.map((level) => ({ ...level, name: `${level.name}!` })))).not.toBe(planningLevels(levels));
         expect(planningLevels(levels.map((level) => ({ ...level, top: level.top + 1 })))).not.toBe(planningLevels(levels));
     });
@@ -81,6 +84,16 @@ describe('levels', () => {
         expect(findLevel(levels, 'ground')?.name).toBe('Ground');
         expect(findLevel(levels, 'attic')).toBeNull();
         expect(findLevel(levels, null)).toBeNull();
+    });
+
+    it('see the levels below them they name, lowest first, never one above', () => {
+        const seeing = (id: string, visibleLevels: string[]): Level[] =>
+            levels.map((l) => (l.id === id ? { ...l, art: { ...NO_LEVEL_ART, visibleLevels } } : l));
+        expect(seenBelow(seeing('upper', ['ground', 'cellar']), 'upper').map((l) => l.id)).toEqual(['cellar', 'ground']);
+        // The ground sees nothing above it, and a level naming none sees none.
+        expect(seenBelow(seeing('ground', ['upper']), 'ground')).toEqual([]);
+        expect(seenBelow(levels, 'upper')).toEqual([]);
+        expect(seenBelow(levels, null)).toEqual([]);
     });
 
     it('step to the neighbouring level, null past the ends', () => {

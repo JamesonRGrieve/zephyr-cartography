@@ -84,6 +84,31 @@ test('overlapping strokes of one texture meet seamlessly: every fill tiles from 
     await expect(world.locator('#board')).toHaveScreenshot('overlapping-strokes.png');
 });
 
+test('features saved to the scene by another writer are drawn: another client, or a canvas replaced mid-build', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [{ type: 'stroke', biome: 'forest', radius: 2, points: [{ x: 5, y: 5 }] }],
+        });
+    });
+    const fills = async (): Promise<number> =>
+        world.evaluate(() => {
+            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+            return terrain instanceof PIXI.Container ? terrain.children.length : -1;
+        });
+    await expect.poll(fills).toBe(1);
+    // Saved straight to the scene, as a writer other than this canvas's controller would: a second stroke.
+    await world.evaluate(async () => {
+        const scene = canvas?.scene;
+        const first = scene?.getFlag('zephyrex-cartography', 'features')[0];
+        if (!scene || !first) {
+            throw new Error('one feature saved');
+        }
+        await scene.setFlag('zephyrex-cartography', 'features', [first, { ...first, id: 'written-elsewhere' }]);
+    });
+    await expect.poll(fills).toBe(2);
+});
+
 test('painted ground lies beneath the stamps placed on it, as a map background does', async ({ world }) => {
     await world.evaluate(async () => {
         await game.modules?.get('zephyrex-cartography').api.buildSpec({
