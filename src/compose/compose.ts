@@ -25,7 +25,8 @@ import { type Box, type ComposedStamp, furnishRoom, type RoomFloor } from './fur
 import { hewnFeatures } from './hewn';
 import { type BuildingIntent, type MapIntent, WALL_SIDES, type ZoneIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
-import { drawPlaceholders, isPlaceholder, missing, withPlaceholders } from './placeholders';
+import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders } from './placeholders';
+import { platformFeatures } from './platform';
 import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './preferences';
 import { type ComposeProblem, distinctProblems } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
@@ -76,6 +77,7 @@ const stampFeature = (s: ComposedStamp): FeatureInput => ({
     ...(s.scale === undefined ? {} : { scale: s.scale }),
     ...(s.reads === undefined ? {} : { reads: s.reads }),
     ...(s.mirror === true ? { mirror: true } : {}),
+    ...(s.variant === undefined ? {} : { variant: s.variant }),
 });
 
 /**
@@ -278,6 +280,32 @@ function chamferCorners({ x, y, w, h }: Rect, c: number, at: readonly RoomCorner
     return at.map((corner) => triangles[corner]);
 }
 
+/**
+ * A storey above the ground over only part of the footprint (a commander's
+ * office over its stair core): the rest is flat roof in `texture`, never a
+ * view down into the rooms below; drawn first, under its rooms. None for a
+ * whole storey, the ground or a cellar.
+ */
+function roofOf(
+    storey: number,
+    layout: BuildingLayout,
+    { footprint, texture, onLevel }: { readonly footprint: Rect; readonly texture: string; readonly onLevel: { readonly level?: string } },
+): FeatureInput[] {
+    return storey > 0 && !covers(layout, footprint) ? [{ type: 'region', biome: 'rock', texture, sharp: true, points: cornersOf(footprint), ...onLevel }] : [];
+}
+
+/** Whether `layout`'s rooms, which never overlap, cover the whole of `footprint`. */
+const covers = (layout: BuildingLayout, footprint: Rect): boolean =>
+    layout.rooms.reduce((area, r) => area + r.rect.w * r.rect.h, 0) >= footprint.w * footprint.h;
+
+/** The corners of `rect`, clockwise from its top-left. */
+const cornersOf = ({ x, y, w, h }: Rect): Point[] => [
+    { x, y },
+    { x: x + w, y },
+    { x: x + w, y: y + h },
+    { x, y: y + h },
+];
+
 /** Squares off a corner at which to look for a room wrapping it. */
 const NUDGE = 0.01;
 
@@ -303,7 +331,9 @@ interface MapContext {
  * lane beside the one below; in a well lying turned, the flights turned a
  * quarter with it, their lanes down it rather than across. Over each, the
  * floor above shows the way down: `wayDown` (a ladder's well) fitted to the
- * opening, else a dark frame.
+ * opening, else a dark frame. A flight drawn only as a way down seen from
+ * above stands in the floor above, the way between the floors, and a
+ * labelled box stands where it rises from, for want of its foot's art.
  */
 function flights(
     way: { readonly stair: RoleStamp; readonly wayDown: RoleStamp | undefined },
@@ -320,6 +350,15 @@ function flights(
         const [width, height] = well.turned ? [stair.height, stair.width] : [stair.width, stair.height];
         const turned = well.turned ? QUARTER_TURN : 0;
         const above = levelOf(lowest + n + 1);
+        const rotation = (stair.turn + turned) % FULL_TURN;
+        const foot = footOf(stair);
+        if (foot !== null) {
+            const box = placeholder('stairs', foot, width, height);
+            return [
+                { type: 'stamp', stamp: stair.key, x, y, rotation, ...above },
+                { type: 'stamp', stamp: box.key, x, y, ...levelOf(lowest + n) },
+            ];
+        }
         // Where it comes up, the floor above is open: the way down seen from above, its own art, else a dark hatchway, framed.
         const opening: FeatureInput = wayDown
             ? {
@@ -334,8 +373,21 @@ function flights(
                   ...above,
               }
             : { type: 'shape', kind: 'rectangle', x, y, width, height, stroke: OPENING.stroke, fill: OPENING.fill, ...above };
-        return [{ type: 'stamp', stamp: stair.key, x, y, rotation: (stair.turn + turned) % FULL_TURN, ...levelOf(lowest + n) }, opening];
+        return [{ type: 'stamp', stamp: stair.key, x, y, rotation, ...levelOf(lowest + n) }, opening];
     }).flat();
+}
+
+/**
+ * For `stair` drawn only as a way down seen from above (a ladder's hatch),
+ * not as the flight that climbs, the label of the box standing where it
+ * rises from: its kind, going up (`ladder up`); null for a flight that climbs.
+ */
+const footOf = (stair: RoleStamp): string | null => (stair.climb?.direction === 'down' ? `${stair.climb.kind} up` : null);
+
+/** The labelled box a building's flights of `stair` leave for want of their foot's art, in `wantedIn`. */
+function footProblems(stair: RoleStamp, wantedIn: string): ComposeProblem[] {
+    const foot = footOf(stair);
+    return foot === null ? [] : [{ kind: 'placeholder', piece: foot, wantedIn }];
 }
 
 /** Degrees in a quarter turn. */
@@ -422,6 +474,7 @@ function composeBuilding(
             problems.push({ kind: 'rooms-do-not-fit', building: storeyCalled, width: building.width, height: building.height });
             continue;
         }
+        features.push(...roofOf(storey, layout, { footprint, texture: building.wall, onLevel: levelOf(storey) }));
         const composed = composeStorey(layout, {
             building,
             called: storeyCalled,
@@ -444,11 +497,13 @@ function composeBuilding(
     }
     // Each flight stands on the lower storey and climbs to the one above: up from the ground floor, up from each cellar.
     if (up?.stair && stairwell) {
+        problems.push(...footProblems(up.stair, called));
         features.push(
             ...flights({ stair: up.stair, wayDown: wayDownOver(up.stair, stamps) }, stairwell, { count: building.floors.length, lowest: 0 }, levelOf),
         );
     }
     if (down?.stair && cellarWell) {
+        problems.push(...footProblems(down.stair, `${called}/cellar`));
         features.push(
             ...flights(
                 { stair: down.stair, wayDown: wayDownOver(down.stair, stamps) },
@@ -615,7 +670,7 @@ function levelsFor(intent: MapIntent, depth: number, height: number): { key: str
         return { key: levelKey(-n), name: named ?? (n === 1 ? CELLAR_NAME : `${CELLAR_NAME} ${n}`) };
     });
     const floors = Array.from({ length: height }, (_, i) => {
-        const named = intent.buildings.find((b) => b.floors[i]?.name !== undefined)?.floors[i]?.name;
+        const named = intent.buildings.find((b) => b.floors[i]?.name !== undefined)?.floors[i]?.name ?? (i === 0 ? intent.platforms[0]?.name : undefined);
         // An upper storey sees the storeys below it down to the ground: the yard, the road, the ground floor's roofs round it.
         const below = Array.from({ length: i + 1 }, (_unused, storey) => levelKey(storey));
         return { key: levelKey(i + 1), name: named ?? `Floor ${i + 2}`, visibleLevels: below };
@@ -654,7 +709,8 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     // A role no loaded stamp fills still stands where it is wanted, as a labelled box its size.
     const stamps = withPlaceholders(loaded);
     const depth = Math.max(0, ...intent.buildings.map((b) => b.cellars.length));
-    const height = Math.max(0, ...intent.buildings.map((b) => b.floors.length));
+    // A raised platform stands on the level above the ground.
+    const height = Math.max(intent.platforms.length > 0 ? 1 : 0, ...intent.buildings.map((b) => b.floors.length));
     // A map with a building of more than one storey puts everything on levels: outside and the ground floors on the ground level.
     const layered = depth + height > 0;
     // A backdrop is each level's colour; a map of one storey then names the scene's own floor to carry it.
@@ -676,6 +732,8 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
             ...composeBuilding(building, buildingName(building, i), footprint, { stamps, random, levelOf, night, preferences, depth }),
         };
     });
+    // Raised platforms over the ground, each with its stair up from it: after the buildings, so they move nothing in them.
+    const platforms = platformFeatures(intent.platforms, { stamps, random, ground: levelOf(0), above: levelOf(1), below: depth > 0 });
     // Curtain walls round baileys and camps; nothing outdoors grows or stands on their masonry.
     const curtains = intent.curtains.flatMap((c) => curtainFeatures(c, levelOf(0)));
     const masonry = curtains.flatMap((f): Rect[] => (f.type === 'room' ? [boundsOf(f.points)] : []));
@@ -722,9 +780,9 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     const hewn = [...intent.hewn.flatMap((network) => hewnFeatures(network, intent, random, levelOf(0))), ...districts.flatMap((d) => d.features)];
     const streetBoxes = districts.flatMap((d) => d.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: 'street' })));
     // Ground first, then roads and rivers, then vegetation, then the buildings standing on it all.
-    const features = drawPlaceholders([...outside, ...hewn, ...curtains, ...bands, ...composed.flatMap((c) => c.features)]);
+    const features = drawPlaceholders([...outside, ...hewn, ...curtains, ...bands, ...composed.flatMap((c) => c.features), ...platforms.features]);
     return {
         spec: { schemaVersion: SCENE_SPEC_SCHEMA_VERSION, units: 'grid', levels, features, ...(scene === null ? {} : { scene }) },
-        problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems)]),
+        problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems), ...platforms.problems]),
     };
 }

@@ -240,6 +240,29 @@ describe('named pieces', () => {
         expect(standsAs(board, { x: 10, y: 10 }, 0).map((p) => p.reads)).toEqual([undefined, 'Curfew at the ninth bell', undefined, undefined]);
     });
 
+    it('draws a piece in the variant whose state holds the words asked, a run’s modules with it; as drawn where none does', () => {
+        const locker = {
+            ...desk('locker', ['locker']),
+            role: 'storage' as const,
+            width: 0.5,
+            height: 0.6,
+            states: ['shut', 'shut dented', 'Ajar', 'dented ajar'],
+        };
+        const pool: RoleIndex = new Map([['storage', [locker]]]);
+        const asked = { name: 'tall locker', role: 'storage', tags: [], width: 0.5, height: 0.6 } as const;
+        expect(namedArt({ ...asked, state: 'ajar' }, pool)?.variant).toBe(2);
+        expect(namedArt({ ...asked, state: 'shut' }, pool)?.variant).toBe(0);
+        expect(namedArt({ ...asked, state: 'burning' }, pool)).not.toHaveProperty('variant');
+        expect(namedArt(asked, pool)).not.toHaveProperty('variant');
+        // Art of one look has no state to draw it in.
+        const plain = { ...desk('plain-locker', ['locker']), role: 'storage' as const, width: 0.5, height: 0.6 };
+        expect(namedArt({ ...asked, state: 'ajar' }, new Map([['storage', [plain]]]))).not.toHaveProperty('variant');
+        expect(standsAs({ ...locker, variant: 2 }, { x: 1, y: 1 }, 0)).toEqual([expect.objectContaining({ variant: 2 })]);
+        // A row of them, all in the state asked.
+        const row = namedArt({ ...asked, width: 2, state: 'ajar' }, pool);
+        expect(row === undefined ? [] : standsAs(row, { x: 5, y: 5 }, 0).map((p) => p.variant)).toEqual([2, 2, 2, 2]);
+    });
+
     it('stands a piece no art draws as a labelled box its size, a free-standing piece of plant when it names no role', () => {
         expect(namedBox({ name: 'drain grate', tags: [], width: 1.2, height: 0.6 })).toMatchObject({ key: 'placeholder:1.2x0.6:drain grate', role: 'machine' });
         expect(namedBox({ name: 'altar', role: 'altar', tags: [], width: 2, height: 1 }).role).toBe('altar');

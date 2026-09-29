@@ -2,10 +2,12 @@
 import { describe, expect, it } from 'vitest';
 import { parseSceneSpec, type RoomSpec, type SceneSpec } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
+import type { StampRole } from '../stamps/schema';
 import { composeMap, footprintOf } from './compose';
 import { type MapIntent, parseMapIntent } from './intent';
 import { PRESET_INTENTS } from './presets';
 import type { ComposeProblem } from './problems';
+import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
 function intentOf(given: object): MapIntent {
@@ -443,6 +445,116 @@ describe('composeMap', () => {
         expect((composeMap(deep, TEST_ROLES).spec.levels ?? []).map((l) => l.backgroundColor)).toEqual(['#0c0c0e', '#0c0c0e', undefined]);
     });
 
+    it('sets a ladder drawn only as its hatch in the deck above, the way between the decks, a box where the ladder rises', () => {
+        const ladder = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:ladder');
+        if (!ladder) {
+            throw new Error('the test roles have no ladder');
+        }
+        const hatch: RoleStamp = { ...ladder, key: 'test:hatch', tags: ['hatch'], climb: { kind: 'ladder', direction: 'down' } };
+        const hatchOnly: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['stairs', [hatch]]]);
+        const ship = intentOf({
+            buildings: [
+                {
+                    key: 'ship',
+                    width: 10,
+                    height: 8,
+                    cellarAccess: 'ladder',
+                    rooms: [{ key: 'deck', purpose: 'hall', entrance: true }],
+                    cellars: [{ name: 'Engineering', rooms: [{ key: 'engines', purpose: 'storage' }] }],
+                },
+            ],
+        });
+        const { spec, problems } = composeMap(ship, hatchOnly);
+        const hatches = spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:hatch' ? [f] : []));
+        // In the deck above, working: never drawn inert, never a second time.
+        expect(hatches.map((f) => [f.level, f.inert])).toEqual([['ground', undefined]]);
+        // Right below it, on the deck it rises from, a box labelled for the ladder it wants.
+        const [hatchway] = hatches;
+        const box = spec.features.find((f) => f.type === 'label' && f.level === 'cellar-1' && f.x === hatchway?.x && f.y === hatchway.y);
+        expect(box?.type === 'label' ? box.text.replace(/\s+/gu, ' ') : undefined).toBe('ladder up');
+        expect(problems).toContainEqual({ kind: 'placeholder', piece: 'ladder up', wantedIn: 'ship/cellar' });
+        expect(problems.some((p) => p.kind === 'stand-in')).toBe(false);
+    });
+
+    it('raises a platform on a level of its own above the ground, named for it, its stair on the ground', () => {
+        const { spec, problems } = compose(
+            intentOf({ ground: 'grassland', platforms: [{ name: 'Feed grate', rect: { x: 6, y: 4, w: 6, h: 3 }, stair: { side: 'bottom', at: 1 } }] }),
+        );
+        expect(problems.filter((p) => p.kind !== 'placeholder' && p.kind !== 'no-stamp')).toEqual([]);
+        expect(spec.levels.map((l) => [l.key, l.name])).toEqual([
+            ['ground', 'Ground floor'],
+            ['floor-2', 'Feed grate'],
+        ]);
+        expect(spec.features.find((f) => f.type === 'room')?.level).toBe('floor-2');
+        expect(spec.features.find((f) => f.type === 'stamp' && f.stamp === 'test:stairs')?.level).toBe('ground');
+    });
+
+    it('roofs over what an upper storey leaves of the footprint, never over a whole storey', () => {
+        const withFloor = (rooms: readonly object[]) =>
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        key: 'keep',
+                        width: 10,
+                        height: 8,
+                        rooms: [{ key: 'hall', purpose: 'hall', entrance: true, rect: { x: 0, y: 0, w: 10, h: 8 } }],
+                        floors: [{ name: 'Office', rooms }],
+                    },
+                ],
+            });
+        const roofs = (intent: MapIntent) => compose(intent).spec.features.filter((f) => f.type === 'region' && f.level === 'floor-2' && f.sharp);
+        // An office and its landing over the back half: the front half is roof, the whole footprint laid under the rooms.
+        const partial = roofs(
+            withFloor([
+                { key: 'landing', purpose: 'hall', rect: { x: 0, y: 0, w: 5, h: 4 }, opensTo: ['office'] },
+                { key: 'office', purpose: 'office', rect: { x: 5, y: 0, w: 5, h: 4 } },
+            ]),
+        );
+        expect(partial).toHaveLength(1);
+        const [roof] = partial;
+        expect(roof?.type === 'region' ? roof.points.length : 0).toBe(4);
+        // A storey over the whole footprint needs none.
+        expect(
+            roofs(
+                withFloor([
+                    { key: 'landing', purpose: 'hall' },
+                    { key: 'office', purpose: 'office' },
+                ]),
+            ),
+        ).toEqual([]);
+    });
+
+    it('draws a named piece in the state it asks for: its art’s variant of that state', () => {
+        const chest = TEST_ROLES.get('chest')?.[0];
+        if (!chest) {
+            throw new Error('the test roles have no chest');
+        }
+        const lockers: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['chest', [{ ...chest, states: ['shut', 'ajar'] }]]]);
+        const hold = intentOf({
+            buildings: [
+                {
+                    key: 'hold',
+                    width: 8,
+                    height: 6,
+                    rooms: [
+                        {
+                            key: 'bay',
+                            purpose: 'storage',
+                            entrance: true,
+                            furnish: 'fixtures',
+                            fixtures: [
+                                { name: 'locker', role: 'chest', width: chest.width, height: chest.height, state: 'ajar', place: { corner: 'top-left' } },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        });
+        const [locker] = composeMap(hold, lockers).spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp === chest.key ? [f] : []));
+        expect(locker?.variant).toBe(1);
+    });
+
     it('centres a building placed nowhere in particular, and composes an interior alone on a bare scene', () => {
         const alone = intentOf({ width: 20, height: 14, ground: null, buildings: [{ width: 10, height: 6, rooms: [{ key: 'hall', purpose: 'hall' }] }] });
         expect(footprintOf({ at: undefined, width: 10, height: 6 }, alone)).toEqual({ x: 5, y: 4, w: 10, h: 6 });
@@ -487,6 +599,18 @@ describe('a roadside inn', () => {
         for (const flight of [stair, ...ladders]) {
             expect(flight?.type === 'stamp' && inside(flight)).toBe(true);
         }
+        // Up from its hall or its taproom, as an inn's stair climbs: never out of the kitchen or the pantry.
+        const from = spec.features.find(
+            (f) =>
+                f.type === 'room' &&
+                f.level === 'ground' &&
+                stair?.type === 'stamp' &&
+                pointInPolygon(
+                    stair,
+                    f.points.flatMap((p) => [p.x, p.y]),
+                ),
+        );
+        expect(['inn:hall', 'inn:taproom']).toContain(from?.type === 'room' ? from.key : undefined);
     });
 
     it('has storm doors on the ground beside its south wall, over an areaway on the cellar level with a door through into the cellar', () => {

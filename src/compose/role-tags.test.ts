@@ -90,6 +90,27 @@ describe('habitatsOf', () => {
         expect(habitatsOf('debris', ['metal', 'debris'], [])).toEqual(['urban']);
     });
 
+    it('knows wild ground cover by its tags, and leaves lily pads, which float on open water, to be placed by hand', () => {
+        expect(['reed', 'sedge', 'tussock', 'cattail', 'bulrush', 'fern', 'bracken', 'wildflower', 'tuft'].map((tag) => roleFromTags([tag]))).toEqual(
+            Array.from({ length: 9 }, () => 'flora'),
+        );
+        expect(roleFromTags(['drowned', 'stump'])).toBe('log');
+        expect(roleFromTags(['wetland'])).toBe('debris');
+        // A cot-side cabinet stands by a bed: a nightstand, never taken for the cot.
+        expect(roleFromTags(['top-down', 'cot', 'cabinet'])).toBe('nightstand');
+        expect(roleFromTags(['camp', 'cot'])).toBe('bed');
+        expect(roleFromTags(['lily', 'pads'])).toBeUndefined();
+    });
+
+    it('grows nothing planted in the wild, and fungus only in a wood or a cave', () => {
+        // A flower bed, a potted shrub: tended by someone, so no zone of wild ground is dressed with them.
+        expect(habitatsOf('flora', ['flower', 'bed'], [])).toEqual([]);
+        expect(habitatsOf('shrub', ['potted', 'shrub'], [])).toEqual([]);
+        expect(habitatsOf('flora', ['mushroom', 'cluster'], [])).toEqual(['cave', 'forest']);
+        // What the pack says still stands.
+        expect(habitatsOf('flora', ['flower', 'bed'], ['grassland'])).toEqual(['grassland']);
+    });
+
     it('gives what is not land no habitat: it stands on any ground', () => {
         expect(habitatsOf('structure', ['bunker', 'forest'], [])).toEqual([]);
     });

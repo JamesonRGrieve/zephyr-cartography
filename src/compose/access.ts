@@ -11,6 +11,7 @@
  */
 import { type DoorSlot, OPPOSITE_SIDE, type Rect, type Side } from '../generate/floor-plan';
 import { pick, type Random } from '../generate/random';
+import type { StampTransitionKind } from '../stamps/schema';
 import type { AccessKind, Edge } from './intent';
 import type { ComposeProblem } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
@@ -64,11 +65,22 @@ const ownFirst = (stamps: readonly RoleStamp[], wanted: (s: RoleStamp) => boolea
  * frame.
  */
 export function wayDownOver(stair: RoleStamp, stamps: RoleIndex): RoleStamp | undefined {
-    if (stair.climb?.kind === 'stairs') {
+    const kind = stair.climb?.kind;
+    if (kind === 'stairs') {
         return stair.upright ? undefined : stair;
     }
-    const [own = []] = ownFirst(stamps.get('stairs') ?? [], (s) => s.climb?.direction === 'down' && s.climb.kind === stair.climb?.kind && !s.upright);
-    return own.find((s) => s.tags.some((tag) => BUILT_OPENING_TAGS.includes(tag))) ?? own[0];
+    return kind === undefined ? undefined : waysDown(kind, stamps)[0];
+}
+
+/**
+ * The map's own settings' pieces of `kind` going down, seen from above,
+ * that turn with a well: a built opening (a well, a hatch) first, then a
+ * bare shaft or a hole broken through.
+ */
+function waysDown(kind: StampTransitionKind, stamps: RoleIndex): readonly RoleStamp[] {
+    const [own = []] = ownFirst(stamps.get('stairs') ?? [], (s) => s.climb?.direction === 'down' && s.climb.kind === kind && !s.upright);
+    const built = (s: RoleStamp): boolean => s.tags.some((tag) => BUILT_OPENING_TAGS.includes(tag));
+    return [...own.filter(built), ...own.filter((s) => !built(s))];
 }
 
 /** Tags naming a way down built into a floor, as a building's is: not a shaft or a hole broken through. */
@@ -76,16 +88,18 @@ const BUILT_OPENING_TAGS: readonly string[] = ['well', 'hatch', 'trapdoor', 'sta
 
 /**
  * The flight a building's `kind` of access takes: one of that kind that
- * climbs, else any that does, the map's own settings' before another's (a
- * ladder of the setting before another setting's staircase). `below` says
- * whether the storey it climbs from has a level beneath it.
+ * climbs, else one of that kind going down, seen from above (it stands in
+ * the floor above, the way between the floors), else any that climbs, the
+ * map's own settings' before another's (a ladder of the setting before
+ * another setting's staircase). `below` says whether the storey it climbs
+ * from has a level beneath it.
  */
 export function flightFor(kind: AccessKind, stamps: RoleIndex, random: Random, place: { readonly wantedIn: string; readonly below: boolean }): Flight {
     const { wantedIn, below } = place;
     const climbing = climbers(stamps, below);
     const [ownKind = [], borrowedKind = []] = ownFirst(climbing, (s) => s.climb?.kind === kind);
     const [ownAny = [], borrowedAny = []] = ownFirst(climbing, () => true);
-    const stair = pick(random, firstOf([ownKind, ownAny, borrowedKind, borrowedAny]));
+    const stair = pick(random, firstOf([ownKind, waysDown(kind, stamps).slice(0, 1), ownAny, borrowedKind, borrowedAny]));
     return { stair, problems: flightProblems(stair, stair !== undefined && stair.climb?.kind !== kind, kind, wantedIn) };
 }
 

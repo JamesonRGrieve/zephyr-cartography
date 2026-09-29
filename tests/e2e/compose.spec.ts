@@ -254,6 +254,100 @@ async function shootLevel(page: Page, levelName: string, shot: string): Promise<
     await expect(page.locator('#board')).toHaveScreenshot(shot);
 }
 
+test('a named piece asking for a state is placed in its art’s variant of that state', async ({ world }) => {
+    const variants = await world.evaluate(async (intent) => {
+        const api = game.modules?.get('zephyrex-cartography').api;
+        const composed = await api?.compose(intent);
+        if (composed?.ok !== true) {
+            return null;
+        }
+        return composed.report.features.flatMap((id) => {
+            const feature = api?.controller()?.getFeature(id);
+            return feature?.type === 'stamp' && feature.stamp.endsWith(':chest') ? [feature.variant] : [];
+        });
+    }, CHEST_OPEN);
+    // The fixture chest's variants are shut, then open.
+    expect(variants).toEqual([1]);
+});
+
+/** A storeroom holding one chest, asked to stand open. */
+const CHEST_OPEN = {
+    schemaVersion: 1,
+    seed: 2,
+    width: 20,
+    height: 15,
+    ground: null,
+    buildings: [
+        {
+            key: 'store',
+            at: { x: 6, y: 4 },
+            width: 6,
+            height: 5,
+            rooms: [
+                {
+                    key: 'goods',
+                    purpose: 'storage',
+                    entrance: true,
+                    furnish: 'fixtures',
+                    fixtures: [{ name: 'looted chest', role: 'storage', tags: ['loot'], width: 1, height: 1, state: 'open', place: { corner: 'top-left' } }],
+                },
+            ],
+        },
+    ],
+};
+
+/** A yard with a raised feed grate reached by a stair, and a gatehouse whose upper storey is one office over its stair. */
+const RAISED = {
+    schemaVersion: 1,
+    seed: 6,
+    width: 24,
+    height: 16,
+    ground: 'grassland',
+    platforms: [{ name: 'Feed grate', rect: { x: 3, y: 3, w: 6, h: 3 }, stair: { side: 'bottom', at: 1 } }],
+    buildings: [
+        {
+            key: 'gatehouse',
+            at: { x: 13, y: 3 },
+            width: 8,
+            height: 8,
+            accessRoom: 'core',
+            rooms: [
+                { key: 'hall', purpose: 'hall', entrance: true, rect: { x: 0, y: 3, w: 8, h: 5 }, opensTo: ['core'] },
+                { key: 'core', purpose: 'hall', rect: { x: 0, y: 0, w: 4, h: 3 } },
+                { key: 'store', purpose: 'storage', rect: { x: 4, y: 0, w: 4, h: 3 }, opensTo: ['hall'] },
+            ],
+            floors: [
+                {
+                    name: 'Feed grate',
+                    rooms: [
+                        { key: 'landing', purpose: 'hall', rect: { x: 0, y: 0, w: 4, h: 3 }, opensTo: ['office'] },
+                        { key: 'office', purpose: 'office', rect: { x: 4, y: 0, w: 4, h: 3 } },
+                    ],
+                },
+            ],
+        },
+    ],
+};
+
+test('a raised platform and an office storey over part of a building: each on the level above, a stair up to each, a roof over the rest', async ({ world }) => {
+    const outcome = await world.evaluate(async (intent) => {
+        const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
+        return composed?.ok === true ? { problems: composed.problems, built: composed.report.problems } : null;
+    }, RAISED);
+    expect(outcome?.built).toEqual([]);
+    expect(outcome?.problems.every((p) => p.kind === 'no-stamp' || p.kind === 'placeholder')).toBe(true);
+    const found = await world.evaluate(() => {
+        const scene = canvas?.scene;
+        const levels = (scene?.levels.contents ?? []).map((l) => ({ id: l.id, name: l.name }));
+        const ways = (scene?.regions.contents ?? []).filter((r) => r.behaviors.contents.some((b) => b.type === 'changeLevel')).length;
+        return { names: levels.map((l) => l.name), ways };
+    });
+    // One level above the ground, named for the platform, which the gatehouse's office shares.
+    expect(found.names).toEqual(['Ground floor', 'Feed grate']);
+    // The platform's stair and the gatehouse's flight: two ways up.
+    expect(found.ways).toBe(2);
+});
+
 /** A hull tapered at its bow, a ladder down to its hold: its footprint in squares, and its intent. */
 const HULL = { x: 5, y: 2, w: 10, h: 11 };
 

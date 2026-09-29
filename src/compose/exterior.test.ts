@@ -2,12 +2,13 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
+import type { StampRole } from '../stamps/schema';
 import { composeMap } from './compose';
 import { composeExterior, zoneOutline } from './exterior';
 import { type MapIntent, parseMapIntent, type ZoneIntent } from './intent';
 import { noiseField } from './noise';
 import { NO_PREFERENCES } from './preferences';
-import type { RoleIndex } from './roles';
+import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
 const MAP = { width: 20, height: 12 };
@@ -191,6 +192,21 @@ describe('bridges and yard pieces', () => {
         expect(flowers.length).toBeGreaterThan(6);
         const neighboured = flowers.filter((f) => flowers.some((g) => g !== f && Math.hypot(g.x - f.x, g.y - f.y) < 1.5));
         expect(neighboured.length / flowers.length).toBeGreaterThan(0.6);
+    });
+
+    it('spaces a zone’s smallest dressing as though a square across: tufts of sedge never pack a marsh by the hundred', () => {
+        const flora = TEST_ROLES.get('flora')?.[0];
+        if (!flora) {
+            throw new Error('no test flora');
+        }
+        const marsh = crossing({ zones: [{ kind: 'marsh', area: { shape: 'edge', side: 'west', depth: 20 } }], paths: [], buildings: [] });
+        const tufts = (width: number): number => {
+            const sized: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['flora', [{ ...flora, width, height: width }]]]);
+            return composeMap(marsh, sized).spec.features.filter((f) => f.type === 'stamp' && f.stamp === flora.key).length;
+        };
+        // A fifth of a square across, it stands no thicker than art a square across.
+        expect(tufts(1)).toBeGreaterThan(0);
+        expect(tufts(0.2)).toBeLessThanOrEqual(tufts(1) * 1.2);
     });
 
     it('lays the yard where it has ground: its back to the map’s edge and a river along one side, pen and cart go to the other', () => {

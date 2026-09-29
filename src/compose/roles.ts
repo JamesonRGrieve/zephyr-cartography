@@ -59,6 +59,10 @@ export interface RoleStamp {
     readonly run?: { readonly count: number; readonly module: RoleStamp; readonly cap?: RoleStamp; readonly open?: readonly RunEnd[] };
     /** What players read on this piece by hovering over it: a named fixture's words (a sign's). */
     readonly reads?: string;
+    /** Each of its art's variants' state, in the words of its pack (`ajar`, `lit`), by variant; omitted where none says. */
+    readonly states?: readonly string[];
+    /** The variant it is drawn in (a named piece's state); omitted, its default. */
+    readonly variant?: number;
     /** For a run piece, the gate and corner pieces of its kind (never drawn alone): what a named piece may ask for by its tag. */
     readonly parts?: readonly RoleStamp[];
 }
@@ -74,8 +78,22 @@ function doorStatesOf(stamp: CatalogStamp): Partial<Record<DoorState, number>> {
     return states;
 }
 
-/** The kinds of room `tags` name. */
-const purposesOf = (tags: readonly string[]): RoomPurpose[] => ROOM_PURPOSES.filter((purpose) => tags.includes(purpose));
+/**
+ * Tags that say which kinds of room a piece belongs in without naming one:
+ * a cooking pot is a kitchen's, a reliquary a shrine's, never a guest's
+ * bedroom. (A tavern's table serves as well for a guest's writing table.)
+ */
+const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
+    cooking: ['kitchen'],
+    kitchenware: ['kitchen'],
+    reliquary: ['shrine', 'chapel'],
+    offering: ['shrine', 'chapel'],
+    votive: ['shrine', 'chapel'],
+};
+
+/** The kinds of room `tags` name, or say a piece belongs in. */
+const purposesOf = (tags: readonly string[]): RoomPurpose[] =>
+    ROOM_PURPOSES.filter((purpose) => tags.includes(purpose) || tags.some((tag) => PURPOSE_TAGS[tag]?.includes(purpose) === true));
 
 /**
  * Small pieces a room holds many of, drawn afresh one by one (crates, barrels
@@ -172,6 +190,8 @@ function roleStampOf(stamp: CatalogStamp, role: StampRole, variant: CatalogStamp
         purposes: purposesOf(stamp.tags),
         tags: stamp.tags,
         ...(stamp.door === undefined ? {} : { doorStates: doorStatesOf(stamp) }),
+        // A state to ask for only where there is another to choose from.
+        ...(stamp.variants.length > 1 ? { states: stamp.variants.map((v) => v.state) } : {}),
     };
 }
 

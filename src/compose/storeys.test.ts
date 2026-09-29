@@ -98,6 +98,31 @@ describe('a stair climbing into a guest corridor', () => {
         }
     });
 
+    it('climbs from the common room, never the kitchen, where the ground floor has no hall to climb from', () => {
+        const noHall = buildingOf({
+            width: 14,
+            height: 11,
+            rooms: [
+                { key: 'common', purpose: 'common-room', entrance: true, size: 3, opensTo: ['kitchen'] },
+                { key: 'kitchen', purpose: 'kitchen' },
+            ],
+            floors: [
+                {
+                    rooms: [
+                        { key: 'corridor', purpose: 'hall', opensTo: ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'] },
+                        ...['r1', 'r2', 'r3', 'r4', 'r5', 'r6'].map((key) => ({ key, purpose: 'bedroom' })),
+                    ],
+                },
+            ],
+        });
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const storeys = layOutStoreys(noHall, INN_FOOTPRINT, SPIRAL, seededRandom(seed));
+            const well = storeys?.stairwell;
+            const from = well ? storeys.ground.rooms.find((r) => holdsStairwell({ ...storeys.ground, rooms: [r] }, well)) : undefined;
+            expect(from?.key).toBe('common');
+        }
+    });
+
     it('lies a long stairwell turned along a corridor that runs the other way', () => {
         const long: Wells = { up: { w: 1, h: 2.5 }, down: null };
         const storeys = layOutStoreys(INN, INN_FOOTPRINT, long, seededRandom(1));

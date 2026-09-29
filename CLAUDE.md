@@ -1185,7 +1185,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
   does how the role stands (against a wall,
   its clearance, a defence's front facing out, a structure upright) and a
   land stamp's habitat (`cave`, `ice`, `forest`, else the role's usual
-  ground). A new asset tagged `console` composes with no code change. A
+  ground; fungus a wood's or a cave's, never a marsh's; anything planted, a
+  flower `bed` or a `potted` shrub, no wild ground's at all). A new asset tagged `console` composes with no code change. A
   pack's own `role` (null: never composed), `placement` and `habitats`
   override the tags, for facts only the picture shows (which edge of a bed
   is its head). Indoor roles take interior-scale stamps and outdoor works
@@ -1217,8 +1218,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     against walls, in corners, in clusters (a table with benches or seats
     beside it, a round one seated all round), in rows facing an altar with
     a centre aisle, or scattered, and underlays. A wall piece brings what
-    goes with it: seats before a counter, a nightstand beside a bed, a
-    chest at its foot, and a bar counter stands out from the wall with its
+    goes with it: seats before a counter, a nightstand beside a bed, and a
+    bar counter stands out from the wall with its
     shelves behind the barkeep. `dress` steps set tabletop pieces on every
     table, bar and desk. Door approaches and each piece's clearance stay
     open; an altar faces the front door.
@@ -1251,9 +1252,26 @@ or a tavern is. Composition is the layer above them (operator decisions,
     above are laid out first (a corridor falls where the footprint puts
     it), and the ground floor is chosen among layouts whose hall holds a
     spot in every hall above, so the landing is never in a guest's room.
-    Failing that, among the spots the storeys can share, one in their
-    halls wins unless a spot elsewhere keeps more rooms beside those they
-    open onto.
+    Where no layout puts the hall there, the stair climbs from the fittest
+    room one can: a public room (a taproom, a mess) before a working room
+    (an office, a workshop), a private or service room (a kitchen, a store,
+    a bedroom) last. Failing that, among the spots the storeys can share,
+    one in their halls wins unless a spot elsewhere keeps more rooms beside
+    those they open onto, ranked the same way.
+  - **Partial storeys.** A storey whose rooms (each given a `rect`) cover
+    only part of the footprint (a commander's office over its stair core)
+    has flat roof over the rest, in the building's wall texture, laid under
+    its rooms on its level: never a view down into the rooms below.
+  - **Platforms** (`platforms`) are raised floors in the open (a feed grate
+    over a machine, a catwalk along vats, an overpass): each on the level
+    above the ground (named for the first platform where no building's
+    floor names it), railed round with walls that stop a step but not a
+    look, its `fixtures` standing on it. Its `stair` (a side and where along
+    it) is a flight of the packs' standing on the ground against that side,
+    turned to climb onto it, the railing open where it arrives (the whole
+    side where the stair is broader, a catwalk's end); none for one reached
+    from beyond the map, railed all round. Composed after the buildings, so
+    they move nothing in them (`compose/platform.ts`).
   - **Storm doors** (`stormDoor`: a side) lead into the top cellar from
     outside: an areaway walled beside that wall on the cellar's level,
     with a door through into the cellar room behind it, and storm doors
@@ -1269,7 +1287,11 @@ or a tavern is. Composition is the layer above them (operator decisions,
     way-down piece of its kind in the map's settings (a well or hatch
     before a bare shaft); else a framed opening. What it shows is an
     `inert` stamp (drawn, with none of its behaviour): the flight below is
-    the one way between the floors.
+    the one way between the floors. A ladder whose setting has only art
+    seen from above (a ladder hatch, going down) takes that before another
+    kind stands in: it is set in the floor above as the way between the
+    floors, and a labelled box (`ladder up`, a placeholder) stands where it
+    rises from.
   - **Corridors.** A hall opening onto four or more rooms is laid as a
     corridor two squares wide down the long axis, its rooms along both
     sides, each sized for what it holds (an inn's guest rooms).
@@ -1287,10 +1309,14 @@ or a tavern is. Composition is the layer above them (operator decisions,
     stands out from an inner wall with shelves behind and stools before,
     and the floor it leaves is a common room's (hearth, long and round
     tables, lamps). A guest room's bed lies along it, head to a short
-    wall, with its nightstand and a chest at its foot; a dresser or
-    wardrobe (`dresser`) stands on another wall and an easy chair
-    (`armchair`) across a corner, facing out, else against a wall; a table
-    too big for the floor left stands against a wall, its chair before it.
+    wall, with its nightstand; a dresser or wardrobe (`dresser`) stands on
+    another wall and an easy chair (`armchair`) across a corner, facing
+    out, else against a wall; a table too big for the floor left stands
+    against a wall, its chair before it; a guest's chest against a wall,
+    never out in the floor. A wall piece whose art fits no wall gives way to
+    the smallest of its role (a dresser where a wardrobe will not go).
+    Clutter keeps to the rooms its tags imply: a cooking pot to a kitchen, a
+    reliquary to a shrine or chapel.
   - **Stand-ins inside.** A role no stamp fills takes a fitting other
     one's: a work surface or desk is a long table (never a round one), a
     guest's chest is storage. A nightstand or an easy chair has none: a
@@ -1324,7 +1350,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
     area given to its edges), or before or behind another named fixture,
     facing it. A `fixed` one (a sign hung over a door, a floor inlay, rubble
     spilling from a collapsed doorway) stands exactly where asked, even
-    across a doorway, and keeps no floor from others. A room's `doorOpen`
+    across a doorway, and keeps no floor from others. A piece's `state`
+    (`ajar`, `lit`) draws its art in the first variant whose state holds
+    those words, a run's modules with it; as drawn where none does. A room's `doorOpen`
     leaves its doors standing open. A run's `open` ends (map sides across
     its front, for a piece standing where asked) take no end piece, so two
     runs butt square into one piece: an L-shaped bar is two counters, the

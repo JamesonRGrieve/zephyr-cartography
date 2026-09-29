@@ -71,6 +71,27 @@ describe('roleIndex door art', () => {
             [],
         );
         expect(index.get('door')?.[0]?.doorStates).toEqual({ closed: 0, open: 1 });
+        // Every variant's state, by variant, for a named piece asking for one; a variant naming none reads as nothing.
+        expect(index.get('door')?.[0]?.states).toEqual(['shut', 'ajar', 'barred', 'plain']);
+    });
+});
+
+describe('roleIndex purposes', () => {
+    it('keeps a piece to the rooms its tags name or imply: a cooking pot to a kitchen, a reliquary to a shrine or chapel', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('pot', { role: 'clutter', tags: ['cooking', 'pot'] }),
+                stampDef('relic', { role: 'clutter', tags: ['reliquary'] }),
+                stampDef('bunk', { role: 'bed', tags: ['cell'] }),
+                stampDef('satchel', { role: 'clutter', tags: ['adventuring'] }),
+            ]),
+            [],
+        );
+        const purposes = new Map((index.get('clutter') ?? []).map((s) => [s.key, s.purposes]));
+        expect(purposes.get('pack:pot')).toEqual(['kitchen']);
+        expect(purposes.get('pack:relic')).toEqual(['shrine', 'chapel']);
+        expect(purposes.get('pack:satchel')).toEqual([]);
+        expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
 });
 

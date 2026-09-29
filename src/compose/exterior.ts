@@ -21,7 +21,7 @@ import type { BiomeKind } from '../tools/biome';
 import { detour, grown } from './detour';
 import type { Anchor, Density, Edge, MapIntent, PathIntent, PropIntent, ZoneIntent, ZoneKind } from './intent';
 import type { PlacedDoor } from './layout';
-import { FACING_TURN, namedArt, namedBox, standsAs } from './named';
+import { standingAt } from './named';
 import { noiseField, type NoiseField } from './noise';
 import { isPlaceholder, missing } from './placeholders';
 import { narrowed, type Preferences, zonePlace } from './preferences';
@@ -478,6 +478,9 @@ interface Standing {
 /** The radius of a piece's footprint however it is turned. */
 const footprintRadius = (stamp: RoleStamp): number => Math.hypot(stamp.width, stamp.height) / 2;
 
+/** Squares across the smallest piece a zone's dressing is spaced for. */
+const MIN_DRESSING_SIZE = 1;
+
 function dress(
     zone: ZoneIntent,
     outline: readonly Point[],
@@ -496,7 +499,8 @@ function dress(
     const ys = outline.map((p) => p.y);
     const bounds: Rect = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
     const size = typicalSize(choices);
-    const spacing = dressing.spread * size * DENSITY_SPACING[zone.density];
+    // Spaced as for a piece at least a square across: small art (a tuft of sedge) never packs a zone by the hundred.
+    const spacing = dressing.spread * Math.max(size, MIN_DRESSING_SIZE) * DENSITY_SPACING[zone.density];
     const inZone = (p: Point): boolean => pointInPolygon(p, polygon) && !blocked(p, dressing.role, keepout, size / 2);
     const accept = (p: Point): boolean =>
         inZone(p) &&
@@ -1145,16 +1149,12 @@ export function composeExterior(
     }
     // The intent's own pieces stand first, its named ones exactly where asked; everything scattered after keeps clear of them.
     for (const fixture of intent.fixtures) {
-        const art = namedArt(fixture, stamps);
-        const piece = art ?? namedBox(fixture);
-        if (art === undefined) {
+        const { placed, piece, boxed } = standingAt(fixture, stamps);
+        if (boxed) {
             problems.push({ kind: 'placeholder', piece: fixture.name, wantedIn: OUTSIDE_PLACE });
         }
-        const { x, y } = fixture.at;
-        props.push({ x, y, r: footprintRadius(piece) });
-        // Isometric art stands as drawn; anything else faces the way asked.
-        const turn = piece.upright ? 0 : FACING_TURN[fixture.facing];
-        features.push(...standsAs(piece, { x, y }, turn).map((s) => ({ type: 'stamp' as const, ...s })));
+        props.push({ ...fixture.at, r: footprintRadius(piece) });
+        features.push(...placed.map((s) => ({ type: 'stamp' as const, ...s })));
     }
     const placedProps = placeProps(intent.props, sites, stamps, keepout, props, random);
     features.push(...placedProps.features);

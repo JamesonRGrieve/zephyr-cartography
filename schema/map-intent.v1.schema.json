@@ -847,6 +847,11 @@
                                                 "type": "string",
                                                 "minLength": 1
                                             },
+                                            "state": {
+                                                "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
                                             "facing": {
                                                 "default": "bottom",
                                                 "description": "Which way its front faces, standing free (centre, a point, a grid).",
@@ -1532,6 +1537,11 @@
                                                         },
                                                         "reads": {
                                                             "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
+                                                            "type": "string",
+                                                            "minLength": 1
+                                                        },
+                                                        "state": {
+                                                            "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
                                                             "type": "string",
                                                             "minLength": 1
                                                         },
@@ -2235,6 +2245,11 @@
                                                         },
                                                         "reads": {
                                                             "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
+                                                            "type": "string",
+                                                            "minLength": 1
+                                                        },
+                                                        "state": {
+                                                            "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
                                                             "type": "string",
                                                             "minLength": 1
                                                         },
@@ -3039,6 +3054,11 @@
                         "type": "string",
                         "minLength": 1
                     },
+                    "state": {
+                        "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
+                        "type": "string",
+                        "minLength": 1
+                    },
                     "facing": {
                         "default": "bottom",
                         "description": "Which way its front faces, standing free (centre, a point, a grid).",
@@ -3416,6 +3436,11 @@
                                     "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
                                     "type": "string",
                                     "minLength": 1
+                                },
+                                "state": {
+                                    "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
+                                    "type": "string",
+                                    "minLength": 1
                                 }
                             },
                             "required": [
@@ -3517,6 +3542,11 @@
                                 },
                                 "reads": {
                                     "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "state": {
+                                    "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
                                     "type": "string",
                                     "minLength": 1
                                 }
@@ -3734,6 +3764,243 @@
                 ],
                 "additionalProperties": false,
                 "description": "A curtain wall: a thick band of masonry along a closed line, solid at ground level, the walk along its top drawn between its faces; towers at its corners (and where asked), gates through it with their passage and gate."
+            }
+        },
+        "platforms": {
+            "default": [],
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "default": "Platform",
+                        "description": "The level it stands on, named (the first platform’s name, where a building’s floors give none).",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "rect": {
+                        "type": "object",
+                        "properties": {
+                            "x": {
+                                "type": "number"
+                            },
+                            "y": {
+                                "type": "number"
+                            },
+                            "w": {
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                            },
+                            "h": {
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                            }
+                        },
+                        "required": [
+                            "x",
+                            "y",
+                            "w",
+                            "h"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Its floor, in grid squares from the map’s top-left corner."
+                    },
+                    "floor": {
+                        "default": "floor.metal-grating",
+                        "description": "Texture role its floor is drawn in.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "fixtures": {
+                        "default": [],
+                        "description": "Named pieces standing on it (a feed hopper at a grate’s edge), each where asked in map squares.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "What it is, written on its placeholder box where no stamp draws it (“filing cabinets”, “drain grate”)."
+                                },
+                                "role": {
+                                    "description": "The stamp role that draws it, where a pack has art for it; omitted, it is always a labelled box.",
+                                    "type": "string",
+                                    "enum": [
+                                        "tree",
+                                        "shrub",
+                                        "rock",
+                                        "log",
+                                        "flora",
+                                        "debris",
+                                        "table",
+                                        "seat",
+                                        "bench",
+                                        "counter",
+                                        "hearth",
+                                        "shelf",
+                                        "bed",
+                                        "storage",
+                                        "clutter",
+                                        "rug",
+                                        "desk",
+                                        "workbench",
+                                        "light",
+                                        "machine",
+                                        "console",
+                                        "altar",
+                                        "pew",
+                                        "lectern",
+                                        "icon",
+                                        "rack",
+                                        "medical",
+                                        "restraint",
+                                        "structure",
+                                        "barricade",
+                                        "crater",
+                                        "emplacement",
+                                        "vehicle",
+                                        "stairs",
+                                        "tabletop",
+                                        "nightstand",
+                                        "well",
+                                        "bridge",
+                                        "waymark",
+                                        "chest",
+                                        "enclosure",
+                                        "fodder",
+                                        "dresser",
+                                        "armchair",
+                                        "decal",
+                                        "door"
+                                    ]
+                                },
+                                "tags": {
+                                    "default": [],
+                                    "description": "Art of its role must carry one of these tags (a `reception` counter, not a food stall); none: any art of the role.",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
+                                "width": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "description": "Its size in squares, its back along the width: its art is fitted to it, and it is the box it stands as where no stamp draws it."
+                                },
+                                "height": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                "reads": {
+                                    "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "state": {
+                                    "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "facing": {
+                                    "default": "bottom",
+                                    "description": "Which way its front faces, standing free (centre, a point, a grid).",
+                                    "type": "string",
+                                    "enum": [
+                                        "top",
+                                        "right",
+                                        "bottom",
+                                        "left"
+                                    ]
+                                },
+                                "fixed": {
+                                    "default": false,
+                                    "description": "Exactly where asked, whatever is there: hung overhead or laid flush (a sign over a door, a floor inlay), or meant to block the way (rubble spilling from a collapsed doorway, a rockfall choking a tunnel). It keeps no floor from other pieces.",
+                                    "type": "boolean"
+                                },
+                                "open": {
+                                    "default": [],
+                                    "description": "Ends of its run (map sides) drawn without their end pieces, to butt square against another run: an L-shaped counter is two runs, one `open` where it meets the other. They must be the ends its `facing` gives it (left or right facing up or down; top or bottom facing sideways).",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": [
+                                            "top",
+                                            "right",
+                                            "bottom",
+                                            "left"
+                                        ]
+                                    }
+                                },
+                                "at": {
+                                    "type": "object",
+                                    "properties": {
+                                        "x": {
+                                            "type": "number"
+                                        },
+                                        "y": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": [
+                                        "x",
+                                        "y"
+                                    ],
+                                    "additionalProperties": false,
+                                    "description": "Its centre, in grid squares from the map’s top-left corner."
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "width",
+                                "height",
+                                "at"
+                            ],
+                            "additionalProperties": false,
+                            "description": "A named piece standing outside (a flight of steps, a plinth, a drain grate), placed before anything is scattered."
+                        }
+                    },
+                    "stair": {
+                        "default": null,
+                        "description": "Its stair up from the ground; null for one reached from beyond the map (an overpass from wall to wall).",
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "side": {
+                                        "type": "string",
+                                        "enum": [
+                                            "top",
+                                            "right",
+                                            "bottom",
+                                            "left"
+                                        ],
+                                        "description": "The side of the platform its stair climbs to."
+                                    },
+                                    "at": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "description": "Where along that side the stair arrives, in squares from its top or left end."
+                                    }
+                                },
+                                "required": [
+                                    "side",
+                                    "at"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "rect"
+                ],
+                "additionalProperties": false,
+                "description": "A raised platform: its floor on the level above the ground, railed round but where its stair from the ground arrives."
             }
         }
     },

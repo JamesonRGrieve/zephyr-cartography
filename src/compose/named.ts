@@ -19,6 +19,8 @@ export interface NamedPiece {
     readonly height: number;
     /** What players read on it by hovering over it (a sign's words). */
     readonly reads?: string | undefined;
+    /** The words of the variant state its art is drawn in (a locker `ajar`); omitted, as drawn. */
+    readonly state?: string | undefined;
     /** Which way its front faces; omitted, down. */
     readonly facing?: Side;
     /** The ends of its run (map sides) left without their end pieces, butting against another run. */
@@ -36,6 +38,16 @@ export function runEnds(facing: Side, sides: readonly Side[]): RunEnd[] {
 
 /** `stamp` carrying what `piece` reads, if anything. */
 const reading = (stamp: RoleStamp, piece: NamedPiece): RoleStamp => (piece.reads === undefined ? stamp : { ...stamp, reads: piece.reads });
+
+/** `art` drawn in the first of its variants whose state holds `words` (a locker `ajar`), a run's modules with it; as it is where none does. */
+function inState(art: RoleStamp, words: string | undefined): RoleStamp {
+    if (words === undefined) {
+        return art;
+    }
+    const variant = (art.states ?? []).findIndex((state) => state.toLowerCase().includes(words.toLowerCase()));
+    const stated = variant < 0 ? art : { ...art, variant };
+    return art.run === undefined ? stated : { ...stated, run: { ...art.run, module: inState(art.run.module, words) } };
+}
 
 /** The role a named piece stands as when it names none: a free-standing piece of plant. */
 const UNNAMED_ROLE: StampRole = 'machine';
@@ -122,7 +134,7 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     const run = byName(made.length > 0 ? made : runs);
     // A piece with an open end butts against another run: only a run leaves an end open.
     const drawn = run !== undefined && (openEnds.length > 0 || whole === undefined || reach(run) > reach(whole)) ? run : whole;
-    return drawn && reading(drawn, piece);
+    return drawn && inState(reading(drawn, piece), piece.state);
 }
 
 /** How much longer than deep a table's art must be to join others end to end: round tables never make one board. */
@@ -225,6 +237,8 @@ export interface PlacedPiece {
     readonly reads?: string;
     /** Drawn flipped left to right (a run's far end cap); omitted, as drawn. */
     readonly mirror?: true;
+    /** The variant of its art it is drawn in; omitted, its default. */
+    readonly variant?: number;
 }
 
 /** Degrees in a full turn. */
@@ -244,6 +258,7 @@ export function standsAs(piece: RoleStamp, at: { readonly x: number; readonly y:
         ...(art.scale === undefined ? {} : { scale: art.scale }),
         ...(reads === undefined ? {} : { reads }),
         ...(mirror ? { mirror: true as const } : {}),
+        ...(art.variant === undefined ? {} : { variant: art.variant }),
     });
     if (piece.run === undefined) {
         return [one(piece, at.x, at.y, piece.reads)];
@@ -291,3 +306,18 @@ export const FACING_TURN: Readonly<Record<Side, number>> = { bottom: 0, left: 90
 
 /** The labelled box `piece` stands as where no art draws it. */
 export const namedBox = (piece: NamedPiece): RoleStamp => reading(placeholder(piece.role ?? UNNAMED_ROLE, piece.name, piece.width, piece.height), piece);
+
+/**
+ * A named piece standing where asked (`at`, in map squares), faced as asked:
+ * the stamps drawing it, the art (or labelled box) they are of, and whether
+ * it is a box for want of art. Isometric art stands as drawn.
+ */
+export function standingAt(
+    fixture: NamedPiece & { readonly at: { readonly x: number; readonly y: number }; readonly facing: Side },
+    stamps: RoleIndex,
+): { placed: PlacedPiece[]; piece: RoleStamp; boxed: boolean } {
+    const art = namedArt(fixture, stamps);
+    const piece = art ?? namedBox(fixture);
+    const turn = piece.upright ? 0 : FACING_TURN[fixture.facing];
+    return { placed: standsAs(piece, fixture.at, turn), piece, boxed: art === undefined };
+}

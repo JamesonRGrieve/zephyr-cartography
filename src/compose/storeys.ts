@@ -16,7 +16,7 @@ import type { Rect } from '../generate/floor-plan';
 import { shuffled, type Random } from '../generate/random';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { type Box, DOOR_CLEAR, doorApproach, overlaps, within } from './furnish';
-import type { BuildingIntent } from './intent';
+import type { BuildingIntent, RoomPurpose } from './intent';
 import { type BuildingLayout, CORRIDOR_WIDTH, doorsOf, layOutBuilding } from './layout';
 
 /** Squares kept between a stairwell and its room's walls: the wall's own band and a step round it. */
@@ -61,6 +61,40 @@ function stairwellRoom(layout: BuildingLayout, box: Box): LaidRoom | undefined {
     );
     return room && !doorsOf(layout, room.key).some((door) => overlaps(doorApproach(room.rect, door), box)) ? room : undefined;
 }
+
+/**
+ * Where a stair stands, best first: a hall; a public room (an inn's common
+ * room, a bar); a room people work in; last a private or service room (a
+ * kitchen, a store, a bedroom), which a stair climbs out of only where it
+ * must.
+ */
+const STAIR_RANK: Readonly<Record<RoomPurpose, number>> = {
+    'hall': 0,
+    'common-room': 1,
+    'bar': 1,
+    'mess': 1,
+    'porch': 1,
+    'chapel': 2,
+    'office': 2,
+    'workshop': 2,
+    'shrine': 2,
+    'medicae': 2,
+    'command': 2,
+    'armoury': 2,
+    'manufactorum': 2,
+    'kitchen': 3,
+    'storage': 3,
+    'bedroom': 3,
+    'cell': 3,
+    'barracks': 3,
+    'interrogation': 3,
+};
+
+/** Every rank a stair's room may have, best first. */
+const STAIR_RANKS: readonly number[] = [...new Set(Object.values(STAIR_RANK))].sort((a, b) => a - b);
+
+/** How fit `room` is to hold a stair: lower is better (see {@link STAIR_RANK}). */
+const stairRank = (room: LaidRoom): number => STAIR_RANK[room.intent.purpose];
 
 /** Whether `layout` holds the stairwell `box` in one of its rooms. */
 export const holdsStairwell = (layout: BuildingLayout, box: Box): boolean => stairwellRoom(layout, box) !== undefined;
@@ -170,10 +204,17 @@ function landedAt(
     }
     const landings = spots(footprint, size, random).filter((box) => floors.every((layout) => inHall(layout, box)));
     // The stair climbs from the ground floor's hall where one of its layouts puts the hall under the landing; else from
-    // whichever room is there (an inn's stair up from its common room). Where it arrives is what matters: the corridor.
-    const ground =
-        layOutBuilding(building, footprint, random, { front: true, accept: (layout) => landings.some((box) => inHall(layout, box)) }) ??
-        layOutBuilding(building, footprint, random, { front: true, accept: (layout) => landings.some((box) => holdsStairwell(layout, box)) });
+    // the fittest room a layout can put there (an inn's common room, never its kitchen where a common room will do).
+    // Where it arrives is what matters: the corridor.
+    const holds = (most: number) => (layout: BuildingLayout) =>
+        landings.some((box) => {
+            const room = stairwellRoom(layout, box);
+            return room !== undefined && stairRank(room) <= most;
+        });
+    const ground = STAIR_RANKS.map(holds).reduce<BuildingLayout | null>(
+        (laid, accept) => laid ?? layOutBuilding(building, footprint, random, { front: true, accept }),
+        null,
+    );
     if (!ground) {
         return null;
     }
@@ -181,9 +222,9 @@ function landedAt(
     const [stairwell] = landings
         .flatMap((box) => {
             const room = stairwellRoom(ground, box);
-            return room ? [{ box, hall: inHall(ground, box) ? 0 : 1, away: fromWall(room, box) }] : [];
+            return room ? [{ box, rank: stairRank(room), away: fromWall(room, box) }] : [];
         })
-        .sort((a, b) => a.hall - b.hall || a.away - b.away)
+        .sort((a, b) => a.rank - b.rank || a.away - b.away)
         .map(({ box }) => box);
     return stairwell ? withCellars(building, footprint, wells, random, { ground, floors, stairwell }) : null;
 }
@@ -217,14 +258,13 @@ function stack(
         return { layouts: each(() => true), well: null };
     }
     // A stair stands in a hall where the ground floor has one, and against a wall, as a built one does: those spots first.
-    const hallFirst = (room: LaidRoom): number => (room.intent.purpose === 'hall' ? 0 : 1);
     const held = spots(footprint, size, random)
         .flatMap((box) => {
             const room = stairwellRoom(ground, box);
             const asked = building.accessRoom === null || room?.key === building.accessRoom;
             return room && asked && (clear === null || !overlaps(box, clear)) ? [{ box, room }] : [];
         })
-        .sort((a, b) => hallFirst(a.room) - hallFirst(b.room) || fromWall(a.room, a.box) - fromWall(b.room, b.box))
+        .sort((a, b) => stairRank(a.room) - stairRank(b.room) || fromWall(a.room, a.box) - fromWall(b.room, b.box))
         .map(({ box }) => box);
     // The first spot every storey can hold with every room beside those it opens onto; else the one that misses fewest.
     // Tried first in the halls of every storey that has one; anywhere each storey holds it only when that keeps more rooms

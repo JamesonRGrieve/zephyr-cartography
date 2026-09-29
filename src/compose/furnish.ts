@@ -76,7 +76,6 @@ type WallPreference = 'outer' | 'inner' | 'far' | 'bottom' | 'short';
  * `prefer` first, each with what goes with it:
  * - `front`: a row of seats facing it (stools at a bar);
  * - `beside`: one piece next to it along the wall (a nightstand by a bed);
- * - `before`: one piece before its front (a chest at a bed's foot);
  * - `standoff` squares out from the wall, with `behind` filling the wall
  *   behind it (a bar counter with the stocked shelves behind the barkeep).
  */
@@ -87,7 +86,6 @@ interface WallStep {
     readonly prefer?: WallPreference;
     readonly front?: StampRole;
     readonly beside?: StampRole;
-    readonly before?: StampRole;
     readonly standoff?: number;
     readonly behind?: StampRole;
     /** Only these walls, in this order (a fixture asked for on one wall). */
@@ -164,20 +162,21 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
         { kind: 'wall', role: 'light', count: [0, 1] },
         { kind: 'scatter', role: 'clutter', count: [2, 5] },
     ],
-    // A bed with its nightstand beside it and a chest at its foot, a dresser or wardrobe on another wall, an armchair set
-    // across a corner, a table and chair with something set on it, a lamp, a guest's belongings.
+    // A bed with its nightstand beside it, a dresser or wardrobe on another wall, an armchair set across a corner, a table and
+    // chair with something set on it, a guest's trunk against a wall (never out in the floor), a lamp, their belongings.
     'bedroom': [
         { kind: 'underlay', role: 'rug' },
-        { kind: 'wall', role: 'bed', count: 1, prefer: 'short', beside: 'nightstand', before: 'chest' },
+        { kind: 'wall', role: 'bed', count: 1, prefer: 'short', beside: 'nightstand' },
         { kind: 'wall', role: 'dresser', count: 1, prefer: 'outer' },
         { kind: 'corner', role: 'armchair', count: 1, orWall: true },
         { kind: 'cluster', centre: 'table', around: ['seat'], count: 1, sides: 1, orWall: true },
+        // A guest's trunk against a wall, never out in the floor.
+        { kind: 'wall', role: 'chest', count: 1 },
         // A wardrobe or washstand besides, where the room has wall to spare.
         { kind: 'wall', role: 'dresser', count: [0, 1] },
         { kind: 'dress', role: 'tabletop', count: [1, 3] },
         { kind: 'wall', role: 'light', count: 1 },
-        // A guest's belongings, not a store: the chest at the bed's foot, perhaps a trunk in a corner, a little clutter.
-        { kind: 'corner', role: 'chest', count: [0, 1] },
+        // A guest's belongings, not a store: a little clutter.
         { kind: 'scatter', role: 'clutter', count: [1, 2] },
     ],
     'hall': [
@@ -571,15 +570,11 @@ type Draw = () => RoleStamp;
 interface Companions {
     readonly seat: RoleStamp | undefined;
     readonly beside: Draw | undefined;
-    readonly before: Draw | undefined;
     readonly behind: Draw | undefined;
 }
 
 /** A wall piece that brings nothing with it. */
-const NO_COMPANIONS: Companions = { seat: undefined, beside: undefined, before: undefined, behind: undefined };
-
-/** Squares between a piece and what is set before it. */
-const BEFORE_GAP = 0.1;
+const NO_COMPANIONS: Companions = { seat: undefined, beside: undefined, behind: undefined };
 
 /** One companion piece in `box`, square to the wall at `side`, if the floor there is free. */
 function putCompanion(floor: Floor, piece: RoleStamp, box: Box, side: Side): boolean {
@@ -589,7 +584,7 @@ function putCompanion(floor: Floor, piece: RoleStamp, box: Box, side: Side): boo
     return floor.put(piece, box, BACK_TO[side], null);
 }
 
-/** A piece's companions: a neighbour beside it along the wall, one before it, and the wall behind it filled. */
+/** A piece's companions: a neighbour beside it along the wall, and the wall behind it filled. */
 function placeCompanions(floor: Floor, side: Side, t: number, stamp: RoleStamp, inset: number, companions: Companions): void {
     const { rect } = floor.room;
     if (companions.beside) {
@@ -599,15 +594,6 @@ function placeCompanions(floor: Floor, side: Side, t: number, stamp: RoleStamp, 
         if (!putCompanion(floor, piece, right, side)) {
             putCompanion(floor, piece, left, side);
         }
-    }
-    if (companions.before) {
-        const piece = companions.before();
-        putCompanion(
-            floor,
-            piece,
-            ALONG_WALL[side](rect, t + (stamp.width - piece.width) / 2, piece.width, piece.height, inset + stamp.height + BEFORE_GAP),
-            side,
-        );
     }
     if (companions.behind && inset > 0) {
         // The wall behind a piece stood out from it, filled end to end; the floor between is left for whoever works there.
@@ -1109,7 +1095,7 @@ export function rolesOf(purpose: RoomPurpose): StampRole[] {
             return [step.centre, ...step.around];
         }
         if (step.kind === 'wall') {
-            return [step.role, step.front, step.beside, step.before, step.behind].filter((role): role is StampRole => role !== undefined);
+            return [step.role, step.front, step.beside, step.behind].filter((role): role is StampRole => role !== undefined);
         }
         return [step.role];
     });
@@ -1539,6 +1525,13 @@ function runCluster(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, piec
     placeOnWalls(floor, wall, () => table, { ...NO_COMPANIONS, seat }, random);
 }
 
+/** The fewest a step's `count` may place: none only where its count allows none. */
+const leastOf = (count: Count): number => (typeof count === 'number' ? count : count === 'fill' || 'per' in count ? 1 : count[0]);
+
+/** The piece of `stamps` with the least floor, turnable art before isometric; undefined for none. */
+const smallestOf = (stamps: readonly RoleStamp[]): RoleStamp | undefined =>
+    [...stamps].sort((a, b) => Number(a.upright) - Number(b.upright) || a.width * a.height - b.width * b.height)[0];
+
 function runStep(floor: Floor, step: Step, pieces: Pieces, random: Random): void {
     const { choose, drawOf } = pieces;
     switch (step.kind) {
@@ -1546,11 +1539,16 @@ function runStep(floor: Floor, step: Step, pieces: Pieces, random: Random): void
             const draw = drawOf(step.role);
             const companion = (role: StampRole | undefined): Draw | undefined => (role ? drawOf(role) : undefined);
             if (draw) {
-                const companions = { seat: step.front ? choose(step.front) : undefined, beside: companion(step.beside), before: companion(step.before) };
+                const companions = { seat: step.front ? choose(step.front) : undefined, beside: companion(step.beside) };
                 const placed = placeOnWalls(floor, step, draw, { ...companions, behind: companion(step.behind) }, random);
                 // A room too small to stand it out from the wall still gets it, against the wall.
                 if (placed === 0 && step.standoff !== undefined) {
                     placeOnWalls(floor, { ...step, standoff: 0 }, draw, { ...companions, behind: undefined }, random);
+                }
+                // Where the piece drawn fits no wall, the role's smallest may: a dresser where a wardrobe will not go.
+                const smallest = placed === 0 && leastOf(step.count) > 0 ? smallestOf(pieces.all(step.role)) : undefined;
+                if (smallest) {
+                    placeOnWalls(floor, step, () => smallest, { ...companions, behind: companion(step.behind) }, random);
                 }
             }
             return;

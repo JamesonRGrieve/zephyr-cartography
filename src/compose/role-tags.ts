@@ -52,7 +52,8 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     // Table clutter (spilled drinks, scraps) lies on a table; it is not one.
     ['tabletop', [['table', 'clutter']]],
     ['table', ['table']],
-    ['nightstand', ['nightstand', 'bedside']],
+    // A cabinet by a cot is its bedside cabinet, not a second cot.
+    ['nightstand', ['nightstand', 'bedside', ['cot', 'cabinet']]],
     // A flower bed is a garden's, not a bedroom's.
     ['flora', [['flower', 'bed']]],
     ['bed', ['bed', 'bunk', 'cot']],
@@ -118,10 +119,12 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['decal', ['decal', 'stain', 'grime', 'cracks', 'crack', 'scorch', 'dust', 'smear', 'grit']],
     ['tree', ['tree', 'copse']],
     ['shrub', ['bush', 'overgrowth']],
-    ['log', ['log']],
+    ['log', ['log', 'stump']],
     ['rock', ['boulder', 'rock', 'formation', 'stalagmites', 'stalactites', 'crystal', 'deposit']],
-    ['flora', ['mushroom', 'roots', 'root']],
-    ['debris', ['debris', 'wreckage', 'girders', 'shards', 'casings', 'splatter', 'cairn', 'bone', 'street']],
+    // Ground cover growing wild: fungus, roots, reeds and sedge at water, ferns and bracken under trees, wildflowers and tufts.
+    // Lily pads float on open water, which nothing is dressed in: they are placed by hand, never strewn on a marsh's mud.
+    ['flora', ['mushroom', 'roots', 'root', 'reed', 'sedge', 'tussock', 'cattail', 'bulrush', 'fern', 'bracken', 'wildflower', 'tuft']],
+    ['debris', ['debris', 'wreckage', 'girders', 'shards', 'casings', 'splatter', 'cairn', 'bone', 'street', 'wetland']],
     [
         // What is set on a table, a bar or a desk: a meal, drink, papers. A pack's `tabletop` art says so outright.
         'tabletop',
@@ -235,14 +238,18 @@ const ROLE_PLACEMENT: Readonly<Record<StampRole, RolePlacement>> = {
 
 /** Tags that say which ground land belongs on. */
 const HABITAT_RULES: readonly (readonly [StampHabitat, readonly string[]])[] = [
-    ['cave', ['cave', 'stalagmites', 'stalactites', 'crystal', 'mineral']],
+    // Fungus grows in the dark and the damp under trees: a wood or a cave, never spread across an open marsh or a meadow.
+    ['cave', ['cave', 'stalagmites', 'stalactites', 'crystal', 'mineral', 'mushroom']],
     ['arctic', ['ice', 'frost', 'snow']],
-    ['forest', ['forest', 'woodland', 'jungle']],
+    ['forest', ['forest', 'woodland', 'jungle', 'mushroom']],
     ['marsh', ['mire', 'marsh', 'swamp']],
     ['desert', ['desert', 'sand', 'dune']],
     ['ruin', ['bone', 'cairn', 'crypt', 'dungeon', 'ruin', 'ruined']],
     ['urban', ['street', 'metal', 'girders', 'cable', 'wreckage', 'casings', 'shards', 'splatter']],
 ];
+
+/** Tags of land that is planted and tended (a flower bed, a planter, a potted shrub): it grows in no wild ground. */
+const CULTIVATED_TAGS: readonly string[] = ['bed', 'planter', 'garden', 'pot', 'potted', 'trellis'];
 
 /** Where each kind of land belongs when its tags say nothing of ground: a plain boulder lies on any open ground. */
 const LAND_HABITATS: Partial<Readonly<Record<StampRole, readonly StampHabitat[]>>> = {
@@ -335,6 +342,10 @@ export function habitatsOf(role: StampRole, tags: readonly string[], own: readon
     }
     if (own.length > 0) {
         return own;
+    }
+    // Planted by someone (a flower bed, a potted shrub): never growing wild in a marsh or a wood.
+    if (tags.some((tag) => CULTIVATED_TAGS.includes(tag))) {
+        return [];
     }
     const tagged = HABITAT_RULES.filter(([, any]) => any.some((tag) => tags.includes(tag))).map(([habitat]) => habitat);
     return tagged.length > 0 ? tagged : land;

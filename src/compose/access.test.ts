@@ -85,6 +85,20 @@ describe('wayDownOver', () => {
         expect(over()).toBeUndefined();
     });
 
+    it('takes a ladder seen only from above, going down, before another kind stands in; never another setting’s', () => {
+        const stairs = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:stairs');
+        if (!stairs) {
+            throw new Error('the test roles have no stairs');
+        }
+        const hatch = down('hatch', ['ladder', 'hatch']);
+        const loaded = (...ways: readonly RoleStamp[]): RoleIndex => new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['stairs', [stairs, ...ways]]]);
+        expect(flightFor('ladder', loaded(down('shaft', ['shaft']), hatch), seededRandom(1), at('ship'))).toEqual({ stair: hatch, problems: [] });
+        expect(flightFor('ladder', loaded({ ...hatch, borrowed: true }), seededRandom(1), at('ship'))).toMatchObject({
+            stair: { key: 'test:stairs' },
+            problems: [{ kind: 'stand-in', wanted: 'ladder', used: 'stairs' }],
+        });
+    });
+
     it('shows a stair’s own steps above it, seen from above as from below; a frame over one drawn in perspective', () => {
         const stairs = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:stairs');
         if (!stairs) {
@@ -92,6 +106,8 @@ describe('wayDownOver', () => {
         }
         expect(wayDownOver(stairs, TEST_ROLES)?.key).toBe('test:stairs');
         expect(wayDownOver({ ...stairs, upright: true }, TEST_ROLES)).toBeUndefined();
+        // A piece that joins no levels has no way down to show.
+        expect(wayDownOver({ ...stairs, climb: null }, TEST_ROLES)).toBeUndefined();
     });
 });
 

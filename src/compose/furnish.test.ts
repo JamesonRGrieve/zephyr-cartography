@@ -437,7 +437,7 @@ describe('companions and what is set on surfaces', () => {
         expect(placed.filter((p) => roleOf(p) === 'tabletop').length).toBeGreaterThanOrEqual(2);
     });
 
-    it('stands a nightstand beside each bed and a chest at its foot', () => {
+    it('stands a nightstand beside each bed and a chest against a wall, never out in the floor', () => {
         const bedroom: RoomFloor = {
             key: 'bed',
             purpose: 'bedroom',
@@ -455,8 +455,11 @@ describe('companions and what is set on surfaces', () => {
         for (const bed of beds) {
             expect(stands.some((s) => touching(s, bed))).toBe(true);
         }
-        // A chest, a guest's own, not a store's crate.
-        expect(placed.some((p) => roleOf(p) === 'chest' && beds.some((bed) => touching(boxOf(p), bed)))).toBe(true);
+        // A chest, a guest's own, not a store's crate: its back to a wall, not standing out at a bed's foot.
+        const flush = (b: Box): boolean => b.x < EPSILON || b.y < EPSILON || Math.abs(b.x + b.w - 5) < EPSILON || Math.abs(b.y + b.h - 5) < EPSILON;
+        const chests = placed.filter((p) => roleOf(p) === 'chest').map(boxOf);
+        expect(chests.length).toBeGreaterThanOrEqual(1);
+        expect(chests.every(flush)).toBe(true);
     });
 
     it('sets a meal on every table of a common room, never over its edge nor on another', () => {
@@ -614,6 +617,21 @@ describe('the grim far future’s rooms', () => {
         expect(placed.filter((p) => p.stamp === table.key).length).toBeGreaterThanOrEqual(3);
         expect(placed.some((p) => p.stamp === 'test:deep-bench')).toBe(false);
         expect(placed.some((p) => p.stamp === seat.key)).toBe(true);
+    });
+
+    it('stands the smallest dresser the room has where the one drawn fits no wall: a dresser where a wardrobe will not go', () => {
+        const dresser = TEST_ROLES.get('dresser')?.[0];
+        if (!dresser) {
+            throw new Error('fixture dresser');
+        }
+        // Far too wide for any wall of the room, and a small one beside it.
+        const hulking: RoleStamp = { ...dresser, key: 'test:hulking-wardrobe', width: 9, height: 1 };
+        const roles = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['dresser', [hulking, dresser]]]);
+        for (const seed of [1, 2, 3, 4, 5, 6]) {
+            const placed = furnishRoom(GUEST, roles, seededRandom(seed)).stamps;
+            expect(placed.some((p) => p.stamp === dresser.key)).toBe(true);
+            expect(placed.some((p) => p.stamp === hulking.key)).toBe(false);
+        }
     });
 
     it('furnishes a guest room as one is lived in: a dresser against a wall, an armchair across a corner facing out', () => {

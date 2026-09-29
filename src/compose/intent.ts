@@ -172,6 +172,11 @@ const namedPieceSize = {
     width: squares.describe('Its size in squares, its back along the width: its art is fitted to it, and it is the box it stands as where no stamp draws it.'),
     height: squares,
     reads: text.optional().describe("What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board."),
+    state: text
+        .optional()
+        .describe(
+            "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
+        ),
 };
 
 const namedPiece = {
@@ -636,6 +641,43 @@ const prop = z
     ])
     .describe('One piece stood outside: at a point, or in the yard beside a building (a well by the inn).');
 
+/**
+ * A raised platform (a feed grate over a machine, a catwalk along vats, a
+ * gantry bridge): its floor on the level above the ground, railed round but
+ * where its stair arrives; the stair stands on the ground against that side,
+ * climbing to it.
+ */
+const platform = z
+    .object({
+        name: text.default('Platform').describe('The level it stands on, named (the first platform’s name, where a building’s floors give none).'),
+        rect: mapRect.describe('Its floor, in grid squares from the map’s top-left corner.'),
+        floor: text.default('floor.metal-grating').describe('Texture role its floor is drawn in.'),
+        fixtures: z
+            .array(outdoorFixture)
+            .default([])
+            .describe('Named pieces standing on it (a feed hopper at a grate’s edge), each where asked in map squares.'),
+        stair: z
+            .object({
+                side: z.enum(WALL_SIDES).describe('The side of the platform its stair climbs to.'),
+                at: z.number().min(0).describe('Where along that side the stair arrives, in squares from its top or left end.'),
+            })
+            .strict()
+            .nullable()
+            .default(null)
+            .describe('Its stair up from the ground; null for one reached from beyond the map (an overpass from wall to wall).'),
+    })
+    .strict()
+    .superRefine((p, ctx) => {
+        if (p.stair === null) {
+            return;
+        }
+        const along = p.stair.side === 'top' || p.stair.side === 'bottom' ? p.rect.w : p.rect.h;
+        if (p.stair.at >= along) {
+            ctx.addIssue({ code: 'custom', path: ['stair', 'at'], message: `the platform's ${p.stair.side} side is ${along} squares long` });
+        }
+    })
+    .describe('A raised platform: its floor on the level above the ground, railed round but where its stair from the ground arrives.');
+
 export const mapIntentSchema = z
     .object({
         $schema: z.string().optional(),
@@ -671,6 +713,7 @@ export const mapIntentSchema = z
         hewn: z.array(hewn).default([]),
         districts: z.array(district).default([]),
         curtains: z.array(curtain).default([]),
+        platforms: z.array(platform).default([]),
     })
     .strict()
     .superRefine((intent, ctx) => {
@@ -701,6 +744,7 @@ export type FixtureIntent = RoomIntent['fixtures'][number];
 export type HewnIntent = MapIntent['hewn'][number];
 export type DistrictIntent = MapIntent['districts'][number];
 export type CurtainIntent = MapIntent['curtains'][number];
+export type PlatformIntent = MapIntent['platforms'][number];
 export type ZoneIntent = MapIntent['zones'][number];
 export type PathIntent = MapIntent['paths'][number];
 export type PropIntent = MapIntent['props'][number];
