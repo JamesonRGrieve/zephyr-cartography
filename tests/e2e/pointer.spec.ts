@@ -21,7 +21,7 @@ async function featureAt(
     at: Point,
 ): Promise<{ type: string; halfWidths: readonly number[]; biome: string | null; radius: number | null; texture: string | null } | null> {
     return page.evaluate((point) => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const id = controller?.hitTest(point) ?? null;
         const feature = id === null ? undefined : controller?.getFeature(id);
         if (!feature) {
@@ -40,10 +40,10 @@ async function featureAt(
 test('the room, door and materials tools sit with the Walls tools, and the stamp tool with the Tiles tools', async ({ world }) => {
     const placed = await world.evaluate(() => {
         const toolsOf = (group: string): string[] => Object.keys(ui.controls?.controls[group]?.tools ?? {});
-        return { walls: toolsOf('walls'), tiles: toolsOf('tiles'), own: toolsOf('zephyrex-cartography') };
+        return { walls: toolsOf('walls'), tiles: toolsOf('tiles'), own: toolsOf('zephyr-cartography') };
     });
-    expect(placed.walls).toEqual(expect.arrayContaining(['wall', 'zephyrex-room', 'zephyrex-door', 'zephyrex-materials', 'zephyrex-edit', 'zephyrex-erase']));
-    expect(placed.tiles).toEqual(expect.arrayContaining(['tile', 'zephyrex-stamp', 'zephyrex-erase']));
+    expect(placed.walls).toEqual(expect.arrayContaining(['wall', 'zephyr-room', 'zephyr-door', 'zephyr-materials', 'zephyr-edit', 'zephyr-erase']));
+    expect(placed.tiles).toEqual(expect.arrayContaining(['tile', 'zephyr-stamp', 'zephyr-erase']));
     expect(placed.own).toEqual(expect.arrayContaining(['road', 'river', 'edit', 'erase']));
     expect(placed.own).not.toContain('room');
 });
@@ -87,7 +87,7 @@ test('a redraw under Foundry’s own Walls tool leaves the pointer to Foundry', 
 test('a tool stays in hand when the draw layer rebuilds for another texture set', async ({ world }) => {
     await useTool(world, 'road');
     await world.evaluate(async () => {
-        await game.settings?.set('zephyrex-cartography', 'textureSet', 'another-set');
+        await game.settings?.set('zephyr-cartography', 'textureSet', 'another-set');
     });
     await holdView(world);
     await drawShape(world, [
@@ -175,7 +175,7 @@ test('the paint tool paints and blends in any texture of the active set, picked 
     // Grassland ground, drawn in the cobbles.
     await expect.poll(async () => featureAt(world, { x: 700, y: 510 })).toMatchObject({ type: 'stroke', biome: 'grassland', texture: 'floor.e2e-cobbles' });
     const drawnIn = await world.evaluate(() => {
-        const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+        const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyr-cartography-terrain');
         return (terrain instanceof PIXI.Container ? terrain.children : []).flatMap((child) =>
             child instanceof PIXI.Container ? child.children.flatMap((grandchild) => (grandchild instanceof PIXI.TilingSprite ? [grandchild.name] : [])) : [],
         );
@@ -191,7 +191,7 @@ test('the paint tool paints and blends in any texture of the active set, picked 
     await tuckPanels(world);
     await clickScene(world, { x: 1200, y: 900 });
     await expect
-        .poll(async () => world.evaluate(() => game.modules?.get('zephyrex-cartography').api.controller()?.splatLayer()?.roles ?? []))
+        .poll(async () => world.evaluate(() => game.modules?.get('zephyr-cartography').api.controller()?.splatLayer()?.roles ?? []))
         .toContain('floor.e2e-cobbles');
 });
 
@@ -209,12 +209,12 @@ test('the paint brush shows its size on the map, and paints as it is dragged, be
             const drawn: readonly PIXI.DisplayObject[] = layer instanceof PIXI.Container ? layer.children : [];
             const last = drawn.at(-1);
             const ring = last instanceof PIXI.Graphics ? { width: last.getLocalBounds().width, visible: last.visible } : null;
-            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyr-cartography-terrain');
             const textured = (terrain instanceof PIXI.Container ? terrain.children : []).filter(
                 (child) => child instanceof PIXI.Container && child.children.some((grandchild) => grandchild instanceof PIXI.TilingSprite),
             ).length;
             // A committed stroke is a feature the controller can pick; the one being painted is not yet.
-            const committed = (game.modules?.get('zephyrex-cartography').api.controller()?.hitTest({ x: 800, y: 810 }) ?? null) !== null;
+            const committed = (game.modules?.get('zephyr-cartography').api.controller()?.hitTest({ x: 800, y: 810 }) ?? null) !== null;
             return { textured, ring, committed };
         });
     const start = await clientPoint(world, { x: 600, y: 800 });
@@ -254,7 +254,7 @@ test('the paint tool blends texture into the level’s splat map, saved as an ex
     // The stroke is saved as it ends: the layer on the scene, the mask in the world's data.
     const saved = async (): Promise<{ roles: readonly (string | null)[]; weight: number } | null> =>
         world.evaluate(async () => {
-            const layer = game.modules?.get('zephyrex-cartography').api.controller()?.splatLayer();
+            const layer = game.modules?.get('zephyr-cartography').api.controller()?.splatLayer();
             if (!layer) {
                 return null;
             }
@@ -291,8 +291,8 @@ test('the paint tool blends texture into the level’s splat map, saved as an ex
     await expect(world.locator('#board')).toHaveScreenshot('sand-blend.png');
 
     // The stroke made the map, so undoing it takes the map away.
-    await world.evaluate(async () => game.modules?.get('zephyrex-cartography').api.controller()?.undo());
-    await expect.poll(async () => world.evaluate(() => game.modules?.get('zephyrex-cartography').api.controller()?.splatState())).toBe('none');
+    await world.evaluate(async () => game.modules?.get('zephyr-cartography').api.controller()?.undo());
+    await expect.poll(async () => world.evaluate(() => game.modules?.get('zephyr-cartography').api.controller()?.splatState())).toBe('none');
 });
 
 test('the river tool draws the liquid, shade, bed and width picked in its panel', async ({ world }) => {
@@ -316,7 +316,7 @@ test('the river tool draws the liquid, shade, bed and width picked in its panel'
     await expect
         .poll(async () =>
             world.evaluate(() => {
-                const controller = game.modules?.get('zephyrex-cartography').api.controller();
+                const controller = game.modules?.get('zephyr-cartography').api.controller();
                 const id = controller?.hitTest({ x: 900, y: 650 }) ?? null;
                 const river = id === null ? null : controller?.getFeature(id);
                 return river?.type === 'path' ? { river: river.river, halfWidth: river.halfWidths[1] } : null;
@@ -412,7 +412,7 @@ test('the effects tool, with the Regions tools, gives a room difficult ground an
 
 test('a zone offers to move with the tokens Foundry locates on its own level', async ({ world }) => {
     await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const ground = (await controller?.addLevel('above', 'Ground')) ?? '';
         const upper = (await controller?.addLevel('above', 'Upper')) ?? '';
         await canvas?.scene?.createEmbeddedDocuments('Token', [
@@ -569,7 +569,7 @@ test('the stamp tool places the stamp armed in the browser where the GM clicks',
 
 test('the link tool, with the Lighting tools, picks a switch and links a lamp and a plain light to it', async ({ world }) => {
     const ids = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const switchId = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:switch', x: 300, y: 300 })) ?? '';
         const lampId = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 700, y: 300 })) ?? '';
         const [plain] = (await canvas?.scene?.createEmbeddedDocuments('AmbientLight', [{ x: 1000, y: 600, config: { dim: 10, bright: 5 } }])) ?? [];
@@ -581,7 +581,7 @@ test('the link tool, with the Lighting tools, picks a switch and links a lamp an
     await clickScene(world, { x: 700, y: 300 });
     await clickScene(world, { x: 1000, y: 600 });
     const targets = async (): Promise<readonly { kind: string; id: string }[]> =>
-        world.evaluate((id) => game.modules?.get('zephyrex-cartography').api.controller()?.switchTargets(id) ?? [], ids.switchId);
+        world.evaluate((id) => game.modules?.get('zephyr-cartography').api.controller()?.switchTargets(id) ?? [], ids.switchId);
     await expect.poll(targets).toEqual([
         { kind: 'feature', id: ids.lampId },
         { kind: 'light', id: ids.plainId },

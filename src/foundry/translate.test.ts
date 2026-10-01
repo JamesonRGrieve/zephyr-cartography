@@ -69,12 +69,12 @@ describe('wallCreateData', () => {
 
     it('flags a light switch’s wall, so its door control shows a light, and no other wall', () => {
         const door = { ...BLOCKS_WALL, door: 'door' as const };
-        expect(wallCreateData({ ...door, lightSwitch: true }, GRID).flags).toEqual({ 'zephyrex-cartography': { lightSwitch: true } });
+        expect(wallCreateData({ ...door, lightSwitch: true }, GRID).flags).toEqual({ 'zephyr-cartography': { lightSwitch: true } });
         expect(wallCreateData(door, GRID)).not.toHaveProperty('flags');
     });
 
     it('notes a cover wall’s grade for the game system’s cover check', () => {
-        expect(wallCreateData({ ...BLOCKS_WALL, cover: 0.5 }, GRID).flags).toEqual({ 'zephyrex-cartography': { cover: 0.5 } });
+        expect(wallCreateData({ ...BLOCKS_WALL, cover: 0.5 }, GRID).flags).toEqual({ 'zephyr-cartography': { cover: 0.5 } });
     });
 
     it('translates every sense level, one-way walls and thresholds in scene distance units', () => {
@@ -194,7 +194,7 @@ describe('tileCreateData', () => {
             elevation: 5,
             // Shown, said outright: an update in place clears a hidden it leaves behind (a trap sprung).
             hidden: false,
-            flags: { 'zephyrex-cartography': { featureId: 'f1' } },
+            flags: { 'zephyr-cartography': { featureId: 'f1' } },
             levels: ['L1'],
         });
         // Shown on the levels that see its own as well.
@@ -351,7 +351,7 @@ describe('noteCreateData for a sign', () => {
             global: false,
             iconSize: 48,
             author: null,
-            flags: { 'zephyrex-cartography': { readable: true } },
+            flags: { 'zephyr-cartography': { readable: true } },
         });
     });
 });

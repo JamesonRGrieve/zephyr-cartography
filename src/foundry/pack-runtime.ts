@@ -45,9 +45,9 @@ const SCALE_RANGE = { min: 0.25, max: 4, step: 0.05 } as const;
 
 declare global {
     interface SettingConfig {
-        'zephyrex-cartography.stampSnap': boolean;
-        'zephyrex-cartography.stampScale': number;
-        'zephyrex-cartography.textureSet': string;
+        'zephyr-cartography.stampSnap': boolean;
+        'zephyr-cartography.stampScale': number;
+        'zephyr-cartography.textureSet': string;
     }
 }
 

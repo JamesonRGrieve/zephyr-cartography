@@ -1,7 +1,7 @@
 {
     "id": "zc-e2e-pack",
     "title": "Cartography E2E Stamp Pack",
-    "description": "A small stamp pack for the Zephyrex Cartography e2e suite: one stamp per behaviour, drawn as flat SVG shapes.",
+    "description": "A small stamp pack for the Zephyr Cartography e2e suite: one stamp per behaviour, drawn as flat SVG shapes.",
     "version": "1.0.0",
     "compatibility": {
         "minimum": "14",
@@ -10,15 +10,15 @@
     "relationships": {
         "requires": [
             {
-                "id": "zephyrex-cartography",
+                "id": "zephyr-cartography",
                 "type": "module"
             }
         ]
     },
     "license": "AGPL-3.0-or-later",
     "flags": {
-        "zephyrex-cartography": {
-            "pack": "zephyrex-pack.json"
+        "zephyr-cartography": {
+            "pack": "zephyr-pack.json"
         }
     }
 }

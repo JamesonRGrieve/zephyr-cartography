@@ -19,7 +19,7 @@ async function openZone(page: Page): Promise<string> {
     await holdView(page);
     await clickScene(page, ZONE_AT);
     await expect(page.locator(panelSelector('zone'))).toBeVisible();
-    return page.evaluate((at) => game.modules?.get('zephyrex-cartography').api.controller()?.hitTest(at) ?? '', ZONE_AT);
+    return page.evaluate((at) => game.modules?.get('zephyr-cartography').api.controller()?.hitTest(at) ?? '', ZONE_AT);
 }
 
 /** The focus key of the control that has focus, or null. */
@@ -29,7 +29,7 @@ async function focused(page: Page): Promise<string | null> {
 
 async function zoneRadius(page: Page, zoneId: string): Promise<number | null> {
     return page.evaluate((id) => {
-        const settings = game.modules?.get('zephyrex-cartography').api.controller()?.zoneSettings(id);
+        const settings = game.modules?.get('zephyr-cartography').api.controller()?.zoneSettings(id);
         return settings && 'radius' in settings.shape ? settings.shape.radius : null;
     }, zoneId);
 }
@@ -79,14 +79,14 @@ test('Space toggles a checkbox', async ({ world }) => {
     await gridBased.focus();
     await world.keyboard.press('Space');
     await expect
-        .poll(async () => world.evaluate((id) => game.modules?.get('zephyrex-cartography').api.controller()?.zoneSettings(id)?.gridBased, zoneId))
+        .poll(async () => world.evaluate((id) => game.modules?.get('zephyr-cartography').api.controller()?.zoneSettings(id)?.gridBased, zoneId))
         .toBe(true);
     await expect(world.locator(panelSelector('zone')).getByLabel('Is Grid-Based')).toBeChecked();
 });
 
 test('a closed section opens with Enter, and stays open while its fields are edited', async ({ world }) => {
     await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.addLevel('above', 'Ground');
+        await game.modules?.get('zephyr-cartography').api.controller()?.addLevel('above', 'Ground');
     });
     await useTool(world, 'road');
     await world.click('button[data-tool="levels"]');

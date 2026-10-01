@@ -67,7 +67,7 @@ const PRESETS_SETTING = 'zonePresets';
 
 declare global {
     interface SettingConfig {
-        'zephyrex-cartography.zonePresets': string;
+        'zephyr-cartography.zonePresets': string;
     }
 }
 

@@ -3,7 +3,7 @@ import { expect, frameScene, test } from './lib/foundry';
 
 test('a stamp’s tile and light take its pack’s occlusion, restrictions and light technique', async ({ world }) => {
     const placed = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:brazier', x: 500, y: 400 });
+        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:brazier', x: 500, y: 400 });
         const tile = canvas?.scene?.tiles.contents[0];
         const light = canvas?.scene?.lights.contents[0];
         return {
@@ -29,7 +29,7 @@ test('a stamp’s tile and light take its pack’s occlusion, restrictions and l
 
 test('a stamp’s terrain and surface become native Modify Movement Cost and Define Surface regions', async ({ world }) => {
     await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const crate = await controller?.placeStamp({ stamp: 'zc-e2e-pack:crate', x: 300, y: 300 });
         await controller?.setStampVariant(crate ?? '', 1); // smashed: rubble underfoot
         await controller?.placeStamp({ stamp: 'zc-e2e-pack:canopy', x: 800, y: 500 });
@@ -55,7 +55,7 @@ test('a stamp’s terrain and surface become native Modify Movement Cost and Def
 
 test('an impassable stamp is walled for movement alone, so Foundry stops a token crossing it but it hides nothing', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:boulder', x: 400, y: 400 });
+        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:boulder', x: 400, y: 400 });
         const walls = (canvas?.scene?.walls.contents ?? []).map((w) => ({ move: w.move, sight: w.sight, light: w.light, sound: w.sound }));
         // The collision test Foundry's own token movement runs: a straight move through the boulder, and one beside it.
         const level = canvas?.level ?? undefined;
@@ -81,11 +81,11 @@ test('a stamp’s particles run as native particle generators, following its var
                 .map((child) => ({ elevation: child.elevation, particles: child.children.length })),
         );
     const crate = await world.evaluate(
-        async () => (await game.modules?.get('zephyrex-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:crate', x: 400, y: 400 })) ?? '',
+        async () => (await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:crate', x: 400, y: 400 })) ?? '',
     );
     expect(await running()).toEqual([]);
     const setVariant = async (variant: number): Promise<void> => {
-        await world.evaluate(async ({ id, index }) => game.modules?.get('zephyrex-cartography').api.controller()?.setStampVariant(id, index), {
+        await world.evaluate(async ({ id, index }) => game.modules?.get('zephyr-cartography').api.controller()?.setStampVariant(id, index), {
             id: crate,
             index: variant,
         });
@@ -101,7 +101,7 @@ test('a stamp’s particles run as native particle generators, following its var
 
 test('a placed stamp is a native tile centred on its point, with its light', async ({ world }) => {
     const placed = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 500, y: 400 });
         const tile = canvas?.scene?.tiles.contents[0];
         const light = canvas?.scene?.lights.contents[0];
@@ -130,7 +130,7 @@ test('a placed stamp is a native tile centred on its point, with its light', asy
 
 test('a stamp emits its ambient sound as a native AmbientSound, silenced by a variant that sets none', async ({ world }) => {
     const sound = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 500, y: 400 });
         const placed = canvas?.scene?.sounds.contents[0];
         const before = placed && { name: placed.name, x: placed.x, y: placed.y, radius: placed.radius, path: placed.path, volume: placed.volume };
@@ -146,7 +146,7 @@ test('a stamp emits its ambient sound as a native AmbientSound, silenced by a va
 
 test('switching to an unlit variant swaps the image and removes the light', async ({ world }) => {
     const after = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 300, y: 300 });
         if (id !== undefined && id !== null) {
             await controller?.setStampVariant(id, 1);
@@ -159,7 +159,7 @@ test('switching to an unlit variant swaps the image and removes the light', asyn
 
 test('a GM moving the tile moves the stamp and its light', async ({ world }) => {
     await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         await controller?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 500, y: 500 });
         await canvas?.scene?.tiles.contents[0]?.update({ x: 800, y: 600 });
     });

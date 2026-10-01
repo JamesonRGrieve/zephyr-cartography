@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Zephyrex Cartography: Foundry entry / runtime seam.
+ * Zephyr Cartography: Foundry entry / runtime seam.
  *
  * All authoring logic lives in the pure, unit-tested modules (geometry, tools,
  * stamps, canvas/controller, canvas/renderer). This file is the thin glue that
@@ -553,7 +553,7 @@ const TERRAIN_REGIONS_SETTING = 'terrainRegions';
 
 declare global {
     interface SettingConfig {
-        'zephyrex-cartography.terrainRegions': boolean;
+        'zephyr-cartography.terrainRegions': boolean;
     }
 }
 

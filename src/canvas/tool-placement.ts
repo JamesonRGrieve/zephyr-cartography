@@ -40,7 +40,7 @@ const NATIVE_ONLY: ReadonlySet<string> = new Set(['room', 'door', 'materials', '
  * its own `doors`) and from other modules'.
  */
 export function nativeToolName(tool: string): string {
-    return `zephyrex-${tool}`;
+    return `zephyr-${tool}`;
 }
 
 /** Whether the module's own group shows `tool`. */

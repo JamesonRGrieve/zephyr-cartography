@@ -3,7 +3,7 @@ import { expect, test } from './lib/foundry';
 
 test('an enterable stamp opens into a new interior scene, each side teleporting to the other', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const stamp = await controller?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 });
         const interior = stamp === null || stamp === undefined ? null : await controller?.createInterior(stamp, 'Hab interior');
         const here = canvas?.scene;
@@ -67,7 +67,7 @@ test('an enterable stamp opens into a new interior scene, each side teleporting 
 
 test('a submap’s travel options reach both teleports in place: arrival, transition and prompt', async ({ world }) => {
     const travel = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const stamp = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 })) ?? '';
         const interior = (await controller?.createInterior(stamp, 'Hab interior')) ?? '';
         // The teleport behaviour of the entrance, here, and of the exit, in the interior.

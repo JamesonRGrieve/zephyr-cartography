@@ -3,7 +3,7 @@ import { expect, test } from './lib/foundry';
 
 test("a stamp's light and sound sit on its level, at the level's floor, since v14 sources are bounded vertically", async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         await controller?.addLevel('above', 'Ground');
         const upper = await controller?.addLevel('above', 'Upper'); // now the level being edited
         await controller?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 400, y: 400 });

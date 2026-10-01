@@ -7,7 +7,7 @@ import type { Page } from '@playwright/test';
 
 export type Point = { readonly x: number; readonly y: number };
 
-export const MODULE_ID = 'zephyrex-cartography';
+export const MODULE_ID = 'zephyr-cartography';
 
 /** Hold the view still (the canvas otherwise settles after load), so scene points stay where the mouse is sent. */
 export async function holdView(page: Page): Promise<void> {
@@ -111,7 +111,7 @@ export async function tuckPanels(page: Page): Promise<void> {
  */
 export async function useTool(page: Page, tool: string, options: { panel?: boolean } = {}): Promise<void> {
     const home = NATIVE_HOME[tool];
-    await (home === undefined ? activate(page, MODULE_ID, tool) : activate(page, home, `zephyrex-${tool}`));
+    await (home === undefined ? activate(page, MODULE_ID, tool) : activate(page, home, `zephyr-${tool}`));
     if (options.panel !== true) {
         await tuckPanels(page);
     }

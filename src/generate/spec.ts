@@ -38,7 +38,7 @@ import { CONE_CURVATURES, FULL_TURN, validZoneShape } from '../tools/zone';
 
 export const SCENE_SPEC_SCHEMA_VERSION = 1;
 
-export const SCENE_SPEC_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/scene-spec.v1.schema.json';
+export const SCENE_SPEC_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyr-cartography/main/schema/scene-spec.v1.schema.json';
 
 const PATH_KINDS = ['road', 'river'] as const satisfies readonly PathKind[];
 const SPEC_LIQUIDS = ['water', 'lava', 'poison', 'acid'] as const satisfies readonly Liquid[];

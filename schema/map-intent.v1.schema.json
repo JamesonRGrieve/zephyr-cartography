@@ -1,6 +1,6 @@
 {
-    "$id": "https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/map-intent.v1.schema.json",
-    "title": "Zephyrex Cartography map intent (v1)",
+    "$id": "https://raw.githubusercontent.com/JamesonRGrieve/zephyr-cartography/main/schema/map-intent.v1.schema.json",
+    "title": "Zephyr Cartography map intent (v1)",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {

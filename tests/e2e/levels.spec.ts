@@ -3,7 +3,7 @@ import { expect, test } from './lib/foundry';
 
 test('a stair is one native changeLevel region spanning the floors it joins', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const ground = await controller?.addLevel('above', 'Ground');
         const upper = await controller?.addLevel('above', 'Upper');
         controller?.setActiveLevel(ground ?? null);
@@ -28,7 +28,7 @@ test('a stair is one native changeLevel region spanning the floors it joins', as
 
 test('a ladder’s changeLevel region is taken only by climbing, and a stair’s by any movement', async ({ world }) => {
     await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const ground = await controller?.addLevel('above', 'Ground');
         await controller?.addLevel('above', 'Upper');
         controller?.setActiveLevel(ground ?? null);
@@ -45,7 +45,7 @@ test('a ladder’s changeLevel region is taken only by climbing, and a stair’s
 
 test('a level’s Preload button preloads it on every client, as Foundry’s scene navigation does', async ({ world }) => {
     const upper = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         await controller?.addLevel('above', 'Ground');
         return (await controller?.addLevel('above', 'Upper')) ?? '';
     });
@@ -55,7 +55,7 @@ test('a level’s Preload button preloads it on every client, as Foundry’s sce
         scenes.preload = (id, options) => { window.zcPreloads.push({ scene: id === canvas.scene.id, level: options.level, broadcast: options.broadcast }); return original(id, options); }; })()`,
     );
     await world.evaluate(async () => {
-        await ui.controls?.activate({ control: 'zephyrex-cartography' });
+        await ui.controls?.activate({ control: 'zephyr-cartography' });
     });
     await world.click('button[data-tool="levels"]');
     await world.click(`button[data-zc-focus="preload:${upper}"]`);
@@ -66,7 +66,7 @@ test('a level’s Preload button preloads it on every client, as Foundry’s sce
 
 test('a building’s floors in this scene are native Levels above, joined by one changeLevel stair over it', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const hab = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 })) ?? '';
         const added = await controller?.addBuildingFloors(hab, ['Hab floor 1', 'Hab floor 2']);
         const levels = canvas?.scene?.levels.contents ?? [];
@@ -88,7 +88,7 @@ test('a building’s floors in this scene are native Levels above, joined by one
 
 test('a room on an upper level has a floor Foundry treats as a solid surface from both levels', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const ground = await controller?.addLevel('above', 'Ground');
         const upper = await controller?.addLevel('above', 'Upper');
         controller?.setActiveLevel(upper ?? null);
@@ -122,7 +122,7 @@ test('a room on an upper level has a floor Foundry treats as a solid surface fro
 
 test('a room under another level has a ceiling Foundry treats as a solid surface from both levels, and a courtyard none', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         // The fresh scene's own Level is the ground: nothing below it, so its rooms have no floor.
         const ground = controller?.levels[0];
         const upper = await controller?.addLevel('above', 'Upper');
@@ -163,7 +163,7 @@ test('a room under another level has a ceiling Foundry treats as a solid surface
 
 test('an upper level that sees the ground shows it beneath: its painted ground at the ground’s floor, its stamps’ tiles', async ({ world }) => {
     const ids = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             levels: [
                 { key: 'ground', name: 'Yard' },
@@ -187,7 +187,7 @@ test('an upper level that sees the ground shows it beneath: its painted ground a
     const layers = async (): Promise<{ elevation: number; fills: number }[]> =>
         world.evaluate(() =>
             (canvas?.primary?.children ?? [])
-                .filter((child) => child.name === 'zephyrex-cartography-terrain')
+                .filter((child) => child.name === 'zephyr-cartography-terrain')
                 .map((child) => ({
                     elevation: 'elevation' in child ? Number(child.elevation) : Number.NaN,
                     fills: child instanceof PIXI.Container ? child.children.length : 0,
@@ -200,7 +200,7 @@ test('a level’s own images are its native Level background, foreground and fog
     const result = await world.evaluate(async () => {
         const art = { background: 'modules/zc-e2e-pack/stamps/hab.svg', foreground: null, fog: 'modules/zc-e2e-pack/stamps/crate.svg' };
         await game.modules
-            ?.get('zephyrex-cartography')
+            ?.get('zephyr-cartography')
             .api.buildSpec({ schemaVersion: 1, levels: [{ key: 'g', name: 'Painted', background: art.background, fog: art.fog }], features: [] });
         const level = canvas?.scene?.levels.contents.find((l) => l.name === 'Painted');
         return { expected: art, actual: { background: level?.background.src ?? null, foreground: level?.foreground.src ?? null, fog: level?.fog.src ?? null } };
@@ -210,7 +210,7 @@ test('a level’s own images are its native Level background, foreground and fog
 
 test('a level’s look is its native Level’s colours, thresholds, placement and visible levels, and reads back unchanged', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         await api?.buildSpec({
             schemaVersion: 1,
             levels: [
@@ -269,7 +269,7 @@ test('a level’s look is its native Level’s colours, thresholds, placement an
 
 test('levels are native Level documents, and a room on one has walls on that level only', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const ground = await api?.controller()?.addLevel('above', 'Ground');
         await api?.controller()?.addLevel('above', 'Upper');
         await api?.buildSpec({
@@ -303,7 +303,7 @@ test('levels are native Level documents, and a room on one has walls on that lev
 
 test('a new level, above or below, is 4 grid squares tall, as Foundry v14 makes them', async ({ world }) => {
     const heights = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const loft = await controller?.addLevel('above', 'Loft');
         const cellar = await controller?.addLevel('below', 'Cellar');
         return [loft, cellar].map((id) => {
@@ -324,7 +324,7 @@ test('a Level a GM makes with an open ceiling is read as 4 grid squares tall', a
         .poll(async () =>
             world.evaluate(() => {
                 const sky = game.modules
-                    ?.get('zephyrex-cartography')
+                    ?.get('zephyr-cartography')
                     .api.controller()
                     ?.levels.find((l) => l.name === 'Sky');
                 return sky && { bottom: sky.bottom, top: sky.top };
@@ -335,7 +335,7 @@ test('a Level a GM makes with an open ceiling is read as 4 grid squares tall', a
 
 test('a Level deleted in Foundry takes its features with it', async ({ world }) => {
     const built = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const outcome = await api?.buildSpec({
             schemaVersion: 1,
             levels: [{ key: 'cellar', name: 'Cellar' }],
@@ -362,7 +362,7 @@ test('a Level deleted in Foundry takes its features with it', async ({ world }) 
     await expect
         .poll(async () =>
             world.evaluate(() => ({
-                features: game.modules?.get('zephyrex-cartography').api.controller()?.levelCounts(),
+                features: game.modules?.get('zephyr-cartography').api.controller()?.levelCounts(),
                 walls: canvas?.scene?.walls.size,
             })),
         )

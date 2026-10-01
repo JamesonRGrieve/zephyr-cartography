@@ -3,4 +3,4 @@
  * The Foundry module id — the single source for everything keyed by it: the
  * scene-flag scope, the settings namespace, and the served `modules/<id>/` root.
  */
-export const MODULE_ID = 'zephyrex-cartography';
+export const MODULE_ID = 'zephyr-cartography';

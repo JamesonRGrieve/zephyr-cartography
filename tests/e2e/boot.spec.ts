@@ -3,8 +3,8 @@ import { expect, test } from './lib/foundry';
 
 test('the module boots with its API, scene controls and the e2e pack', async ({ world }) => {
     const state = await world.evaluate(() => {
-        const cartography = game.modules?.get('zephyrex-cartography');
-        const group = ui.controls?.controls['zephyrex-cartography'];
+        const cartography = game.modules?.get('zephyr-cartography');
+        const group = ui.controls?.controls['zephyr-cartography'];
         return {
             active: cartography?.active,
             apiVersion: cartography?.api.version,

@@ -214,7 +214,7 @@ describe('renderBrowser', () => {
             },
         });
         door.dispatchEvent(drag);
-        expect(JSON.parse(payload)).toEqual({ type: 'ZephyrexStamp', stamp: 'pack:door', variant: 0, rotation: 0 });
+        expect(JSON.parse(payload)).toEqual({ type: 'ZephyrStamp', stamp: 'pack:door', variant: 0, rotation: 0 });
     });
 
     it('rotates, and says so when nothing matches or nothing is selected', () => {

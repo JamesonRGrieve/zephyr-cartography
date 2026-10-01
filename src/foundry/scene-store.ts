@@ -9,7 +9,7 @@ import type { FoundryScene } from './boundary';
 declare global {
     interface FlagConfig {
         /** The scene's features, as saved: read back through `parseFeatures`, which drops whatever is malformed. */
-        Scene: { 'zephyrex-cartography': { features: readonly Feature[] } };
+        Scene: { 'zephyr-cartography': { features: readonly Feature[] } };
     }
 }
 

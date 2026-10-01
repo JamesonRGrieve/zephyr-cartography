@@ -7,7 +7,7 @@
 import { z } from 'zod';
 
 /** Foundry's canvas drop `type` for a dragged stamp. */
-const STAMP_DROP_TYPE = 'ZephyrexStamp';
+const STAMP_DROP_TYPE = 'ZephyrStamp';
 
 const stampDropSchema = z.object({
     type: z.literal(STAMP_DROP_TYPE),

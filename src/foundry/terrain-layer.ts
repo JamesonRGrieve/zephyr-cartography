@@ -11,7 +11,7 @@
  */
 
 /** The terrain container's name, by which tests and tools find it in the primary group. */
-const TERRAIN_LAYER_NAME = 'zephyrex-cartography-terrain';
+const TERRAIN_LAYER_NAME = 'zephyr-cartography-terrain';
 
 /** Above a level's background and foreground images (SCENE, 0), beneath its tiles (TILES, 500). */
 const TERRAIN_SORT_LAYER = 100;

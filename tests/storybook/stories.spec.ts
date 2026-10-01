@@ -65,7 +65,7 @@ for (const story of ALL) {
         });
         await page.goto(`/iframe.html?id=${story.id}&viewMode=story`);
         const root = page.locator('#storybook-root');
-        await expect(root.locator('.zephyrex-cartography').first()).toBeVisible();
+        await expect(root.locator('.zephyr-cartography').first()).toBeVisible();
         // Thumbnails load lazily; the screenshot must show them, not their empty frames.
         await page.waitForFunction(() => [...document.images].every((img) => img.complete && img.naturalWidth > 0));
         expect(errors).toEqual([]);

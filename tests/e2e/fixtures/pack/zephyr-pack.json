@@ -1,5 +1,5 @@
 {
-    "$schema": "https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/stamp-pack.v1.schema.json",
+    "$schema": "https://raw.githubusercontent.com/JamesonRGrieve/zephyr-cartography/main/schema/stamp-pack.v1.schema.json",
     "schemaVersion": 1,
     "id": "zc-e2e-pack",
     "name": "Cartography E2E Stamp Pack",

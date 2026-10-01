@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Stamp pack discovery. Any active module that advertises a manifest via
- * `flags["zephyrex-cartography"].pack` is a pack. Its manifest is fetched from
+ * `flags["zephyr-cartography"].pack` is a pack. Its manifest is fetched from
  * the module's served path and handed, unvalidated, to the pure loader.
  */
 import { MODULE_ID } from '../module-id';

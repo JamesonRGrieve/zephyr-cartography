@@ -1,5 +1,5 @@
 {
-    "name": "zephyrex-cartography",
+    "name": "zephyr-cartography",
     "version": "0.2.0",
     "private": true,
     "type": "module",
@@ -109,8 +109,8 @@
     },
     "size-limit": [
         {
-            "name": "zephyrex-cartography.js (built ESM)",
-            "path": "dist/zephyrex-cartography.js",
+            "name": "zephyr-cartography.js (built ESM)",
+            "path": "dist/zephyr-cartography.js",
             "limit": "512 kB"
         }
     ],

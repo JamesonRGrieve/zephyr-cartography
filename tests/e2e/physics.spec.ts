@@ -13,7 +13,7 @@ test('a burning stamp warns in a hazard region, a low wall gives flagged cover, 
     world,
 }) => {
     const placed = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         await controller?.placeStamp({ stamp: 'zc-e2e-pack:fire-pit', x: 300, y: 300 });
         await controller?.placeStamp({ stamp: 'zc-e2e-pack:low-wall', x: 700, y: 300 });
         const plate = await controller?.placeStamp({ stamp: 'zc-e2e-pack:pressure-plate', x: 300, y: 700 });
@@ -23,7 +23,7 @@ test('a burning stamp warns in a hazard region, a low wall gives flagged cover, 
             regions: (scene?.regions.contents ?? []).map((r) => ({ name: r.name, behaviors: r.behaviors.contents.map((b) => b.toObject()) })),
             cover: (scene?.walls.contents ?? []).flatMap((w) => {
                 const flags: Record<string, unknown> = w.flags;
-                const own = flags['zephyrex-cartography'];
+                const own = flags['zephyr-cartography'];
                 const cover = typeof own === 'object' && own !== null && 'cover' in own ? own.cover : undefined;
                 return cover === undefined ? [] : [{ cover, move: w.move, sight: w.sight }];
             }),
@@ -42,7 +42,7 @@ test('a burning stamp warns in a hazard region, a low wall gives flagged cover, 
     expect(placed.hidden).toEqual([expect.stringContaining('crate.svg')]);
 
     const sprung = await world.evaluate(async (plate) => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.setStampVariant(plate, 1);
+        await game.modules?.get('zephyr-cartography').api.controller()?.setStampVariant(plate, 1);
         const scene = canvas?.scene;
         return { regions: (scene?.regions.contents ?? []).map((r) => r.name), hidden: (scene?.tiles.contents ?? []).filter((t) => t.hidden).length };
     }, placed.plate);
@@ -52,7 +52,7 @@ test('a burning stamp warns in a hazard region, a low wall gives flagged cover, 
 
 test('a ramp lowered from its hinge stands out from it, and raised again stands on it', async ({ world }) => {
     const centres = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         // The lowered ramp's hinge, its image's bottom edge, on the point; a v14 tile's (x, y) is its centre here.
         const ramp = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:ramp', x: 500, y: 500, variant: 1 })) ?? '';
         const tile = (): { x: number; y: number; height: number } => {

@@ -4,7 +4,7 @@ import { expect, moduleActive, test } from './lib/foundry';
 test('a container stamp is an Item Piles pile with its pack options, and a smashed variant is not', async ({ world }) => {
     test.skip(!(await moduleActive(world, 'item-piles')), 'Item Piles is not installed in the e2e world (FOUNDRY_TEST_MODULES)');
     const placed = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:crate', x: 300, y: 300 });
         const feature = id === undefined || id === null ? null : controller?.getFeature(id);
         return { id, pile: feature?.type === 'stamp' ? feature.pile : null };
@@ -23,7 +23,7 @@ test('a container stamp is an Item Piles pile with its pack options, and a smash
     expect(flags).toEqual({ type: 'vault', closed: true, distance: 1, openSound: 'modules/zc-e2e-pack/sounds/silence.wav' });
 
     const afterSmash = await world.evaluate(async (id) => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         if (id !== undefined && id !== null) {
             await controller?.setStampVariant(id, 1);
         }
@@ -36,7 +36,7 @@ test('a container stamp is an Item Piles pile with its pack options, and a smash
 test('a plain container stamp is a container pile with Item Piles defaults', async ({ world }) => {
     test.skip(!(await moduleActive(world, 'item-piles')), 'Item Piles is not installed in the e2e world (FOUNDRY_TEST_MODULES)');
     const pile = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:chest', x: 300, y: 300 });
         const feature = id === undefined || id === null ? null : controller?.getFeature(id);
         const token = feature?.type === 'stamp' && feature.pile !== null ? foundry.utils.fromUuidSync(feature.pile) : null;
@@ -53,7 +53,7 @@ test('a plain container stamp is a container pile with Item Piles defaults', asy
 test('a container stamp shows its pile closed or open as its Item Piles state changes', async ({ world }) => {
     test.skip(!(await moduleActive(world, 'item-piles')), 'Item Piles is not installed in the e2e world (FOUNDRY_TEST_MODULES)');
     const placed = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:chest', x: 300, y: 300 });
         const feature = id === undefined || id === null ? null : controller?.getFeature(id);
         return { id: id ?? '', pile: feature?.type === 'stamp' ? feature.pile ?? '' : '' };
@@ -61,7 +61,7 @@ test('a container stamp shows its pile closed or open as its Item Piles state ch
     expect(placed.pile).toMatch(/^Scene\.\w+\.Token\.\w+$/u);
     const variant = async (): Promise<number | null> =>
         world.evaluate((id) => {
-            const feature = game.modules?.get('zephyrex-cartography').api.controller()?.getFeature(id);
+            const feature = game.modules?.get('zephyr-cartography').api.controller()?.getFeature(id);
             return feature?.type === 'stamp' ? feature.variant : null;
         }, placed.id);
     // Where Item Piles records a pile's state (its actor's `item-piles.data`), which its open and close calls and its

@@ -19,7 +19,7 @@ import {
 const SCENE = { x: 100, y: 100, width: 2000, height: 1000 };
 
 function layer(): SplatLayer {
-    return newSplatLayer('lv1', 0, 'worlds/w/zephyrex-cartography/splat-lv1.png', SCENE, 100);
+    return newSplatLayer('lv1', 0, 'worlds/w/zephyr-cartography/splat-lv1.png', SCENE, 100);
 }
 
 /** One pixel's four weights. */
@@ -150,7 +150,7 @@ describe('parseSplatLayers', () => {
 
 describe('bakedImagePath', () => {
     it('saves the baked image beside the mask', () => {
-        expect(bakedImagePath(layer())).toBe('worlds/w/zephyrex-cartography/splat-lv1-baked.png');
+        expect(bakedImagePath(layer())).toBe('worlds/w/zephyr-cartography/splat-lv1-baked.png');
         expect(bakedImagePath({ ...layer(), path: 'masks/odd' })).toBe('masks/odd-baked.png');
     });
 });

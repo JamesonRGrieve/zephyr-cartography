@@ -38,9 +38,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 
 const SCHEMAS = [
-    { file: 'stamp-pack.v1.schema.json', id: STAMP_PACK_SCHEMA_URL, title: 'Zephyrex Cartography stamp pack (v1)', schema: stampPackSchema },
-    { file: 'scene-spec.v1.schema.json', id: SCENE_SPEC_SCHEMA_URL, title: 'Zephyrex Cartography scene spec (v1)', schema: sceneSpecSchema },
-    { file: 'map-intent.v1.schema.json', id: MAP_INTENT_SCHEMA_URL, title: 'Zephyrex Cartography map intent (v1)', schema: mapIntentSchema },
+    { file: 'stamp-pack.v1.schema.json', id: STAMP_PACK_SCHEMA_URL, title: 'Zephyr Cartography stamp pack (v1)', schema: stampPackSchema },
+    { file: 'scene-spec.v1.schema.json', id: SCENE_SPEC_SCHEMA_URL, title: 'Zephyr Cartography scene spec (v1)', schema: sceneSpecSchema },
+    { file: 'map-intent.v1.schema.json', id: MAP_INTENT_SCHEMA_URL, title: 'Zephyr Cartography map intent (v1)', schema: mapIntentSchema },
 ];
 
 let stale = false;

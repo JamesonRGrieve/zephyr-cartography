@@ -7,8 +7,8 @@
  * (`scripts/gen-schema.mjs` → `schema/stamp-pack.v1.schema.json`) all derive from
  * this file. It imports only `zod` so Node can load it directly for generation.
  *
- * A pack is one manifest (`zephyrex-pack.json`) at an asset module's root,
- * advertised via the module's `flags["zephyrex-cartography"].pack`. Paths inside
+ * A pack is one manifest (`zephyr-pack.json`) at an asset module's root,
+ * advertised via the module's `flags["zephyr-cartography"].pack`. Paths inside
  * it are relative to that module's root. Changes to v1 are additive only;
  * anything breaking is a new version with its own file.
  */
@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 export const STAMP_PACK_SCHEMA_VERSION = 1;
 
-export const STAMP_PACK_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/stamp-pack.v1.schema.json';
+export const STAMP_PACK_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyr-cartography/main/schema/stamp-pack.v1.schema.json';
 
 /** Map scale band a stamp is authored for (drives browser grouping). */
 const STAMP_SCALES = ['system', 'planet', 'regional', 'city', 'exterior', 'interior'] as const;

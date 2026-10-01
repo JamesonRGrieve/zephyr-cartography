@@ -23,7 +23,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const RAW_DIR = resolve(ROOT, '.e2e-raw-coverage');
 const OUT_DIR = resolve(ROOT, '.e2e-coverage');
 const DIST = resolve(ROOT, 'dist');
-const SERVED = '/modules/zephyrex-cartography/dist/';
+const SERVED = '/modules/zephyr-cartography/dist/';
 const SRC = `${resolve(ROOT, 'src')}/`;
 
 if (!existsSync(RAW_DIR) || readdirSync(RAW_DIR).length === 0) {

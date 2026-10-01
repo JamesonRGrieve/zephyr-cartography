@@ -6,14 +6,14 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './lib/foundry';
 
-const BROWSER = '#zephyrex-cartography-stamp-browser';
+const BROWSER = '#zephyr-cartography-stamp-browser';
 
-/** Stamps in the e2e pack (tests/e2e/fixtures/pack/zephyrex-pack.json). */
+/** Stamps in the e2e pack (tests/e2e/fixtures/pack/zephyr-pack.json). */
 const FIXTURE_STAMPS = 35;
 
 async function openBrowser(page: Page): Promise<Locator> {
     await page.evaluate(async () => {
-        await ui.controls?.activate({ control: 'tiles', tool: 'zephyrex-stamp' });
+        await ui.controls?.activate({ control: 'tiles', tool: 'zephyr-stamp' });
     });
     const browser = page.locator(BROWSER);
     await expect(browser).toBeVisible();

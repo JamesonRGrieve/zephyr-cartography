@@ -16,7 +16,7 @@ import { type MapIntent, parseMapIntent } from '../../src/compose/intent';
 import { type MapPreset, PRESET_INTENTS } from '../../src/compose/presets';
 import { expect, frameScene, freshScene, moduleActive, type SceneSize, test } from './lib/foundry';
 
-const ASSETS = 'zephyrex-cartography-assets';
+const ASSETS = 'zephyr-cartography-assets';
 const PAINTED = `${ASSETS}:painted`;
 
 /** Px per grid square of the showcase scenes. */
@@ -28,9 +28,9 @@ const CLOSE_UP_SCALE = 1.5;
 /** Use the pack's hand-painted texture set, and wait until it is the one in use. */
 async function usePaintedSet(page: Page): Promise<void> {
     await page.evaluate(async (set) => {
-        await game.settings?.set('zephyrex-cartography', 'textureSet', set);
+        await game.settings?.set('zephyr-cartography', 'textureSet', set);
     }, PAINTED);
-    await expect.poll(async () => page.evaluate(() => game.settings?.get('zephyrex-cartography', 'textureSet'))).toBe(PAINTED);
+    await expect.poll(async () => page.evaluate(() => game.settings?.get('zephyr-cartography', 'textureSet'))).toBe(PAINTED);
 }
 
 /** A scene the preset's size, viewed; the preset composed on it; what went wrong, as JSON. */
@@ -42,7 +42,7 @@ async function composePreset(page: Page, preset: MapPreset, title: string): Prom
     await freshScene(page, title, size);
     await usePaintedSet(page);
     const outcome = await page.evaluate(async (given) => {
-        const composed = await game.modules?.get('zephyrex-cartography').api.compose(given);
+        const composed = await game.modules?.get('zephyr-cartography').api.compose(given);
         if (!composed) {
             return ['no module API'];
         }
@@ -215,7 +215,7 @@ for (const file of REVIEW_INTENTS) {
         await freshScene(world, shot, size);
         await usePaintedSet(world);
         const problems = await world.evaluate(async (given) => {
-            const composed = await game.modules?.get('zephyrex-cartography').api.compose(given);
+            const composed = await game.modules?.get('zephyr-cartography').api.compose(given);
             if (!composed) {
                 return ['no module API'];
             }
@@ -245,7 +245,7 @@ async function shootReview(page: Page, level: string, size: SceneSize, view: Clo
         page.evaluate(
             () =>
                 (canvas?.tiles?.placeables ?? []).filter((t) => t.visible).every((t) => t.mesh?.texture?.valid === true) &&
-                game.modules?.get('zephyrex-cartography').api.terrainImagesLoading() === 0,
+                game.modules?.get('zephyr-cartography').api.terrainImagesLoading() === 0,
         );
     await expect.poll(loaded, { timeout: IMAGES_LOAD_MS }).toBe(true);
     // As players see it: no grid over the art, no wall lines (the Walls layer is left inactive).

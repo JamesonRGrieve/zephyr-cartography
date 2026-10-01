@@ -1,7 +1,7 @@
 {
     "id": "zc-e2e",
     "title": "Cartography E2E",
-    "description": "Ephemeral world for the Zephyrex Cartography e2e suite. Provisioned fresh into each test data directory; Foundry rewrites this copy on launch.",
+    "description": "Ephemeral world for the Zephyr Cartography e2e suite. Provisioned fresh into each test data directory; Foundry rewrites this copy on launch.",
     "system": "zc-e2e",
     "coreVersion": "14.359",
     "compatibility": {

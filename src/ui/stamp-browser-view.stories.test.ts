@@ -23,7 +23,7 @@ function cardCount(el: HTMLElement): number {
 
 describe('stamp browser stories', () => {
     it('renders inside the module style scope', () => {
-        expect(mount(stories.AllStamps).classList.contains('zephyrex-cartography')).toBe(true);
+        expect(mount(stories.AllStamps).classList.contains('zephyr-cartography')).toBe(true);
     });
 
     it('shows the whole demo catalog by default', () => {

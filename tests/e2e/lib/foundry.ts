@@ -6,7 +6,7 @@
  * ratchet, and fails the test on any page error or console error.
  *
  * Specs drive the module through its public API
- * (`game.modules.get('zephyrex-cartography').api`) and assert on the native
+ * (`game.modules.get('zephyr-cartography').api`) and assert on the native
  * documents Foundry holds.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { resolve } from 'node:path';
 import { test as base, expect, type Page } from '@playwright/test';
 
 const PORT_BASE = Number(process.env['FOUNDRY_TEST_PORT'] ?? 30101);
-const MODULE_ID = 'zephyrex-cartography';
+const MODULE_ID = 'zephyr-cartography';
 const PACK_ID = 'zc-e2e-pack';
 /**
  * Integrations the suite exercises when their modules are installed (see scripts/e2e-world.mjs), and the real asset
@@ -25,9 +25,9 @@ const OPTIONAL_MODULES = [
     'item-piles',
     'socketlib',
     'lib-wrapper',
-    'zephyrex-cartography-assets',
-    'zephyrex-cartography-assets-private',
-    'zephyrex-cartography-assets-cc0',
+    'zephyr-cartography-assets',
+    'zephyr-cartography-assets-private',
+    'zephyr-cartography-assets-cc0',
 ];
 
 /** The e2e system's one Actor type (tests/e2e/fixtures/system). */

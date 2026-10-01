@@ -1,4 +1,4 @@
-# Zephyrex Cartography
+# Zephyr Cartography
 
 Scene authoring for Foundry VTT v14. Paint terrain, draw roads and rivers, and
 build structures directly on the canvas. Walls, doors and lights come out as
@@ -35,7 +35,7 @@ Dungeondraft, Inkarnate) and runs entirely inside Foundry.
 ## Asset packs
 
 Art isn't bundled with this module. Stamps and terrain textures come from asset
-pack modules such as `zephyrex-cartography-assets`. Packs follow a versioned
+pack modules such as `zephyr-cartography-assets`. Packs follow a versioned
 schema defined here (`schema/stamp-pack.v1.schema.json`), so anyone can
 publish their own. Scene specs have one too (`schema/scene-spec.v1.schema.json`),
 so any tool that writes JSON can generate maps.

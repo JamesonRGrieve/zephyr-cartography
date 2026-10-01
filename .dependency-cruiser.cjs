@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Architecture rules for zephyrex-cartography. Layering (inner → outer):
+ * Architecture rules for zephyr-cartography. Layering (inner → outer):
  *   geometry (pure math)  ←  stamps (pack schema/catalog)  ←  tools (feature models)  ←  canvas (controller/renderer)  ←  foundry (boundary)  ←  entry
  *   ui (DOM views over pure view models) sits beside canvas and is hosted by foundry.
  * Inner layers must never import outer ones.
@@ -16,7 +16,7 @@ module.exports = {
         {
             name: 'no-orphans',
             severity: 'warn',
-            from: { orphan: true, pathNot: ['\\.d\\.ts$', '(^|/)zephyrex-cartography\\.ts$', '\\.test\\.ts$', '\\.stories\\.ts$'] },
+            from: { orphan: true, pathNot: ['\\.d\\.ts$', '(^|/)zephyr-cartography\\.ts$', '\\.test\\.ts$', '\\.stories\\.ts$'] },
             to: {},
         },
         {

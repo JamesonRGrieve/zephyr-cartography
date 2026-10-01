@@ -3,7 +3,7 @@ import { expect, frameScene, test } from './lib/foundry';
 
 test('what the GM edits reaches Foundry: draw order, a room’s materials, a crate’s state, a level’s band, an empty level removed', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const square = (x: number): { x: number; y: number }[] => [
             { x, y: 2 },
             { x: x + 3, y: 2 },
@@ -29,7 +29,7 @@ test('what the GM edits reaches Foundry: draw order, a room’s materials, a cra
             return null;
         }
         const [sand, forest, room, crate] = built.report.features;
-        const order = (): string[] => (canvas?.scene?.getFlag('zephyrex-cartography', 'features') ?? []).map((f) => f.id);
+        const order = (): string[] => (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).map((f) => f.id);
         await controller.toFront(sand ?? '');
         const fronted = order();
         await controller.lower(sand ?? '');
@@ -79,7 +79,7 @@ test('what the GM edits reaches Foundry: draw order, a room’s materials, a cra
 
 test('zones of every shape, sized in grid squares, become regions in Foundry’s own shapes at the grid’s scale', async ({ world }) => {
     const shapes = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             units: 'grid',
             features: [
@@ -119,7 +119,7 @@ test('zones of every shape, sized in grid squares, become regions in Foundry’s
 
 test('a room of window walls gets Foundry’s window walls, and its door stays solid', async ({ world }) => {
     const walls = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 {
@@ -144,7 +144,7 @@ test('a room of window walls gets Foundry’s window walls, and its door stays s
 
 test('a spec sets the scene’s own darkness, fog, vision, weather and transition', async ({ world }) => {
     const scene = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             scene: { darkness: 0.75, darknessLock: true, globalLight: true, tokenVision: false, fog: 'shared', transition: { type: 'fade', duration: 800 } },
             features: [],
@@ -167,7 +167,7 @@ test('a spec sets the scene’s own darkness, fog, vision, weather and transitio
 
 test('a spec sets the scene’s day and night environments, their cycle and the fog’s colours, leaving the rest', async ({ world }) => {
     const scene = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             scene: {
                 cycle: false,
@@ -198,7 +198,7 @@ test('a spec sets the scene’s day and night environments, their cycle and the 
 
 test('difficult painted ground becomes a Modify Movement Cost region, with terrain mirroring off', async ({ world }) => {
     const regions = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 {
@@ -245,7 +245,7 @@ test('an area’s region shows as the spec says, and is shaped by walls only on 
             { x, y: 5 },
         ];
         const display = { visibility: 'always', highlight: 'coverage', measurements: true, observed: true, restriction: { type: 'sight', priority: 2 } };
-        const outcome = await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        const outcome = await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             levels: [{ key: 'g', name: 'Ground' }],
             features: [
@@ -282,7 +282,7 @@ test('an area’s region shows as the spec says, and is shaped by walls only on 
 
 test('a toggle names its area’s other behaviours by UUID, and a token walking in switches a disabled one on', async ({ world }) => {
     const built = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 {
@@ -327,7 +327,7 @@ test('a toggle names its area’s other behaviours by UUID, and a token walking 
 test('a zone attached to a token moves with it, and the zone follows its region', async ({ world }) => {
     const placed = await world.evaluate(async () => {
         const [token] = (await canvas?.scene?.createEmbeddedDocuments('Token', [{ name: 'Servitor', x: 400, y: 400 }])) ?? [];
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const outcome = await api?.buildSpec({
             schemaVersion: 1,
             units: 'px',
@@ -342,7 +342,7 @@ test('a zone attached to a token moves with it, and the zone follows its region'
     const where = async (): Promise<{ region: number[]; zone: number[] }> =>
         world.evaluate((zoneId) => {
             const [shape] = canvas?.scene?.regions.contents.find((r) => r.name === 'Aura')?.shapes ?? [];
-            const point = game.modules?.get('zephyrex-cartography').api.controller()?.getFeature(zoneId)?.points[0];
+            const point = game.modules?.get('zephyr-cartography').api.controller()?.getFeature(zoneId)?.points[0];
             return { region: shape && 'x' in shape ? [shape.x, shape.y] : [], zone: point ? [point.x, point.y] : [] };
         }, placed.zoneId);
     // The token moved 200 px right: Foundry moved the region with it, and the zone followed.
@@ -352,7 +352,7 @@ test('a zone attached to a token moves with it, and the zone follows its region'
 test('an emanation zone rounds its token’s own footprint, and follows the token as Foundry refits it', async ({ world }) => {
     const placed = await world.evaluate(async () => {
         const [token] = (await canvas?.scene?.createEmbeddedDocuments('Token', [{ name: 'Pariah', x: 400, y: 400 }])) ?? [];
-        const outcome = await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        const outcome = await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             units: 'px',
             features: [{ type: 'zone', x: 450, y: 450, name: 'Null field', shape: { kind: 'emanation', radius: 200 }, attachedTo: token?.id ?? null }],
@@ -363,7 +363,7 @@ test('an emanation zone rounds its token’s own footprint, and follows the toke
     const where = async (): Promise<{ type: string | undefined; covers: boolean[]; zone: number[] }> =>
         world.evaluate((zoneId) => {
             const region = canvas?.scene?.regions.contents.find((r) => r.name === 'Null field');
-            const point = game.modules?.get('zephyrex-cartography').api.controller()?.getFeature(zoneId)?.points[0];
+            const point = game.modules?.get('zephyr-cartography').api.controller()?.getFeature(zoneId)?.points[0];
             return {
                 type: region?.shapes[0]?.type,
                 // Foundry's own geometry: beside the moved token, and not where it stood.
@@ -377,7 +377,7 @@ test('an emanation zone rounds its token’s own footprint, and follows the toke
 
 test('a zone of grid spaces becomes Foundry’s own grid-spaces shape, on the spaces from the one its point is in', async ({ world }) => {
     const region = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 {
@@ -423,7 +423,7 @@ test('a spawn zone spawns its actors’ tokens inside its region, snapped and ap
     const actorUuid = await world.evaluate<string>("Actor.create({ name: 'Cultist', type: 'npc' }).then((actor) => actor.uuid)");
     expect(actorUuid).toMatch(/^Actor\.\w+$/u);
     const result = await world.evaluate(async (uuid) => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const outcome = await api?.buildSpec({
             schemaVersion: 1,
             features: [{ type: 'zone', key: 'ambush', x: 6, y: 6, shape: { kind: 'circle', radius: 2 }, spawn: { actors: [{ uuid, count: 3 }] } }],
@@ -454,7 +454,7 @@ test('a spec’s drawn shapes become native Drawings, stroked and filled, and er
             })),
         );
     await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 {
@@ -491,7 +491,7 @@ test('a spec’s drawn shapes become native Drawings, stroked and filled, and er
     await expect(world.locator('#board')).toHaveScreenshot('drawn-shapes.png');
 
     await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         await controller?.erase({ x: 1200, y: 500 });
     });
     await expect.poll(async () => (await drawings()).map((d) => d.type)).toEqual(['p', 'p']);
@@ -499,7 +499,7 @@ test('a spec’s drawn shapes become native Drawings, stroked and filled, and er
 
 test('a fenced road puts Foundry’s terrain walls along its centerline', async ({ world }) => {
     const walls = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 {
@@ -522,7 +522,7 @@ test('a fenced road puts Foundry’s terrain walls along its centerline', async 
 
 test('a room spec becomes native walls, a door and a light', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const outcome = await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        const outcome = await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 {
@@ -556,7 +556,7 @@ test('a room spec becomes native walls, a door and a light', async ({ world }) =
 
 test('a generated floor plan is walled rooms joined by one-square doors, undone in one step', async ({ world }) => {
     const built = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const plan = api?.generateFloorPlan({ seed: 7, width: 16, height: 12 });
         let deleted = 0;
         const hook = Hooks.on('deleteWall', () => {
@@ -578,7 +578,7 @@ test('a generated floor plan is walled rooms joined by one-square doors, undone 
     await expect(world.locator('#board')).toHaveScreenshot('floor-plan-seed-7.png');
 
     const afterUndo = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.undo();
+        await game.modules?.get('zephyr-cartography').api.controller()?.undo();
         return { walls: canvas?.scene?.walls.size, lights: canvas?.scene?.lights.size };
     });
     expect(afterUndo).toEqual({ walls: 0, lights: 0 });
@@ -586,14 +586,14 @@ test('a generated floor plan is walled rooms joined by one-square doors, undone 
 
 test('a spec with problems reports them instead of throwing', async ({ world }) => {
     const outcome = await world.evaluate(async () =>
-        game.modules?.get('zephyrex-cartography').api.buildSpec({ schemaVersion: 1, features: [{ type: 'region', biome: 'quicksand' }] }),
+        game.modules?.get('zephyr-cartography').api.buildSpec({ schemaVersion: 1, features: [{ type: 'region', biome: 'quicksand' }] }),
     );
     expect(outcome?.ok).toBe(false);
 });
 
 test('a spec’s splat map blends the textures its mask weights over the whole scene, saved as the scene’s own mask', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const outcome = await api?.buildSpec({
             schemaVersion: 1,
             splats: [{ mask: 'modules/zc-e2e-pack/masks/sand-rock.png', roles: ['sand', 'rock', null, null] }],
@@ -605,7 +605,7 @@ test('a spec’s splat map blends the textures its mask weights over the whole s
     expect(result.problems).toEqual([]);
     expect(result.roles).toEqual(['sand', 'rock', null, null]);
     // Copied to the scene's own mask file, so painting over it leaves the pack's image alone.
-    expect(result.path).toMatch(/^worlds\/zc-e2e\/zephyrex-cartography\/splat-.+-all\.png$/u);
+    expect(result.path).toMatch(/^worlds\/zc-e2e\/zephyr-cartography\/splat-.+-all\.png$/u);
     expect(result.size).toEqual([40, 30]);
     await frameScene(world);
     await expect(world.locator('#board')).toHaveScreenshot('spec-splat.png');
@@ -613,7 +613,7 @@ test('a spec’s splat map blends the textures its mask weights over the whole s
 
 test('a blend bakes into a native Tile over the scene, drawn without the module’s overlay, and unbakes back', async ({ world }) => {
     const baked = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         await api?.buildSpec({
             schemaVersion: 1,
             splats: [{ mask: 'modules/zc-e2e-pack/masks/sand-rock.png', roles: ['sand', 'rock', null, null] }],
@@ -637,7 +637,7 @@ test('a blend bakes into a native Tile over the scene, drawn without the module�
     await expect(world.locator('#board')).toHaveScreenshot('baked-splat.png');
 
     const unbaked = await world.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         return { ok: await controller?.unbakeSplat(), tiles: canvas?.scene?.tiles.size, baked: controller?.splatState() };
     });
     expect(unbaked).toEqual({ ok: true, tiles: 0, baked: 'live' });
@@ -645,7 +645,7 @@ test('a blend bakes into a native Tile over the scene, drawn without the module�
 
 test('a spec’s masks on one level stack, each saved to its own file, and bake together into one Tile', async ({ world }) => {
     const stacked = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const outcome = await api?.buildSpec({
             schemaVersion: 1,
             splats: [
@@ -674,7 +674,7 @@ test('a blend on a level bakes into the native Level’s background, and unbakin
     const background = async (): Promise<string | null> =>
         world.evaluate(() => canvas?.scene?.levels.contents.find((level) => level.name === 'Ground')?.background.src ?? null);
     const baked = await world.evaluate(async () => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const outcome = await api?.buildSpec({
             schemaVersion: 1,
             levels: [{ key: 'g', name: 'Ground', background: 'modules/zc-e2e-pack/masks/sand-rock.png' }],
@@ -692,14 +692,14 @@ test('a blend on a level bakes into the native Level’s background, and unbakin
     expect(baked).toEqual({ ok: true, state: 'background', tiles: 0 });
     await expect.poll(background).toMatch(/splat-.+-baked\.png$/u);
 
-    const unbaked = await world.evaluate(async () => game.modules?.get('zephyrex-cartography').api.controller()?.unbakeSplat());
+    const unbaked = await world.evaluate(async () => game.modules?.get('zephyr-cartography').api.controller()?.unbakeSplat());
     expect(unbaked).toBe(true);
     await expect.poll(background).toBe('modules/zc-e2e-pack/masks/sand-rock.png');
 });
 
 test('a sign’s words are a readable Note: authorless, so players see it with no journal, and drawn with no icon over the art', async ({ world }) => {
     await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 { type: 'pin', x: 2, y: 2, text: 'NO LOITERING', readable: true, size: 0.8 },
@@ -715,7 +715,7 @@ test('a sign’s words are a readable Note: authorless, so players see it with n
                 return {
                     text: note.text,
                     author: note._source.author,
-                    readable: foundry.utils.getProperty(note.flags, 'zephyrex-cartography.readable'),
+                    readable: foundry.utils.getProperty(note.flags, 'zephyr-cartography.readable'),
                     iconSize: note.iconSize,
                     tooltip: note.object?.tooltip?.text,
                     iconShown: shown ? shown.icon.visible || shown.bg.visible || shown.border.visible : null,

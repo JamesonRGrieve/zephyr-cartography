@@ -8,7 +8,7 @@
 import type { BiomeKind } from './tools/biome';
 
 /** Root namespace of every key (the top-level object in `static/lang/en.json`). */
-export const I18N_ROOT = 'ZEPHYREX-CARTOGRAPHY';
+export const I18N_ROOT = 'ZEPHYR-CARTOGRAPHY';
 
 function key(path: string): string {
     return `${I18N_ROOT}.${path}`;

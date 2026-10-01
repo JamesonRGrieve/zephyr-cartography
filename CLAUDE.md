@@ -1,6 +1,6 @@
-# Zephyrex Cartography — Contributor & Agent Protocol
+# Zephyr Cartography — Contributor & Agent Protocol
 
-`zephyrex-cartography` is an **AGPL** Foundry VTT v14 module: a **standalone
+`zephyr-cartography` is an **AGPL** Foundry VTT v14 module: a **standalone
 scene authoring tool**. It paints terrain, draws roads and rivers, builds
 structures (rooms, walls, doors, lights), and places **structure-aware stamps**,
 all as **native Foundry documents**. It is the open-source take on the best of
@@ -8,7 +8,7 @@ all as **native Foundry documents**. It is the open-source take on the best of
 
 Art (stamps, terrain textures) is **not** in this repo. It ships in separate
 **asset-pack modules**, starting with
-[`zephyrex-cartography-assets`](https://github.com/JamesonRGrieve/zephyrex-cartography-assets).
+[`zephyr-cartography-assets`](https://github.com/JamesonRGrieve/zephyr-cartography-assets).
 This module owns the engine and the **pack schema** every pack must conform to.
 
 This file is authoritative for this repo. It stacks on the workspace standards
@@ -114,7 +114,7 @@ Foundry v14 server.
 - **Specs.** They use the `world` fixture (`tests/e2e/lib/foundry.ts`): joined
   as the Gamemaster, module and pack active, a fresh gridded scene. They drive
   the module through its **public API**
-  (`game.modules.get('zephyrex-cartography').api`: `controller()`,
+  (`game.modules.get('zephyr-cartography').api`: `controller()`,
   `buildSpec()`, `generateFloorPlan()`). They assert on the native documents
   Foundry holds.
   - Any page or console error fails the test.
@@ -142,7 +142,7 @@ ApplicationV2 host in `foundry/` mounts them.
   interactive. They use `stamps/fixtures.ts` (inline-SVG demo packs), never
   pack assets.
 - Foundry's CSS is not redistributable. `.storybook/chrome.css` stands in for
-  the window chrome, and stories wrap views in `.zephyrex-cartography` so the
+  the window chrome, and stories wrap views in `.zephyr-cartography` so the
   `tw-` utilities apply.
 - A co-located `*-view.test.ts` mounts every story under vitest, so stories
   cannot rot, and `pnpm test:storybook` renders and screenshots every story
@@ -172,7 +172,7 @@ Layering (inner → outer; enforced by dependency-cruiser):
   interfaces (`DrawSurface`, `SceneStore`, `WallEmitter`, `LightEmitter`) so the
   whole flow is tested with fakes.
 - **Thin Foundry/PIXI boundary** — `src/foundry/*` and the entry
-  `src/zephyrex-cartography.ts`. The *only* code that touches Foundry globals.
+  `src/zephyr-cartography.ts`. The *only* code that touches Foundry globals.
   Kept minimal and **not unit-tested** by design. Bridge over-strict library
   types here with point-of-use documented exceptions:
   - `unknown` at a real parse/framework boundary → `// eslint-disable-next-line no-restricted-syntax -- boundary: …`.
@@ -185,7 +185,7 @@ Layering (inner → outer; enforced by dependency-cruiser):
   scope, settings namespace, served path). Every localisation key lives only in
   `src/i18n.ts`; `i18n.test.ts` asserts it matches `src/static/lang/en.json`
   exactly (no missing, no unused keys). `src/static/` is copied into `dist/`.
-- **Persistence:** features live on the scene as the `zephyrex-cartography.features`
+- **Persistence:** features live on the scene as the `zephyr-cartography.features`
   flag. Parsing is **defensive and total** — parsers validate shape and drop
   malformed entries, never throw; new fields are optional with defaults.
 
@@ -335,7 +335,7 @@ that type's own control group, after Foundry's tools
   **mask's** edge (rendered to a texture); blurring the fill would smear the
   texture itself. The splat shader runs in high precision: medium precision
   rounds large scene coordinates to whole texels.
-- **Names.** Tools in a native group are named `zephyrex-<tool>`, so they
+- **Names.** Tools in a native group are named `zephyr-<tool>`, so they
   never clash with Foundry's own (Walls has `doors`).
 - **Inert native layers.** The tools set none of `interaction`, `creation`
   or `control`, so the native layer creates and selects nothing while one
@@ -1098,7 +1098,7 @@ option**: a splat map, as in Dungeondraft and Inkarnate.
   - The mask is an exact PNG (`tools/png.ts`, which encodes and decodes
     itself: a canvas would premultiply the unused alpha channel away). It
     is saved at the stroke's end to
-    `worlds/<world>/zephyrex-cartography/splat-<scene>-<level|all>.png`,
+    `worlds/<world>/zephyr-cartography/splat-<scene>-<level|all>.png`,
     and the scene's `splats` flag keeps each layer's path, bounds, size,
     roles and level (`foundry/splat-store.ts`).
   - A whole stroke is one undo step, which restores the mask as it was.
@@ -1564,7 +1564,7 @@ or a tavern is. Composition is the layer above them (operator decisions,
     `assistEndpoint` and `assistModel`; a key, if needed, is a client
     setting that never reaches players). The endpoint must allow the
     world's origin (CORS) over HTTPS; the lab's Bifrost at
-    `https://ai.zephyrex.ca/v1` does, serving `72gb-vllm/qwen3.8-27b`.
+    `https://ai.zephyr.ca/v1` does, serving `72gb-vllm/qwen3.8-27b`.
     Thinking is turned off (`chat_template_kwargs`). A question is
     abandoned after five minutes and the map composed without advice;
     probed 2026-09-27, whole-map questions to that model still ran past
@@ -1604,8 +1604,8 @@ schema modules directly via type stripping, so they import only `zod` and
 dependency-free leaf modules (`gen-schema.mjs` resolves their extensionless
 imports).
 
-- **Pack discovery:** an asset module ships one manifest, `zephyrex-pack.json`,
-  at its root and advertises it with `flags["zephyrex-cartography"].pack` in its
+- **Pack discovery:** an asset module ships one manifest, `zephyr-pack.json`,
+  at its root and advertises it with `flags["zephyr-cartography"].pack` in its
   `module.json`. Any module can therefore be a pack. Paths inside the manifest
   are relative to that module's root.
 - **Validation:** the manifest sets `"$schema"` to the public raw-GitHub URL of the
@@ -1726,8 +1726,8 @@ credits). The GM picks one set with the world `textureSet` setting, whose choice
 fill in once packs load; an unset or uninstalled choice means the first loaded
 set. The renderer resolves each biome/path **role** through the active set.
 The stamp engine's own packs (operator decision, 2026-09-30):
-`zephyrex-cartography-assets` holds the generated art (stamps and the
-hand-painted texture set), and `zephyrex-cartography-assets-cc0` every CC0
+`zephyr-cartography-assets` holds the generated art (stamps and the
+hand-painted texture set), and `zephyr-cartography-assets-cc0` every CC0
 asset: the Poly Haven and ambientCG texture sets with their fetch script and
 credits, and the ambience library (looping sounds and particle images, with
 their credits) whose `ambience` voices and smokes every pack's stamps by tag.
@@ -1743,8 +1743,8 @@ their credits) whose `ambience` voices and smokes every pack's stamps by tag.
 - **Targets v14 only** (`module.json` minimum and verified 14). Build on v14
   APIs directly (native Levels, multi-destination teleports, per-level walls);
   never add a fallback or version branch for v13 or earlier.
-- `module.json` (id `zephyrex-cartography`):
-  `esmodules`→`dist/zephyrex-cartography.js`, `styles`→`dist/zephyrex-cartography.css`,
+- `module.json` (id `zephyr-cartography`):
+  `esmodules`→`dist/zephyr-cartography.js`, `styles`→`dist/zephyr-cartography.css`,
   `languages`→`dist/lang/en.json`.
 - Vite lib build → `dist/` (`src/static/` copied verbatim).
 - Foundry runtime globals (`game`, `Hooks`, `foundry`, `canvas`, `CONFIG`,

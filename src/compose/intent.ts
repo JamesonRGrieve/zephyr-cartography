@@ -21,7 +21,7 @@ import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
 
 const MAP_INTENT_SCHEMA_VERSION = 1;
 
-export const MAP_INTENT_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyrex-cartography/main/schema/map-intent.v1.schema.json';
+export const MAP_INTENT_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyr-cartography/main/schema/map-intent.v1.schema.json';
 
 /** What a room is for; each purpose has its furnishing template. */
 export const ROOM_PURPOSES = [

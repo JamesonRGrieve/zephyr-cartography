@@ -1,7 +1,7 @@
 {
     "id": "zc-e2e",
     "title": "Cartography E2E System",
-    "description": "A game system with no rules, just enough for Foundry to load a world that the Zephyrex Cartography e2e suite authors scenes in.",
+    "description": "A game system with no rules, just enough for Foundry to load a world that the Zephyr Cartography e2e suite authors scenes in.",
     "version": "1.0.0",
     "compatibility": {
         "minimum": "14",

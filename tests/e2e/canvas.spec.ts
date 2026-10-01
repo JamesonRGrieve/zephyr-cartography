@@ -64,7 +64,7 @@ test('overlapping strokes of one texture meet seamlessly: every fill tiles from 
     ]);
     const tiling = async (): Promise<{ textureOrigin: Point; span: number }[]> =>
         world.evaluate(() => {
-            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyr-cartography-terrain');
             const sprites = (terrain instanceof PIXI.Container ? terrain.children : []).flatMap((child) =>
                 child instanceof PIXI.Container ? child.children.filter((grandchild) => grandchild instanceof PIXI.TilingSprite) : [],
             );
@@ -86,32 +86,32 @@ test('overlapping strokes of one texture meet seamlessly: every fill tiles from 
 
 test('features saved to the scene by another writer are drawn: another client, or a canvas replaced mid-build', async ({ world }) => {
     await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [{ type: 'stroke', biome: 'forest', radius: 2, points: [{ x: 5, y: 5 }] }],
         });
     });
     const fills = async (): Promise<number> =>
         world.evaluate(() => {
-            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyrex-cartography-terrain');
+            const terrain = canvas?.primary?.children.find((child) => child.name === 'zephyr-cartography-terrain');
             return terrain instanceof PIXI.Container ? terrain.children.length : -1;
         });
     await expect.poll(fills).toBe(1);
     // Saved straight to the scene, as a writer other than this canvas's controller would: a second stroke.
     await world.evaluate(async () => {
         const scene = canvas?.scene;
-        const first = scene?.getFlag('zephyrex-cartography', 'features')[0];
+        const first = scene?.getFlag('zephyr-cartography', 'features')[0];
         if (!scene || !first) {
             throw new Error('one feature saved');
         }
-        await scene.setFlag('zephyrex-cartography', 'features', [first, { ...first, id: 'written-elsewhere' }]);
+        await scene.setFlag('zephyr-cartography', 'features', [first, { ...first, id: 'written-elsewhere' }]);
     });
     await expect.poll(fills).toBe(2);
 });
 
 test('painted ground lies beneath the stamps placed on it, as a map background does', async ({ world }) => {
     await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             features: [
                 { type: 'stroke', biome: 'forest', radius: 2, points: [{ x: 5, y: 5 }] },
@@ -126,7 +126,7 @@ test('painted ground lies beneath the stamps placed on it, as a map background d
             primary?.sortChildren();
             const children = primary?.children ?? [];
             const mesh = canvas?.tiles?.placeables[0]?.mesh;
-            return { terrain: children.findIndex((child) => child.name === 'zephyrex-cartography-terrain'), tile: mesh ? children.indexOf(mesh) : -1 };
+            return { terrain: children.findIndex((child) => child.name === 'zephyr-cartography-terrain'), tile: mesh ? children.indexOf(mesh) : -1 };
         });
     await expect.poll(async () => (await order()).tile).toBeGreaterThanOrEqual(0);
     const { terrain, tile } = await order();
@@ -149,7 +149,7 @@ test('a river ends square at its full width, as a road does', async ({ world }) 
     await expect
         .poll(async () =>
             world.evaluate(() => {
-                const controller = game.modules?.get('zephyrex-cartography').api.controller();
+                const controller = game.modules?.get('zephyr-cartography').api.controller();
                 // Just inside each end, off the centerline by most of the half-width: full width reaches there.
                 return [
                     { x: 310, y: 800 },

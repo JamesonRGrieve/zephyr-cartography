@@ -32,7 +32,7 @@ const INTENT = {
 
 test('an intent composes into walls, a door, a road, storage against the walls and rocks on the rocky ground, undone in one step', async ({ world }) => {
     const outcome = await world.evaluate(async (intent) => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const composed = await api?.compose(intent);
         if (composed?.ok !== true) {
             return null;
@@ -69,7 +69,7 @@ test('an intent composes into walls, a door, a road, storage against the walls a
     await expect(world.locator('#board')).toHaveScreenshot('storeroom.png');
 
     const left = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.undo();
+        await game.modules?.get('zephyr-cartography').api.controller()?.undo();
         const scene = canvas?.scene;
         return { walls: scene?.walls.size, tiles: scene?.tiles.size };
     });
@@ -114,7 +114,7 @@ test('a two-storey building: native levels, outer walls stacked on the same peri
     world,
 }) => {
     const outcome = await world.evaluate(async (intent) => {
-        const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
+        const composed = await game.modules?.get('zephyr-cartography').api.compose(intent);
         return composed?.ok === true ? { problems: composed.problems, built: composed.report.problems } : null;
     }, TWO_STOREYS);
     expect(outcome?.built).toEqual([]);
@@ -186,7 +186,7 @@ test('a roadside inn: its cellar a native level below the scene’s own floor, i
     // In any setting: the fixture pack's stamps are test art, which belongs to none.
     const outcome = await world.evaluate(
         async (intent) => {
-            const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
+            const composed = await game.modules?.get('zephyr-cartography').api.compose(intent);
             return composed?.ok === true ? { problems: composed.problems.map((p) => p.kind), built: composed.report.problems } : null;
         },
         { ...PRESET_INTENTS['roadside-inn'], settings: [] },
@@ -256,7 +256,7 @@ async function shootLevel(page: Page, levelName: string, shot: string): Promise<
 
 test('a named piece asking for a state is placed in its art’s variant of that state', async ({ world }) => {
     const variants = await world.evaluate(async (intent) => {
-        const api = game.modules?.get('zephyrex-cartography').api;
+        const api = game.modules?.get('zephyr-cartography').api;
         const composed = await api?.compose(intent);
         if (composed?.ok !== true) {
             return null;
@@ -331,7 +331,7 @@ const RAISED = {
 
 test('a raised platform and an office storey over part of a building: each on the level above, a stair up to each, a roof over the rest', async ({ world }) => {
     const outcome = await world.evaluate(async (intent) => {
-        const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
+        const composed = await game.modules?.get('zephyr-cartography').api.compose(intent);
         return composed?.ok === true ? { problems: composed.problems, built: composed.report.problems } : null;
     }, RAISED);
     expect(outcome?.built).toEqual([]);
@@ -372,7 +372,7 @@ const LADDER_DOWN = {
 
 test('a hull cut at its bow alone, a ladder down to its hold: the one ladder the way between them, a dark hatchway above it', async ({ world }) => {
     const outcome = await world.evaluate(async (intent) => {
-        const composed = await game.modules?.get('zephyrex-cartography').api.compose(intent);
+        const composed = await game.modules?.get('zephyr-cartography').api.compose(intent);
         return composed?.ok === true ? { problems: composed.problems, built: composed.report.problems } : null;
     }, LADDER_DOWN);
     expect(outcome?.built).toEqual([]);
@@ -443,7 +443,7 @@ test('a curtain wall with its moat, a walled city district and hewn tunnels comp
     ];
     const outcome = await world.evaluate(
         async (intent) => {
-            const api = game.modules?.get('zephyrex-cartography').api;
+            const api = game.modules?.get('zephyr-cartography').api;
             const composed = await api?.compose(intent);
             if (composed?.ok !== true) {
                 return null;
@@ -538,7 +538,7 @@ test('a building with a room of every purpose furnishes each in Foundry, into na
     const rooms = ROOM_PURPOSES.map((purpose, i) => ({ key: `r${i}`, purpose, ...(i === 0 ? { entrance: true } : { opensTo: ['r0'] }) }));
     const outcome = await world.evaluate(
         async (intent) => {
-            const api = game.modules?.get('zephyrex-cartography').api;
+            const api = game.modules?.get('zephyr-cartography').api;
             const composed = await api?.compose(intent);
             if (composed?.ok !== true) {
                 return null;
@@ -604,7 +604,7 @@ test('every Map builder preset composes in Foundry into native documents, with n
         const size = parsed.ok ? { width: parsed.intent.width * GRID, height: parsed.intent.height * GRID, gridSize: GRID } : undefined;
         await freshScene(world, preset, size);
         built[preset] = await world.evaluate(async (given) => {
-            const composed = await game.modules?.get('zephyrex-cartography').api.compose(given);
+            const composed = await game.modules?.get('zephyr-cartography').api.compose(given);
             const scene = canvas?.scene;
             return {
                 problems: composed?.ok === true ? composed.report.problems.map((p) => JSON.stringify(p)) : ['not composed'],
@@ -629,9 +629,9 @@ const ADVISOR = 'https://advisor.invalid/v1';
 
 test('AI-assisted, the Map builder asks the model to choose stamps and critique the layout, and makes the fixes it may', async ({ world }) => {
     await world.evaluate(async (endpoint) => {
-        await game.settings?.set('zephyrex-cartography', 'assistEndpoint', endpoint);
-        await game.settings?.set('zephyrex-cartography', 'assistModel', 'test-model');
-        await game.settings?.set('zephyrex-cartography', 'assistKey', 'test-key');
+        await game.settings?.set('zephyr-cartography', 'assistEndpoint', endpoint);
+        await game.settings?.set('zephyr-cartography', 'assistModel', 'test-model');
+        await game.settings?.set('zephyr-cartography', 'assistKey', 'test-key');
     }, ADVISOR);
     // The model: its first answer chooses nothing, wrapped in prose; its second turns the first piece the critique lists.
     const asked: { authorization: string | undefined; sent: string }[] = [];

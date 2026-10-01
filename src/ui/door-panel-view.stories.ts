@@ -26,7 +26,7 @@ const LABELS: DoorPanelLabels = {
 /** Mount an interactive panel inside a stand-in Foundry window scoped for the module's styles. */
 export function mountDoorPanel(args: DoorPanelArgs): HTMLElement {
     const windowEl = document.createElement('div');
-    windowEl.className = 'zephyrex-cartography zc-story-window';
+    windowEl.className = 'zephyr-cartography zc-story-window';
     const root = document.createElement('div');
     windowEl.append(root);
     let door = args.door;

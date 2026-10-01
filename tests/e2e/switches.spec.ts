@@ -10,7 +10,7 @@ import { expect, test } from './lib/foundry';
 /** Place a switch and a lamp, add a plain light, and link both to the switch; returns the plain light's id. */
 async function wireSwitch(page: Page): Promise<string> {
     return page.evaluate(async () => {
-        const controller = game.modules?.get('zephyrex-cartography').api.controller();
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
         const switchId = await controller?.placeStamp({ stamp: 'zc-e2e-pack:switch', x: 300, y: 300 });
         const lampId = await controller?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 700, y: 300 });
         const [plain] = (await canvas?.scene?.createEmbeddedDocuments('AmbientLight', [{ x: 1000, y: 600, config: { dim: 10, bright: 5 } }])) ?? [];
@@ -24,7 +24,7 @@ async function wireSwitch(page: Page): Promise<string> {
 /** Open (on) or close (off) the switch's door, as Foundry's own door control does. */
 async function flip(page: Page, on: boolean): Promise<void> {
     await page.evaluate(async (switchedOn) => {
-        const wall = canvas?.scene?.walls.contents.find((w) => 'zephyrex-cartography' in w.flags);
+        const wall = canvas?.scene?.walls.contents.find((w) => 'zephyr-cartography' in w.flags);
         await wall?.update({ ds: switchedOn ? CONST.WALL_DOOR_STATES.OPEN : CONST.WALL_DOOR_STATES.CLOSED });
     }, on);
 }
@@ -46,13 +46,13 @@ test('a light switch’s door control shows Foundry’s light icon, lit when on 
             { x: 1500, y: 500 },
         ];
         await game.modules
-            ?.get('zephyrex-cartography')
+            ?.get('zephyr-cartography')
             .api.buildSpec({ schemaVersion: 1, units: 'px', features: [{ type: 'room', points, doors: [{ segment: 0 }] }] });
     });
     const icons = async (): Promise<{ switch: string | null; door: string | null }> =>
         world.evaluate(() => {
             const icon = (lightSwitch: boolean): string | null => {
-                const wall = canvas?.walls?.placeables.find((w) => w.isDoor && 'zephyrex-cartography' in w.document.flags === lightSwitch);
+                const wall = canvas?.walls?.placeables.find((w) => w.isDoor && 'zephyr-cartography' in w.document.flags === lightSwitch);
                 // Foundry wraps each cached icon in a new Texture, so the icons are told apart by their base texture.
                 const shown = wall?.doorControl?.icon?.texture.baseTexture;
                 const named = Object.entries(CONFIG.controlIcons).find(([, path]) => {
@@ -92,7 +92,7 @@ test('a scene spec wires a switch to the lamp it names by key and the light it n
     const outcome = await world.evaluate(async () => {
         const [plain] = (await canvas?.scene?.createEmbeddedDocuments('AmbientLight', [{ x: 1000, y: 600, config: { dim: 10, bright: 5 } }])) ?? [];
         const plainId = plain?.id ?? '';
-        const built = await game.modules?.get('zephyrex-cartography').api.buildSpec({
+        const built = await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             units: 'px',
             features: [

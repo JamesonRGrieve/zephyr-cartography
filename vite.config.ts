@@ -14,12 +14,12 @@ export default defineConfig({
         cssCodeSplit: false,
         copyPublicDir: true,
         lib: {
-            entry: 'src/zephyrex-cartography.ts',
+            entry: 'src/zephyr-cartography.ts',
             formats: ['es'],
-            fileName: (): string => 'zephyrex-cartography.js',
+            fileName: (): string => 'zephyr-cartography.js',
         },
         rollupOptions: {
-            output: { assetFileNames: 'zephyrex-cartography.[ext]' },
+            output: { assetFileNames: 'zephyr-cartography.[ext]' },
         },
     },
 });

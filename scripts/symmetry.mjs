@@ -24,7 +24,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 const ROOT = process.cwd();
 const SRC = join(ROOT, 'src');
 const CORE_DIRS = ['geometry', 'tools', 'stamps', 'canvas', 'generate'];
-const ENTRY = 'src/zephyrex-cartography.ts';
+const ENTRY = 'src/zephyr-cartography.ts';
 const OPT_OUT_FILE = join(ROOT, '.coverage-opt-out.json');
 
 function walk(dir) {

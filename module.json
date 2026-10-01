@@ -1,6 +1,6 @@
 {
-    "id": "zephyrex-cartography",
-    "title": "Zephyrex Cartography",
+    "id": "zephyr-cartography",
+    "title": "Zephyr Cartography",
     "description": "Standalone scene authoring for Foundry VTT: paint terrain, draw roads and rivers, build structures, and place structure-aware stamps (walls, lights, doors, levels, interiors), all as native Foundry documents.",
     "version": "0.2.0",
     "authors": [
@@ -13,10 +13,10 @@
         "verified": "14"
     },
     "esmodules": [
-        "dist/zephyrex-cartography.js"
+        "dist/zephyr-cartography.js"
     ],
     "styles": [
-        "dist/zephyrex-cartography.css"
+        "dist/zephyr-cartography.css"
     ],
     "languages": [
         {
@@ -35,6 +35,6 @@
         ]
     },
     "license": "AGPL-3.0-or-later",
-    "url": "https://github.com/JamesonRGrieve/zephyrex-cartography",
+    "url": "https://github.com/JamesonRGrieve/zephyr-cartography",
     "flags": {}
 }

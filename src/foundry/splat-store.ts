@@ -2,7 +2,7 @@
 /**
  * {@link SplatStore} over the live scene and the world's data folder: the
  * layers live in the scene's `splats` flag, and each mask is an exact RGBA
- * PNG (`tools/png.ts`) under `worlds/<world>/zephyrex-cartography/`, uploaded
+ * PNG (`tools/png.ts`) under `worlds/<world>/zephyr-cartography/`, uploaded
  * through Foundry's own file picker. A baked blend is a PNG beside its mask,
  * shown by a native Tile. Only the GM saves; everyone reads.
  */

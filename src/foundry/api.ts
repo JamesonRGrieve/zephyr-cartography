@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * The module's public API, at `game.modules.get('zephyrex-cartography').api`:
+ * The module's public API, at `game.modules.get('zephyr-cartography').api`:
  * for macros, other modules and the e2e suite. It exposes the same
  * declarative surface the tools use (the controller, scene specs and the
  * floor-plan generator), so anything a GM can draw can be scripted.
@@ -49,11 +49,11 @@ interface CartographyApi {
 
 declare global {
     interface ModuleConfig {
-        'zephyrex-cartography': { api: CartographyApi };
+        'zephyr-cartography': { api: CartographyApi };
     }
     /** This module's own code only runs while it is active, so `game.modules.get` always finds it. */
     interface RequiredModules {
-        'zephyrex-cartography': true;
+        'zephyr-cartography': true;
     }
 }
 

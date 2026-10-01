@@ -3,7 +3,7 @@ import { expect, test } from './lib/foundry';
 
 test('a door stamp’s wall slides open with its pack’s animation and sound', async ({ world }) => {
     const door = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:door', x: 500, y: 500 });
+        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:door', x: 500, y: 500 });
         const wall = canvas?.scene?.walls.contents.find((w) => w.door === CONST.WALL_DOOR_TYPES.DOOR);
         return wall ? { doorSound: wall.doorSound, type: wall.animation?.type, duration: wall.animation?.duration, texture: wall.animation?.texture } : null;
     });
@@ -13,7 +13,7 @@ test('a door stamp’s wall slides open with its pack’s animation and sound', 
 
 test('stamp walls carry every sense level, a one-way direction and thresholds into Foundry', async ({ world }) => {
     const walls = await world.evaluate(async () => {
-        await game.modules?.get('zephyrex-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:fence', x: 500, y: 500 });
+        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:fence', x: 500, y: 500 });
         return (canvas?.scene?.walls.contents ?? []).map((w) => ({
             sight: w.sight,
             light: w.light,

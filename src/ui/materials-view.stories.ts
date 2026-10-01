@@ -23,7 +23,7 @@ const LABELS: MaterialsLabels = {
 /** Mount an interactive panel inside a stand-in Foundry window scoped for the module's styles. */
 export function mountMaterialsPanel(args: MaterialsArgs): HTMLElement {
     const windowEl = document.createElement('div');
-    windowEl.className = 'zephyrex-cartography zc-story-window';
+    windowEl.className = 'zephyr-cartography zc-story-window';
     const root = document.createElement('div');
     windowEl.append(root);
     let current = args.current;

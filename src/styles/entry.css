@@ -9,7 +9,7 @@
  * in even columns, and each group a framed section under a small-caps
  * heading. Colours come from Foundry's theme (with fallbacks outside it).
  */
-.zephyrex-cartography {
+.zephyr-cartography {
     --zc-label-width: 9.5rem;
     --zc-field-width: 18rem;
     --zc-rule: var(--color-border, rgb(255 255 255 / 14%));
@@ -17,11 +17,11 @@
 }
 
 /* A panel opens as tall as what it shows (`height: auto`), and scrolls past what the screen holds. */
-.application.zephyrex-cartography {
+.application.zephyr-cartography {
     max-height: calc(100vh - 4rem);
 }
 
-.zephyrex-cartography .zc-field {
+.zephyr-cartography .zc-field {
     display: grid;
     flex: 1 1 var(--zc-field-width);
     grid-template-columns: var(--zc-label-width) minmax(0, 1fr);
@@ -33,24 +33,24 @@
 }
 
 /* Stacked in a column, a field is one row tall: its tile width must not become its height. */
-.zephyrex-cartography :is(.tw-flex-col, .zc-card) > :is(.zc-field, .zc-check, .zc-inline, .zc-actions) {
+.zephyr-cartography :is(.tw-flex-col, .zc-card) > :is(.zc-field, .zc-check, .zc-inline, .zc-actions) {
     flex: 0 0 auto;
 }
 
-.zephyrex-cartography .zc-field-wide {
+.zephyr-cartography .zc-field-wide {
     flex-basis: 100%;
     grid-template-columns: minmax(0, 1fr);
     row-gap: 0.25rem;
 }
 
-.zephyrex-cartography .zc-field-label {
+.zephyr-cartography .zc-field-label {
     color: var(--zc-muted);
     line-height: 1.2;
     overflow-wrap: anywhere;
 }
 
 /* One item of a list (a level): a framed card, its heading line, then its fields. */
-.zephyrex-cartography .zc-card {
+.zephyr-cartography .zc-card {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -62,7 +62,7 @@
 }
 
 /* A field and the button that fills it (a path and its file picker), kept together. */
-.zephyrex-cartography .zc-inline {
+.zephyr-cartography .zc-inline {
     display: flex;
     flex: 1 1 var(--zc-field-width);
     gap: 0.35rem;
@@ -70,7 +70,7 @@
     min-width: 0;
 }
 
-.zephyrex-cartography .zc-inline > .zc-field {
+.zephyr-cartography .zc-inline > .zc-field {
     flex: 1;
 }
 
@@ -79,7 +79,7 @@
  * paint swatch). Foundry sizes buttons to one line of text; these grow to
  * hold what they show.
  */
-.zephyrex-cartography button.zc-tile {
+.zephyr-cartography button.zc-tile {
     height: auto;
     min-height: var(--button-size, 2em);
     padding: 0.25rem;
@@ -88,7 +88,7 @@
 }
 
 /* A row of buttons. */
-.zephyrex-cartography .zc-actions {
+.zephyr-cartography .zc-actions {
     display: flex;
     flex-basis: 100%;
     flex-wrap: wrap;
@@ -97,29 +97,29 @@
 }
 
 /* A card's heading line: what it is on the left, its actions on the right. */
-.zephyrex-cartography .zc-card-head {
+.zephyr-cartography .zc-card-head {
     display: flex;
     gap: 0.5rem;
     align-items: center;
     width: 100%;
 }
 
-.zephyrex-cartography .zc-card-head .zc-spacer {
+.zephyr-cartography .zc-card-head .zc-spacer {
     flex: 1;
 }
 
-.zephyrex-cartography .zc-card-meta {
+.zephyr-cartography .zc-card-meta {
     color: var(--zc-muted);
     font-size: var(--font-size-12, 0.75rem);
 }
 
-.zephyrex-cartography .zc-control {
+.zephyr-cartography .zc-control {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
 }
 
-.zephyrex-cartography .zc-check {
+.zephyr-cartography .zc-check {
     display: flex;
     flex: 1 1 var(--zc-field-width);
     gap: 0.4rem;
@@ -128,7 +128,7 @@
     font-size: var(--font-size-13, 0.8125rem);
 }
 
-.zephyrex-cartography fieldset {
+.zephyr-cartography fieldset {
     margin: 0;
     padding: 0.5rem 0.75rem 0.75rem;
     border: 1px solid var(--zc-rule);
@@ -136,9 +136,9 @@
     background: rgb(0 0 0 / 12%);
 }
 
-.zephyrex-cartography legend,
-.zephyrex-cartography h4,
-.zephyrex-cartography .zc-disclosure-summary {
+.zephyr-cartography legend,
+.zephyr-cartography h4,
+.zephyr-cartography .zc-disclosure-summary {
     padding: 0 0.35rem;
     color: var(--zc-muted);
     font-size: var(--font-size-11, 0.6875rem);
@@ -148,24 +148,24 @@
 }
 
 /* A heading within a panel reads as a section heading, not Foundry's display face. */
-.zephyrex-cartography h4 {
+.zephyr-cartography h4 {
     margin: 0.5rem 0 0;
     border: 0;
     font-family: inherit;
 }
 
-.zephyrex-cartography .zc-disclosure {
+.zephyr-cartography .zc-disclosure {
     width: 100%;
     padding-top: 0.25rem;
     border-top: 1px solid var(--zc-rule);
 }
 
-.zephyrex-cartography .zc-disclosure-summary {
+.zephyr-cartography .zc-disclosure-summary {
     padding: 0.25rem 0;
     cursor: pointer;
 }
 
-.zephyrex-cartography .zc-fields {
+.zephyr-cartography .zc-fields {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
@@ -174,20 +174,20 @@
 }
 
 /* Variant bar the stamp engine adds to the Tile HUD's right column. */
-.zephyrex-cartography-hud-variants {
+.zephyr-cartography-hud-variants {
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
 
-.zephyrex-cartography-hud-variants img {
+.zephyr-cartography-hud-variants img {
     width: 32px;
     height: 32px;
     object-fit: contain;
     border: 0;
 }
 
-.zephyrex-cartography-hud-variants [aria-pressed='true'],
+.zephyr-cartography-hud-variants [aria-pressed='true'],
 .zc-paint-swatch[aria-pressed='true'] {
     outline: 2px solid var(--color-border-highlight, #ff6400);
 }

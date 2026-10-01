@@ -16,7 +16,7 @@ export default defineConfig({
             reporter: ['text-summary', 'json-summary', 'html'],
             reportsDirectory: '.coverage',
             include: ['src/**/*.ts'],
-            exclude: ['**/*.test.ts', '**/*.stories.ts', '**/*.d.ts', 'src/foundry/**', 'src/zephyrex-cartography.ts', 'src/canvas/test-fakes.ts'],
+            exclude: ['**/*.test.ts', '**/*.stories.ts', '**/*.d.ts', 'src/foundry/**', 'src/zephyr-cartography.ts', 'src/canvas/test-fakes.ts'],
         },
     },
 });

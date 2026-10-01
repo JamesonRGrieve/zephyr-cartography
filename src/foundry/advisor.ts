@@ -18,9 +18,9 @@ const KEY_SETTING = 'assistKey';
 
 declare global {
     interface SettingConfig {
-        'zephyrex-cartography.assistEndpoint': string;
-        'zephyrex-cartography.assistModel': string;
-        'zephyrex-cartography.assistKey': string;
+        'zephyr-cartography.assistEndpoint': string;
+        'zephyr-cartography.assistModel': string;
+        'zephyr-cartography.assistKey': string;
     }
 }
 

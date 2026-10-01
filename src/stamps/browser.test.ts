@@ -140,12 +140,12 @@ describe('browserView', () => {
 describe('stamp drop payload', () => {
     it('round-trips through JSON and rejects anything else', () => {
         expect(parseStampDrop(JSON.parse(stampDropPayload('pack:lamp', 1, 90)))).toEqual({
-            type: 'ZephyrexStamp',
+            type: 'ZephyrStamp',
             stamp: 'pack:lamp',
             variant: 1,
             rotation: 90,
         });
         expect(parseStampDrop({ type: 'Actor', uuid: 'x' })).toBeNull();
-        expect(parseStampDrop({ type: 'ZephyrexStamp', stamp: '', variant: 0, rotation: 0 })).toBeNull();
+        expect(parseStampDrop({ type: 'ZephyrStamp', stamp: '', variant: 0, rotation: 0 })).toBeNull();
     });
 });
