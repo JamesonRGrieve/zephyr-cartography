@@ -17,7 +17,7 @@ import type { Point } from '../geometry/spline';
 import type { StampRole } from '../stamps/schema';
 import type { BiomeKind } from '../tools/biome';
 import { WALL_BAND_SQUARES } from '../tools/materials';
-import { type Flight, flightFor, narrowestFlight, type StormDoorway, stormDoorway, wayDownOver } from './access';
+import { type Flight, flightFor, narrowestFlight, type StormDoorway, stormDoorway, wayDownOver, withStairTags } from './access';
 import { curtainFeatures, moatOutlines } from './curtain';
 import { districtFeatures } from './district';
 import { composeExterior } from './exterior';
@@ -517,15 +517,16 @@ function composeBuilding(
     map: MapContext,
 ): { features: FeatureInput[]; problems: ComposeProblem[]; ground: BuildingLayout | null; annexes: Rect[] } {
     const { stamps, random, levelOf, night, preferences, depth } = map;
+    const ways = withStairTags(stamps, building.stairTags);
     // A flight must not open onto a level beneath where it climbs from: the map's cellar levels lie under every ground floor.
     const asked = {
-        up: building.floors.length > 0 ? flightFor(building.floorAccess, stamps, random, { wantedIn: called, below: depth > 0 }) : null,
+        up: building.floors.length > 0 ? flightFor(building.floorAccess, ways, random, { wantedIn: called, below: depth > 0 }) : null,
         down:
             building.cellars.length > 0
-                ? flightFor(building.cellarAccess, stamps, random, { wantedIn: `${called}/cellar`, below: depth > building.cellars.length })
+                ? flightFor(building.cellarAccess, ways, random, { wantedIn: `${called}/cellar`, below: depth > building.cellars.length })
                 : null,
     };
-    const { up, down, storeys } = laidOut(building, footprint, asked, map);
+    const { up, down, storeys } = laidOut(building, footprint, asked, { ...map, stamps: ways });
     if (!storeys) {
         return {
             features: [],

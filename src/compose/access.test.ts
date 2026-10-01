@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import { flightFor, narrowestFlight, stormDoorway, wayDownOver } from './access';
+import { flightFor, narrowestFlight, stormDoorway, wayDownOver, withStairTags } from './access';
 import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
@@ -122,6 +122,23 @@ describe('narrowestFlight', () => {
         const pool = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['stairs', [broad, stairs, other]]]);
         expect(narrowestFlight({ stair: broad, problems: [] }, pool).stair?.key).toBe('test:stairs');
         expect(narrowestFlight({ stair: undefined, problems: [] }, pool).stair).toBeUndefined();
+    });
+});
+
+describe('withStairTags', () => {
+    it('narrows the flights of stairs to the art carrying a tag asked, keeping every other way; as it is where none carries one', () => {
+        const stairs = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:stairs');
+        if (!stairs) {
+            throw new Error('the test roles have no stairs');
+        }
+        const spiral: RoleStamp = { ...stairs, key: 'test:spiral', tags: ['spiral', 'wooden', 'stairs'] };
+        const pool = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['stairs', [...(TEST_ROLES.get('stairs') ?? []), spiral]]]);
+        const ways = withStairTags(pool, ['spiral']).get('stairs') ?? [];
+        expect(ways.map((s) => s.key)).toContain('test:spiral');
+        expect(ways.map((s) => s.key)).not.toContain('test:stairs');
+        expect(ways.map((s) => s.key)).toContain('test:ladder');
+        expect(flightFor('stairs', withStairTags(pool, ['spiral']), seededRandom(1), at('inn')).stair?.key).toBe('test:spiral');
+        expect(withStairTags(pool, ['marble'])).toBe(pool);
     });
 });
 

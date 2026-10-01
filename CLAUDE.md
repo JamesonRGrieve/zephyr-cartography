@@ -1325,7 +1325,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
     them instead (see Seen levels). Each
     way takes the access asked for (`floorAccess`, `cellarAccess`: stairs
     or a ladder; `compose/access.ts`), else another kind that climbs,
-    reported as a stand-in. A stair climbs from hall to hall: the floors
+    reported as a stand-in; a building's `stairTags` draws its flights of
+    stairs in art carrying one of them (a tavern's `spiral` wooden stair)
+    where any does. A stair climbs from hall to hall: the floors
     above are laid out first (a corridor falls where the footprint puts
     it), and the ground floor is chosen among layouts whose hall holds a
     spot in every hall above, so the landing is never in a guest's room.

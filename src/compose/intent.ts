@@ -503,6 +503,12 @@ const building = z
             .describe(
                 'Door art its doorways are hung with must carry one of these tags (`timber`, `bulkhead`, `blast`); none: any door art as wide as the doorway.',
             ),
+        stairTags: z
+            .array(text)
+            .default([])
+            .describe(
+                'Its flights of stairs are drawn in art carrying one of these tags (`spiral`, `wooden`), where any loaded art does; none, or none carrying them: any stair art.',
+            ),
         rooms: z.array(room).min(1).describe('The ground floor’s rooms.'),
         floors: z
             .array(storey)

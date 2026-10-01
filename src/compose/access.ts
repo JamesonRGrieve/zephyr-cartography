@@ -101,6 +101,18 @@ export function narrowestFlight(flight: Flight, stamps: RoleIndex): Flight {
     return least ? { ...flight, stair: least } : flight;
 }
 
+/**
+ * `stamps` with its flights of stairs narrowed to the art carrying one of
+ * `tags` (a tavern's `spiral` wooden stair), where any does; ladders, hatches
+ * and every other way as they are.
+ */
+export function withStairTags(stamps: RoleIndex, tags: readonly string[]): RoleIndex {
+    const ways = stamps.get('stairs') ?? [];
+    const isFlight = (s: RoleStamp): boolean => s.climb?.kind === 'stairs';
+    const tagged = ways.filter((s) => isFlight(s) && s.tags.some((tag) => tags.includes(tag)));
+    return tagged.length === 0 ? stamps : new Map([...stamps, ['stairs', [...tagged, ...ways.filter((s) => !isFlight(s))]]]);
+}
+
 /** Tags naming a way down built into a floor, as a building's is: not a shaft or a hole broken through. */
 const BUILT_OPENING_TAGS: readonly string[] = ['well', 'hatch', 'trapdoor', 'stairwell'];
 

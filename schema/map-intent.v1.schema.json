@@ -601,6 +601,15 @@
                             "minLength": 1
                         }
                     },
+                    "stairTags": {
+                        "default": [],
+                        "description": "Its flights of stairs are drawn in art carrying one of these tags (`spiral`, `wooden`), where any loaded art does; none, or none carrying them: any stair art.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
                     "rooms": {
                         "minItems": 1,
                         "type": "array",
