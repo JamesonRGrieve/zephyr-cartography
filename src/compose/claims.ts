@@ -19,14 +19,23 @@ export interface ClaimingRoom {
     readonly intent: Pick<RoomIntent, 'fixtures' | 'chamfer' | 'chamferAt'>;
 }
 
-/** A piece's footprint at its facing: drawn facing up or down as asked, turned a quarter facing sideways. */
-function sized(fixture: FixtureIntent, facing: Side): { w: number; h: number } {
-    return facing === 'left' || facing === 'right' ? { w: fixture.height, h: fixture.width } : { w: fixture.width, h: fixture.height };
-}
+/** Squares kept round each claim: a step round the piece, as a stairwell keeps off a wall. */
+const CLAIM_CLEARANCE = 0.25;
 
-/** `size` centred on the room's point `at` (fractions of the room). */
+/**
+ * The square a free-standing piece may take: its art is fitted to its
+ * longer side whichever way round it fits, so either way round it stands
+ * within that side's square.
+ */
+const spanOf = (fixture: FixtureIntent): { w: number; h: number } => {
+    const side = Math.max(fixture.width, fixture.height);
+    return { w: side, h: side };
+};
+
+/** `size` centred on the room's point `at` (fractions of the room), drawn in to stand inside the room as a free piece is. */
 function centredAt(rect: Rect, at: { readonly x: number; readonly y: number }, size: { w: number; h: number }): Box {
-    return { x: rect.x + at.x * rect.w - size.w / 2, y: rect.y + at.y * rect.h - size.h / 2, ...size };
+    const inside = (v: number, lo: number, span: number, extent: number): number => Math.min(Math.max(v - extent / 2, lo), lo + span - extent);
+    return { x: inside(rect.x + at.x * rect.w, rect.x, rect.w, size.w), y: inside(rect.y + at.y * rect.h, rect.y, rect.h, size.h), ...size };
 }
 
 /** The corners at each end of a wall, its start (top or left end) first. */
@@ -77,12 +86,12 @@ const grown = (box: Box, by: number): Box => ({ x: box.x - by, y: box.y - by, w:
 
 /** The floor `fixture` asks for in `room`, given what the fixtures named before it claim; none where it may stand anywhere. */
 function claimOf(room: ClaimingRoom, fixture: FixtureIntent, earlier: ReadonlyMap<string, readonly Box[]>): Box[] {
-    const { place, facing } = fixture;
+    const { place } = fixture;
     if ('at' in place) {
-        return [centredAt(room.rect, place.at, sized(fixture, facing))];
+        return [centredAt(room.rect, place.at, spanOf(fixture))];
     }
     if ('centre' in place) {
-        return [centredAt(room.rect, { x: 0.5, y: 0.5 }, sized(fixture, facing))];
+        return [centredAt(room.rect, { x: 0.5, y: 0.5 }, spanOf(fixture))];
     }
     if ('wall' in place) {
         return place.wall === 'any' ? [] : [onWall(room, fixture, { wall: place.wall, along: place.along, standoff: place.standoff })];
@@ -94,7 +103,7 @@ function claimOf(room: ClaimingRoom, fixture: FixtureIntent, earlier: ReadonlyMa
         const { from, to } = place.line;
         const steps = Math.max(1, fixture.count - 1);
         return Array.from({ length: fixture.count }, (_, i) =>
-            centredAt(room.rect, { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps }, sized(fixture, facing)),
+            centredAt(room.rect, { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps }, spanOf(fixture)),
         );
     }
     if ('before' in place) {
@@ -105,12 +114,12 @@ function claimOf(room: ClaimingRoom, fixture: FixtureIntent, earlier: ReadonlyMa
     return [];
 }
 
-/** The floor every named fixture of `room` asks for, in the order they are named. */
+/** The floor every named fixture of `room` asks for, a step round each, in the order they are named. */
 export function claimedIn(room: ClaimingRoom): Box[] {
     const byName = new Map<string, Box[]>();
     for (const fixture of room.intent.fixtures) {
         const boxes = claimOf(room, fixture, byName);
         byName.set(fixture.name, [...(byName.get(fixture.name) ?? []), ...boxes]);
     }
-    return [...byName.values()].flat();
+    return [...byName.values()].flat().map((box) => grown(box, CLAIM_CLEARANCE));
 }

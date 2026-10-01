@@ -394,6 +394,26 @@ describe('layOutStoreys', () => {
         }
     });
 
+    it('keeps the way down off a piece asked for by a wall, where the piece is drawn in to stand', () => {
+        // A ship's mess with a cot each side at the stern end, and a hatch down to engineering.
+        const cot = (x: number): object => ({ name: 'crew cot', width: 1, height: 2, role: 'bed', place: { at: { x, y: 0.8 } } });
+        const ship = buildingOf({
+            width: 10,
+            height: 11,
+            rooms: [{ key: 'living', purpose: 'mess', rect: { x: 0, y: 0, w: 10, h: 11 }, furnish: 'fixtures', fixtures: [cot(0.06), cot(0.94)] }],
+            cellars: [{ rooms: [{ key: 'engineering', purpose: 'workshop', rect: { x: 0, y: 0, w: 10, h: 11 } }] }],
+            cellarAccess: 'ladder',
+        });
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const storeys = layOutStoreys(ship, { x: 0, y: 0, w: 10, h: 11 }, { up: null, down: { w: 1, h: 1 } }, seededRandom(seed));
+            const cellarWell = storeys?.cellarWell;
+            if (!storeys || !cellarWell) {
+                throw new Error(`seed ${seed}: no well`);
+            }
+            expect(storeys.ground.rooms.flatMap(claimedIn).filter((claim) => overlaps(claim, cellarWell))).toEqual([]);
+        }
+    });
+
     it('lays cellars out below round a well of their own, held by the ground floor and every cellar, clear of the stairwell up', () => {
         const house = buildingOf({
             width: 12,
