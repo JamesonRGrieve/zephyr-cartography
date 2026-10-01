@@ -223,6 +223,22 @@ describe('bridges and yard pieces', () => {
         expect(neighboured.length / flowers.length).toBeGreaterThan(0.6);
     });
 
+    it('keeps a wood’s canopies mostly off a road through it too: the way is seen, never roofed over by a tree', () => {
+        const wooded = crossing({
+            zones: [{ kind: 'woodland', area: { shape: 'everywhere' }, density: 'dense' }],
+            paths: [{ kind: 'road', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, meander: 0, width: 2 }],
+            buildings: [],
+        });
+        const { spec } = composeMap(wooded, TEST_ROLES);
+        const road = spec.features.find((f) => f.type === 'path' && f.kind === 'road');
+        if (road?.type !== 'path') {
+            throw new Error('no road');
+        }
+        const trees = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:tree');
+        expect(trees.length).toBeGreaterThan(0);
+        expect(trees.every((t) => t.type === 'stamp' && Math.abs(t.y - 10) >= (road.halfWidth ?? 1) + 1)).toBe(true);
+    });
+
     it('spaces a zone’s smallest dressing as though a square across: tufts of sedge never pack a marsh by the hundred', () => {
         const flora = TEST_ROLES.get('flora')?.[0];
         if (!flora) {

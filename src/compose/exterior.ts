@@ -433,8 +433,8 @@ interface Keepout {
 /**
  * Whether nothing of `role` may stand at `p`. `reach` is how far (squares)
  * what stands there spreads round it, kept off buildings; `onPaths` is how
- * far of it must also stay off roads and water (a canopy may hang over a
- * road, a bunker may not stand on one).
+ * far of it must also stay off roads and water (a bunker may not stand on
+ * one); a canopy leans only a little over either.
  */
 function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths = 0): boolean {
     const { map } = keepout;
@@ -447,9 +447,9 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
     if (keepout.sites.some((site) => siteRects(site).some(near))) {
         return true;
     }
-    // A canopy hangs over a road as it likes, but over a river only as far as over a lake: the water is seen running through.
-    const off = (path: LaidPath): number => Math.max(onPaths, path.kind === 'river' ? reach * WATER_OVERHANG : 0);
-    if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + off(path))) {
+    // A canopy reaches over a road or a river only as far as over a lake: the way is seen running through, never roofed over.
+    const off = (): number => Math.max(onPaths, reach * WATER_OVERHANG);
+    if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + off())) {
         return true;
     }
     const wet = (outline: readonly Point[]): boolean =>

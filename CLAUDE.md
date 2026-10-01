@@ -1531,8 +1531,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
     stands on a path, in a clearing that keeps it out, or where its canopy
     would spread over a building. Rocks line riverbanks.
   - Flowers and ground cover grow in patches (`patch`), open grass
-    between them, never dotted evenly. A canopy hangs over a road as it
-    likes, but over a river only as little as over a lake.
+    between them, never dotted evenly. A canopy reaches over a road or a
+    river only as little as over a lake: the way is seen, never roofed
+    over by a tree (operator, 2026-10-01).
   - **Lakes** (a `lake` zone) are open water over a bed of their own,
     drawn over the zones round them and over the ends of paths in them, in
     the same water as a river, so a river leaves a lake seamlessly;
