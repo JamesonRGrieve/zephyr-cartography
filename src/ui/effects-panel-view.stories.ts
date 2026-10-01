@@ -212,7 +212,7 @@ export const LightsOutRoom: Story = {
     },
 };
 
-/** Reinforcements that pour out of a hab block: three cultists and their leader, anywhere inside. */
+/** Reinforcements that pour out of a residence block: three cultists and their leader, anywhere inside. */
 export const CultAmbush: Story = {
     args: {
         settings: {

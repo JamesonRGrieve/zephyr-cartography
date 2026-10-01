@@ -326,7 +326,7 @@ test('a toggle names its area’s other behaviours by UUID, and a token walking 
 
 test('a zone attached to a token moves with it, and the zone follows its region', async ({ world }) => {
     const placed = await world.evaluate(async () => {
-        const [token] = (await canvas?.scene?.createEmbeddedDocuments('Token', [{ name: 'Servitor', x: 400, y: 400 }])) ?? [];
+        const [token] = (await canvas?.scene?.createEmbeddedDocuments('Token', [{ name: 'Drone', x: 400, y: 400 }])) ?? [];
         const api = game.modules?.get('zephyr-cartography').api;
         const outcome = await api?.buildSpec({
             schemaVersion: 1,
@@ -703,7 +703,7 @@ test('a sign’s words are a readable Note: authorless, so players see it with n
             schemaVersion: 1,
             features: [
                 { type: 'pin', x: 2, y: 2, text: 'NO LOITERING', readable: true, size: 0.8 },
-                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 6, y: 6, reads: 'Property of the Munitorum' },
+                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 6, y: 6, reads: 'Property of the Supply Office' },
             ],
         });
         canvas?.tokens?.activate();
@@ -725,7 +725,7 @@ test('a sign’s words are a readable Note: authorless, so players see it with n
     // The crate's hover spot is as wide as its footprint is long: one square.
     await expect.poll(signs).toEqual([
         { text: 'NO LOITERING', author: null, readable: true, iconSize: 80, tooltip: 'NO LOITERING', iconShown: false },
-        { text: 'Property of the Munitorum', author: null, readable: true, iconSize: 100, tooltip: 'Property of the Munitorum', iconShown: false },
+        { text: 'Property of the Supply Office', author: null, readable: true, iconSize: 100, tooltip: 'Property of the Supply Office', iconShown: false },
     ]);
     // The GM finds and edits them on the Notes layer, where their icons show.
     const onNotes = async (): Promise<(boolean | undefined)[]> =>

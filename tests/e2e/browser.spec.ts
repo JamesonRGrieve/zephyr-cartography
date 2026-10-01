@@ -36,7 +36,7 @@ test('the browser narrows its stamps by search, scale and view', async ({ world 
     await browser.getByLabel('Search stamps').fill('');
 
     await browser.getByLabel('Scale').selectOption('city');
-    await expect.poll(async () => shown(browser)).toEqual(['hab']);
+    await expect.poll(async () => shown(browser)).toEqual(['residence']);
     await browser.getByLabel('Scale').selectOption('');
 
     await browser.getByLabel('Perspective').selectOption('isometric');

@@ -257,7 +257,7 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
         { kind: 'wall', role: 'rack', count: [0, 1] },
         { kind: 'scatter', role: 'clutter', count: [1, 3] },
     ],
-    'manufactorum': [
+    'factory': [
         { kind: 'cluster', centre: 'machine', around: [], count: 'fill', sides: 1 },
         { kind: 'wall', role: 'workbench', count: [1, 3] },
         { kind: 'wall', role: 'console', count: [0, 1] },

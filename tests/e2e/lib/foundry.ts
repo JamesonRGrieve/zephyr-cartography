@@ -18,7 +18,7 @@ const MODULE_ID = 'zephyr-cartography';
 const PACK_ID = 'zc-e2e-pack';
 /**
  * Integrations the suite exercises when their modules are installed (see scripts/e2e-world.mjs), and the real asset
- * packs the showcase maps are built from (the private one, where installed, holds the Imperium's own art; the CC0 one,
+ * packs the showcase maps are built from (the private one, where installed, holds the setting's own iconography; the CC0 one,
  * the public-domain textures and the ambience every pack's stamps sound and smoke by).
  */
 const OPTIONAL_MODULES = [

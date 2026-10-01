@@ -5,13 +5,13 @@ import { catalogStamps, makeHarness } from './test-fakes';
 
 const buildings = catalogStamps([
     {
-        id: 'hab',
-        name: 'Hab Block',
+        id: 'residence',
+        name: 'Residence Block',
         category: 'Structures',
         scale: 'city',
         perspective: 'top-down',
         enterable: true,
-        variants: [{ state: 'intact', image: 'hab.png', width: 200, height: 100 }],
+        variants: [{ state: 'intact', image: 'residence.png', width: 200, height: 100 }],
     },
     {
         id: 'crate',
@@ -26,7 +26,7 @@ const buildings = catalogStamps([
 async function placed(): Promise<ReturnType<typeof makeHarness>> {
     const h = makeHarness(buildings);
     h.c.grid = { size: 100, originX: 0, originY: 0 };
-    await h.c.placeStamp({ stamp: 'pack:hab', x: 100, y: 50 }); // p1
+    await h.c.placeStamp({ stamp: 'pack:residence', x: 100, y: 50 }); // p1
     await h.c.placeStamp({ stamp: 'pack:crate', x: 500, y: 500 }); // p2
     return h;
 }
@@ -34,10 +34,10 @@ async function placed(): Promise<ReturnType<typeof makeHarness>> {
 describe('CartographyController submaps', () => {
     it('creates an interior scene and wires entrance and exit to each other', async () => {
         const { c, d, w } = await placed();
-        const sceneId = await c.createInterior('p1', 'Hab Block interior');
+        const sceneId = await c.createInterior('p1', 'Residence Block interior');
         expect(sceneId).toBe('sc1');
         const link = c.submapOf('p1');
-        expect(link).toEqual({ scene: 'sc1', sceneName: 'Hab Block interior', entryRegion: 'p3', exitRegion: 'p4', travel: DEFAULT_TRAVEL });
+        expect(link).toEqual({ scene: 'sc1', sceneName: 'Residence Block interior', entryRegion: 'p3', exitRegion: 'p4', travel: DEFAULT_TRAVEL });
         const exit = w.regions[0];
         expect(exit?.scene).toBe('sc1');
         expect(exit?.region).toMatchObject({
@@ -49,7 +49,7 @@ describe('CartographyController submaps', () => {
         const entrance = d.regions[d.regions.length - 1]?.[0];
         expect(entrance).toMatchObject({
             id: 'p3',
-            label: { kind: 'entrance', scene: 'Hab Block interior' },
+            label: { kind: 'entrance', scene: 'Residence Block interior' },
             behaviour: { kind: 'teleport', targets: [{ scene: 'sc1', region: 'p4' }] },
         });
         expect(entrance?.polygon).toHaveLength(4);
@@ -58,7 +58,7 @@ describe('CartographyController submaps', () => {
 
     it('changes how tokens travel both ways: the entrance in place, the exit where the GM left it', async () => {
         const { c, d, w } = await placed();
-        await c.createInterior('p1', 'Hab Block interior');
+        await c.createInterior('p1', 'Residence Block interior');
         const travel = { placement: 'center' as const, snap: false, revealed: true, transition: 'fade', duration: 800, prompt: 'Enter {scene}?' };
         expect(await c.setSubmapTravel('p1', travel)).toBe(true);
         expect(c.submapOf('p1')?.travel).toEqual(travel);
@@ -109,14 +109,14 @@ describe('CartographyController submaps', () => {
         c.gridDistance = 5;
         await c.addLevel('above', 'Ground');
         // A stamp on every level stands on the lowest once its floors climb from there.
-        expect(await c.addBuildingFloors('p1', ['Hab floor 1', 'Hab floor 2'])).toBe(true);
+        expect(await c.addBuildingFloors('p1', ['Residence floor 1', 'Residence floor 2'])).toBe(true);
         expect(c.levels.map((l) => [l.name, l.bottom, l.top])).toEqual([
             ['Ground', 0, 20],
-            ['Hab floor 1', 20, 40],
-            ['Hab floor 2', 40, 60],
+            ['Residence floor 1', 20, 40],
+            ['Residence floor 2', 40, 60],
         ]);
-        const hab = c.getFeature('p1');
-        expect(hab?.level).toBe('lv1');
+        const residence = c.getFeature('p1');
+        expect(residence?.level).toBe('lv1');
         expect(c.buildingFloors('p1')).toEqual(['lv2', 'lv3']);
         const stairs = d.regions.flat().find((r) => r.label.kind === 'stairs');
         expect(stairs).toMatchObject({ level: 'lv1', spans: ['lv2', 'lv3'], bottom: 0, top: 60, behaviour: { kind: 'changeLevel', movement: [] } });

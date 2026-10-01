@@ -105,7 +105,7 @@ const meta: Meta<SubmapArgs> = {
     excludeStories: ['mountSubmapPanel'],
     render: mountSubmapPanel,
     args: {
-        stampName: 'Hab Block',
+        stampName: 'Residence Block',
         linkedScene: null,
         scenes: [
             { id: 'vault', name: 'Vault' },
@@ -135,7 +135,7 @@ export const LinkedWithATransition: Story = {
 };
 
 export const FloorsInThisScene: Story = {
-    args: { floors: ['Hab Block floor 1', 'Hab Block floor 2'] },
+    args: { floors: ['Residence Block floor 1', 'Residence Block floor 2'] },
 };
 
 export const NoOtherScenes: Story = {

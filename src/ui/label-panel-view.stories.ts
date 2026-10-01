@@ -54,7 +54,7 @@ type Story = StoryObj<LabelPanelArgs>;
 export const NewLabel: Story = {};
 
 export const DistrictName: Story = {
-    args: { settings: { text: 'Hab District 4', fontSize: 96, colour: '#e0c080', fontFamily: 'Modesto Condensed', rotation: -12, hidden: false } },
+    args: { settings: { text: 'Residence District 4', fontSize: 96, colour: '#e0c080', fontFamily: 'Modesto Condensed', rotation: -12, hidden: false } },
 };
 
 export const SecretFontGone: Story = {

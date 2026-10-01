@@ -128,9 +128,9 @@ const PRESET_TITLES: Readonly<Record<MapPreset, string>> = {
     'tavern': I18N.generator.presets.tavern,
     'forest-road': I18N.generator.presets.forestRoad,
     'marsh-crossing': I18N.generator.presets.marshCrossing,
-    'hive-outpost': I18N.generator.presets.hiveOutpost,
-    'hive-chapel': I18N.generator.presets.hiveChapel,
-    'manufactorum': I18N.generator.presets.manufactorum,
+    'megacity-outpost': I18N.generator.presets.megacityOutpost,
+    'megacity-chapel': I18N.generator.presets.megacityChapel,
+    'factory': I18N.generator.presets.factory,
     'void-port': I18N.generator.presets.voidPort,
     'roadside-inn': I18N.generator.presets.roadsideInn,
 };

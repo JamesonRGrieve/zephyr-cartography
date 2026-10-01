@@ -620,7 +620,7 @@
                                         "command",
                                         "armoury",
                                         "barracks",
-                                        "manufactorum",
+                                        "factory",
                                         "interrogation",
                                         "porch"
                                     ]
@@ -1345,7 +1345,7 @@
                                                     "command",
                                                     "armoury",
                                                     "barracks",
-                                                    "manufactorum",
+                                                    "factory",
                                                     "interrogation",
                                                     "porch"
                                                 ]
@@ -2085,7 +2085,7 @@
                                                     "command",
                                                     "armoury",
                                                     "barracks",
-                                                    "manufactorum",
+                                                    "factory",
                                                     "interrogation",
                                                     "porch"
                                                 ]

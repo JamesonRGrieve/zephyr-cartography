@@ -11,9 +11,9 @@ export const MAP_PRESETS = [
     'roadside-inn',
     'forest-road',
     'marsh-crossing',
-    'hive-outpost',
-    'hive-chapel',
-    'manufactorum',
+    'megacity-outpost',
+    'megacity-chapel',
+    'factory',
     'void-port',
 ] as const;
 
@@ -59,9 +59,9 @@ const TAVERN_ROOMS = [
 ] as const;
 
 /** Stamps of the grim far future, and the setting-free ones (barrels, crates) that suit any. */
-const GRIMDARK = ['setting-grimdark', 'setting-generic'];
+const GRIMDARK = ['setting-grimdark-human', 'setting-generic'];
 
-// Rockcrete throughout, deck plate where the machine-spirits are tended, clean stone where the wounded are, grating in the armoury.
+// Concrete throughout, deck plate where the machines are tended, clean stone where the wounded are, grating in the armoury.
 const OUTPOST_ROOMS = [
     { key: 'hall', purpose: 'hall', size: 1.2, entrance: true, opensTo: ['command', 'barracks', 'medicae'] },
     { key: 'command', purpose: 'command', size: 1.6, opensTo: ['armoury', 'interrogation'], floor: 'floor.deck-plating' },
@@ -209,7 +209,7 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
             { kind: 'road', from: 'west', to: 'east', width: 1.2, meander: 0.2 },
         ],
     },
-    'hive-outpost': {
+    'megacity-outpost': {
         schemaVersion: 1,
         seed: 13,
         width: 44,
@@ -230,7 +230,7 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         ],
         buildings: [{ key: 'outpost', at: { x: 14, y: 9 }, width: 15, height: 11, floor: 'floor.concrete', wall: 'wall.concrete', rooms: OUTPOST_ROOMS }],
     },
-    'hive-chapel': {
+    'megacity-chapel': {
         schemaVersion: 1,
         seed: 17,
         width: 24,
@@ -243,7 +243,7 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
                 key: 'chapel',
                 width: 22,
                 height: 16,
-                floor: 'floor.blackstone-crypt',
+                floor: 'floor.grimdark-undead-stone-crypt',
                 wall: 'wall.stone',
                 rooms: [
                     { key: 'nave', purpose: 'chapel', size: 4, entrance: true, opensTo: ['vestry', 'ossuary'], floor: 'floor.black-marble' },
@@ -254,7 +254,7 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
             },
         ],
     },
-    'manufactorum': {
+    'factory': {
         schemaVersion: 1,
         seed: 19,
         width: 28,
@@ -263,13 +263,13 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         ground: null,
         buildings: [
             {
-                key: 'manufactorum',
+                key: 'factory',
                 width: 26,
                 height: 18,
                 floor: 'floor.metal-grating',
                 wall: 'wall.metal',
                 rooms: [
-                    { key: 'floor', purpose: 'manufactorum', size: 5, entrance: true, opensTo: ['overseer', 'stores', 'mess'] },
+                    { key: 'floor', purpose: 'factory', size: 5, entrance: true, opensTo: ['overseer', 'stores', 'mess'] },
                     { key: 'overseer', purpose: 'command', size: 1, floor: 'floor.deck-plating' },
                     { key: 'stores', purpose: 'storage', size: 1.2 },
                     { key: 'mess', purpose: 'mess', size: 1.5, opensTo: ['bunks'], floor: 'floor.concrete' },
@@ -283,7 +283,7 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         seed: 23,
         width: 60,
         height: 40,
-        settings: ['setting-scifi', 'setting-grimdark', 'setting-generic'],
+        settings: ['setting-scifi', 'setting-grimdark-human', 'setting-generic'],
         ground: 'rock',
         groundTexture: 'floor.concrete',
         zones: [

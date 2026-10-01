@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TRAVEL, exitRegion, exitSquare, parseSubmapLink, parseTravel, type SubmapLink, validDuration } from './submap';
 
-const link: SubmapLink = { scene: 'sc1', sceneName: 'Hab interior', entryRegion: 'in1', exitRegion: 'out1', travel: DEFAULT_TRAVEL };
+const link: SubmapLink = { scene: 'sc1', sceneName: 'Residence interior', entryRegion: 'in1', exitRegion: 'out1', travel: DEFAULT_TRAVEL };
 
 describe('travel', () => {
     it('reads a link’s travel field by field over the defaults, and a link from before travel by them', () => {

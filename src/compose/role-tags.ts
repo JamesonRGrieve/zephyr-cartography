@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * What a stamp is to the composer, read from its tags. No stamp is named
- * here: a pack's stamps carry descriptive tags (a cogitator console is
- * tagged `cogitator` and `console`), and these rules turn tags into a role,
+ * here: a pack's stamps carry descriptive tags (a terminal console is
+ * tagged `terminal` and `console`), and these rules turn tags into a role,
  * how the role stands (against a wall, facing out, upright) and, for land,
  * the ground it belongs on. A new asset tagged `console` is composed as one
  * with no change here. A pack's own `role`, `placement` and `habitats`
@@ -13,7 +13,7 @@ import type { StampAnchor, StampBack, StampHabitat, StampPlacement, StampRole } 
 
 /**
  * Each role and the tags that make a stamp one, most specific first: the
- * first rule any of whose tags a stamp carries decides. So a `cogitator`
+ * first rule any of whose tags a stamp carries decides. So a `terminal`
  * `desk` is a desk, a `shrine` `shelf` a shelf, and a `sandbag`
  * `emplacement` an emplacement rather than a barricade. A list in place of
  * a tag matches a stamp carrying every tag in it.
@@ -59,14 +59,14 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['bed', ['bed', 'bunk', 'cot']],
     ['hearth', ['hearth', 'cook']],
     ['workbench', ['workbench', 'forge']],
-    ['console', ['cogitator', 'console', 'terminal', 'vox', 'astropathic', 'servitor']],
+    ['console', ['console', 'terminal', 'radio', 'telepathic', ['service', 'bot']]],
     ['machine', ['machine', 'press', 'hopper', 'reactor', 'vat', 'crusher', 'pump']],
     ['altar', ['altar', 'niche', 'shrine']],
     ['lectern', ['lectern']],
     ['icon', ['icon', 'board', 'keypad', 'beacon']],
     ['rack', ['rack', 'mannequin', 'armour', 'helmet']],
     ['medical', ['gurney', 'stretcher', 'iv', 'vitals']],
-    ['emplacement', ['emplacement', 'sentry', 'stubber', 'gun']],
+    ['emplacement', ['emplacement', 'sentry', 'gun']],
     ['barricade', ['barricade', 'sandbag', 'picket', 'palisade', 'hedgehogs', 'barrier']],
     ['crater', ['crater']],
     ['vehicle', ['freighter', 'shuttle', 'tug', 'yacht', 'hauler', 'loader', 'lighter', 'wagon', 'handcart']],
@@ -115,10 +115,10 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
         ],
     ],
     ['rug', ['rug', 'carpet']],
-    // A mark that says something (a cult's graffito, a scratched sigil, a violet warp-burn, brood resin), a thing laid
+    // A mark that says something (a cult's graffito, a scratched sigil, a violet sorcerous burn, brood resin), a thing laid
     // flat (a hung bedsheet), or a strip made to run along a route: never strewn as grime, only where a map names it.
     ['fitting', ['graffito', 'graffiti', 'sigil', 'bedsheet', 'segment', 'violet', 'brood', 'resin']],
-    // Fallen leaves lie under trees: ground cover outdoors, never a hive chapel's grime.
+    // Fallen leaves lie under trees: ground cover outdoors, never a megacity chapel's grime.
     ['flora', ['leaf']],
     // Flat marks on a floor or the ground (an oil stain, cracks, a scorch, a drift of dust): grime, never a piece that stands.
     ['decal', ['decal', 'stain', 'grime', 'cracks', 'crack', 'scorch', 'dust', 'smear', 'grit']],

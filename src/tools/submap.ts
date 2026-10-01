@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Submaps: an enterable stamp (a hab, a building) linked to an interior scene,
+ * Submaps: an enterable stamp (a residence block, a building) linked to an interior scene,
  * whether newly created or an existing one. The link fixes both regions' ids
  * up front: the entrance over the stamp in this scene, and the exit in the
  * interior. That way each side's teleport can name the other before either is

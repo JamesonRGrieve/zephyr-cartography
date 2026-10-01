@@ -18,13 +18,13 @@ const ORIGIN = { x: 1000, y: 500 };
 
 const stamps = catalogStamps([
     {
-        id: 'hab',
-        name: 'Hab Block',
+        id: 'residence',
+        name: 'Residence Block',
         category: 'Structures',
         scale: 'city',
         perspective: 'top-down',
         enterable: true,
-        variants: [{ state: 'intact', image: 'hab.png', width: 200, height: 100 }],
+        variants: [{ state: 'intact', image: 'residence.png', width: 200, height: 100 }],
     },
 ]);
 
@@ -570,14 +570,14 @@ describe('realizeSpec', () => {
 
     it('puts map labels where the spec says, with Foundry’s defaults for what it leaves out', async () => {
         const h = makeHarness();
-        await realizeSpec(h.c, spec({ features: [{ type: 'label', x: 5, y: 1, text: 'Hab District 4', colour: '#E0C080', rotation: 15 }] }), {
+        await realizeSpec(h.c, spec({ features: [{ type: 'label', x: 5, y: 1, text: 'Residence District 4', colour: '#E0C080', rotation: 15 }] }), {
             origin: ORIGIN,
             gridSize: GRID,
         });
         expect(h.s.last()[0]).toMatchObject({
             type: 'label',
             points: [{ x: 1500, y: 600 }],
-            text: 'Hab District 4',
+            text: 'Residence District 4',
             fontSize: 48,
             colour: '#e0c080',
             fontFamily: '',
@@ -628,10 +628,10 @@ describe('realizeSpec', () => {
             h.c,
             spec({
                 features: [
-                    { type: 'stamp', stamp: 'pack:hab', x: 2, y: 1, rotation: 90, interior: { create: 'Hab interior' } },
+                    { type: 'stamp', stamp: 'pack:residence', x: 2, y: 1, rotation: 90, interior: { create: 'Residence interior' } },
                     { type: 'stamp', stamp: 'pack:missing', x: 0, y: 0 },
-                    { type: 'stamp', stamp: 'pack:hab', x: 6, y: 1, interior: { scene: 'nowhere' } },
-                    { type: 'stamp', stamp: 'pack:hab', x: 9, y: 1, interior: { scene: 'vault' } },
+                    { type: 'stamp', stamp: 'pack:residence', x: 6, y: 1, interior: { scene: 'nowhere' } },
+                    { type: 'stamp', stamp: 'pack:residence', x: 9, y: 1, interior: { scene: 'vault' } },
                 ],
             }),
             { origin: ORIGIN, gridSize: GRID },
@@ -641,7 +641,7 @@ describe('realizeSpec', () => {
             { index: 2, problem: 'interior' },
         ]);
         const [first, , last] = report.features;
-        expect(first === undefined ? null : h.c.submapOf(first)?.sceneName).toBe('Hab interior');
+        expect(first === undefined ? null : h.c.submapOf(first)?.sceneName).toBe('Residence interior');
         expect(last === undefined ? null : h.c.submapOf(last)?.scene).toBe('vault');
         const placed = first === undefined ? null : h.c.getFeature(first);
         expect(placed?.type === 'stamp' ? { centre: placed.points[0], rotation: placed.rotation } : null).toEqual({
@@ -652,7 +652,7 @@ describe('realizeSpec', () => {
 
     it('gives a building its floors in this scene, reporting a scene with no level to build them on', async () => {
         const h = makeHarness(stamps);
-        const noLevels = await realizeSpec(h.c, spec({ features: [{ type: 'stamp', stamp: 'pack:hab', x: 2, y: 1, floors: ['Upstairs'] }] }), {
+        const noLevels = await realizeSpec(h.c, spec({ features: [{ type: 'stamp', stamp: 'pack:residence', x: 2, y: 1, floors: ['Upstairs'] }] }), {
             origin: ORIGIN,
             gridSize: GRID,
         });
@@ -662,12 +662,15 @@ describe('realizeSpec', () => {
             h.c,
             spec({
                 levels: [{ key: 'g', name: 'Ground' }],
-                features: [{ type: 'stamp', stamp: 'pack:hab', x: 6, y: 1, level: 'g', floors: ['Upstairs', 'Attic'] }],
+                features: [{ type: 'stamp', stamp: 'pack:residence', x: 6, y: 1, level: 'g', floors: ['Upstairs', 'Attic'] }],
             }),
             { origin: ORIGIN, gridSize: GRID },
         );
         expect(built.problems).toEqual([]);
-        const [hab] = built.features;
-        expect(hab === undefined ? [] : h.c.buildingFloors(hab).map((id) => h.c.levels.find((l) => l.id === id)?.name)).toEqual(['Upstairs', 'Attic']);
+        const [residence] = built.features;
+        expect(residence === undefined ? [] : h.c.buildingFloors(residence).map((id) => h.c.levels.find((l) => l.id === id)?.name)).toEqual([
+            'Upstairs',
+            'Attic',
+        ]);
     });
 });

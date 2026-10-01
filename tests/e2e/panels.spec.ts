@@ -143,7 +143,7 @@ test('the stamp browser is usable, as the stamp tool opens it', async ({ world }
 
 test('the interior panel is usable, as an enterable stamp’s Tile HUD button opens it', async ({ world }) => {
     await world.evaluate(async () => {
-        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 });
+        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:residence', x: 600, y: 600 });
     });
     await activate(world, 'tiles', 'select');
     // Foundry's own Tile HUD on the stamp's tile, as a right-click on it opens it.

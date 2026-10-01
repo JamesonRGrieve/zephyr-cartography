@@ -218,7 +218,13 @@ export function partsOf(index: RoleIndex, role: StampRole): readonly RoleStamp[]
 }
 
 /** Setting tags naming a faction: its art stands only in maps that name it. */
-const FACTION_SETTINGS: readonly string[] = ['setting-tau', 'setting-necron', 'setting-chaos', 'setting-aeldari', 'setting-ork'];
+const FACTION_SETTINGS: readonly string[] = [
+    'setting-grimdark-communist',
+    'setting-grimdark-undead',
+    'setting-grimdark-chaotic',
+    'setting-grimdark-elven',
+    'setting-grimdark-orcish',
+];
 
 /**
  * The role `stamp` is composed in: its pack's, else its tags'; none where
@@ -253,8 +259,8 @@ export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly st
         const drawn = defaultSeen !== undefined && !seenFromAbove(stamp, defaultSeen) && plan >= 0 ? plan : stamp.defaultVariant;
         const variant = stamp.variants[drawn];
         const role = composedRole(stamp);
-        // A faction's own art (Tau, Chaos, Ork...) is in a map only where the map names that faction, whatever broader setting
-        // (grimdark) it also carries: an Imperial fortress never climbs Ork stairs.
+        // A faction's own art (communist, chaotic, orcish...) is in a map only where the map names that faction, whatever broader
+        // setting it also carries: a human fortress never climbs orcish stairs.
         const factionless = stamp.tags.every((tag) => !FACTION_SETTINGS.includes(tag) || settings.includes(tag));
         const inSetting = (settings.length === 0 || stamp.tags.some((tag) => settings.includes(tag))) && factionless;
         // A stair joins floors only if it carries a transition.

@@ -41,7 +41,7 @@ export const ROOM_PURPOSES = [
     'command',
     'armoury',
     'barracks',
-    'manufactorum',
+    'factory',
     'interrogation',
     'porch',
 ] as const;

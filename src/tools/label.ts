@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Map labels: text on the map ("Hab District 4", "The Sump"), realised as a
+ * Map labels: text on the map ("Residence District 4", "The Sump"), realised as a
  * native text Drawing. The label owns its Drawing like any feature its
  * documents, so moving, undoing and erasing follow the usual rules. Foundry
  * wraps a drawing's text to its box, so the box is sized generously from the

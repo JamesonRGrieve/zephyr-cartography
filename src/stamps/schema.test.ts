@@ -74,8 +74,8 @@ describe('parseStampPack', () => {
             ],
         };
         const stairs = { ...crate, id: 'stairs', transition: { kind: 'stairs', direction: 'both' } };
-        const hab = { ...crate, id: 'hab', scale: 'city', enterable: true, occlusion: { shape: 'alpha', sound: false } };
-        const result = parseStampPack(pack([torch, door, stairs, hab]));
+        const residence = { ...crate, id: 'residence', scale: 'city', enterable: true, occlusion: { shape: 'alpha', sound: false } };
+        const result = parseStampPack(pack([torch, door, stairs, residence]));
         expect(result.ok).toBe(true);
         const stamps = result.ok ? result.pack.stamps : [];
         expect(stamps[0]?.variants[1]?.light).toBeNull();

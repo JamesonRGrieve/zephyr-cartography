@@ -103,12 +103,12 @@ describe('roleIndex variants', () => {
 describe('roleIndex factions', () => {
     it('keeps a faction’s own art to maps that name the faction, whatever broader setting it also carries', () => {
         const pack = stamps([
-            stampDef('imperial-bed', { role: 'bed', tags: ['setting-grimdark'] }),
-            stampDef('ork-bunk', { role: 'bed', tags: ['setting-grimdark', 'setting-ork'] }),
+            stampDef('human-bed', { role: 'bed', tags: ['setting-grimdark-human'] }),
+            stampDef('orcish-bunk', { role: 'bed', tags: ['setting-grimdark-orcish'] }),
         ]);
         const keys = (settings: readonly string[]): string[] => (roleIndex(pack, settings).get('bed') ?? []).map((s) => s.key);
-        expect(keys(['setting-grimdark'])).toEqual(['pack:imperial-bed']);
-        expect(keys(['setting-grimdark', 'setting-ork'])).toEqual(['pack:imperial-bed', 'pack:ork-bunk']);
+        expect(keys(['setting-grimdark-human'])).toEqual(['pack:human-bed']);
+        expect(keys(['setting-grimdark-human', 'setting-grimdark-orcish'])).toEqual(['pack:human-bed', 'pack:orcish-bunk']);
     });
 });
 
@@ -228,7 +228,7 @@ describe('roleIndex', () => {
     it('takes a role its pack does not name from its tags, standing as that role does', () => {
         const index = roleIndex(
             stamps([
-                stampDef('console', { tags: ['cogitator', 'console'] }),
+                stampDef('console', { tags: ['terminal', 'console'] }),
                 stampDef('lamp', { tags: ['desk', 'lamp'] }),
                 stampDef('gun', { tags: ['sandbag', 'emplacement'], scale: 'exterior' }),
                 stampDef('silo', { tags: ['ore', 'silo'], scale: 'exterior' }),
@@ -266,7 +266,7 @@ describe('roleIndex', () => {
 
     it('keeps only stamps carrying one of the intent’s settings when it names any, and measures by each pack’s own grid size', () => {
         const defs = [
-            stampDef('gothic', { role: 'seat', tags: ['imperial'] }),
+            stampDef('gothic', { role: 'seat', tags: ['cathedral'] }),
             stampDef('stool', { role: 'seat', tags: ['generic'] }),
             stampDef('plain', { role: 'seat' }),
         ];
@@ -274,8 +274,8 @@ describe('roleIndex', () => {
             roleIndex(stamps(defs), settings)
                 .get('seat')
                 ?.map((s) => s.key);
-        expect(keys(['imperial'])).toEqual(['pack:gothic']);
-        expect(keys(['imperial', 'generic'])).toEqual(['pack:gothic', 'pack:stool']);
+        expect(keys(['cathedral'])).toEqual(['pack:gothic']);
+        expect(keys(['cathedral', 'generic'])).toEqual(['pack:gothic', 'pack:stool']);
         expect(keys([])).toHaveLength(3);
         expect(roleIndex(stamps(defs, 200), []).get('seat')?.[0]).toMatchObject({ width: 1, height: 0.5 });
     });

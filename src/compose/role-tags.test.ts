@@ -4,8 +4,8 @@ import { habitatsOf, placementOf, roleFromTags, suitsScale } from './role-tags';
 
 describe('roleFromTags', () => {
     it('reads what a stamp is from its tags, the most specific rule first', () => {
-        expect(roleFromTags(['cogitator', 'console', 'setting-grimdark'])).toBe('console');
-        expect(roleFromTags(['cogitator', 'desk'])).toBe('desk');
+        expect(roleFromTags(['terminal', 'console', 'setting-grimdark-human'])).toBe('console');
+        expect(roleFromTags(['terminal', 'desk'])).toBe('desk');
         expect(roleFromTags(['desk', 'lamp'])).toBe('light');
         // Votive candles and censers are a shrine's, a candle cluster a room's lamp.
         expect(roleFromTags(['candle', 'bank', 'setting-fantasy'])).toBe('icon');

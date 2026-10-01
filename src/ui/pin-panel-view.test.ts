@@ -40,15 +40,15 @@ describe('map pin panel', () => {
         const root = mount(stories.NewPin);
         expect(input(root, 'pin-text').value).toBe('');
         expect(select(root, 'zc-pin-entry').value).toBe('');
-        expect([...select(root, 'zc-pin-entry').options].map((o) => o.textContent)).toEqual(['None', 'Hab District 4', 'The Sump']);
+        expect([...select(root, 'zc-pin-entry').options].map((o) => o.textContent)).toEqual(['None', 'Residence District 4', 'The Sump']);
         expect([...select(root, 'zc-pin-page').options].map((o) => o.textContent)).toEqual(['None']);
         expect(root.querySelector('label[for="zc-pin-entry"]')?.textContent).toBe('Journal Entry');
     });
 
     it('picks an entry, then one of its pages; another entry clears the page', () => {
         const root = mount(stories.NewPin);
-        change(select(root, 'zc-pin-entry'), 'je-hab');
-        expect([...select(root, 'zc-pin-page').options].map((o) => o.textContent)).toEqual(['None', 'Hab-Transit Lodge', 'District 4 Chapel']);
+        change(select(root, 'zc-pin-entry'), 'je-district');
+        expect([...select(root, 'zc-pin-page').options].map((o) => o.textContent)).toEqual(['None', 'Transit Lodge', 'District 4 Chapel']);
         change(select(root, 'zc-pin-page'), 'pg-lodge');
         expect(select(root, 'zc-pin-page').value).toBe('pg-lodge');
         change(select(root, 'zc-pin-entry'), 'je-sump');

@@ -48,8 +48,8 @@ describe('parseSceneSpec', () => {
                 { type: 'stroke', biome: 'sand', points: square.slice(0, 2), radius: 30 },
                 { type: 'path', kind: 'road', points: square.slice(0, 2), halfWidth: 12, walls: true, level: 'g' },
                 { type: 'room', points: square, floor: 'floor.oak', wall: 'wall.brick' },
-                { type: 'stamp', stamp: 'pack:hab', x: 2, y: 2, rotation: 90, interior: { create: 'Hab interior' } },
-                { type: 'stamp', stamp: 'pack:hab', x: 8, y: 2, interior: { scene: 'abc' } },
+                { type: 'stamp', stamp: 'pack:residence', x: 2, y: 2, rotation: 90, interior: { create: 'Residence interior' } },
+                { type: 'stamp', stamp: 'pack:residence', x: 8, y: 2, interior: { scene: 'abc' } },
             ],
         });
         expect(result.ok).toBe(true);

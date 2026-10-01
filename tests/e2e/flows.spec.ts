@@ -41,7 +41,7 @@ test('an ambush set up in a room’s effects panel spawns its cultists there, an
 
 test('a building is given an interior from its panel, its travel set there, and unlinked again', async ({ world }) => {
     await world.evaluate(async () => {
-        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 });
+        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:residence', x: 600, y: 600 });
     });
     await activate(world, 'tiles', 'select');
     await world.evaluate(async () => {

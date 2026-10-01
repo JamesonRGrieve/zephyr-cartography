@@ -4,7 +4,7 @@ import { DEFAULT_TRAVEL } from '../tools/submap';
 import * as stories from './submap-view.stories';
 
 const base: stories.SubmapArgs = {
-    stampName: 'Hab Block',
+    stampName: 'Residence Block',
     linkedScene: null,
     scenes: [
         { id: 'vault', name: 'Vault' },
@@ -40,7 +40,7 @@ describe('interior panel', () => {
 
     it('says an unlinked stamp leads nowhere and offers every way in: a new scene, an existing one, or floors here', () => {
         const root = mount();
-        expect(root.querySelector('h3')?.textContent).toBe('Hab Block');
+        expect(root.querySelector('h3')?.textContent).toBe('Residence Block');
         expect(statusText(root)).toBe('This building does not lead anywhere yet.');
         expect(root.querySelector('label[for="zc-submap-scene"]')).not.toBeNull();
         expect([...root.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Create an interior scene', 'Link scene', 'Add floors']);
@@ -49,7 +49,7 @@ describe('interior panel', () => {
     it('creates an interior', () => {
         const root = mount();
         click(root, 'Create an interior scene');
-        expect(statusText(root)).toBe('Leads into Hab Block interior');
+        expect(statusText(root)).toBe('Leads into Residence Block interior');
     });
 
     it('links the chosen existing scene, then opens and unlinks it', () => {
@@ -130,7 +130,7 @@ describe('interior panel', () => {
             count.dispatchEvent(new Event('change'));
         }
         click(root, 'Add floors');
-        expect(root.textContent).toContain('Floors: Hab Block floor 1, Hab Block floor 2');
+        expect(root.textContent).toContain('Floors: Residence Block floor 1, Residence Block floor 2');
         click(root, 'Remove the stairs');
         expect(root.textContent).toContain('No floors in this scene.');
     });

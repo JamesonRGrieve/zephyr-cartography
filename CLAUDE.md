@@ -226,7 +226,7 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   rendered (`showcase.spec.ts` "review render") and compared with its
   reference, the roadside inn preset included. Only once every map passes
   does the full test suite run. Ship and vehicle interiors (a voidship, the
-  Inquisitorial warp shuttle, a Chimera's cab and troop bay, drawn a third
+  secret-order hell shuttle, a Chimera's cab and troop bay, drawn a third
   over true size so each trooper has a square) and fantasy layouts (castles
   with `curtains`, forest clearings, dungeons with `secretTo` doors and hewn
   caves) are held to the same bar: their briefs live in the campaign's
@@ -423,7 +423,7 @@ tool; an auto `AmbientLightDocument` per room at its centroid.
   the storeys below it down to the ground. Proven in
   `tests/e2e/levels.spec.ts`.
 
-**Submaps [done]:** an enterable stamp (a building, a hab) gets an "Interior"
+**Submaps [done]:** an enterable stamp (a building, a residence block) gets an "Interior"
 button on its Tile HUD. The GM either creates a new interior scene (gridded like
 the current one) or **links an existing one**, imported scenes included.
 
@@ -1183,7 +1183,7 @@ or a tavern is. Composition is the layer above them (operator decisions,
   `compose/roles.ts`; operator decision, 2026-09-27: no asset is ever
   hardcoded). A stamp's role (tree, table, console, altar, emplacement,
   stairs, tabletop and so on) comes from its descriptive tags by ordered
-  rules (a `cogitator` `desk` is a desk, a `desk` `lamp` a light, a
+  rules (a `terminal` `desk` is a desk, a `desk` `lamp` a light, a
   `prep` table a workbench, a `trap` a fitting, drawn only where a map
   names it, never scattered; a rule may need a
   combination, so `table` `clutter` is tabletop, not a table), and so
@@ -1202,10 +1202,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
     stall, a street stall's counter), is a `fitting`: no purpose dresses
     with it and it has no placeholder; it is drawn only where a map names
     it (role `fitting` and one of its tags). Room and yard scales only.
-  - **Factions.** Art of a faction (`setting-tau`, `-necron`, `-chaos`,
-    `-aeldari`, `-ork`) is in a map only where the map names that faction,
-    whatever broader setting (`setting-grimdark`) it also carries: an
-    Imperial fortress never climbs Ork stairs.
+  - **Factions.** Art of a faction (`setting-grimdark-communist`, `-undead`, `-chaotic`,
+    `-elven`, `-orcish`) is in a map only where the map names that faction,
+    whatever broader setting (`setting-grimdark-human`) it also carries: a
+    human fortress never climbs orcish stairs.
   - **Named pieces** (`compose/named.ts`) are drawn in art of their role
     carrying one of their tags, the art whose tags share most words with
     the piece's name first (a rooftop access hatch is the roof's hatch, not
@@ -1268,7 +1268,7 @@ or a tavern is. Composition is the layer above them (operator decisions,
 - **Interior.** A building's footprint, floor and wall materials, wall kind
   and rooms, each with a purpose (common room, bar, kitchen, storage,
   bedroom, hall, office, workshop, shrine, cell, mess, chapel, medicae,
-  command, armoury, barracks, manufactorum, interrogation), a relative
+  command, armoury, barracks, factory, interrogation), a relative
   size, its own floor if it differs (a kitchen's flagstones), and the rooms
   it opens onto.
   - `compose/layout.ts` partitions the footprint by weighted recursive
@@ -1465,7 +1465,7 @@ or a tavern is. Composition is the layer above them (operator decisions,
     (default a little, 0.2: the prompts ask for scatter "sparse and
     subtle"), only on open floor (never half under a pew or a desk), never
     across a doorway, beneath everything else. Marks that tell a story (a
-    cult's graffito, a sigil, violet warp-burns, brood resin, a hung sheet)
+    cult's graffito, a sigil, violet sorcerous burns, brood resin, a hung sheet)
     are fittings, drawn only where a map names them, never strewn.
   - The outdoors draws from its own random stream, so rearranging a room
     never replants the woods.
@@ -1535,8 +1535,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     drawn as boards where no storm door art exists).
 - **Presets** (`compose/presets.ts`): fantasy (a woodland inn, a tavern, a
   roadside inn with guest rooms, a cellar and a bridged river, a forest
-  road, a marsh crossing), grimdark (a hive outpost, a hive chapel,
-  a manufactorum) and sci-fi (a void port), as intents.
+  road, a marsh crossing), grimdark (a megacity outpost, a megacity chapel,
+  a factory) and sci-fi (a void port), as intents.
 - **Where.** The module API's `compose(intent)`, and the Map builder's
   Compose section: a preset or pasted intent, "Compose map", and "Another
   layout" to reseed. Problems are listed, localised.
@@ -1750,12 +1750,14 @@ packs (the `textureSets` of the pack manifest: role → image path, licence,
 credits). The GM picks one set with the world `textureSet` setting, whose choices
 fill in once packs load; an unset or uninstalled choice means the first loaded
 set. The renderer resolves each biome/path **role** through the active set.
-The stamp engine's own packs (operator decision, 2026-09-30):
-`zephyr-cartography-assets` holds the generated art (stamps and the
-hand-painted texture set), and `zephyr-cartography-assets-cc0` every CC0
-asset: the Poly Haven and ambientCG texture sets with their fetch script and
-credits, and the ambience library (looping sounds and particle images, with
-their credits) whose `ambience` voices and smokes every pack's stamps by tag.
+The stamp engine's own pack is `zephyr-cartography-assets` (its former
+`-cc0` sibling merged into it): the generated art (stamps and the
+hand-painted texture set) under `ai/`; other authors' openly licensed work
+under a folder per licence (`cc0/`, `cc-by-4.0/`, …), the Poly Haven and
+ambientCG texture sets with their fetch script and credits among it; and
+the ambience library (looping sounds and particle images, with their
+credits) whose `ambience` voices and smokes every pack's stamps by tag.
+Every piece records its provenance (licence, author, source, AI flag).
 
 - **Licence verified before bundling — never assumed** (in whichever pack ships it).
 - Assets are **static module files referenced by runtime URL**, never

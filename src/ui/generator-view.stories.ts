@@ -197,8 +197,8 @@ export const Assisted: Story = {
     args: {
         mode: 'assisted',
         assistAvailable: true,
-        preset: 'hive-chapel',
-        intentText: presetText('hive-chapel'),
+        preset: 'megacity-chapel',
+        intentText: presetText('megacity-chapel'),
         status: [
             'Built 64 features.',
             'The model chose the stamps of 5 places.',

@@ -115,7 +115,7 @@ const DEFENCE_ROLES: readonly StampRole[] = ['barricade', 'emplacement'];
 /** Roles of ground that is hard going: rubble, fallen timber. */
 const ROUGH_ROLES: readonly StampRole[] = ['debris', 'log'];
 
-/** Tags that make a low role's stamp (a locker among storage, a cogitator stack among consoles) or a fitting a solid body. */
+/** Tags that make a low role's stamp (a locker among storage, a terminal stack among consoles) or a fitting a solid body. */
 const TALL_TAGS: readonly string[] = [
     'locker',
     'cabinet',

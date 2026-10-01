@@ -24,7 +24,7 @@ Dungeondraft, Inkarnate) and runs entirely inside Foundry.
   lit, broken) switch in place.
 - **Levels:** multi-floor scenes on Foundry's native Levels, with per-floor
   walls and vision, and stairs, ladders, lifts and hatches as teleport regions.
-- **Interiors:** an enterable stamp (a building, a hab) links to its own
+- **Interiors:** an enterable stamp (a building, a residence block) links to its own
   interior scene, new or existing, with an entrance and an exit.
 - **Map builder:** generate a floor plan from a seed, or build any map
   described as a scene spec (a published JSON Schema), from terrain to stamps
@@ -55,6 +55,20 @@ pnpm test    # Vitest
 ```
 
 Contributor rules and architecture live in [CLAUDE.md](CLAUDE.md).
+
+## Content and licensing
+
+Zephyr Cartography is an independent, unofficial tool. It is not affiliated
+with, endorsed by, sponsored by or licensed by any game publisher, studio or
+other rights holder, and makes no claim of association with any of them.
+
+- **No art.** The module bundles no images or sounds; asset packs carry their
+  own, under their own licences.
+- **No trademarked or coined names.** Its interface, schemas and presets name
+  things in plain words, with generic genre settings ("Grimdark", "Fantasy").
+- **No copyrighted text.** No rules text, lore, quotes or stat blocks from any
+  game, book or film.
+- **No logos, emblems or iconography** of any publisher.
 
 ## License
 

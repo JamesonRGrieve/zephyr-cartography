@@ -50,10 +50,10 @@ export function mountPinPanel(args: PinPanelArgs): HTMLElement {
 
 const JOURNAL: readonly JournalChoice[] = [
     {
-        id: 'je-hab',
-        name: 'Hab District 4',
+        id: 'je-district',
+        name: 'Residence District 4',
         pages: [
-            { id: 'pg-lodge', name: 'Hab-Transit Lodge' },
+            { id: 'pg-lodge', name: 'Transit Lodge' },
             { id: 'pg-chapel', name: 'District 4 Chapel' },
         ],
     },
@@ -74,7 +74,7 @@ type Story = StoryObj<PinPanelArgs>;
 export const NewPin: Story = {};
 
 export const ChapelPage: Story = {
-    args: { settings: { ...NEW_PIN, text: 'District 4 Chapel', entry: 'je-hab', page: 'pg-chapel', icon: 'icons/svg/temple.svg', global: true } },
+    args: { settings: { ...NEW_PIN, text: 'District 4 Chapel', entry: 'je-district', page: 'pg-chapel', icon: 'icons/svg/temple.svg', global: true } },
 };
 
 export const ReadableSign: Story = {

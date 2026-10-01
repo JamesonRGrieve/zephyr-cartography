@@ -63,7 +63,7 @@ const LABELS: ZoneLabels = {
 
 const TOKENS: readonly TokenChoice[] = [
     { id: 'tokenAcolyte0001', name: 'Sister Ibnad' },
-    { id: 'tokenServitor001', name: 'Gun-servitor' },
+    { id: 'tokenGunDrone001', name: 'Gun drone' },
 ];
 
 /** Mount an interactive panel inside a stand-in Foundry window scoped for the module's styles. */
@@ -113,17 +113,17 @@ type Story = StoryObj<ZonePanelArgs>;
 
 export const NewZone: Story = {};
 
-/** A flamer's cone, following the servitor that carries it. */
+/** A flamer's cone, following the drone that carries it. */
 export const FlamerCone: Story = {
     args: {
         settings: {
-            name: 'Promethium wash',
+            name: 'Fuel wash',
             shape: { kind: 'cone', radius: 300, angle: 60, curvature: 'flat' },
             rotation: 45,
             gridBased: true,
-            attachedTo: 'tokenServitor001',
+            attachedTo: 'tokenGunDrone001',
         },
-        presets: ['Promethium slick', 'Choking gas', 'Rubble'],
+        presets: ['Fuel slick', 'Choking gas', 'Rubble'],
     },
 };
 

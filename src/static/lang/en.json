@@ -32,9 +32,9 @@
                 "Tavern": "A tavern's rooms",
                 "ForestRoad": "A road through the forest",
                 "MarshCrossing": "A marsh crossing",
-                "HiveOutpost": "A fortified outpost in a shelled hive district",
-                "HiveChapel": "A hive chapel and its vestry",
-                "Manufactorum": "A manufactorum floor and its workers' quarters",
+                "MegacityOutpost": "A fortified outpost in a shelled megacity district",
+                "MegacityChapel": "A megacity chapel and its vestry",
+                "Factory": "A factory floor and its workers' quarters",
                 "VoidPort": "A void port landing field",
                 "RoadsideInn": "A roadside inn, with guest rooms, a cellar and a bridge"
             },

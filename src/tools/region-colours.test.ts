@@ -11,11 +11,13 @@ describe('regionColour', () => {
         expect(regionColour({ ...base, label: { kind: 'stairs', from: 'A', to: ['B'] } })).toBe(
             regionColour({ ...base, label: { kind: 'ladder', from: 'A', to: ['B'] } }),
         );
-        expect(regionColour({ ...base, label: { kind: 'entrance', scene: 'Hab' } })).toBe(regionColour({ ...base, label: { kind: 'exit', scene: 'Town' } }));
+        expect(regionColour({ ...base, label: { kind: 'entrance', scene: 'Residence' } })).toBe(
+            regionColour({ ...base, label: { kind: 'exit', scene: 'Town' } }),
+        );
         const kinds = [
             regionColour(base),
             regionColour({ ...base, label: { kind: 'stairs', from: 'A', to: ['B'] } }),
-            regionColour({ ...base, label: { kind: 'entrance', scene: 'Hab' } }),
+            regionColour({ ...base, label: { kind: 'entrance', scene: 'Residence' } }),
             regionColour({ ...base, label: { kind: 'room' } }),
             regionColour({ ...base, label: { kind: 'stamp-terrain', name: 'Rubble' } }),
             regionColour({ ...base, label: { kind: 'stamp-surface', name: 'Roof' } }),

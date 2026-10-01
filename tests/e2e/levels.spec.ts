@@ -67,8 +67,8 @@ test('a level’s Preload button preloads it on every client, as Foundry’s sce
 test('a building’s floors in this scene are native Levels above, joined by one changeLevel stair over it', async ({ world }) => {
     const result = await world.evaluate(async () => {
         const controller = game.modules?.get('zephyr-cartography').api.controller();
-        const hab = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 })) ?? '';
-        const added = await controller?.addBuildingFloors(hab, ['Hab floor 1', 'Hab floor 2']);
+        const residence = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:residence', x: 600, y: 600 })) ?? '';
+        const added = await controller?.addBuildingFloors(residence, ['Residence floor 1', 'Residence floor 2']);
         const levels = canvas?.scene?.levels.contents ?? [];
         const stairs = canvas?.scene?.regions.contents.filter((region) => region.behaviors.contents.some((b) => b.type === 'changeLevel')) ?? [];
         return {
@@ -81,7 +81,7 @@ test('a building’s floors in this scene are native Levels above, joined by one
     expect(result.added).toBe(true);
     // The fresh scene's own Level, then the two floors stacked above it.
     expect(result.names).toHaveLength(3);
-    expect(result.names.slice(1)).toEqual(['Hab floor 1', 'Hab floor 2']);
+    expect(result.names.slice(1)).toEqual(['Residence floor 1', 'Residence floor 2']);
     expect(result.stairs).toBe(1);
     expect(result.joins).toBe(3);
 });
@@ -198,7 +198,7 @@ test('an upper level that sees the ground shows it beneath: its painted ground a
 
 test('a level’s own images are its native Level background, foreground and fog', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const art = { background: 'modules/zc-e2e-pack/stamps/hab.svg', foreground: null, fog: 'modules/zc-e2e-pack/stamps/crate.svg' };
+        const art = { background: 'modules/zc-e2e-pack/stamps/residence.svg', foreground: null, fog: 'modules/zc-e2e-pack/stamps/crate.svg' };
         await game.modules
             ?.get('zephyr-cartography')
             .api.buildSpec({ schemaVersion: 1, levels: [{ key: 'g', name: 'Painted', background: art.background, fog: art.fog }], features: [] });

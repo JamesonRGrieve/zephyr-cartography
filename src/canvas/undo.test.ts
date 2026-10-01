@@ -14,13 +14,13 @@ const stamps = catalogStamps([
         variants: [{ state: 'shut', image: 'chest.png', width: 100, height: 100 }],
     },
     {
-        id: 'hab',
-        name: 'Hab',
+        id: 'residence',
+        name: 'Residence',
         category: 'Structures',
         scale: 'city',
         perspective: 'top-down',
         enterable: true,
-        variants: [{ state: 'x', image: 'hab.png', width: 100, height: 100 }],
+        variants: [{ state: 'x', image: 'residence.png', width: 100, height: 100 }],
     },
 ]);
 
@@ -79,7 +79,7 @@ describe('undo and redo with generated documents', () => {
     it('recreates a container pile and an interior exit when a stamp comes back', async () => {
         const { c, k, w } = makeHarness(stamps);
         await c.placeStamp({ stamp: 'pack:chest', x: 0, y: 0 }); // p1, pile1
-        await c.placeStamp({ stamp: 'pack:hab', x: 500, y: 0 }); // p2
+        await c.placeStamp({ stamp: 'pack:residence', x: 500, y: 0 }); // p2
         await c.linkSubmap('p2', 'vault'); // exit p4
         await c.remove('p1');
         await c.remove('p2');
@@ -94,7 +94,7 @@ describe('undo and redo with generated documents', () => {
 
     it('undoing an interior link removes its exit; redoing restores it', async () => {
         const { c, w } = makeHarness(stamps);
-        await c.placeStamp({ stamp: 'pack:hab', x: 0, y: 0 });
+        await c.placeStamp({ stamp: 'pack:residence', x: 0, y: 0 });
         await c.linkSubmap('p1', 'vault');
         await c.undo();
         expect(c.submapOf('p1')).toBeNull();

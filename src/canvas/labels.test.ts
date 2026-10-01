@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { labelBox, NEW_LABEL } from '../tools/label';
 import { makeHarness } from './test-fakes';
 
-const district = { text: 'Hab District 4', fontSize: 64, colour: '#e0c080', fontFamily: 'Amiri', rotation: -10, hidden: false };
+const district = { text: 'Residence District 4', fontSize: 64, colour: '#e0c080', fontFamily: 'Amiri', rotation: -10, hidden: false };
 
 describe('map labels', () => {
     it('place a native text Drawing on the level being edited, and their settings re-sync it', async () => {

@@ -13,12 +13,12 @@ const BURNING: AreaSettings = {
     spawn: NO_SPAWN,
 };
 
-const SLICK: ZonePreset = { name: 'Promethium slick', shape: { kind: 'ellipse', radiusX: 200, radiusY: 100 }, gridBased: true, area: BURNING };
+const SLICK: ZonePreset = { name: 'Fuel slick', shape: { kind: 'ellipse', radiusX: 200, radiusY: 100 }, gridBased: true, area: BURNING };
 
 describe('hazard presets', () => {
     it('are made from a zone and its area settings, under a name that is not blank', () => {
         const zone = { ...NEW_ZONE, shape: SLICK.shape, gridBased: true, name: 'Slick', attachedTo: 't1' };
-        expect(presetOf(' Promethium slick ', zone, BURNING)).toEqual(SLICK);
+        expect(presetOf(' Fuel slick ', zone, BURNING)).toEqual(SLICK);
         expect(presetOf('  ', zone, BURNING)).toBeNull();
     });
 
@@ -27,7 +27,7 @@ describe('hazard presets', () => {
         const bigger = { ...SLICK, shape: { kind: 'circle', radius: 500 } } as const;
         expect(withPreset([SLICK, gas], bigger)).toEqual([bigger, gas]);
         expect(withPreset([SLICK], gas)).toEqual([SLICK, gas]);
-        expect(withoutPreset([SLICK, gas], 'Promethium slick')).toEqual([gas]);
+        expect(withoutPreset([SLICK, gas], 'Fuel slick')).toEqual([gas]);
     });
 
     it('give a zone their shape and measuring, and their name only when it has none of its own', () => {

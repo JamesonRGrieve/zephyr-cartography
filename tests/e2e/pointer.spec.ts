@@ -416,7 +416,7 @@ test('a zone offers to move with the tokens Foundry locates on its own level', a
         const ground = (await controller?.addLevel('above', 'Ground')) ?? '';
         const upper = (await controller?.addLevel('above', 'Upper')) ?? '';
         await canvas?.scene?.createEmbeddedDocuments('Token', [
-            { name: 'Gun-servitor', x: 1200, y: 1200, level: ground },
+            { name: 'Gun drone', x: 1200, y: 1200, level: ground },
             { name: 'Gargoyle', x: 1400, y: 1200, level: upper },
         ]);
         controller?.setActiveLevel(ground);
@@ -428,7 +428,7 @@ test('a zone offers to move with the tokens Foundry locates on its own level', a
     await expect(panel).toBeVisible();
     const choices = panel.getByLabel('Attached Token').locator('option');
     // "None", then only the ground's token.
-    await expect(choices).toHaveText([/.+/u, 'Gun-servitor']);
+    await expect(choices).toHaveText([/.+/u, 'Gun drone']);
 });
 
 test('the zone tool, with the Regions tools, places a native Region in Foundryâ€™s own shape, and erase removes it', async ({ world }) => {
@@ -441,7 +441,7 @@ test('the zone tool, with the Regions tools, places a native Region in Foundryâ€
     await panel.getByLabel('Type').selectOption({ label: 'Cone' });
     await panel.getByLabel('Radius').fill('200');
     await panel.getByLabel('Radius').press('Enter');
-    await panel.getByLabel('Name', { exact: true }).fill('Promethium wash');
+    await panel.getByLabel('Name', { exact: true }).fill('Fuel wash');
     await panel.getByLabel('Name', { exact: true }).press('Enter');
     const zones = async (): Promise<{ name: string; shapes: { type: string; x: number; y: number; radius: number | null }[] }[]> =>
         world.evaluate(() =>
@@ -456,7 +456,7 @@ test('the zone tool, with the Regions tools, places a native Region in Foundryâ€
                 })),
             })),
         );
-    await expect.poll(zones).toEqual([{ name: 'Promethium wash', shapes: [{ type: 'cone', x: 700, y: 500, radius: 200 }] }]);
+    await expect.poll(zones).toEqual([{ name: 'Fuel wash', shapes: [{ type: 'cone', x: 700, y: 500, radius: 200 }] }]);
 
     await useTool(world, 'erase');
     // Inside the cone, below where its tucked-away panel's title bar sits.
@@ -524,7 +524,7 @@ test('the label tool, with the Drawings tools, places a native text Drawing cent
     const panel = world.locator(`#${MODULE_ID}-label`);
     await expect(panel).toBeVisible();
     // Named as Foundry's own Drawing sheet names them.
-    await panel.getByLabel('Text Label').fill('Hab District 4');
+    await panel.getByLabel('Text Label').fill('Residence District 4');
     await panel.getByLabel('Text Label').blur();
     await panel.getByLabel('Font Size').fill('64');
     await panel.getByLabel('Font Size').press('Enter');
@@ -539,7 +539,7 @@ test('the label tool, with the Drawings tools, places a native text Drawing cent
             })),
         );
     // Text only: CONST.DRAWING_FILL_TYPES.NONE, and no line.
-    await expect.poll(drawings).toEqual([{ text: 'Hab District 4', fontSize: 64, centre: { x: 800, y: 600 }, fill: 0, stroke: 0 }]);
+    await expect.poll(drawings).toEqual([{ text: 'Residence District 4', fontSize: 64, centre: { x: 800, y: 600 }, fill: 0, stroke: 0 }]);
 
     await useTool(world, 'erase');
     await clickScene(world, { x: 800, y: 600 });

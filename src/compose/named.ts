@@ -140,7 +140,7 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     // Art made to join (a section between its end pieces, a module with square ends) beats repeating a piece made to stand alone.
     const made = runs.filter(joinsByDesign);
     const run = byName(made.length > 0 ? made : runs);
-    // A piece with an open end butts against another run: only a run leaves an end open. A fitting is one thing (an aquila,
+    // A piece with an open end butts against another run: only a run leaves an end open. A fitting is one thing (an eagle emblem,
     // a hatch): a run of it only where no one piece of its art fills what is asked (a length of pipe).
     const longer = whole === undefined || (role !== 'fitting' && reach(run ?? whole) > reach(whole));
     const drawn = run !== undefined && (openEnds.length > 0 || longer) ? run : whole;
@@ -193,7 +193,7 @@ const RUN_ENDS = 2;
 
 /**
  * Roles built of modules set side by side: a wall of shelving units, a row of
- * lockers, a bank of cogitators, a line of pews, a hall's trestle tables
+ * lockers, a bank of terminals, a line of pews, a hall's trestle tables
  * pushed end to end into one long board; a fitting's length of pipe, cable,
  * kerb or railing laid along a wall.
  */

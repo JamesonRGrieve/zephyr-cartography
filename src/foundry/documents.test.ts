@@ -168,7 +168,7 @@ describe('FoundryDocumentSink', () => {
         await s.write({
             ...NOTHING,
             regionUpdates: [
-                { id: 'kept', doc: { ...REGION, id: 'kept', behaviour: { kind: 'teleport', targets: [{ scene: 'hab', region: 'out' }], travel } } },
+                { id: 'kept', doc: { ...REGION, id: 'kept', behaviour: { kind: 'teleport', targets: [{ scene: 'residence', region: 'out' }], travel } } },
             ],
         });
         expect(batches[0]?.map((op) => [op.action, op.documentName])).toEqual([

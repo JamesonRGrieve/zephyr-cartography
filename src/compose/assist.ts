@@ -128,7 +128,7 @@ export function choosingPrompt(intent: MapIntent, stamps: RoleIndex, info: Reado
     const user =
         `A map in ${setting}. The stamps, by number:\n${listing.join('\n')}\n\n` +
         'For each place below, for each role, choose up to 3 of the numbers offered that best suit that place ' +
-        '(its purpose and setting: a chapel wants holy pieces, a tavern homely ones, a manufactorum industrial ones), best first. ' +
+        '(its purpose and setting: a chapel wants holy pieces, a tavern homely ones, a factory industrial ones), best first. ' +
         'Leave out a role if none suits.\n\n' +
         `${places.filter((p) => p !== '').join('\n\n')}\n\n` +
         'Answer as {"<place>": {"<role>": [<number>, ...]}}.';

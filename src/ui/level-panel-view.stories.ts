@@ -113,7 +113,7 @@ export function mountLevelPanel(args: LevelPanelArgs): HTMLElement {
     return windowEl;
 }
 
-const HAB_LEVELS: readonly Level[] = [
+const RESIDENCE_LEVELS: readonly Level[] = [
     { id: 'cellar', name: 'Cellar', bottom: -10, top: 0, art: NO_LEVEL_ART },
     {
         id: 'ground',
@@ -122,8 +122,8 @@ const HAB_LEVELS: readonly Level[] = [
         top: 10,
         art: {
             ...NO_LEVEL_ART,
-            background: 'maps/hab/ground.webp',
-            foreground: 'maps/hab/roof.webp',
+            background: 'maps/residence/ground.webp',
+            foreground: 'maps/residence/roof.webp',
             tints: { ...NO_LEVEL_ART.tints, background: '#d8c8a8' },
             visibleLevels: ['cellar'],
         },
@@ -135,7 +135,7 @@ const meta: Meta<LevelPanelArgs> = {
     title: 'Levels/Level Panel',
     excludeStories: ['mountLevelPanel'],
     render: mountLevelPanel,
-    args: { levels: HAB_LEVELS, active: 'ground', counts: { ground: 12, upper: 4 } },
+    args: { levels: RESIDENCE_LEVELS, active: 'ground', counts: { ground: 12, upper: 4 } },
 };
 
 export default meta;

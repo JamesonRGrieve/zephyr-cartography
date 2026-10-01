@@ -367,7 +367,7 @@ describe('drawingCreateData', () => {
             rotation: -10,
             elevation: 5,
             level: 'lv1',
-            text: 'Hab District 4',
+            text: 'Residence District 4',
             fontSize: 40,
             colour: '#e0c080',
             fontFamily: 'Amiri',
@@ -382,7 +382,7 @@ describe('drawingCreateData', () => {
             rotation: -10,
             fillType: 0,
             strokeWidth: 0,
-            text: 'Hab District 4',
+            text: 'Residence District 4',
             fontSize: 40,
             fontFamily: 'Amiri',
             textColor: '#e0c080',
@@ -740,7 +740,7 @@ describe('regionCreateData', () => {
     it('teleports to regions in another scene, relative, with a choice when there are several', () => {
         const many: RegionDoc = {
             id: null,
-            label: { kind: 'entrance', scene: 'Hab' },
+            label: { kind: 'entrance', scene: 'Residence' },
             polygon: square,
             bottom: null,
             top: null,
@@ -749,8 +749,8 @@ describe('regionCreateData', () => {
             behaviour: {
                 kind: 'teleport',
                 targets: [
-                    { scene: 'hab', region: 'a' },
-                    { scene: 'hab', region: 'b' },
+                    { scene: 'residence', region: 'a' },
+                    { scene: 'residence', region: 'b' },
                 ],
                 travel: { placement: 'center', snap: false, revealed: true, transition: 'swirl', duration: 2000, prompt: 'Enter {scene}?' },
             },
@@ -759,7 +759,7 @@ describe('regionCreateData', () => {
             {
                 type: 'teleportToken',
                 system: {
-                    destinations: ['Scene.hab.Region.a', 'Scene.hab.Region.b'],
+                    destinations: ['Scene.residence.Region.a', 'Scene.residence.Region.b'],
                     placement: 'center',
                     snap: false,
                     choice: true,
@@ -774,18 +774,18 @@ describe('regionCreateData', () => {
     it('addresses a region in another scene directly, with an open-ended band', () => {
         const entrance: RegionDoc = {
             id: 'in1',
-            label: { kind: 'entrance', scene: 'Hab' },
+            label: { kind: 'entrance', scene: 'Residence' },
             polygon: square,
             bottom: null,
             top: null,
             level: null,
             spans: [],
-            behaviour: { kind: 'teleport', targets: [{ scene: 'hab', region: 'out1' }], travel: DEFAULT_TRAVEL },
+            behaviour: { kind: 'teleport', targets: [{ scene: 'residence', region: 'out1' }], travel: DEFAULT_TRAVEL },
         };
         const [data] = regionCreateData([entrance], ['in1'], CONTEXT);
         expect(data?.elevation).toEqual({ bottom: null, top: null });
         expect(data?.behaviors[0]?.system).toEqual({
-            destinations: ['Scene.hab.Region.out1'],
+            destinations: ['Scene.residence.Region.out1'],
             placement: 'relative',
             snap: true,
             choice: false,
@@ -807,7 +807,7 @@ describe('regionCreateData', () => {
             spans: [],
             behaviour: null,
         };
-        const [entrance, back] = regionCreateData([{ ...exit, id: 'in1', label: { kind: 'entrance', scene: 'Hab' } }, exit], ['in1', 'out1'], CONTEXT);
+        const [entrance, back] = regionCreateData([{ ...exit, id: 'in1', label: { kind: 'entrance', scene: 'Residence' } }, exit], ['in1', 'out1'], CONTEXT);
         expect([entrance?.locked, back?.locked]).toEqual([true, false]);
         expect([entrance?.visibility, back?.visibility]).toEqual([0, 0]);
     });

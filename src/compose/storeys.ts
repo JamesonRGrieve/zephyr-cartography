@@ -120,7 +120,7 @@ const STAIR_RANK: Readonly<Record<RoomPurpose, number>> = {
     'medicae': 2,
     'command': 2,
     'armoury': 2,
-    'manufactorum': 2,
+    'factory': 2,
     'kitchen': 3,
     'storage': 3,
     'bedroom': 3,

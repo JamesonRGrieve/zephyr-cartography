@@ -134,7 +134,7 @@ describe('named pieces', () => {
     });
 
     it('draws a piece in art of its role carrying one of its tags, the same art for the same name wherever it stands', () => {
-        const pool: RoleIndex = new Map([['desk', [desk('plain', ['desk']), desk('clerk', ['desk', 'clerk']), desk('cogitator', ['desk', 'cogitator'])]]]);
+        const pool: RoleIndex = new Map([['desk', [desk('plain', ['desk']), desk('clerk', ['desk', 'clerk']), desk('terminal', ['desk', 'terminal'])]]]);
         const asked = { name: 'clerk desk', role: 'desk', tags: ['clerk'], width: 1.5, height: 0.75 } as const;
         expect(namedArt(asked, pool)?.key).toBe('clerk');
         // With no tags any art of the role serves, but always the same one for one name.

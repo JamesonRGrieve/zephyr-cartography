@@ -4,8 +4,8 @@ import { expect, test } from './lib/foundry';
 test('an enterable stamp opens into a new interior scene, each side teleporting to the other', async ({ world }) => {
     const result = await world.evaluate(async () => {
         const controller = game.modules?.get('zephyr-cartography').api.controller();
-        const stamp = await controller?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 });
-        const interior = stamp === null || stamp === undefined ? null : await controller?.createInterior(stamp, 'Hab interior');
+        const stamp = await controller?.placeStamp({ stamp: 'zc-e2e-pack:residence', x: 600, y: 600 });
+        const interior = stamp === null || stamp === undefined ? null : await controller?.createInterior(stamp, 'Residence interior');
         const here = canvas?.scene;
         const there = interior === null || interior === undefined ? undefined : game.scenes?.get(interior);
         // fvtt-types still describes v13's single `destination`; v14 holds a set of `destinations`, which
@@ -32,7 +32,7 @@ test('an enterable stamp opens into a new interior scene, each side teleporting 
             visibility: [entrance?.visibility, exit?.visibility],
         };
     });
-    expect(result.interiorName).toBe('Hab interior');
+    expect(result.interiorName).toBe('Residence interior');
     expect(result.entranceTo).toEqual([result.exitUuid]);
     expect(result.exitTo).toEqual([result.entranceUuid]);
     // The entrance follows the stamp, so it is locked; the exit is the GM's to place. Both show on the Regions layer.
@@ -68,8 +68,8 @@ test('an enterable stamp opens into a new interior scene, each side teleporting 
 test('a submap’s travel options reach both teleports in place: arrival, transition and prompt', async ({ world }) => {
     const travel = await world.evaluate(async () => {
         const controller = game.modules?.get('zephyr-cartography').api.controller();
-        const stamp = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:hab', x: 600, y: 600 })) ?? '';
-        const interior = (await controller?.createInterior(stamp, 'Hab interior')) ?? '';
+        const stamp = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:residence', x: 600, y: 600 })) ?? '';
+        const interior = (await controller?.createInterior(stamp, 'Residence interior')) ?? '';
         // The teleport behaviour of the entrance, here, and of the exit, in the interior.
         const teleports = (): (RegionBehavior | undefined)[] => [
             canvas?.scene?.regions.contents[0]?.behaviors.contents[0],

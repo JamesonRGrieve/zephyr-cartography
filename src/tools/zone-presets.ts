@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Hazard presets: a zone the GM has set up once (a burning promethium slick,
+ * Hazard presets: a zone the GM has set up once (a burning fuel slick,
  * a gas cloud, a rubble field), saved under a name so any zone can take it
  * again. A preset holds the zone's shape and grid measuring and everything
  * the effects panel sets on it: movement cost, region behaviours, display

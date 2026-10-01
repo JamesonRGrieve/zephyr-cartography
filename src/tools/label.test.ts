@@ -18,7 +18,7 @@ describe('labels', () => {
     it('size their box to hold the longest line on one line, and every line', () => {
         // 8 characters at 0.7 of the font size, plus a font size of margin; one line at 1.5.
         expect(labelBox(sump)).toEqual({ width: Math.ceil((8 * 0.7 + 1) * 40), height: 60 });
-        expect(labelBox({ ...sump, text: 'Hab\nDistrict 4' }).height).toBe(120);
+        expect(labelBox({ ...sump, text: 'Residence\nDistrict 4' }).height).toBe(120);
         expect(labelBox({ ...sump, text: '' }).width).toBeGreaterThan(0);
     });
 

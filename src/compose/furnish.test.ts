@@ -570,15 +570,15 @@ describe('the grim far future’s rooms', () => {
         entrance: null,
     });
 
-    it('fills a manufactorum with machines in rows, a medicae with gurneys, an armoury with racks, a barracks with beds', () => {
+    it('fills a factory with machines in rows, a medicae with gurneys, an armoury with racks, a barracks with beds', () => {
         const count = (purpose: RoomFloor['purpose'], role: StampRole): number => furnish(room(purpose)).filter((p) => roleOf(p) === role).length;
-        expect(count('manufactorum', 'machine')).toBeGreaterThanOrEqual(4);
+        expect(count('factory', 'machine')).toBeGreaterThanOrEqual(4);
         expect(count('medicae', 'medical')).toBeGreaterThanOrEqual(2);
         expect(count('armoury', 'rack')).toBeGreaterThanOrEqual(3);
         expect(count('barracks', 'bed')).toBeGreaterThanOrEqual(4);
         expect(count('command', 'console')).toBeGreaterThanOrEqual(2);
         expect(count('interrogation', 'restraint')).toBe(1);
-        for (const purpose of ['manufactorum', 'medicae', 'armoury', 'barracks', 'command', 'interrogation', 'mess', 'chapel'] as const) {
+        for (const purpose of ['factory', 'medicae', 'armoury', 'barracks', 'command', 'interrogation', 'mess', 'chapel'] as const) {
             expectOrderly(room(purpose), furnish(room(purpose)));
         }
     });

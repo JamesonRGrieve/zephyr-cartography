@@ -10,7 +10,7 @@ import type { HazardKind } from '../stamps/schema';
 import type { LightSource, RegionDoc } from '../tools/documents';
 import { format, localize } from './localize';
 
-/** A generated region's display name, e.g. "Stairs: Ground floor → Upper floor" or "Enter Hab 12". */
+/** A generated region's display name, e.g. "Stairs: Ground floor → Upper floor" or "Enter Residence 12". */
 export function regionName(region: RegionDoc): string {
     const label = region.label;
     if ('name' in label) {

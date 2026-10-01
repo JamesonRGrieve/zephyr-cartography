@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Real maps, composed from map intents in the real asset pack's art: the Map
- * builder's presets, fantasy (a woodland inn, a tavern), grimdark (a hive
- * outpost, a hive chapel, a manufactorum) and sci-fi (a void port), each on
+ * builder's presets, fantasy (a woodland inn, a tavern), grimdark (a megacity
+ * outpost, a megacity chapel, a factory) and sci-fi (a void port), each on
  * a scene its size, in the hand-painted texture set. They are judged by eye from their
  * screenshots, whole and close up, and checked to have been composed whole
  * (no problems, every stamp drawn). The pack is not in this repo, so the
@@ -153,17 +153,17 @@ test('the tavern preset: a taproom with its counter, the kitchen behind it, a st
     await showcase(world, 'tavern', 'Tavern', 'tavern', { x: 8, y: 6, scale: CLOSE_UP_SCALE }, true);
 });
 
-test('the hive outpost preset: a fortified outpost among shelled rubble, industry and a toxic runoff', async ({ world }) => {
+test('the megacity outpost preset: a fortified outpost among shelled rubble, industry and a toxic runoff', async ({ world }) => {
     // The outpost, close: command, armoury, barracks, medicae, interrogation and cell.
-    await showcase(world, 'hive-outpost', 'Hive outpost', 'hive-outpost', { x: 21.5, y: 14.5, scale: CLOSE_UP_SCALE / 2 }, false);
+    await showcase(world, 'megacity-outpost', 'Megacity outpost', 'megacity-outpost', { x: 21.5, y: 14.5, scale: CLOSE_UP_SCALE / 2 }, false);
 });
 
-test('the hive chapel preset: a nave of pews facing its altar, a vestry, an ossuary and a cell', async ({ world }) => {
-    await showcase(world, 'hive-chapel', 'Hive chapel', 'hive-chapel', { x: 12, y: 9, scale: CLOSE_UP_SCALE / 2 }, true);
+test('the megacity chapel preset: a nave of pews facing its altar, a vestry, an ossuary and a cell', async ({ world }) => {
+    await showcase(world, 'megacity-chapel', 'Megacity chapel', 'megacity-chapel', { x: 12, y: 9, scale: CLOSE_UP_SCALE / 2 }, true);
 });
 
-test('the manufactorum preset: rows of machines, an overseer’s post, stores, a mess and bunks', async ({ world }) => {
-    await showcase(world, 'manufactorum', 'Manufactorum', 'manufactorum', { x: 10, y: 8, scale: CLOSE_UP_SCALE / 2 }, true);
+test('the factory preset: rows of machines, an overseer’s post, stores, a mess and bunks', async ({ world }) => {
+    await showcase(world, 'factory', 'Factory', 'factory', { x: 10, y: 8, scale: CLOSE_UP_SCALE / 2 }, true);
 });
 
 test('the void port preset: craft on a landing field, industry beside it, a road to the port office', async ({ world }) => {

@@ -53,7 +53,7 @@ describe('zone panel', () => {
         expect(select(root, 'zc-zone-shape').value).toBe('circle');
         expect(sizeLabels(root)).toEqual(['Radius']);
         expect(select(root, 'zc-zone-token').value).toBe('');
-        expect([...select(root, 'zc-zone-token').options].map((o) => o.text)).toEqual(['None', 'Sister Ibnad', 'Gun-servitor']);
+        expect([...select(root, 'zc-zone-token').options].map((o) => o.text)).toEqual(['None', 'Sister Ibnad', 'Gun drone']);
     });
 
     it('shows each shape’s own sizes, in Foundry’s names, keeping about the same size', () => {
@@ -87,7 +87,7 @@ describe('zone panel', () => {
 
     it('names, turns, grids and attaches the zone, keeping a token no longer on the scene selectable', () => {
         const root = mount(stories.FlamerCone);
-        expect(select(root, 'zc-zone-token').value).toBe('tokenServitor001');
+        expect(select(root, 'zc-zone-token').value).toBe('tokenGunDrone001');
         change(input(root, 'zone-name'), ' Burn ');
         expect(input(root, 'zone-name').value).toBe('Burn');
         change(input(root, 'zone-rotation'), '90');
@@ -111,7 +111,7 @@ describe('zone panel', () => {
         expect(input(root, 'zone-preset-name').value).toBe('Choking gas');
         change(input(root, 'zone-preset-name'), 'Gas, heavy');
         button('zone-preset-save')?.click();
-        expect([...select(root, 'zc-zone-preset').options].map((o) => o.value)).toEqual(['Promethium slick', 'Choking gas', 'Rubble', 'Gas, heavy']);
+        expect([...select(root, 'zc-zone-preset').options].map((o) => o.value)).toEqual(['Fuel slick', 'Choking gas', 'Rubble', 'Gas, heavy']);
         button('zone-preset-forget')?.click();
         expect([...select(root, 'zc-zone-preset').options].map((o) => o.value)).toEqual(['Choking gas', 'Rubble', 'Gas, heavy']);
     });

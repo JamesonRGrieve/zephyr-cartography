@@ -224,8 +224,8 @@
             ]
         },
         {
-            "id": "hab",
-            "name": "Hab",
+            "id": "residence",
+            "name": "Residence",
             "category": "Structures",
             "scale": "city",
             "perspective": "top-down",
@@ -233,7 +233,7 @@
             "variants": [
                 {
                     "state": "intact",
-                    "image": "stamps/hab.svg",
+                    "image": "stamps/residence.svg",
                     "width": 200,
                     "height": 200
                 }
@@ -352,7 +352,7 @@
             "variants": [
                 {
                     "state": "up",
-                    "image": "stamps/hab.svg",
+                    "image": "stamps/residence.svg",
                     "width": 200,
                     "height": 200
                 }
@@ -645,7 +645,7 @@
             "variants": [
                 {
                     "state": "default",
-                    "image": "stamps/hab.svg",
+                    "image": "stamps/residence.svg",
                     "width": 200,
                     "height": 120
                 }
@@ -681,7 +681,7 @@
             "variants": [
                 {
                     "state": "default",
-                    "image": "stamps/hab.svg",
+                    "image": "stamps/residence.svg",
                     "width": 400,
                     "height": 370
                 }
