@@ -326,7 +326,8 @@ const OUTDOOR_ROLES: readonly StampRole[] = ['structure', 'barricade', 'crater',
  */
 export function suitsScale(role: StampRole, scale: string, mapScale: MapScale = 'battlemap'): boolean {
     if (mapScale !== 'battlemap') {
-        return role === 'fitting' && scale === mapScale;
+        // A region's towns and keeps are drawn as a city's blocks seen from far above.
+        return role === 'fitting' && (scale === mapScale || (mapScale === 'regional' && scale === 'city'));
     }
     // A fitting stands in a room or a yard, never a city block or a world drawn to look like one from far above.
     if (role === 'fitting') {

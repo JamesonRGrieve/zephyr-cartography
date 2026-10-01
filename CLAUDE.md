@@ -1550,7 +1550,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
 - **Charts** (intent `scale`: `battlemap`, the default, or `regional`,
   `planet`, `system`). A chart of a region, a world or a star system is
   drawn from art of its own scale (the pack's `regional`, `planet` and
-  `system` stamps), and only where it names a piece (`suitsScale`): its
+  `system` stamps; a region's towns and keeps also from `city` art), and
+  only where it names a piece (`suitsScale`): its
   towns, ruins and worlds are named fixtures. It is its ground, its zones'
   ground, its paths and those places; nothing is scattered, worn, banked,
   bridged or waymarked. A place with no art of its scale stands as its
