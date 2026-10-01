@@ -557,6 +557,37 @@ describe('composeMap', () => {
         ).toEqual([]);
     });
 
+    it('roofs a tapered hull as tapered: the storey below’s cut corners stay open void, never roofed', () => {
+        const hull = intentOf({
+            ground: null,
+            buildings: [
+                {
+                    key: 'ship',
+                    width: 10,
+                    height: 8,
+                    rooms: [
+                        {
+                            key: 'hold',
+                            purpose: 'storage',
+                            entrance: true,
+                            rect: { x: 0, y: 0, w: 10, h: 8 },
+                            chamfer: 3,
+                            chamferAt: ['top-left', 'top-right'],
+                        },
+                    ],
+                    floors: [{ name: 'Bridge', rooms: [{ key: 'bridge', purpose: 'command', rect: { x: 3, y: 4, w: 4, h: 4 } }] }],
+                },
+            ],
+        });
+        const [roof, ...more] = compose(hull).spec.features.filter((f) => f.type === 'region' && f.level === 'floor-2' && f.sharp);
+        expect(more).toEqual([]);
+        const points = roof?.type === 'region' ? roof.points : [];
+        // The hold's octagonal bow: six corners, none at the footprint's cut-off top corners.
+        expect(points).toHaveLength(6);
+        const { x, y } = footprintOf({ at: null, width: 10, height: 8 }, hull);
+        expect(points.some((p) => (p.x === x && p.y === y) || (p.x === x + 10 && p.y === y))).toBe(false);
+    });
+
     it('draws a named piece in the state it asks for: its art’s variant of that state', () => {
         const chest = TEST_ROLES.get('chest')?.[0];
         if (!chest) {

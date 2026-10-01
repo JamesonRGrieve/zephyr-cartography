@@ -8,9 +8,9 @@
  * as problems, never thrown. Everything is placed in grid squares from the
  * map's top-left corner. Pure and unit-tested.
  */
-import type { DoorSlot, Rect, RoomCorner, Side } from '../generate/floor-plan';
+import type { DoorSlot, Rect, RoomBuild, RoomCorner, Side } from '../generate/floor-plan';
 import { OPPOSITE_SIDE, roomSpec } from '../generate/floor-plan';
-import { seededRandom, type Random } from '../generate/random';
+import { type Random, seededRandom } from '../generate/random';
 import { SCENE_SPEC_SCHEMA_VERSION, type SceneSpecInput } from '../generate/spec';
 import { boundsOf } from '../geometry/bounds';
 import type { Point } from '../geometry/spline';
@@ -282,29 +282,45 @@ function chamferCorners({ x, y, w, h }: Rect, c: number, at: readonly RoomCorner
 
 /**
  * A storey above the ground over only part of the footprint (a commander's
- * office over its stair core): the rest is flat roof in `texture`, never a
- * view down into the rooms below; drawn first, under its rooms. None for a
- * whole storey, the ground or a cellar.
+ * office over its stair core): the rest is flat roof in `texture` over the
+ * storey `below`, never a view down into its rooms; drawn first, under the
+ * storey's own rooms. It follows each room below, cut corners cut, never the
+ * footprint's rectangle, which would roof the void beside a tapered hull's
+ * bow. None for a whole storey, or with no storey below (the ground, a
+ * cellar, or one that did not fit).
  */
 function roofOf(
-    storey: number,
     layout: BuildingLayout,
-    { footprint, texture, onLevel }: { readonly footprint: Rect; readonly texture: string; readonly onLevel: { readonly level?: string } },
+    below: BuildingLayout | null,
+    {
+        footprint,
+        texture,
+        onLevel,
+        build,
+    }: { readonly footprint: Rect; readonly texture: string; readonly onLevel: { readonly level?: string }; readonly build: RoomBuild },
 ): FeatureInput[] {
-    return storey > 0 && !covers(layout, footprint) ? [{ type: 'region', biome: 'rock', texture, sharp: true, points: cornersOf(footprint), ...onLevel }] : [];
+    if (!below || covers(layout, footprint)) {
+        return [];
+    }
+    return below.rooms.map(
+        (r): FeatureInput => ({
+            type: 'region',
+            biome: 'rock',
+            texture,
+            sharp: true,
+            points: roomSpec(r.rect, [], build, r.intent.chamfer ?? 0, r.intent.chamferAt).points,
+            ...onLevel,
+        }),
+    );
 }
+
+/** The layout of the storey under an upper `storey`; null for the ground, a cellar, or one that did not fit. */
+const storeyBelow = (storeys: Storeys, storey: number): BuildingLayout | null =>
+    storey === 1 ? storeys.ground : storey > 1 ? storeys.floors[storey - 2] ?? null : null;
 
 /** Whether `layout`'s rooms, which never overlap, cover the whole of `footprint`. */
 const covers = (layout: BuildingLayout, footprint: Rect): boolean =>
     layout.rooms.reduce((area, r) => area + r.rect.w * r.rect.h, 0) >= footprint.w * footprint.h;
-
-/** The corners of `rect`, clockwise from its top-left. */
-const cornersOf = ({ x, y, w, h }: Rect): Point[] => [
-    { x, y },
-    { x: x + w, y },
-    { x: x + w, y: y + h },
-    { x, y: y + h },
-];
 
 /** Squares off a corner at which to look for a room wrapping it. */
 const NUDGE = 0.01;
@@ -544,7 +560,9 @@ function composeBuilding(
             problems.push({ kind: 'rooms-do-not-fit', building: storeyCalled, width: building.width, height: building.height });
             continue;
         }
-        features.push(...roofOf(storey, layout, { footprint, texture: building.wall, onLevel: levelOf(storey) }));
+        const below = storeyBelow(storeys, storey);
+        const build = { floor: building.floor, wall: building.wall, wallKind: building.wallKind, ceiling: true };
+        features.push(...roofOf(layout, below, { footprint, texture: building.wall, onLevel: levelOf(storey), build }));
         const composed = composeStorey(layout, {
             building,
             called: storeyCalled,

@@ -1343,7 +1343,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
   - **Partial storeys.** A storey whose rooms (each given a `rect`) cover
     only part of the footprint (a commander's office over its stair core)
     has flat roof over the rest, in the building's wall texture, laid under
-    its rooms on its level: never a view down into the rooms below.
+    its rooms on its level: never a view down into the rooms below. The
+    roof follows the storey below room by room, cut corners cut, so the
+    void beside a tapered hull's bow stays void.
   - **Platforms** (`platforms`) are raised floors in the open (a feed grate
     over a machine, a catwalk along vats, an overpass): each on the level
     above the ground (named for the first platform where no building's
