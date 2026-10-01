@@ -82,6 +82,16 @@ describe('suitsScale', () => {
         expect(suitsScale('fitting', 'exterior')).toBe(true);
         expect(suitsScale('fitting', 'city')).toBe(false);
     });
+
+    it('draws a chart (a region, a world, a system) only from named art of its own scale', () => {
+        expect(suitsScale('fitting', 'regional', 'regional')).toBe(true);
+        expect(suitsScale('fitting', 'system', 'system')).toBe(true);
+        // Nothing of another scale, and nothing scattered or furnished: a chart's trees are not a yard's.
+        expect(suitsScale('fitting', 'exterior', 'regional')).toBe(false);
+        expect(suitsScale('fitting', 'regional', 'system')).toBe(false);
+        expect(suitsScale('tree', 'regional', 'regional')).toBe(false);
+        expect(suitsScale('tree', 'exterior', 'regional')).toBe(false);
+    });
 });
 
 describe('placementOf', () => {

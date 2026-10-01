@@ -49,7 +49,7 @@ export async function composeOnScene(
     stamps: readonly CatalogStamp[],
     ask: Ask | null = null,
 ): Promise<ComposeOutcome> {
-    const index = roleIndex(stamps, intent.settings);
+    const index = roleIndex(stamps, intent.settings, intent.scale);
     const info = new Map(stamps.map((s) => [s.key, { name: s.name, tags: s.tags }]));
     const advised = ask ? await adviseAndCompose(intent, index, info, ask) : null;
     const composed = advised ? advised.composition : composeMap(intent, index);

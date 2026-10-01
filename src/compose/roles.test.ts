@@ -18,6 +18,24 @@ const stampDef = (id: string, over: object): object => ({
     ...over,
 });
 
+describe('roleIndex for a chart', () => {
+    it('offers a regional map its regional art as named fittings, and none of a battlemap’s', () => {
+        const pack = stamps([
+            stampDef('forest-block', { scale: 'regional', tags: ['forest', 'block'] }),
+            stampDef('oak', { scale: 'exterior', tags: ['tree', 'oak'] }),
+            stampDef('world', { scale: 'system', tags: ['planet', 'disc'] }),
+        ]);
+        const regional = roleIndex(pack, [], 'regional');
+        expect([...regional.keys()]).toEqual(['fitting']);
+        expect((regional.get('fitting') ?? []).map((s) => s.key)).toEqual(['pack:forest-block']);
+        expect((roleIndex(pack, [], 'system').get('fitting') ?? []).map((s) => s.key)).toEqual(['pack:world']);
+        // A battlemap still takes the tree and no chart's art.
+        const battlemap = roleIndex(pack, []);
+        expect((battlemap.get('tree') ?? []).map((s) => s.key)).toEqual(['pack:oak']);
+        expect([...battlemap.values()].flat().some((s) => s.key !== 'pack:oak')).toBe(false);
+    });
+});
+
 describe('roleIndex run parts', () => {
     const variant = (id: string, width: number, height: number): object => ({ variants: [{ state: 'bare', image: `stamps/${id}.png`, width, height }] });
 

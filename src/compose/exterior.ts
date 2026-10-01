@@ -1117,7 +1117,9 @@ export function composeExterior(
         waters: outlines.filter(({ zone }) => zone.kind === 'lake').map(({ outline }) => outline),
         props,
     };
-    for (const { zone, outline } of outlines) {
+    // A chart (a region, a world, a system) is its ground, zones, paths and the places it names: nothing scattered or worn.
+    const charted = intent.scale !== 'battlemap';
+    for (const { zone, outline } of charted ? [] : outlines) {
         features.push(...wornEarth(zone, outline, keepout, random));
     }
     intent.paths.forEach((path, i) => {
@@ -1155,6 +1157,9 @@ export function composeExterior(
         }
         props.push({ ...fixture.at, r: footprintRadius(piece) });
         features.push(...placed.map((s) => ({ type: 'stamp' as const, ...s })));
+    }
+    if (charted) {
+        return { features, problems };
     }
     const placedProps = placeProps(intent.props, sites, stamps, keepout, props, random);
     features.push(...placedProps.features);

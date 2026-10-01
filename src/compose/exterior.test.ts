@@ -49,6 +49,35 @@ describe('zoneOutline', () => {
     });
 });
 
+describe('a chart', () => {
+    it('is its ground, zones, paths and named places: nothing scattered, worn, banked or bridged', () => {
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            seed: 3,
+            width: 30,
+            height: 20,
+            scale: 'regional',
+            zones: [{ kind: 'woodland', area: { shape: 'edge', side: 'west', depth: 10 }, density: 'dense' }],
+            paths: [
+                { kind: 'road', from: 'west', to: 'east' },
+                { kind: 'river', from: 'north', to: 'south' },
+            ],
+            fixtures: [{ name: 'the town', width: 3, height: 3, at: { x: 20, y: 10 }, role: 'fitting', tags: ['town'] }],
+        });
+        if (!parsed.ok) {
+            throw new Error(JSON.stringify(parsed.issues));
+        }
+        // The battlemap index offers trees, rocks and bridges; a chart takes none of them.
+        const { spec } = composeMap(parsed.intent, TEST_ROLES);
+        const stamps = spec.features.filter((f) => f.type === 'stamp');
+        expect(stamps).toHaveLength(0);
+        expect(spec.features.flatMap((f) => (f.type === 'path' ? [f.kind] : []))).toEqual(['road', 'river']);
+        expect(spec.features.some((f) => f.type === 'region' && f.biome === 'forest')).toBe(true);
+        // The town, which no art draws yet, stands as its labelled box.
+        expect(spec.features.some((f) => f.type === 'shape')).toBe(true);
+    });
+});
+
 describe('bridges and yard pieces', () => {
     /** A road east to west across a river running north to south, and a hut to stand things beside. */
     const crossing = (given: object = {}): MapIntent => {

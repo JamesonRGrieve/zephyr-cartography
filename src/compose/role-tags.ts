@@ -10,6 +10,7 @@
  * of an image is a bed's head). Pure and unit-tested.
  */
 import type { StampAnchor, StampBack, StampHabitat, StampPlacement, StampRole } from '../stamps/schema';
+import type { MapScale } from './intent';
 
 /**
  * Each role and the tags that make a stamp one, most specific first: the
@@ -315,12 +316,18 @@ const INDOOR_ROLES: readonly StampRole[] = [
 const OUTDOOR_ROLES: readonly StampRole[] = ['structure', 'barricade', 'crater', 'emplacement', 'vehicle', 'well', 'bridge', 'waymark', 'enclosure', 'fodder'];
 
 /**
- * Whether a stamp drawn at `scale` can fill `role`: a room's altar is an
- * interior altar, not a wayside shrine; a yard's structure is a building-sized
- * work, not an indoor gantry. Land, storage, clutter and the ways between
- * levels (a stair indoors, storm doors outside) serve either.
+ * Whether a stamp drawn at `scale` can fill `role` on a map drawn at
+ * `mapScale`: a room's altar is an interior altar, not a wayside shrine; a
+ * yard's structure is a building-sized work, not an indoor gantry. Land,
+ * storage, clutter and the ways between levels (a stair indoors, storm doors
+ * outside) serve either. A chart (a region, a world, a system) takes only art
+ * of its own scale, and only where the map names it: its towns, ruins and
+ * worlds are named pieces, never scattered.
  */
-export function suitsScale(role: StampRole, scale: string): boolean {
+export function suitsScale(role: StampRole, scale: string, mapScale: MapScale = 'battlemap'): boolean {
+    if (mapScale !== 'battlemap') {
+        return role === 'fitting' && scale === mapScale;
+    }
     // A fitting stands in a room or a yard, never a city block or a world drawn to look like one from far above.
     if (role === 'fitting') {
         return scale === 'interior' || scale === 'exterior';

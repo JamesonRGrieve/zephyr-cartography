@@ -40,6 +40,17 @@
                 "minLength": 1
             }
         },
+        "scale": {
+            "default": "battlemap",
+            "description": "What the map is: a battlemap of rooms and yards, or a chart of a region, a world or a star system. A chart is drawn from art of its own scale, and only where it names a piece (its towns, ruins, worlds); its zones paint their ground, scattering nothing.",
+            "type": "string",
+            "enum": [
+                "battlemap",
+                "regional",
+                "planet",
+                "system"
+            ]
+        },
         "ground": {
             "default": "grassland",
             "description": "The ground under everything; null for none (an interior on a bare scene).",

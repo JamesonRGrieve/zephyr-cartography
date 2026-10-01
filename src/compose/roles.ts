@@ -7,7 +7,7 @@
  */
 import type { CatalogStamp } from '../stamps/catalog';
 import type { StampAnchor, StampBack, StampHabitat, StampRole, StampTransitionDirection, StampTransitionKind } from '../stamps/schema';
-import { ROOM_PURPOSES, type RoomPurpose } from './intent';
+import { type MapScale, ROOM_PURPOSES, type RoomPurpose } from './intent';
 import { habitatsOf, placementOf, roleFromTags, suitsScale } from './role-tags';
 
 /** A door's state as a pack's variants name it. */
@@ -232,9 +232,9 @@ const FACTION_SETTINGS: readonly string[] = [
  * horse stall, a street stall's counter out on a promenade) cannot furnish
  * as that role, but a map can still name it: a fitting.
  */
-export function composedRole(stamp: CatalogStamp): StampRole | undefined {
+export function composedRole(stamp: CatalogStamp, mapScale: MapScale = 'battlemap'): StampRole | undefined {
     const tagged = stamp.role === null ? undefined : stamp.role ?? roleFromTags(stamp.tags);
-    return tagged !== undefined && !suitsScale(tagged, stamp.scale) && suitsScale('fitting', stamp.scale) ? 'fitting' : tagged;
+    return tagged !== undefined && !suitsScale(tagged, stamp.scale, mapScale) && suitsScale('fitting', stamp.scale, mapScale) ? 'fitting' : tagged;
 }
 
 /**
@@ -244,7 +244,7 @@ export function composedRole(stamp: CatalogStamp): StampRole | undefined {
  * one-point perspective) turns like a plan, and a role with any such art
  * uses only that.
  */
-export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly string[]): RoleIndex {
+export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly string[], mapScale: MapScale = 'battlemap'): RoleIndex {
     const index = new Map<StampRole, RoleStamp[]>();
     const borrowed = new Map<StampRole, RoleStamp[]>();
     const orthographic = new Set<string>();
@@ -258,13 +258,13 @@ export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly st
         const defaultSeen = stamp.variants[stamp.defaultVariant];
         const drawn = defaultSeen !== undefined && !seenFromAbove(stamp, defaultSeen) && plan >= 0 ? plan : stamp.defaultVariant;
         const variant = stamp.variants[drawn];
-        const role = composedRole(stamp);
+        const role = composedRole(stamp, mapScale);
         // A faction's own art (communist, chaotic, orcish...) is in a map only where the map names that faction, whatever broader
         // setting it also carries: a human fortress never climbs orcish stairs.
         const factionless = stamp.tags.every((tag) => !FACTION_SETTINGS.includes(tag) || settings.includes(tag));
         const inSetting = (settings.length === 0 || stamp.tags.some((tag) => settings.includes(tag))) && factionless;
         // A stair joins floors only if it carries a transition.
-        if (role === undefined || variant === undefined || !suitsScale(role, stamp.scale) || (role === 'stairs' && stamp.transition === undefined)) {
+        if (role === undefined || variant === undefined || !suitsScale(role, stamp.scale, mapScale) || (role === 'stairs' && stamp.transition === undefined)) {
             continue;
         }
         if (!inSetting && !BORROWED_ROLES.includes(role)) {

@@ -19,6 +19,13 @@ import { DOOR_ANIMATIONS } from '../tools/documents';
 import type { Liquid } from '../tools/path';
 import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
 
+/**
+ * The scale a map is drawn at: a battlemap of rooms and yards, or a chart of
+ * a region, a world or a star system, drawn from art of that scale.
+ */
+const MAP_SCALES = ['battlemap', 'regional', 'planet', 'system'] as const;
+export type MapScale = (typeof MAP_SCALES)[number];
+
 const MAP_INTENT_SCHEMA_VERSION = 1;
 
 export const MAP_INTENT_SCHEMA_URL = 'https://raw.githubusercontent.com/JamesonRGrieve/zephyr-cartography/main/schema/map-intent.v1.schema.json';
@@ -720,6 +727,12 @@ export const mapIntentSchema = z
             .array(text)
             .default([])
             .describe('Stamp tags the map is made from: only stamps carrying at least one are used (e.g. a setting and "generic" pieces); none: any stamp.'),
+        scale: z
+            .enum(MAP_SCALES)
+            .default('battlemap')
+            .describe(
+                'What the map is: a battlemap of rooms and yards, or a chart of a region, a world or a star system. A chart is drawn from art of its own scale, and only where it names a piece (its towns, ruins, worlds); its zones paint their ground, scattering nothing.',
+            ),
         ground: z.enum(BIOMES).nullable().default('grassland').describe('The ground under everything; null for none (an interior on a bare scene).'),
         lighting: z
             .enum(['day', 'dim', 'night'])
