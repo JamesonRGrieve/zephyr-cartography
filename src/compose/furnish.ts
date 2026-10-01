@@ -976,7 +976,9 @@ function placeUnderlay(floor: Floor, stamp: RoleStamp): void {
     const turned = !stamp.upright && rect.h > rect.w !== stamp.height > stamp.width;
     const w = turned ? stamp.height : stamp.width;
     const h = turned ? stamp.width : stamp.height;
-    if (w <= rect.w - 1 && h <= rect.h - 1) {
+    // Never across a stair or a doorway's approach: a rug laid over the steps reads as the stair's.
+    const box = { x: rect.x + (rect.w - w) / 2, y: rect.y + (rect.h - h) / 2, w, h };
+    if (w <= rect.w - 1 && h <= rect.h - 1 && !floor.inWay(box)) {
         floor.placed.push({
             stamp: stamp.key,
             x: rect.x + rect.w / 2,

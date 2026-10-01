@@ -217,6 +217,21 @@ describe('furnishRoom', () => {
         });
     });
 
+    it('never lays a rug across a stairwell: a rug over the steps reads as the stair’s', () => {
+        const bedroom: RoomFloor = {
+            key: 'bed',
+            purpose: 'bedroom',
+            rect: { x: 0, y: 0, w: 5, h: 5 },
+            doors: [{ side: 'bottom', at: 2 }],
+            outer: [],
+            entrance: null,
+        };
+        const rugs = (reserved: readonly { x: number; y: number; w: number; h: number }[]): number =>
+            furnishRoom(bedroom, TEST_ROLES, seededRandom(1), reserved).stamps.filter((p) => roleOf(p) === 'rug').length;
+        expect(rugs([])).toBe(1);
+        expect(rugs([{ x: 1.8, y: 1.5, w: 1.4, h: 2.6 }])).toBe(0);
+    });
+
     it('lays a bedroom’s rug beneath everything, and its beds against the walls', () => {
         const bedroom: RoomFloor = {
             key: 'bed',
