@@ -86,7 +86,7 @@
                             "source": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                             },
                             "license": {
                                 "type": "string",
@@ -99,9 +99,13 @@
                                 "minLength": 1
                             },
                             "url": {
-                                "description": "Its source page.",
+                                "description": "Its source page: the pack’s own repository for art made for it.",
                                 "type": "string",
                                 "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
                             }
                         },
                         "required": [
@@ -867,7 +871,7 @@
                                                             "source": {
                                                                 "type": "string",
                                                                 "minLength": 1,
-                                                                "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                                                             },
                                                             "license": {
                                                                 "type": "string",
@@ -880,9 +884,13 @@
                                                                 "minLength": 1
                                                             },
                                                             "url": {
-                                                                "description": "Its source page.",
+                                                                "description": "Its source page: the pack’s own repository for art made for it.",
                                                                 "type": "string",
                                                                 "format": "uri"
+                                                            },
+                                                            "ai": {
+                                                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                                                "type": "boolean"
                                                             }
                                                         },
                                                         "required": [
@@ -970,7 +978,7 @@
                                                         "source": {
                                                             "type": "string",
                                                             "minLength": 1,
-                                                            "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                                            "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                                                         },
                                                         "license": {
                                                             "type": "string",
@@ -983,9 +991,13 @@
                                                             "minLength": 1
                                                         },
                                                         "url": {
-                                                            "description": "Its source page.",
+                                                            "description": "Its source page: the pack’s own repository for art made for it.",
                                                             "type": "string",
                                                             "format": "uri"
+                                                        },
+                                                        "ai": {
+                                                            "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                                            "type": "boolean"
                                                         }
                                                     },
                                                     "required": [
@@ -2047,7 +2059,7 @@
                                         "source": {
                                             "type": "string",
                                             "minLength": 1,
-                                            "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                            "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                                         },
                                         "license": {
                                             "type": "string",
@@ -2060,9 +2072,13 @@
                                             "minLength": 1
                                         },
                                         "url": {
-                                            "description": "Its source page.",
+                                            "description": "Its source page: the pack’s own repository for art made for it.",
                                             "type": "string",
                                             "format": "uri"
+                                        },
+                                        "ai": {
+                                            "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                            "type": "boolean"
                                         }
                                     },
                                     "required": [
@@ -2142,7 +2158,7 @@
                                     "source": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                        "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                                     },
                                     "license": {
                                         "type": "string",
@@ -2155,9 +2171,13 @@
                                         "minLength": 1
                                     },
                                     "url": {
-                                        "description": "Its source page.",
+                                        "description": "Its source page: the pack’s own repository for art made for it.",
                                         "type": "string",
                                         "format": "uri"
+                                    },
+                                    "ai": {
+                                        "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                        "type": "boolean"
                                     }
                                 },
                                 "required": [
@@ -2374,7 +2394,7 @@
                             "source": {
                                 "type": "string",
                                 "minLength": 1,
-                                "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                             },
                             "license": {
                                 "type": "string",
@@ -2387,9 +2407,13 @@
                                 "minLength": 1
                             },
                             "url": {
-                                "description": "Its source page.",
+                                "description": "Its source page: the pack’s own repository for art made for it.",
                                 "type": "string",
                                 "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
                             }
                         },
                         "required": [
@@ -2411,7 +2435,7 @@
                                 "source": {
                                     "type": "string",
                                     "minLength": 1,
-                                    "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                    "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                                 },
                                 "license": {
                                     "type": "string",
@@ -2424,9 +2448,13 @@
                                     "minLength": 1
                                 },
                                 "url": {
-                                    "description": "Its source page.",
+                                    "description": "Its source page: the pack’s own repository for art made for it.",
                                     "type": "string",
                                     "format": "uri"
+                                },
+                                "ai": {
+                                    "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                    "type": "boolean"
                                 }
                             },
                             "required": [
@@ -2434,7 +2462,7 @@
                                 "license"
                             ],
                             "additionalProperties": false,
-                            "description": "Where an asset came from, and its licence."
+                            "description": "Where an asset came from, its licence, and whether it is AI-generated."
                         }
                     },
                     "textures": {
@@ -2589,7 +2617,7 @@
                                     "source": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                        "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                                     },
                                     "license": {
                                         "type": "string",
@@ -2602,9 +2630,13 @@
                                         "minLength": 1
                                     },
                                     "url": {
-                                        "description": "Its source page.",
+                                        "description": "Its source page: the pack’s own repository for art made for it.",
                                         "type": "string",
                                         "format": "uri"
+                                    },
+                                    "ai": {
+                                        "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                        "type": "boolean"
                                     }
                                 },
                                 "required": [
@@ -2869,7 +2901,7 @@
                                         "source": {
                                             "type": "string",
                                             "minLength": 1,
-                                            "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                            "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
                                         },
                                         "license": {
                                             "type": "string",
@@ -2882,9 +2914,13 @@
                                             "minLength": 1
                                         },
                                         "url": {
-                                            "description": "Its source page.",
+                                            "description": "Its source page: the pack’s own repository for art made for it.",
                                             "type": "string",
                                             "format": "uri"
+                                        },
+                                        "ai": {
+                                            "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                            "type": "boolean"
                                         }
                                     },
                                     "required": [

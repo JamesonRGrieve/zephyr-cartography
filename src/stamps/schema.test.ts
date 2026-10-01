@@ -90,7 +90,13 @@ describe('parseStampPack', () => {
     });
 
     it('records where each asset came from: a stamp, a texture set and its textures one by one, an ambient sound and a particle emitter', () => {
-        const ai = { source: 'ai-generated', license: 'CC0-1.0', author: 'Jameson Grieve' };
+        const ai = {
+            source: 'Zephyr Cartography Assets',
+            license: 'CC0-1.0',
+            author: 'Jameson Grieve',
+            url: 'https://github.com/JamesonRGrieve/zephyr-cartography-assets',
+            ai: true,
+        };
         const photo = { source: 'Poly Haven', license: 'CC0-1.0', author: 'Rob Tuytel', url: 'https://polyhaven.com/a/grass' };
         const set = {
             id: 'photo',
@@ -110,6 +116,11 @@ describe('parseStampPack', () => {
         expect(result.ok ? result.pack.ambience.sounds['machine']?.provenance?.source : null).toBe('Freesound');
         // A source page must be a link.
         expect(parseStampPack(pack([{ ...crate, provenance: { ...ai, url: 'not a link' } }])).ok).toBe(false);
+        // Whether it is AI-generated is its own flag, apart from its source: work brought in from elsewhere can be AI-generated too.
+        const broughtIn = { ...photo, ai: true };
+        const flagged = parseStampPack(pack([{ ...crate, provenance: broughtIn }]));
+        expect(flagged.ok ? flagged.pack.stamps[0]?.provenance : null).toEqual(broughtIn);
+        expect(parseStampPack(pack([{ ...crate, provenance: { ...photo, ai: 'yes' } }])).ok).toBe(false);
     });
 
     it('records each variant’s and texture’s resolution as a rounded step, and refuses any other value', () => {

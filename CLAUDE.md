@@ -1617,9 +1617,11 @@ imports).
   - identity, category, tags, scale band, perspective (orthographic,
     isometric, front or central; how the picture is drawn, overridable per
     variant);
-  - `provenance`: where its images came from and their licence (`source`:
-    "ai-generated" or a provider, `license` as SPDX, optional `author` and
-    `url`), one per stamp. Texture sets carry one too, and `sources` per role
+  - `provenance`: where its images came from, their licence, and whether they
+    are AI-generated (`source`: the pack's own repository for art made for it,
+    or a provider; `license` as SPDX; optional `author` and `url`, the source
+    page or the pack's repository; `ai`, its own flag, since work brought in
+    from elsewhere can be AI-generated too), one per stamp. Texture sets carry one too, and `sources` per role
     for each photo texture's own author; ambience sounds and particle emitters
     carry their own. The engine reads none of it: it is the pack's record, for
     galleries and credits;

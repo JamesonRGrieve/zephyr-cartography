@@ -103,13 +103,16 @@ const occlusionSchema = z
  */
 const provenanceSchema = z
     .object({
-        source: text.describe('Where it came from: "ai-generated", or the provider ("Poly Haven", "ambientCG", "Kenney", "Freesound").'),
+        source: text.describe(
+            'Where it came from: the pack’s own repository for art made for it, or the provider ("Poly Haven", "ambientCG", "Kenney", "Freesound").',
+        ),
         license: text.describe('Its licence, as an SPDX id ("CC0-1.0").'),
         author: text.optional().describe('Its author, or who made AI-generated art available.'),
-        url: z.url().optional().describe('Its source page.'),
+        url: z.url().optional().describe('Its source page: the pack’s own repository for art made for it.'),
+        ai: z.boolean().optional().describe('Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.'),
     })
     .strict()
-    .describe('Where an asset came from, and its licence.');
+    .describe('Where an asset came from, its licence, and whether it is AI-generated.');
 
 /** A number, or a `[min, max]` range picked uniformly per particle. */
 const rangeSchema = z.union([z.number(), z.tuple([z.number(), z.number()])]);
