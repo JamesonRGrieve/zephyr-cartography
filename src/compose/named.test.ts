@@ -286,6 +286,22 @@ describe('named pieces', () => {
         expect(row === undefined ? [] : standsAs(row, { x: 5, y: 5 }, 0).map((p) => p.variant)).toEqual([2, 2, 2, 2]);
     });
 
+    it('draws the sharpest of the variants in the state asked: one picture at 128 pixels and again at 512 is drawn from the 512', () => {
+        const lighter = {
+            ...desk('lighter', ['lighter']),
+            role: 'vehicle' as const,
+            width: 12,
+            height: 8,
+            states: ['intact', 'burning', 'intact', 'intact'],
+            sharpness: [128, 128, 512, 512],
+        };
+        const asked = { name: 'shuttle', role: 'vehicle', tags: [], width: 12, height: 8 } as const;
+        expect(namedArt({ ...asked, state: 'intact' }, new Map([['vehicle', [lighter]]]))?.variant).toBe(2);
+        // Without resolutions, the first.
+        const { sharpness: _unused, ...unknown } = lighter;
+        expect(namedArt({ ...asked, state: 'intact' }, new Map([['vehicle', [unknown]]]))?.variant).toBe(0);
+    });
+
     it('stands a piece no art draws as a labelled box its size, a free-standing piece of plant when it names no role', () => {
         expect(namedBox({ name: 'drain grate', tags: [], width: 1.2, height: 0.6 })).toMatchObject({ key: 'placeholder:1.2x0.6:drain grate', role: 'machine' });
         expect(namedBox({ name: 'altar', role: 'altar', tags: [], width: 2, height: 1 }).role).toBe('altar');

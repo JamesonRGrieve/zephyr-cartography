@@ -39,12 +39,20 @@ export function runEnds(facing: Side, sides: readonly Side[]): RunEnd[] {
 /** `stamp` carrying what `piece` reads, if anything. */
 const reading = (stamp: RoleStamp, piece: NamedPiece): RoleStamp => (piece.reads === undefined ? stamp : { ...stamp, reads: piece.reads });
 
-/** `art` drawn in the first of its variants whose state holds `words` (a locker `ajar`), a run's modules with it; as it is where none does. */
+/**
+ * `art` drawn in the variant whose state holds `words` (a locker `ajar`), the
+ * sharpest of several (one picture drawn at 128 pixels and again at 512), the
+ * first of equals; a run's modules with it; as it is where none does.
+ */
 function inState(art: RoleStamp, words: string | undefined): RoleStamp {
     if (words === undefined) {
         return art;
     }
-    const variant = (art.states ?? []).findIndex((state) => state.toLowerCase().includes(words.toLowerCase()));
+    const sharpness = (i: number): number => art.sharpness?.[i] ?? 0;
+    const variant = (art.states ?? []).reduce(
+        (best, state, i) => (state.toLowerCase().includes(words.toLowerCase()) && (best < 0 || sharpness(i) > sharpness(best)) ? i : best),
+        -1,
+    );
     const stated = variant < 0 ? art : { ...art, variant };
     return art.run === undefined ? stated : { ...stated, run: { ...art.run, module: inState(art.run.module, words) } };
 }

@@ -1439,8 +1439,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
     across a doorway, and keeps no floor from others; one `astride` its
     point is centred there even into the wall (a firing port set in a hull),
     never drawn in to stand wholly inside. A piece's `state`
-    (`ajar`, `lit`) draws its art in the first variant whose state holds
-    those words, a run's modules with it; as drawn where none does. A room's `doorOpen`
+    (`ajar`, `lit`) draws its art in the variant whose state holds
+    those words (the sharpest of several, by their `resolution`), a run's
+    modules with it; as drawn where none does. A room's `doorOpen`
     leaves its doors standing open. A run's `open` ends (map sides across
     its front, for a piece standing where asked) take no end piece, so two
     runs butt square into one piece: an L-shaped bar is two counters, the

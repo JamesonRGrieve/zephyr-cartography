@@ -61,6 +61,8 @@ export interface RoleStamp {
     readonly reads?: string;
     /** Each of its art's variants' state, in the words of its pack (`ajar`, `lit`), by variant; omitted where none says. */
     readonly states?: readonly string[];
+    /** Each variant's image resolution (its long side in pixels), by variant; omitted where none says. */
+    readonly sharpness?: readonly number[];
     /** The variant it is drawn in (a named piece's state); omitted, its default. */
     readonly variant?: number;
     /** For a run piece, the gate and corner pieces of its kind (never drawn alone): what a named piece may ask for by its tag. */
@@ -204,9 +206,13 @@ function roleStampOf(stamp: CatalogStamp, role: StampRole, variant: CatalogStamp
         tags: stamp.tags,
         ...(stamp.door === undefined ? {} : { doorStates: doorStatesOf(stamp) }),
         // A state to ask for only where there is another to choose from.
-        ...(stamp.variants.length > 1 ? { states: stamp.variants.map((v) => v.state) } : {}),
+        ...(stamp.variants.length > 1 ? { states: stamp.variants.map((v) => v.state), sharpness: stamp.variants.map((v) => pixelsOf(v.resolution)) } : {}),
     };
 }
+
+/** A pack resolution step (`512`, `2K`) as the long side in pixels; 0 where the pack does not say. */
+const pixelsOf = (resolution: string | undefined): number =>
+    resolution === undefined ? 0 : resolution.endsWith('K') ? Number(resolution.slice(0, -1)) * 1024 : Number(resolution);
 
 /** The turn that brings each image edge to the top (clockwise, as Foundry turns tiles). */
 const TURN_TO_TOP: Readonly<Record<StampBack, number>> = { top: 0, right: 270, bottom: 180, left: 90 };

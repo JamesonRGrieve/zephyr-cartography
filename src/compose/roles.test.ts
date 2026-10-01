@@ -116,6 +116,23 @@ describe('roleIndex variants', () => {
         // One with no view from above keeps its own default, standing as drawn.
         expect(shelves.get('pack:iso-shelf')?.variant).toBeUndefined();
     });
+
+    it("knows each variant's sharpness from its resolution, in pixels; 0 where the pack does not say", () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('locker', {
+                    role: 'storage',
+                    variants: [
+                        { state: 'intact', image: 'stamps/a.png', width: 200, height: 100, resolution: '128' },
+                        { state: 'intact', image: 'stamps/b.png', width: 200, height: 100, resolution: '2K' },
+                        { state: 'intact', image: 'stamps/c.png', width: 200, height: 100 },
+                    ],
+                }),
+            ]),
+            [],
+        );
+        expect(index.get('storage')?.[0]?.sharpness).toEqual([128, 2048, 0]);
+    });
 });
 
 describe('roleIndex factions', () => {
