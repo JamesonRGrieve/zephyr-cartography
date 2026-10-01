@@ -1617,6 +1617,12 @@ imports).
   - identity, category, tags, scale band, perspective (orthographic,
     isometric, front or central; how the picture is drawn, overridable per
     variant);
+  - `provenance`: where its images came from and their licence (`source`:
+    "ai-generated" or a provider, `license` as SPDX, optional `author` and
+    `url`), one per stamp. Texture sets carry one too, and `sources` per role
+    for each photo texture's own author; ambience sounds and particle emitters
+    carry their own. The engine reads none of it: it is the pack's record, for
+    galleries and credits;
   - **variants**: a free-text state label, an image, and a pixel size at the
     pack's `referenceGridSize`, plus its `resolution`: the image's long side
     rounded to the nearest step (32, 64, 128, 256, 512, 1K, 2K, 4K, 8K);

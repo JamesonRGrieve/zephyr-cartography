@@ -95,6 +95,22 @@ const occlusionSchema = z
     .strict()
     .describe('Automatic occlusion walls around the placed stamp.');
 
+/**
+ * Where an asset came from and under what licence: AI-generated art and the
+ * person who made it available, or another author's work and its page.
+ * Additive and optional; the engine reads none of it (it is the pack's
+ * record, for galleries and credits).
+ */
+const provenanceSchema = z
+    .object({
+        source: text.describe('Where it came from: "ai-generated", or the provider ("Poly Haven", "ambientCG", "Kenney", "Freesound").'),
+        license: text.describe('Its licence, as an SPDX id ("CC0-1.0").'),
+        author: text.optional().describe('Its author, or who made AI-generated art available.'),
+        url: z.url().optional().describe('Its source page.'),
+    })
+    .strict()
+    .describe('Where an asset came from, and its licence.');
+
 /** A number, or a `[min, max]` range picked uniformly per particle. */
 const rangeSchema = z.union([z.number(), z.tuple([z.number(), z.number()])]);
 
@@ -133,6 +149,7 @@ const particleEmitterSchema = z
             .describe('Fade-in and fade-out, in milliseconds (or a fraction of lifetime when below 1).'),
         blend: z.enum(['normal', 'add', 'multiply', 'screen']).optional(),
         elevation: z.number().optional().describe('Height above the stamp base, in grid units.'),
+        provenance: provenanceSchema.optional().describe('Where its particle images came from.'),
     })
     .strict()
     .describe("A native particle emitter (Foundry's ParticleGenerator, effect mode) anchored to the stamp.");
@@ -146,6 +163,7 @@ const soundSchema = z
         walls: z.boolean().default(true).describe('Walls muffle the sound.'),
         easing: z.boolean().default(true).describe('Volume falls off with distance.'),
         offset: z.object({ x: fraction, y: fraction }).strict().optional().describe('Emitter position as a fraction of the footprint (default: centre).'),
+        provenance: provenanceSchema.optional().describe('Where the audio came from.'),
     })
     .strict()
     .describe('A native ambient sound emitted by the placed stamp.');
@@ -495,6 +513,7 @@ const stampSchema = z
         tags: z.array(text).default([]),
         scale: z.enum(STAMP_SCALES),
         perspective,
+        provenance: provenanceSchema.optional().describe('Where every variant’s image came from: one origin per stamp.'),
         role: z
             .enum(STAMP_ROLES)
             .nullable()
@@ -542,6 +561,11 @@ const textureSetSchema = z
         name: text,
         license: text.describe('SPDX id or licence name covering every file in the set.'),
         credits: text.optional().describe('Path to the set attribution file.'),
+        provenance: provenanceSchema.optional().describe('Where the set as a whole came from.'),
+        sources: z
+            .record(text, provenanceSchema)
+            .optional()
+            .describe('Texture role → where that one texture came from, where it differs from the set’s (each photo texture’s own author and page).'),
         textures: z
             .record(text, text)
             .describe(

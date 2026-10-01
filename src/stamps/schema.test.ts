@@ -89,6 +89,29 @@ describe('parseStampPack', () => {
         expect(result.ok).toBe(true);
     });
 
+    it('records where each asset came from: a stamp, a texture set and its textures one by one, an ambient sound and a particle emitter', () => {
+        const ai = { source: 'ai-generated', license: 'CC0-1.0', author: 'Jameson Grieve' };
+        const photo = { source: 'Poly Haven', license: 'CC0-1.0', author: 'Rob Tuytel', url: 'https://polyhaven.com/a/grass' };
+        const set = {
+            id: 'photo',
+            name: 'Photo',
+            license: 'CC0-1.0',
+            textures: { grassland: 'textures/grass.jpg' },
+            provenance: { source: 'Poly Haven', license: 'CC0-1.0' },
+            sources: { grassland: photo },
+        };
+        const sound = { path: 'sounds/hum.ogg', radius: 6, provenance: { ...photo, source: 'Freesound' } };
+        const smoke = [{ textures: ['particles/smoke.webp'], count: 4, lifetime: 2000, provenance: { source: 'Kenney', license: 'CC0-1.0' } }];
+        const result = parseStampPack(
+            pack([{ ...crate, provenance: ai }], { textureSets: [set], ambience: { sounds: { machine: sound }, particles: { brazier: smoke } } }),
+        );
+        expect(result.ok ? result.pack.stamps[0]?.provenance : null).toEqual(ai);
+        expect(result.ok ? result.pack.textureSets[0]?.sources?.['grassland'] : null).toEqual(photo);
+        expect(result.ok ? result.pack.ambience.sounds['machine']?.provenance?.source : null).toBe('Freesound');
+        // A source page must be a link.
+        expect(parseStampPack(pack([{ ...crate, provenance: { ...ai, url: 'not a link' } }])).ok).toBe(false);
+    });
+
     it('records each variant’s and texture’s resolution as a rounded step, and refuses any other value', () => {
         const small = { ...crate, variants: [{ ...variant, resolution: '128' }] };
         const set = {

@@ -79,6 +79,37 @@
                             "top-down"
                         ]
                     },
+                    "provenance": {
+                        "description": "Where every variant’s image came from: one origin per stamp.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page.",
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
                     "role": {
                         "description": "What the map composer uses it as. Omitted, its tags say (a stamp tagged `console` is a console); null, it is never composed, however it is tagged (an L-shaped counter no wall takes). A stamp neither names nor tags as anything is only placed by hand.",
                         "anyOf": [
@@ -828,6 +859,37 @@
                                                     "elevation": {
                                                         "description": "Height above the stamp base, in grid units.",
                                                         "type": "number"
+                                                    },
+                                                    "provenance": {
+                                                        "description": "Where its particle images came from.",
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "source": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                                            },
+                                                            "license": {
+                                                                "type": "string",
+                                                                "minLength": 1,
+                                                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                                            },
+                                                            "author": {
+                                                                "description": "Its author, or who made AI-generated art available.",
+                                                                "type": "string",
+                                                                "minLength": 1
+                                                            },
+                                                            "url": {
+                                                                "description": "Its source page.",
+                                                                "type": "string",
+                                                                "format": "uri"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "source",
+                                                            "license"
+                                                        ],
+                                                        "additionalProperties": false
                                                     }
                                                 },
                                                 "required": [
@@ -898,6 +960,37 @@
                                                     "required": [
                                                         "x",
                                                         "y"
+                                                    ],
+                                                    "additionalProperties": false
+                                                },
+                                                "provenance": {
+                                                    "description": "Where the audio came from.",
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "source": {
+                                                            "type": "string",
+                                                            "minLength": 1,
+                                                            "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                                        },
+                                                        "license": {
+                                                            "type": "string",
+                                                            "minLength": 1,
+                                                            "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                                        },
+                                                        "author": {
+                                                            "description": "Its author, or who made AI-generated art available.",
+                                                            "type": "string",
+                                                            "minLength": 1
+                                                        },
+                                                        "url": {
+                                                            "description": "Its source page.",
+                                                            "type": "string",
+                                                            "format": "uri"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "source",
+                                                        "license"
                                                     ],
                                                     "additionalProperties": false
                                                 }
@@ -1946,6 +2039,37 @@
                                 "elevation": {
                                     "description": "Height above the stamp base, in grid units.",
                                     "type": "number"
+                                },
+                                "provenance": {
+                                    "description": "Where its particle images came from.",
+                                    "type": "object",
+                                    "properties": {
+                                        "source": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                        },
+                                        "license": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                        },
+                                        "author": {
+                                            "description": "Its author, or who made AI-generated art available.",
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "url": {
+                                            "description": "Its source page.",
+                                            "type": "string",
+                                            "format": "uri"
+                                        }
+                                    },
+                                    "required": [
+                                        "source",
+                                        "license"
+                                    ],
+                                    "additionalProperties": false
                                 }
                             },
                             "required": [
@@ -2008,6 +2132,37 @@
                                 "required": [
                                     "x",
                                     "y"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "provenance": {
+                                "description": "Where the audio came from.",
+                                "type": "object",
+                                "properties": {
+                                    "source": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                    },
+                                    "license": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                    },
+                                    "author": {
+                                        "description": "Its author, or who made AI-generated art available.",
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "url": {
+                                        "description": "Its source page.",
+                                        "type": "string",
+                                        "format": "uri"
+                                    }
+                                },
+                                "required": [
+                                    "source",
+                                    "license"
                                 ],
                                 "additionalProperties": false
                             }
@@ -2212,6 +2367,76 @@
                         "type": "string",
                         "minLength": 1
                     },
+                    "provenance": {
+                        "description": "Where the set as a whole came from.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page.",
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "sources": {
+                        "description": "Texture role → where that one texture came from, where it differs from the set’s (each photo texture’s own author and page).",
+                        "type": "object",
+                        "propertyNames": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "source": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                },
+                                "license": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                },
+                                "author": {
+                                    "description": "Its author, or who made AI-generated art available.",
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "url": {
+                                    "description": "Its source page.",
+                                    "type": "string",
+                                    "format": "uri"
+                                }
+                            },
+                            "required": [
+                                "source",
+                                "license"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Where an asset came from, and its licence."
+                        }
+                    },
                     "textures": {
                         "type": "object",
                         "propertyNames": {
@@ -2354,6 +2579,37 @@
                                 "required": [
                                     "x",
                                     "y"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "provenance": {
+                                "description": "Where the audio came from.",
+                                "type": "object",
+                                "properties": {
+                                    "source": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                    },
+                                    "license": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                    },
+                                    "author": {
+                                        "description": "Its author, or who made AI-generated art available.",
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "url": {
+                                        "description": "Its source page.",
+                                        "type": "string",
+                                        "format": "uri"
+                                    }
+                                },
+                                "required": [
+                                    "source",
+                                    "license"
                                 ],
                                 "additionalProperties": false
                             }
@@ -2605,6 +2861,37 @@
                                 "elevation": {
                                     "description": "Height above the stamp base, in grid units.",
                                     "type": "number"
+                                },
+                                "provenance": {
+                                    "description": "Where its particle images came from.",
+                                    "type": "object",
+                                    "properties": {
+                                        "source": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Where it came from: \"ai-generated\", or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                        },
+                                        "license": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                        },
+                                        "author": {
+                                            "description": "Its author, or who made AI-generated art available.",
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "url": {
+                                            "description": "Its source page.",
+                                            "type": "string",
+                                            "format": "uri"
+                                        }
+                                    },
+                                    "required": [
+                                        "source",
+                                        "license"
+                                    ],
+                                    "additionalProperties": false
                                 }
                             },
                             "required": [
