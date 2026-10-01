@@ -1627,6 +1627,15 @@ imports).
     in cells, an edge socket per side (`edges`: n/e/s/w, or the hex's six
     sides; tiles that meet must match), its `walls` and `doors` as segments
     in cells, and its image `variants`. The engine does not place them yet;
+  - **the library's other classes**, each with id, name, category, tags,
+    style and provenance: `tokens` (image variants and the circular crop's
+    `frame`), `characterArt` (image variants), `music` and `soundEffects`
+    (a `path` and whether it `loop`s: music by default, effects not),
+    `animations` (WebM/MP4 `video` variants) and `scenes` (size in squares,
+    `gridSize`, `levels` each with its map `image` and optional Universal VTT
+    `uvtt`, and the `foundry` scene document a compendium carries). The engine
+    reads none of them yet: they are the pack's library, for galleries and
+    releases;
   - `style`: how its art is made (`painted`, `photorealistic`, `hand-drawn`,
     `flat`, `pixel-art` or `line-art`), on stamps, texture sets and particle
     emitters. The engine reads none of it; galleries filter by it; Texture sets carry one too, and `sources` per role

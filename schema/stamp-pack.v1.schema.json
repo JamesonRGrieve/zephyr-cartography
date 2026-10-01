@@ -3231,6 +3231,712 @@
                 ],
                 "additionalProperties": false
             }
+        },
+        "tokens": {
+            "default": [],
+            "description": "Token art.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "category": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "tags": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "painted",
+                            "photorealistic",
+                            "hand-drawn",
+                            "flat",
+                            "pixel-art",
+                            "line-art"
+                        ],
+                        "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
+                    },
+                    "provenance": {
+                        "description": "Where it came from, its licence, and whether it is AI-generated.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page: the pack’s own repository for art made for it.",
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "frame": {
+                        "description": "The centre of the circular bust cropped from the image, as fractions of it (cx usually 0.5, cy head-biased).",
+                        "type": "object",
+                        "properties": {
+                            "cx": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                            },
+                            "cy": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                            }
+                        },
+                        "required": [
+                            "cx",
+                            "cy"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "variants": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "state": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "image": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "resolution": {
+                                    "type": "string",
+                                    "enum": [
+                                        "32",
+                                        "64",
+                                        "128",
+                                        "256",
+                                        "512",
+                                        "1K",
+                                        "2K",
+                                        "4K",
+                                        "8K"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "state",
+                                "image"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "category",
+                    "variants"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "characterArt": {
+            "default": [],
+            "description": "Character portraits and figures.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "category": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "tags": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "painted",
+                            "photorealistic",
+                            "hand-drawn",
+                            "flat",
+                            "pixel-art",
+                            "line-art"
+                        ],
+                        "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
+                    },
+                    "provenance": {
+                        "description": "Where it came from, its licence, and whether it is AI-generated.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page: the pack’s own repository for art made for it.",
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "variants": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "state": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "image": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "resolution": {
+                                    "type": "string",
+                                    "enum": [
+                                        "32",
+                                        "64",
+                                        "128",
+                                        "256",
+                                        "512",
+                                        "1K",
+                                        "2K",
+                                        "4K",
+                                        "8K"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "state",
+                                "image"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "category",
+                    "variants"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "music": {
+            "default": [],
+            "description": "Music tracks.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "category": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "tags": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "provenance": {
+                        "description": "Where it came from, its licence, and whether it is AI-generated.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page: the pack’s own repository for art made for it.",
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Audio file relative to the pack module root, or a web address."
+                    },
+                    "loop": {
+                        "default": true,
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "category",
+                    "path"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "soundEffects": {
+            "default": [],
+            "description": "Sound effects not tied to a stamp’s tag.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "category": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "tags": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "provenance": {
+                        "description": "Where it came from, its licence, and whether it is AI-generated.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page: the pack’s own repository for art made for it.",
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Audio file relative to the pack module root, or a web address."
+                    },
+                    "loop": {
+                        "default": false,
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "category",
+                    "path"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "animations": {
+            "default": [],
+            "description": "Animated effects (video).",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "category": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "tags": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "painted",
+                            "photorealistic",
+                            "hand-drawn",
+                            "flat",
+                            "pixel-art",
+                            "line-art"
+                        ],
+                        "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
+                    },
+                    "provenance": {
+                        "description": "Where it came from, its licence, and whether it is AI-generated.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page: the pack’s own repository for art made for it.",
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "loop": {
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "variants": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "state": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "video": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "WebM or MP4, relative to the pack module root, or a web address."
+                                },
+                                "resolution": {
+                                    "type": "string",
+                                    "enum": [
+                                        "32",
+                                        "64",
+                                        "128",
+                                        "256",
+                                        "512",
+                                        "1K",
+                                        "2K",
+                                        "4K",
+                                        "8K"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "state",
+                                "video"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "category",
+                    "variants"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "scenes": {
+            "default": [],
+            "description": "Full scenes.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "category": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "tags": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "painted",
+                            "photorealistic",
+                            "hand-drawn",
+                            "flat",
+                            "pixel-art",
+                            "line-art"
+                        ],
+                        "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
+                    },
+                    "provenance": {
+                        "description": "Where it came from, its licence, and whether it is AI-generated.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page: the pack’s own repository for art made for it.",
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "size": {
+                        "type": "object",
+                        "properties": {
+                            "w": {
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                            },
+                            "h": {
+                                "type": "number",
+                                "exclusiveMinimum": 0
+                            }
+                        },
+                        "required": [
+                            "w",
+                            "h"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Its size in grid squares."
+                    },
+                    "gridSize": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991,
+                        "description": "Pixels per grid square of its images."
+                    },
+                    "levels": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "image": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "The level’s map image."
+                                },
+                                "uvtt": {
+                                    "description": "Its Universal VTT file (.dd2vtt): the image with walls, doors and lights.",
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "resolution": {
+                                    "type": "string",
+                                    "enum": [
+                                        "32",
+                                        "64",
+                                        "128",
+                                        "256",
+                                        "512",
+                                        "1K",
+                                        "2K",
+                                        "4K",
+                                        "8K"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "image"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "foundry": {
+                        "description": "The Foundry scene document (JSON) a scene compendium carries.",
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "category",
+                    "size",
+                    "gridSize",
+                    "levels"
+                ],
+                "additionalProperties": false
+            }
         }
     },
     "required": [

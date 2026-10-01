@@ -608,6 +608,96 @@ const textureSetSchema = z
     })
     .strict();
 
+/** What every library asset records: its identity, grouping, art style and where it came from. */
+const libraryAsset = {
+    id: text,
+    name: text,
+    category: text,
+    tags: z.array(text).default([]),
+    style: artStyle.optional(),
+    provenance: provenanceSchema.optional().describe('Where it came from, its licence, and whether it is AI-generated.'),
+};
+
+/** One image of a library asset: its state label, its file, and its long side as a rounded step. */
+const libraryImage = z.object({ state: text, image: text, resolution: resolution.optional() }).strict();
+
+/** A token: a creature or character's image for a VTT token, and where its circular crop is centred. */
+const tokenSchema = z
+    .object({
+        ...libraryAsset,
+        frame: z
+            .object({ cx: fraction, cy: fraction })
+            .strict()
+            .optional()
+            .describe('The centre of the circular bust cropped from the image, as fractions of it (cx usually 0.5, cy head-biased).'),
+        variants: z.array(libraryImage).min(1),
+    })
+    .strict();
+
+/** Character art: a portrait or full figure of a character, for journals and handouts. */
+const characterArtSchema = z.object({ ...libraryAsset, variants: z.array(libraryImage).min(1) }).strict();
+
+/** An audio file of the library: what it is, its file, and whether it loops. */
+const audioAsset = {
+    id: text,
+    name: text,
+    category: text,
+    tags: z.array(text).default([]),
+    provenance: provenanceSchema.optional().describe('Where it came from, its licence, and whether it is AI-generated.'),
+    path: text.describe('Audio file relative to the pack module root, or a web address.'),
+};
+
+/** A music track; it loops unless it says otherwise. */
+const musicTrackSchema = z.object({ ...audioAsset, loop: z.boolean().default(true) }).strict();
+
+/** A sound effect not tied to a stamp's tag (those are the ambience's): a one-shot unless it says it loops. */
+const soundEffectSchema = z.object({ ...audioAsset, loop: z.boolean().default(false) }).strict();
+
+/** An animated effect: video variants (WebM or MP4), as a Foundry tile plays them. */
+const animationSchema = z
+    .object({
+        ...libraryAsset,
+        loop: z.boolean().default(true),
+        variants: z
+            .array(
+                z
+                    .object({
+                        state: text,
+                        video: text.describe('WebM or MP4, relative to the pack module root, or a web address.'),
+                        resolution: resolution.optional(),
+                    })
+                    .strict(),
+            )
+            .min(1),
+    })
+    .strict();
+
+/**
+ * A full scene: its map, level by level (each its image and, where exported,
+ * its Universal VTT file with walls, doors and lights), its size, and the
+ * Foundry scene document a compendium carries.
+ */
+const sceneSchema = z
+    .object({
+        ...libraryAsset,
+        size: z.object({ w: z.number().positive(), h: z.number().positive() }).strict().describe('Its size in grid squares.'),
+        gridSize: z.number().int().positive().describe('Pixels per grid square of its images.'),
+        levels: z
+            .array(
+                z
+                    .object({
+                        name: text,
+                        image: text.describe('The level’s map image.'),
+                        uvtt: text.optional().describe('Its Universal VTT file (.dd2vtt): the image with walls, doors and lights.'),
+                        resolution: resolution.optional(),
+                    })
+                    .strict(),
+            )
+            .min(1),
+        foundry: text.optional().describe('The Foundry scene document (JSON) a scene compendium carries.'),
+    })
+    .strict();
+
 /** The geometry a modular tile is cut to. */
 const TILE_GEOMETRIES = ['square', 'hex'] as const;
 
@@ -688,6 +778,12 @@ export const stampPackSchema = z
         textureSets: z.array(textureSetSchema).default([]),
         ambience: ambienceSchema.default({ sounds: {}, particles: {} }),
         tiles: z.array(modularTileSchema).default([]).describe('Modular battlemap tiles.'),
+        tokens: z.array(tokenSchema).default([]).describe('Token art.'),
+        characterArt: z.array(characterArtSchema).default([]).describe('Character portraits and figures.'),
+        music: z.array(musicTrackSchema).default([]).describe('Music tracks.'),
+        soundEffects: z.array(soundEffectSchema).default([]).describe('Sound effects not tied to a stamp’s tag.'),
+        animations: z.array(animationSchema).default([]).describe('Animated effects (video).'),
+        scenes: z.array(sceneSchema).default([]).describe('Full scenes.'),
     })
     .strict();
 
@@ -783,13 +879,24 @@ function duplicateIdIssues(pack: StampPack): PackIssue[] {
         }
         seen.add(stamp.id);
     });
-    const tileIds = new Set<string>();
-    pack.tiles.forEach((tile, i) => {
-        if (tileIds.has(tile.id)) {
-            issues.push({ path: `tiles.${i}.id`, message: `duplicate tile id "${tile.id}"` });
-        }
-        tileIds.add(tile.id);
-    });
+    const lists = {
+        tiles: pack.tiles,
+        tokens: pack.tokens,
+        characterArt: pack.characterArt,
+        music: pack.music,
+        soundEffects: pack.soundEffects,
+        animations: pack.animations,
+        scenes: pack.scenes,
+    };
+    for (const [key, list] of Object.entries(lists)) {
+        const ids = new Set<string>();
+        list.forEach((entry, i) => {
+            if (ids.has(entry.id)) {
+                issues.push({ path: `${key}.${i}.id`, message: `duplicate ${key} id "${entry.id}"` });
+            }
+            ids.add(entry.id);
+        });
+    }
     return issues;
 }
 

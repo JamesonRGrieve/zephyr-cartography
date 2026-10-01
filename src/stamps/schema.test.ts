@@ -159,7 +159,45 @@ describe('parseStampPack', () => {
         expect(parseStampPack(pack([], { tiles: [{ ...hex, orientation: 'flat' }] })).ok).toBe(false);
         expect(parseStampPack(pack([], { tiles: [{ ...square, geometry: 'triangle' }] })).ok).toBe(false);
         const twice = parseStampPack(pack([], { tiles: [square, square] }));
-        expect(twice.ok ? [] : twice.issues.map((issue) => issue.message)).toEqual(['duplicate tile id "corridor"']);
+        expect(twice.ok ? [] : twice.issues.map((issue) => issue.message)).toEqual(['duplicate tiles id "corridor"']);
+    });
+
+    it('reads the library’s other classes: tokens, character art, music, sound effects, animations and scenes', () => {
+        const by = { source: 'Elsewhere', license: 'CC-BY-4.0', author: 'B', url: 'https://example.com', ai: false };
+        const image = { state: 'default', image: 'x.webp', resolution: '512' };
+        const library = {
+            tokens: [{ id: 'wolf', name: 'Wolf', category: 'Beasts', style: 'painted', provenance: by, frame: { cx: 0.5, cy: 0.3 }, variants: [image] }],
+            characterArt: [{ id: 'knight', name: 'Knight', category: 'Fighters', variants: [image] }],
+            music: [{ id: 'tavern', name: 'Tavern', category: 'Fantasy', path: 'music/tavern.ogg' }],
+            soundEffects: [{ id: 'door', name: 'Door Slam', category: 'Doors', path: 'https://example.com/door.ogg' }],
+            animations: [{ id: 'fireball', name: 'Fireball', category: 'Spells', variants: [{ state: 'cast', video: 'fx/fireball.webm' }] }],
+            scenes: [
+                {
+                    id: 'inn',
+                    name: 'Roadside Inn',
+                    category: 'Fantasy',
+                    size: { w: 30, h: 20 },
+                    gridSize: 100,
+                    levels: [{ name: 'Ground', image: 'scenes/inn-0.webp', uvtt: 'scenes/inn-0.dd2vtt' }],
+                    foundry: 'scenes/inn.json',
+                },
+            ],
+        };
+        const result = parseStampPack(pack([], library));
+        expect(result.ok ? [result.pack.music[0]?.loop, result.pack.soundEffects[0]?.loop, result.pack.animations[0]?.loop] : result.issues).toEqual([
+            true,
+            false,
+            true,
+        ]);
+        expect(result.ok ? [result.pack.tokens[0]?.frame, result.pack.scenes[0]?.levels[0]?.uvtt, result.pack.characterArt[0]?.tags] : null).toEqual([
+            { cx: 0.5, cy: 0.3 },
+            'scenes/inn-0.dd2vtt',
+            [],
+        ]);
+        expect(parseStampPack(pack([], { scenes: [{ ...library.scenes[0], levels: [] }] })).ok).toBe(false);
+        expect(parseStampPack(pack([], { tokens: [{ ...library.tokens[0], variants: [] }] })).ok).toBe(false);
+        const twice = parseStampPack(pack([], { music: [...library.music, ...library.music] }));
+        expect(twice.ok ? [] : twice.issues.map((issue) => issue.message)).toEqual(['duplicate music id "tavern"']);
     });
 
     it('records how a stamp’s, texture set’s and particle emitter’s art is made, from six styles', () => {
