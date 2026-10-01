@@ -499,6 +499,17 @@ this module's own tools, not by generating images.
   entrance; rooms take the materials tool's current materials), or builds any
   pasted spec. A generated plan's spec lands in the spec box for editing. The
   spec's origin is the scene's top-left corner.
+- **[done] Universal VTT export.** The module API's `exportUvtt` gives
+  the viewed level as a `.dd2vtt` (format 0.3), the interchange file most
+  VTTs import (`generate/uvtt.ts`, pure; `foundry/uvtt-export.ts`, the
+  boundary). Positions are in squares from the map's corner.
+  - Walls that block sight are joined into `line_of_sight` lines; walls that
+    block no sight are left out, since the format makes every wall block.
+  - Doors are portals. A secret door stays plain wall.
+  - Lights that shine are kept; hidden and unlit ones are not.
+  - The image is the caller's (a render, at its own px per square), else
+    the level's own background, read where Foundry serves it.
+  - `tests/e2e/export.spec.ts` proves it on a real scene.
 - **Declarative-first rule (still binding):** every tool's effect must be
   expressible as data and applied through the pure controller API. No
   behaviour may exist only in pointer/UI handlers. A new feature needs a

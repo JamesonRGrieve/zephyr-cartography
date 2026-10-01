@@ -10,11 +10,13 @@ import type { RealizeReport } from '../canvas/realize';
 import { parseMapIntent } from '../compose/intent';
 import { DEFAULT_FLOOR_PLAN, generateFloorPlan, type FloorPlanOptions } from '../generate/floor-plan';
 import { parseSceneSpec, type SceneSpec, type SpecIssue } from '../generate/spec';
+import type { Uvtt } from '../generate/uvtt';
 import { MODULE_ID } from '../module-id';
 import type { CatalogStamp } from '../stamps/catalog';
 import { buildOnScene, type ComposeOutcome, composeOnScene } from './build-spec';
 import { terrainImagesLoading } from './pixi-surface';
 import { spawnInto, type SpawnResult } from './spawner';
+import { exportViewedLevel, type UvttExportOptions } from './uvtt-export';
 
 /** Revision of the API shape; additive changes keep it. */
 const API_VERSION = 1;
@@ -45,6 +47,13 @@ interface CartographyApi {
     readonly spawn: (featureId: string) => Promise<SpawnResult>;
     /** How many terrain images are still loading; the drawn map is complete once none are. */
     readonly terrainImagesLoading: () => number;
+    /**
+     * The viewed level as Universal VTT (`.dd2vtt`): its walls, doors and
+     * lights, and `image` (base64, at `imageGridSize` px per square) or else
+     * the level's own background art. Null with no scene viewed, or no image
+     * to give it.
+     */
+    readonly exportUvtt: (options?: UvttExportOptions) => Promise<Uvtt | null>;
 }
 
 declare global {
@@ -99,6 +108,7 @@ export function registerApi(controller: () => CartographyController | null, stam
             return settings === null || regionId === null ? { spawned: 0, missing: [] } : spawnInto(regionId, settings.spawn);
         },
         terrainImagesLoading,
+        exportUvtt: async (options = {}) => exportViewedLevel(options),
     };
     Hooks.once('init', () => {
         const cartography = game.modules?.get(MODULE_ID);
