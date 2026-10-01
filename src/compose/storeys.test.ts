@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
+import { claimedIn } from './claims';
+import { overlaps } from './furnish';
 import { type BuildingIntent, parseMapIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
 import { flawsOf, holdsStairwell, layOutStoreys, type Wells } from './storeys';
@@ -323,6 +325,72 @@ describe('layOutStoreys', () => {
             // The flight down arrives in the store, never the sanctum.
             const sanctum = cellar.rooms.find((r) => r.key === 'sanctum');
             expect(cellarWell.y).toBeGreaterThanOrEqual((sanctum?.rect.y ?? 0) + (sanctum?.rect.h ?? 0));
+        }
+    });
+
+    it('keeps the stairwell off the floor a brief names pieces for, on every storey, and still finds the cellar its well', () => {
+        const octagon = (key: string, purpose: string, fixtures: object[]): object => ({
+            key,
+            purpose,
+            rect: { x: 0, y: 0, w: 11, h: 11 },
+            chamfer: 3,
+            furnish: 'fixtures',
+            fixtures,
+        });
+        const bench = (wall: string): object => ({ name: 'bench', width: 1.6, height: 0.5, role: 'bench', place: { wall, along: 'middle' } });
+        // A sorcerer's tower: benches and bookcases on both side walls, a reading table in the middle with its chair.
+        const tower = buildingOf({
+            width: 11,
+            height: 11,
+            entrance: 'south',
+            rooms: [{ ...octagon('antechamber', 'hall', [bench('left'), bench('right')]), entrance: true }],
+            floors: [
+                {
+                    rooms: [
+                        octagon('study', 'office', [
+                            { name: 'bookcase', width: 2.4, height: 0.3, role: 'shelf', place: { wall: 'left', along: 'middle' } },
+                            { name: 'bookcase', width: 2.4, height: 0.3, role: 'shelf', place: { wall: 'right', along: 'middle' } },
+                            { name: 'reading table', width: 1.6, height: 0.9, role: 'table', place: { at: { x: 0.5, y: 0.5 } } },
+                            { name: 'reading chair', width: 0.6, height: 0.6, role: 'seat', place: { before: 'reading table' } },
+                        ]),
+                    ],
+                },
+                {
+                    rooms: [
+                        octagon('laboratory', 'workshop', [
+                            { name: 'apparatus', width: 0.8, height: 0.8, role: 'fitting', place: { at: { x: 0.25, y: 0.5 } } },
+                        ]),
+                    ],
+                },
+            ],
+            cellars: [
+                {
+                    rooms: [
+                        { key: 'store', purpose: 'storage', rect: { x: 0, y: 5, w: 11, h: 6 }, chamfer: 3, chamferAt: ['bottom-left', 'bottom-right'] },
+                        {
+                            key: 'sanctum',
+                            purpose: 'shrine',
+                            rect: { x: 0, y: 0, w: 11, h: 5 },
+                            chamfer: 3,
+                            chamferAt: ['top-left', 'top-right'],
+                            secretTo: ['store'],
+                        },
+                    ],
+                },
+            ],
+            cellarAccess: 'stairs',
+        });
+        const footprint = { x: 0, y: 0, w: 11, h: 11 };
+        // A switchback of two flights side by side: four and a half squares across.
+        const wells: Wells = { up: { w: 4.46, h: 2 }, down: { w: 2.23, h: 2 } };
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const storeys = layOutStoreys(tower, footprint, wells, seededRandom(seed));
+            const { stairwell, cellarWell } = storeys ?? {};
+            if (!storeys || !stairwell || !cellarWell) {
+                throw new Error(`seed ${seed}: no wells`);
+            }
+            const claims = [storeys.ground, ...storeys.floors].flatMap((layout) => layout?.rooms.flatMap(claimedIn) ?? []);
+            expect(claims.filter((claim) => overlaps(claim, stairwell))).toEqual([]);
         }
     });
 

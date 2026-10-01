@@ -15,9 +15,10 @@
 import type { Rect, RoomCorner } from '../generate/floor-plan';
 import { shuffled, type Random } from '../generate/random';
 import { WALL_BAND_SQUARES } from '../tools/materials';
+import { claimedIn } from './claims';
 import { type Box, DOOR_CLEAR, doorApproach, overlaps, within } from './furnish';
 import type { BuildingIntent, RoomPurpose } from './intent';
-import { type BuildingLayout, CORRIDOR_WIDTH, doorsOf, layOutBuilding } from './layout';
+import { type BuildingLayout, CORRIDOR_WIDTH, doorsOf, layOutBuilding, pinnedRooms } from './layout';
 
 /** Squares kept between a stairwell and its room's walls: the wall's own band and a step round it. */
 const STAIRWELL_MARGIN = WALL_BAND_SQUARES / 2 + 0.25;
@@ -76,6 +77,15 @@ function clearOfCutCorners(room: LaidRoom, box: Box): boolean {
     return room.intent.chamferAt.every((corner) => inFrom[corner] >= cut + STAIRWELL_MARGIN * Math.SQRT2);
 }
 
+/** Whether the stairwell `box` lies wholly inside `room`, the stairwell margin off its walls. */
+const offWalls = (room: LaidRoom, box: Box): boolean =>
+    within(box, {
+        x: room.rect.x + STAIRWELL_MARGIN,
+        y: room.rect.y + STAIRWELL_MARGIN,
+        w: room.rect.w - 2 * STAIRWELL_MARGIN,
+        h: room.rect.h - 2 * STAIRWELL_MARGIN,
+    });
+
 /**
  * Whether `room` is hidden: it names its secret doors (`secretTo`: the room
  * behind them, a cult's sanctum, a treasure vault) and every way into it is
@@ -92,9 +102,7 @@ const hidden = (layout: BuildingLayout, room: LaidRoom): boolean =>
  * climbs into (it would give the secret away).
  */
 function stairwellRoom(layout: BuildingLayout, box: Box): LaidRoom | undefined {
-    const room = layout.rooms.find((r) =>
-        within(box, { x: r.rect.x + STAIRWELL_MARGIN, y: r.rect.y + STAIRWELL_MARGIN, w: r.rect.w - 2 * STAIRWELL_MARGIN, h: r.rect.h - 2 * STAIRWELL_MARGIN }),
-    );
+    const room = layout.rooms.find((r) => offWalls(r, box));
     if (!room || !clearOfCutCorners(room, box) || hidden(layout, room)) {
         return undefined;
     }
@@ -134,6 +142,16 @@ const STAIR_RANKS: readonly number[] = [...new Set(Object.values(STAIR_RANK))].s
 
 /** How fit `room` is to hold a stair: lower is better (see {@link STAIR_RANK}). */
 const stairRank = (room: LaidRoom): number => STAIR_RANK[room.intent.purpose];
+
+/**
+ * Whether `room` could hold the stairwell `box` once its doors are laid:
+ * wholly inside it off its walls and cut corners, and not a room behind
+ * secret doors. What {@link stairwellRoom} asks before the doors are known.
+ */
+const couldHold = (room: LaidRoom, box: Box): boolean => room.intent.secretTo.length === 0 && offWalls(room, box) && clearOfCutCorners(room, box);
+
+/** How many of the floors named pieces ask for (`claimedIn`) the stairwell `box` would stand on. */
+const claimsUnder = (claims: readonly Box[], box: Box): number => claims.filter((claim) => overlaps(claim, box)).length;
 
 /** Whether `layout` holds the stairwell `box` in one of its rooms. */
 export const holdsStairwell = (layout: BuildingLayout, box: Box): boolean => stairwellRoom(layout, box) !== undefined;
@@ -257,13 +275,15 @@ function landedAt(
     if (!ground) {
         return null;
     }
-    // In the hall where it can be, and against a wall of the ground floor's room, as a built stair stands.
+    // Off the floor the brief names pieces for, in the hall where it can be, and against a wall of the ground floor's room,
+    // as a built stair stands.
+    const claims = [ground, ...floors].flatMap((layout) => layout.rooms.flatMap(claimedIn));
     const [stairwell] = landings
         .flatMap((box) => {
             const room = stairwellRoom(ground, box);
-            return room ? [{ box, rank: stairRank(room), away: fromWall(room, box) }] : [];
+            return room ? [{ box, claimed: claimsUnder(claims, box), rank: stairRank(room), away: fromWall(room, box) }] : [];
         })
-        .sort((a, b) => a.rank - b.rank || a.away - b.away)
+        .sort((a, b) => a.claimed - b.claimed || a.rank - b.rank || a.away - b.away)
         .map(({ box }) => box);
     return stairwell ? withCellars(building, footprint, wells, random, { ground, floors, stairwell }) : null;
 }
@@ -309,14 +329,27 @@ function stack(
     if (storeys.length === 0 || size === null) {
         return { layouts: each(() => true), well: null };
     }
-    // A stair stands in a hall where the ground floor has one, and against a wall, as a built one does: those spots first.
+    // Storeys whose rooms the intent places: a spot none of their rooms could hold is never worth a try.
+    const pinned = storeys.flatMap((storey) => {
+        const rooms = pinnedRooms(storey.rooms, footprint);
+        return rooms ? [rooms] : [];
+    });
+    const claims = [...ground.rooms, ...pinned.flat()].flatMap(claimedIn);
+    // A stair keeps off the floor the brief names pieces for; then it stands in a hall where the ground floor has one,
+    // and against a wall, as a built one does: those spots first.
     const held = spots(footprint, size, random)
         .flatMap((box) => {
             const room = stairwellRoom(ground, box);
             const asked = building.accessRoom === null || room?.key === building.accessRoom;
-            return room && asked && (clear === null || !overlaps(box, clear)) ? [{ box, room }] : [];
+            const apart = clear === null || !overlaps(box, clear);
+            return room && asked && apart && pinned.every((rooms) => rooms.some((r) => couldHold(r, box))) ? [{ box, room }] : [];
         })
-        .sort((a, b) => stairRank(a.room) - stairRank(b.room) || fromWall(a.room, a.box) - fromWall(b.room, b.box))
+        .sort(
+            (a, b) =>
+                claimsUnder(claims, a.box) - claimsUnder(claims, b.box) ||
+                stairRank(a.room) - stairRank(b.room) ||
+                fromWall(a.room, a.box) - fromWall(b.room, b.box),
+        )
         .map(({ box }) => box);
     // The first spot every storey can hold with every room beside those it opens onto; else the one that misses fewest.
     // Tried first in the halls of every storey that has one; anywhere each storey holds it only when that keeps more rooms

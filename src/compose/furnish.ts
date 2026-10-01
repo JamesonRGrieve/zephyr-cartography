@@ -423,7 +423,7 @@ const composedIn = (stamp: RoleStamp, box: Box, rotation: number): ComposedStamp
  * A strip `depth` deep inside `rect` along its `side`, from `t` for `along`:
  * what stands against a wall, or is kept clear inside a door.
  */
-const ALONG_WALL: Readonly<Record<Side, (rect: Rect, t: number, along: number, depth: number, inset: number) => Box>> = {
+export const ALONG_WALL: Readonly<Record<Side, (rect: Rect, t: number, along: number, depth: number, inset: number) => Box>> = {
     top: (rect, t, along, depth, inset) => ({ x: t, y: rect.y + inset, w: along, h: depth }),
     bottom: (rect, t, along, depth, inset) => ({ x: t, y: rect.y + rect.h - inset - depth, w: along, h: depth }),
     left: (rect, t, along, depth, inset) => ({ x: rect.x + inset, y: t, w: depth, h: along }),

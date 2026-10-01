@@ -250,7 +250,7 @@ function spine(rect: Rect, rooms: readonly RoomIntent[], random: Random, width: 
 }
 
 /** The rooms where the intent places every one (`rect`, from the building's corner), in scene squares; null unless all are placed. */
-function pinnedRooms(rooms: readonly RoomIntent[], footprint: Rect): PlacedRoom[] | null {
+export function pinnedRooms(rooms: readonly RoomIntent[], footprint: Rect): PlacedRoom[] | null {
     const placed = rooms.flatMap((room) =>
         room.rect === undefined
             ? []
