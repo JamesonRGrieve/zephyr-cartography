@@ -1373,7 +1373,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     both up and down that would open onto it. Where a flight arrives, the
     floor above shows the way down: a stair's own steps; over a ladder, a
     way-down piece of its kind in the map's settings (a well or hatch
-    before a bare shaft); else a framed opening. What it shows is an
+    before a bare shaft; a trapdoor in the floor counts, outdoor storm
+    doors never); else a framed opening. What it shows is an
     `inert` stamp (drawn, with none of its behaviour): the flight below is
     the one way between the floors. A ladder whose setting has only art
     seen from above (a ladder hatch, going down) takes that before another

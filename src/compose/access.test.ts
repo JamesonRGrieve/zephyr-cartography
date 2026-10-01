@@ -81,8 +81,14 @@ describe('wayDownOver', () => {
         // Another setting's well, or one drawn in perspective that cannot turn with the well, is never taken.
         expect(over(shaft, down('borrowed-well', ['well'], { borrowed: true }))).toBe('test:shaft');
         expect(over(down('upright-well', ['well'], { upright: true }))).toBeUndefined();
-        // The storm doors go down, but as a hatch, not a ladder: over a ladder with nothing else, a dark frame.
+        // The storm doors go down, but they stand outside: over a ladder with nothing else, a dark frame.
         expect(over()).toBeUndefined();
+    });
+
+    it('shows a trapdoor in the floor over a ladder: a hatch going down, built into the floor', () => {
+        const trapdoor = down('trapdoor', ['cellar', 'trapdoor'], { climb: { kind: 'hatch', direction: 'down' } });
+        expect(over(trapdoor)).toBe('test:trapdoor');
+        expect(over(down('shaft', ['drop', 'shaft']), trapdoor)).toBe('test:trapdoor');
     });
 
     it('takes a ladder seen only from above, going down, before another kind stands in; never another setting’s', () => {

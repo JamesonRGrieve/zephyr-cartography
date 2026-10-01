@@ -78,8 +78,10 @@ export function wayDownOver(stair: RoleStamp, stamps: RoleIndex): RoleStamp | un
  * bare shaft or a hole broken through.
  */
 function waysDown(kind: StampTransitionKind, stamps: RoleIndex): readonly RoleStamp[] {
-    const [own = []] = ownFirst(stamps.get('stairs') ?? [], (s) => s.climb?.direction === 'down' && s.climb.kind === kind && !s.upright);
     const built = (s: RoleStamp): boolean => s.tags.some((tag) => BUILT_OPENING_TAGS.includes(tag));
+    // A ladder goes down through a trapdoor in the floor as often as through a bare well; never storm doors, which stand outside.
+    const ofKind = (s: RoleStamp): boolean => s.climb?.kind === kind || (kind === 'ladder' && s.climb?.kind === 'hatch' && built(s));
+    const [own = []] = ownFirst(stamps.get('stairs') ?? [], (s) => s.climb?.direction === 'down' && ofKind(s) && !s.upright);
     return [...own.filter(built), ...own.filter((s) => !built(s))];
 }
 
