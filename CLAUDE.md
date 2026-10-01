@@ -1622,6 +1622,11 @@ imports).
     or a provider; `license` as SPDX; optional `author` and `url`, the source
     page or the pack's repository; `ai`, its own flag, since work brought in
     from elsewhere can be AI-generated too), one per stamp.
+  - **tiles** (the pack's `tiles`, beside its stamps): modular battlemap
+    tiles, each `square` or `hex` (`orientation` pointy or flat), its `size`
+    in cells, an edge socket per side (`edges`: n/e/s/w, or the hex's six
+    sides; tiles that meet must match), its `walls` and `doors` as segments
+    in cells, and its image `variants`. The engine does not place them yet;
   - `style`: how its art is made (`painted`, `photorealistic`, `hand-drawn`,
     `flat`, `pixel-art` or `line-art`), on stamps, texture sets and particle
     emitters. The engine reads none of it; galleries filter by it; Texture sets carry one too, and `sources` per role

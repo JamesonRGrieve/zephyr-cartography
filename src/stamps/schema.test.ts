@@ -123,6 +123,45 @@ describe('parseStampPack', () => {
         expect(parseStampPack(pack([{ ...crate, provenance: { ...photo, ai: 'yes' } }])).ok).toBe(false);
     });
 
+    it('reads modular tiles, square or hex, whose edges name each of their sides once', () => {
+        const square = {
+            id: 'corridor',
+            name: 'Straight Corridor',
+            category: 'Dungeon',
+            geometry: 'square',
+            size: { w: 2, h: 4 },
+            edges: { n: 'passage', e: 'wall', s: 'passage', w: 'wall' },
+            walls: [
+                [0, 0, 0, 4],
+                [2, 0, 2, 4],
+            ],
+            variants: [{ state: 'plain', image: 'tiles/corridor.webp', resolution: '512' }],
+        };
+        const hex = {
+            ...square,
+            id: 'forest',
+            geometry: 'hex',
+            orientation: 'pointy',
+            size: { w: 1, h: 1 },
+            walls: [],
+            edges: { ne: 'open', e: 'open', se: 'road', sw: 'open', w: 'road', nw: 'open' },
+        };
+        const result = parseStampPack(pack([], { tiles: [square, hex] }));
+        expect(result.ok ? result.pack.tiles.map((tile) => [tile.id, tile.geometry, tile.orientation]) : result.issues).toEqual([
+            ['corridor', 'square', null],
+            ['forest', 'hex', 'pointy'],
+        ]);
+        expect(parseStampPack(pack([])).ok ? parseStampPack(pack([])) : null).toMatchObject({ pack: { tiles: [] } });
+        // A hex needs its orientation, a square none, and the edges must be its own sides.
+        expect(parseStampPack(pack([], { tiles: [{ ...hex, orientation: null }] })).ok).toBe(false);
+        expect(parseStampPack(pack([], { tiles: [{ ...square, orientation: 'flat' }] })).ok).toBe(false);
+        expect(parseStampPack(pack([], { tiles: [{ ...square, edges: { n: 'wall', e: 'wall', s: 'wall' } }] })).ok).toBe(false);
+        expect(parseStampPack(pack([], { tiles: [{ ...hex, orientation: 'flat' }] })).ok).toBe(false);
+        expect(parseStampPack(pack([], { tiles: [{ ...square, geometry: 'triangle' }] })).ok).toBe(false);
+        const twice = parseStampPack(pack([], { tiles: [square, square] }));
+        expect(twice.ok ? [] : twice.issues.map((issue) => issue.message)).toEqual(['duplicate tile id "corridor"']);
+    });
+
     it('records how a stamp’s, texture set’s and particle emitter’s art is made, from six styles', () => {
         const smoke = [{ textures: ['particles/smoke.webp'], count: 4, lifetime: 2000, style: 'flat' }];
         const set = { id: 'photo', name: 'Photo', license: 'CC0-1.0', textures: { grassland: 'textures/grass.jpg' }, style: 'photorealistic' };

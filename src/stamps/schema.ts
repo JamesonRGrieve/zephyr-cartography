@@ -608,6 +608,60 @@ const textureSetSchema = z
     })
     .strict();
 
+/** The geometry a modular tile is cut to. */
+const TILE_GEOMETRIES = ['square', 'hex'] as const;
+
+/** Which way a hex tile is turned: a point at its top, or a flat side. */
+const HEX_ORIENTATIONS = ['pointy', 'flat'] as const;
+
+/** A tile's sides, by its geometry and (for a hex) orientation, clockwise from the top. */
+const TILE_SIDES = {
+    square: ['n', 'e', 's', 'w'],
+    pointy: ['ne', 'e', 'se', 'sw', 'w', 'nw'],
+    flat: ['n', 'ne', 'se', 's', 'sw', 'nw'],
+} as const;
+
+/** A wall or door segment inside a tile, in cells from its top-left corner: `[x1, y1, x2, y2]`. */
+const cellSegment = z.tuple([z.number(), z.number(), z.number(), z.number()]);
+
+/**
+ * A modular battlemap tile: a square or hex section of floor plan that meets
+ * its neighbours side to side. Each side has an edge socket (`open`, `wall`,
+ * `door`, `passage`, `water`, `road` or a pack's own name), and tiles that
+ * meet must match; walls and doors inside it are segments in cells, which
+ * become native walls when it is placed.
+ */
+const modularTileSchema = z
+    .object({
+        id: text,
+        name: text,
+        category: text,
+        tags: z.array(text).default([]),
+        style: artStyle.optional(),
+        provenance: provenanceSchema.optional().describe('Where its images came from.'),
+        geometry: z.enum(TILE_GEOMETRIES),
+        orientation: z.enum(HEX_ORIENTATIONS).nullable().default(null).describe('A hex tile’s orientation; null for a square one.'),
+        size: z.object({ w: z.number().int().positive(), h: z.number().int().positive() }).strict().describe('Its size in grid cells.'),
+        edges: z
+            .record(text, text)
+            .describe('Side → its edge socket. Square sides n, e, s, w; pointy hex ne, e, se, sw, w, nw; flat hex n, ne, se, s, sw, nw.'),
+        walls: z.array(cellSegment).default([]).describe('Wall segments inside it, in cells.'),
+        doors: z.array(cellSegment).default([]).describe('Door segments inside it, in cells.'),
+        variants: z.array(z.object({ state: text, image: text, resolution: resolution.optional() }).strict()).min(1),
+    })
+    .strict()
+    .superRefine((tile, ctx) => {
+        if ((tile.geometry === 'hex') !== (tile.orientation !== null)) {
+            ctx.addIssue({ code: 'custom', path: ['orientation'], message: 'a hex tile has an orientation (pointy or flat), a square tile none' });
+            return;
+        }
+        const sides: readonly string[] = TILE_SIDES[tile.orientation ?? 'square'];
+        const given = Object.keys(tile.edges);
+        if (given.length !== sides.length || !given.every((side) => sides.includes(side))) {
+            ctx.addIssue({ code: 'custom', path: ['edges'], message: `its edges name each of its sides once: ${sides.join(', ')}` });
+        }
+    });
+
 /**
  * A pack's ambience by tag: the sound and the particles any of its stamps
  * carrying the tag gives off, where the stamp declares none of its own (every
@@ -633,6 +687,7 @@ export const stampPackSchema = z
         stamps: z.array(stampSchema),
         textureSets: z.array(textureSetSchema).default([]),
         ambience: ambienceSchema.default({ sounds: {}, particles: {} }),
+        tiles: z.array(modularTileSchema).default([]).describe('Modular battlemap tiles.'),
     })
     .strict();
 
@@ -727,6 +782,13 @@ function duplicateIdIssues(pack: StampPack): PackIssue[] {
             issues.push({ path: `stamps.${i}.id`, message: `duplicate stamp id "${stamp.id}"` });
         }
         seen.add(stamp.id);
+    });
+    const tileIds = new Set<string>();
+    pack.tiles.forEach((tile, i) => {
+        if (tileIds.has(tile.id)) {
+            issues.push({ path: `tiles.${i}.id`, message: `duplicate tile id "${tile.id}"` });
+        }
+        tileIds.add(tile.id);
     });
     return issues;
 }

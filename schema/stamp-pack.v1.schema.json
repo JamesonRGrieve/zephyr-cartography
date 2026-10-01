@@ -3002,6 +3002,235 @@
                 }
             },
             "additionalProperties": false
+        },
+        "tiles": {
+            "default": [],
+            "description": "Modular battlemap tiles.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "category": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "tags": {
+                        "default": [],
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "painted",
+                            "photorealistic",
+                            "hand-drawn",
+                            "flat",
+                            "pixel-art",
+                            "line-art"
+                        ],
+                        "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
+                    },
+                    "provenance": {
+                        "description": "Where its images came from.",
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                            },
+                            "license": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                            },
+                            "author": {
+                                "description": "Its author, or who made AI-generated art available.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "url": {
+                                "description": "Its source page: the pack’s own repository for art made for it.",
+                                "type": "string",
+                                "format": "uri"
+                            },
+                            "ai": {
+                                "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "source",
+                            "license"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "geometry": {
+                        "type": "string",
+                        "enum": [
+                            "square",
+                            "hex"
+                        ]
+                    },
+                    "orientation": {
+                        "default": null,
+                        "description": "A hex tile’s orientation; null for a square one.",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "pointy",
+                                    "flat"
+                                ]
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "size": {
+                        "type": "object",
+                        "properties": {
+                            "w": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                            },
+                            "h": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                            }
+                        },
+                        "required": [
+                            "w",
+                            "h"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Its size in grid cells."
+                    },
+                    "edges": {
+                        "type": "object",
+                        "propertyNames": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "additionalProperties": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "Side → its edge socket. Square sides n, e, s, w; pointy hex ne, e, se, sw, w, nw; flat hex n, ne, se, s, sw, nw."
+                    },
+                    "walls": {
+                        "default": [],
+                        "description": "Wall segments inside it, in cells.",
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "prefixItems": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "number"
+                                }
+                            ],
+                            "items": false,
+                            "minItems": 4,
+                            "maxItems": 4
+                        }
+                    },
+                    "doors": {
+                        "default": [],
+                        "description": "Door segments inside it, in cells.",
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "prefixItems": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "number"
+                                }
+                            ],
+                            "items": false,
+                            "minItems": 4,
+                            "maxItems": 4
+                        }
+                    },
+                    "variants": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "state": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "image": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "resolution": {
+                                    "type": "string",
+                                    "enum": [
+                                        "32",
+                                        "64",
+                                        "128",
+                                        "256",
+                                        "512",
+                                        "1K",
+                                        "2K",
+                                        "4K",
+                                        "8K"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "state",
+                                "image"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "category",
+                    "geometry",
+                    "size",
+                    "edges",
+                    "variants"
+                ],
+                "additionalProperties": false
+            }
         }
     },
     "required": [
