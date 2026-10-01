@@ -377,6 +377,29 @@ function flights(
     }).flat();
 }
 
+/** Squares kept clear before each end of a stairwell: room to step off the flight at its foot, and onto it at its head. */
+const STAIR_APPROACH = 1;
+
+/**
+ * A stairwell and the floor kept clear before both its ends, along the way
+ * its flights climb (across a turned well): whichever end the art's foot is
+ * at, nothing stands where a token steps off or onto the stair. An end
+ * against a wall keeps only wall clear.
+ */
+export function withApproaches(well: Well): Box[] {
+    const { x, y, w, h } = well;
+    const ends: Box[] = well.turned
+        ? [
+              { x: x - STAIR_APPROACH, y, w: STAIR_APPROACH, h },
+              { x: x + w, y, w: STAIR_APPROACH, h },
+          ]
+        : [
+              { x, y: y - STAIR_APPROACH, w, h: STAIR_APPROACH },
+              { x, y: y + h, w, h: STAIR_APPROACH },
+          ];
+    return [well, ...ends];
+}
+
 /**
  * For `stair` drawn only as a way down seen from above (a ladder's hatch),
  * not as the flight that climbs, the label of the box standing where it
@@ -503,7 +526,10 @@ function composeBuilding(
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [...(up?.problems ?? []), ...(down?.problems ?? []), ...(doorway?.problems ?? [])];
     // The ground floor keeps both wells clear, a floor the one up, a cellar the one down.
-    const reservedOn = (storey: number): Box[] => [...(storey >= 0 && stairwell ? [stairwell] : []), ...(storey <= 0 && cellarWell ? [cellarWell] : [])];
+    const reservedOn = (storey: number): Box[] => [
+        ...(storey >= 0 && stairwell ? withApproaches(stairwell) : []),
+        ...(storey <= 0 && cellarWell ? withApproaches(cellarWell) : []),
+    ];
     const storeyList: [number, BuildingLayout | null][] = [
         [0, storeys.ground],
         ...storeys.floors.map((layout, n): [number, BuildingLayout | null] => [n + 1, layout]),

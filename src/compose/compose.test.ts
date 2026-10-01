@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseSceneSpec, type RoomSpec, type SceneSpec } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { StampRole } from '../stamps/schema';
-import { composeMap, footprintOf } from './compose';
+import { composeMap, footprintOf, withApproaches } from './compose';
 import { type MapIntent, parseMapIntent } from './intent';
 import { PRESET_INTENTS } from './presets';
 import type { ComposeProblem } from './problems';
@@ -593,6 +593,21 @@ describe('composeMap', () => {
         const { spec } = compose(alone);
         expect(spec.features.some((f) => f.type === 'region')).toBe(false);
         expect(spec.features.filter((f) => f.type === 'room')).toHaveLength(1);
+    });
+});
+
+describe('withApproaches', () => {
+    it('keeps a square clear before both ends of a stairwell, along the way its flights climb', () => {
+        expect(withApproaches({ x: 4, y: 2, w: 1, h: 3, turned: false })).toEqual([
+            { x: 4, y: 2, w: 1, h: 3, turned: false },
+            { x: 4, y: 1, w: 1, h: 1 },
+            { x: 4, y: 5, w: 1, h: 1 },
+        ]);
+        // A turned well climbs across: its ends are its left and right.
+        expect(withApproaches({ x: 4, y: 2, w: 3, h: 1, turned: true }).slice(1)).toEqual([
+            { x: 3, y: 2, w: 1, h: 1 },
+            { x: 7, y: 2, w: 1, h: 1 },
+        ]);
     });
 });
 
