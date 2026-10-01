@@ -173,7 +173,7 @@ describe('roleIndex purposes', () => {
         expect(purposes.get('pack:pot')).toEqual(['kitchen']);
         expect(purposes.get('pack:relic')).toEqual(['shrine', 'chapel']);
         expect(purposes.get('pack:chamber-pot')).toEqual(['bedroom']);
-        expect(purposes.get('pack:satchel')).toEqual([]);
+        expect(purposes.get('pack:satchel')).toEqual(['bedroom', 'barracks']);
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
 
