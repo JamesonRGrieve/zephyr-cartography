@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import type { Point } from './spline';
-import { centroid, cutSegment, nearestSegment, perimeterSegments, segmentBand, splitSegment } from './wall';
+import { centroid, cutSegment, nearestSegment, perimeterSegments, segmentBand, splitSegment, wallRuns } from './wall';
 
 describe('segmentBand', () => {
     it('builds a centred band extended past both ends', () => {
@@ -10,6 +10,108 @@ describe('segmentBand', () => {
 
     it('is empty for a zero-length segment', () => {
         expect(segmentBand({ a: { x: 1, y: 1 }, b: { x: 1, y: 1 } }, 4)).toEqual([]);
+    });
+});
+
+describe('wallRuns', () => {
+    const square: Point[] = [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 0, y: 10 },
+    ];
+    const pairs = (outline: readonly number[]): [number, number][] =>
+        outline.flatMap((v, i) => (i % 2 === 0 ? [[Math.round(v * 1000) / 1000, Math.round((outline[i + 1] ?? 0) * 1000) / 1000] as [number, number]] : []));
+
+    it('draws a square room as four runs meeting on mitred corners, each turned to its wall', () => {
+        const runs = wallRuns(square, new Set(), 2);
+        expect(runs.map((r) => Math.round((r.angle * 180) / Math.PI))).toEqual([0, 90, 180, -90]);
+        // The top wall: along its inner face (1,1) to (9,1), and back along its outer from corner (11,-1) to corner (-1,-1).
+        expect(pairs(runs[0]?.outline ?? [])).toEqual([
+            [1, 1],
+            [9, 1],
+            [11, -1],
+            [-1, -1],
+        ]);
+    });
+
+    it('bends one smooth band round a many-sided outline, its corners shared and never notched', () => {
+        const ring: Point[] = Array.from({ length: 24 }, (_, k) => ({ x: 50 * Math.cos((k * Math.PI) / 12), y: 50 * Math.sin((k * Math.PI) / 12) }));
+        const runs = wallRuns(ring, new Set(), 4);
+        expect(runs).toHaveLength(1);
+        // Round the ring and back: two rails of 25 points, each corner's pair 2 in and 2 out of the ring, square across it.
+        const points = pairs(runs[0]?.outline ?? []);
+        expect(points).toHaveLength(50);
+        const radii = points.map(([x, y]) => Math.hypot(x, y));
+        for (const r of radii) {
+            expect(Math.min(Math.abs(r - 52), Math.abs(r - 48))).toBeLessThan(0.1);
+        }
+    });
+
+    it('meets a cut corner on its mitre, so neither wall pokes past the other', () => {
+        const chamfered: Point[] = [
+            { x: 10, y: 0 },
+            { x: 90, y: 0 },
+            { x: 100, y: 10 },
+            { x: 100, y: 100 },
+            { x: 0, y: 100 },
+            { x: 0, y: 10 },
+        ];
+        const runs = wallRuns(chamfered, new Set(), 4);
+        expect(runs).toHaveLength(6);
+        // The top wall's far end and the cut's near end are the same two points.
+        const topWall = pairs(runs[0]?.outline ?? []);
+        const cut = pairs(runs[1]?.outline ?? []);
+        expect(new Set([topWall[1], topWall[2]].map(String))).toEqual(new Set([cut[0], cut[3]].map(String)));
+    });
+
+    it('bevels the outside of a corner too sharp to mitre, never spiking out past it', () => {
+        // A narrow wedge: its tip turns about 157 degrees.
+        const wedge: Point[] = [
+            { x: 0, y: 0 },
+            { x: 100, y: 20 },
+            { x: 0, y: 40 },
+        ];
+        const runs = wallRuns(wedge, new Set(), 4);
+        const all = runs.flatMap((r) => pairs(r.outline));
+        // A mitre there would reach some 10 half-thicknesses past the tip; the bevel keeps within one of it.
+        expect(Math.max(...all.map(([x]) => x))).toBeLessThanOrEqual(102.01);
+        // The runs either side of the tip still meet: the wall after starts where the one before's bevel ends.
+        const [upper, lower] = [pairs(runs[0]?.outline ?? []), pairs(runs[1]?.outline ?? [])];
+        expect(lower.some(([x, y]) => upper.some(([tx, ty]) => Math.abs(tx - x) < 1e-6 && Math.abs(ty - y) < 1e-6))).toBe(true);
+        // Wound the other way round, the tip turns the other way and is bevelled on the band's other side, as far.
+        const reversed = wallRuns([...wedge].reverse(), new Set(), 4).flatMap((r) => pairs(r.outline));
+        expect(Math.max(...reversed.map(([x]) => x))).toBeLessThanOrEqual(102.01);
+    });
+
+    it('passes over a doubled point, and a wall doubling straight back on itself, without breaking', () => {
+        // A repeated corner is a wall of no length: the band runs on as if it were not there.
+        const doubled = wallRuns([square[0] ?? { x: 0, y: 0 }, ...square], new Set(), 2);
+        expect(doubled).toHaveLength(4);
+        // A spur running out and straight back: still a closed band, every point a real number.
+        const spur = wallRuns(
+            [
+                { x: 0, y: 0 },
+                { x: 10, y: 0 },
+                { x: 5, y: 0 },
+            ],
+            new Set(),
+            2,
+        );
+        expect(spur.flatMap((r) => r.outline).every(Number.isFinite)).toBe(true);
+    });
+
+    it('breaks the band at a doorway, squaring each jamb off half the band past it', () => {
+        const runs = wallRuns(square, new Set([0]), 2);
+        expect(runs).toHaveLength(3);
+        // The right wall starts at the doorway's jamb, a square end reaching a half band up past the corner.
+        expect(pairs(runs[0]?.outline ?? [])).toContainEqual([11, -1]);
+        expect(pairs(runs[2]?.outline ?? [])).toContainEqual([-1, -1]);
+    });
+
+    it('draws nothing for an outline that is all doorway, or no outline', () => {
+        expect(wallRuns(square, new Set([0, 1, 2, 3]), 2)).toEqual([]);
+        expect(wallRuns([], new Set(), 2)).toEqual([]);
     });
 });
 

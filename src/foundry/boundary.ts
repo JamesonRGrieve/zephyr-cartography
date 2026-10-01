@@ -25,8 +25,12 @@ export interface WallCreateData extends OnLevels {
     readonly threshold?: { readonly light: number | null; readonly sight: number | null; readonly sound: number | null; readonly attenuation: boolean };
     /** A door's `CONFIG.Wall.doorSounds` key. */
     readonly doorSound?: string;
-    /** Marks a light switch's wall, whose door control shows a light instead of a door. */
-    readonly flags?: Readonly<Record<string, { readonly lightSwitch: true }>>;
+    /**
+     * The module's own notes on a wall: a light switch's, whose door control
+     * shows a light instead of a door; a cover wall's grade (0 to 1), for the
+     * game system's cover check.
+     */
+    readonly flags?: Readonly<Record<string, { readonly lightSwitch?: true; readonly cover?: number }>>;
     /** A door's animation; left-out (or undefined) options take Foundry's defaults. */
     readonly animation?: {
         readonly type: string;
@@ -194,6 +198,15 @@ type ZoneShapeData = { readonly hole: boolean; readonly gridBased: boolean; read
     | { readonly type: 'line'; readonly length: number; readonly width: number; readonly rotation: number }
 );
 
+/** Display Scrolling Text's system: its events, its text and colour, who sees it (a `VISIBILITY_MODES` value), and once only. */
+interface ScrollingTextSystem {
+    readonly events: readonly string[];
+    readonly text: string;
+    readonly color: string;
+    readonly visibility: number;
+    readonly once: boolean;
+}
+
 /**
  * The behaviour an area effect becomes, with its id chosen up front (so a
  * toggle can name it) and whether it starts disabled.
@@ -208,13 +221,7 @@ export type AreaEffectBehaviourBody =
     /** `visibility` is a `DisplayScrollingTextRegionBehaviorType.VISIBILITY_MODES` value. */
     | {
           readonly type: 'displayScrollingText';
-          readonly system: {
-              readonly events: readonly string[];
-              readonly text: string;
-              readonly color: string;
-              readonly visibility: number;
-              readonly once: boolean;
-          };
+          readonly system: ScrollingTextSystem;
       }
     | { readonly type: 'pauseGame'; readonly system: { readonly once: boolean } }
     | { readonly type: 'executeMacro'; readonly system: { readonly events: readonly string[]; readonly uuid: string | null; readonly everyone: boolean } }
@@ -241,6 +248,8 @@ export interface RegionCreateData extends OnLevels {
         | { readonly type: 'defineSurface'; readonly system: SurfaceSystem }
         /** Cost multipliers per movement action (v14 `modifyMovementCost`, 14.359); actions left out keep Foundry's 1. */
         | { readonly type: 'modifyMovementCost'; readonly system: { readonly difficulties: Readonly<Record<string, number>> } }
+        /** A hazard's warning, scrolled over a token coming in; Foundry chooses its id, as nothing names it. */
+        | { readonly type: 'displayScrollingText'; readonly system: ScrollingTextSystem }
         | AreaEffectBehaviour
     )[];
     readonly locked: boolean;

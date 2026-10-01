@@ -12,7 +12,7 @@
  * a well of their own, clear of the stairwell up. Pure and unit-tested;
  * positions are in grid squares.
  */
-import type { Rect } from '../generate/floor-plan';
+import type { Rect, RoomCorner } from '../generate/floor-plan';
 import { shuffled, type Random } from '../generate/random';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { type Box, DOOR_CLEAR, doorApproach, overlaps, within } from './furnish';
@@ -54,12 +54,51 @@ export interface Wells {
 
 type LaidRoom = BuildingLayout['rooms'][number];
 
-/** The room of `layout` holding the stairwell `box`: wholly inside it, off its walls, and clear of every door's approach there; none if no room does. */
+/**
+ * Whether `box` keeps the stairwell margin clear of `room`'s cut corners
+ * (its chamfer's masonry): each cut corner's diagonal, measured from the
+ * box's own nearest corner, as a distance in from the room's corner along
+ * both walls.
+ */
+function clearOfCutCorners(room: LaidRoom, box: Box): boolean {
+    const cut = room.intent.chamfer ?? 0;
+    if (cut <= 0) {
+        return true;
+    }
+    const { x, y, w, h } = room.rect;
+    const inFrom: Readonly<Record<RoomCorner, number>> = {
+        'top-left': box.x - x + (box.y - y),
+        'top-right': x + w - (box.x + box.w) + (box.y - y),
+        'bottom-left': box.x - x + (y + h - (box.y + box.h)),
+        'bottom-right': x + w - (box.x + box.w) + (y + h - (box.y + box.h)),
+    };
+    // The diagonal lies `cut` in along both walls; the margin, measured square to it, is Math.SQRT2 times as far along them.
+    return room.intent.chamferAt.every((corner) => inFrom[corner] >= cut + STAIRWELL_MARGIN * Math.SQRT2);
+}
+
+/**
+ * Whether `room` is hidden: it names its secret doors (`secretTo`: the room
+ * behind them, a cult's sanctum, a treasure vault) and every way into it is
+ * one. The room on the near side of a secret door, which may have no other
+ * door (a cellar store reached by its stair), is not.
+ */
+const hidden = (layout: BuildingLayout, room: LaidRoom): boolean =>
+    room.intent.secretTo.length > 0 && doorsOf(layout, room.key).every((door) => door.secret === true);
+
+/**
+ * The room of `layout` holding the stairwell `box`: wholly inside it, off its
+ * walls and its cut corners, and clear of every door's approach there; none
+ * if no room does, or the one that does is hidden, which a stair never
+ * climbs into (it would give the secret away).
+ */
 function stairwellRoom(layout: BuildingLayout, box: Box): LaidRoom | undefined {
     const room = layout.rooms.find((r) =>
         within(box, { x: r.rect.x + STAIRWELL_MARGIN, y: r.rect.y + STAIRWELL_MARGIN, w: r.rect.w - 2 * STAIRWELL_MARGIN, h: r.rect.h - 2 * STAIRWELL_MARGIN }),
     );
-    return room && !doorsOf(layout, room.key).some((door) => overlaps(doorApproach(room.rect, door), box)) ? room : undefined;
+    if (!room || !clearOfCutCorners(room, box) || hidden(layout, room)) {
+        return undefined;
+    }
+    return doorsOf(layout, room.key).some((door) => overlaps(doorApproach(room.rect, door), box)) ? undefined : room;
 }
 
 /**
@@ -227,6 +266,19 @@ function landedAt(
         .sort((a, b) => a.rank - b.rank || a.away - b.away)
         .map(({ box }) => box);
     return stairwell ? withCellars(building, footprint, wells, random, { ground, floors, stairwell }) : null;
+}
+
+/**
+ * How far `storeys` fall short of what a builder would draw: each room not
+ * beside one it opens onto, on any level, and a stair landing outside the
+ * corridor of a floor that has one (in a guest's room). Zero for none.
+ */
+export function flawsOf(storeys: Storeys): number {
+    const { ground, floors, cellars, stairwell } = storeys;
+    const laid = [ground, ...floors, ...cellars].flatMap((layout) => (layout ? [layout] : []));
+    const unmet = laid.reduce((sum, layout) => sum + layout.unmet.length, 0);
+    const astray = stairwell === null ? 0 : floors.filter((layout) => layout !== null && hasHall(layout) && !inHall(layout, stairwell)).length;
+    return unmet + astray;
 }
 
 /** Whether a layout has a hall: where it does, a stair stands in it. */

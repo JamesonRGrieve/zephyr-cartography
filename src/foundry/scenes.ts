@@ -5,6 +5,7 @@
  * the exit regions that live in another scene.
  */
 import type { WorldScenes } from '../canvas/controller';
+import type { HazardKind } from '../stamps/schema';
 import type { RegionDoc } from '../tools/documents';
 import { activeScene, worldScene } from './scene-bridge';
 import { behaviourData, regionCreateData, sceneSettingsData } from './translate';
@@ -17,6 +18,8 @@ const FALLBACK_GRID = { size: 100, distance: 1 } as const;
 
 export interface WorldScenesOptions {
     readonly regionName: (region: RegionDoc) => string;
+    /** A hazard region's warning, scrolled over a token coming into it. */
+    readonly hazardText: (kind: HazardKind) => string;
 }
 
 export function createWorldScenes(options: WorldScenesOptions): WorldScenes {
@@ -46,7 +49,12 @@ export function createWorldScenes(options: WorldScenesOptions): WorldScenes {
                 return false;
             }
             // An interior exit is attached to no token.
-            const [data] = regionCreateData([region], [region.id], { nameOf: options.regionName, scene: scene.id, tokenOf: () => null });
+            const [data] = regionCreateData([region], [region.id], {
+                nameOf: options.regionName,
+                hazardText: options.hazardText,
+                scene: scene.id,
+                tokenOf: () => null,
+            });
             if (!data) {
                 return false;
             }
@@ -58,7 +66,7 @@ export function createWorldScenes(options: WorldScenesOptions): WorldScenes {
         },
         updateTeleport: async (sceneId, region) => {
             const live = region.id === null ? undefined : worldScene(sceneId)?.regions.get(region.id);
-            const [planned] = behaviourData(region.behaviour);
+            const [planned] = behaviourData(region.behaviour, options.hazardText);
             const behaviour = planned && live?.behaviors.contents.find((b) => b.type === planned.type);
             if (planned && behaviour) {
                 await behaviour.update({ system: planned.system });

@@ -9,6 +9,7 @@ import type { TileFrame } from '../canvas/controller';
 import { rectangleOf } from '../geometry/rectangle';
 import type { Point } from '../geometry/spline';
 import { MODULE_ID } from '../module-id';
+import type { HazardKind } from '../stamps/schema';
 import { type AreaEffect, DARKNESS_MODES, type RegionVisibility, TEXT_VISIBILITIES } from '../tools/area-effects';
 import type {
     DoorState,
@@ -143,8 +144,17 @@ export function wallCreateData(wall: WallDoc, grid: SceneGrid): WallCreateData {
         ...(wall.threshold === undefined ? {} : { threshold: thresholdData(wall.threshold, grid) }),
         ...doorLookData(wall),
         ...levelsField(wall.level),
-        ...(wall.lightSwitch === true ? { flags: { [MODULE_ID]: { lightSwitch: true } } } : {}),
+        ...wallFlags(wall),
     };
+}
+
+/** What the module notes on a wall for others to read: a light switch, the cover it grades; nothing for a plain wall. */
+function wallFlags(wall: WallDoc): Pick<WallCreateData, 'flags'> {
+    const own: { lightSwitch?: true; cover?: number } = {
+        ...(wall.lightSwitch === true ? { lightSwitch: true as const } : {}),
+        ...(wall.cover === undefined ? {} : { cover: wall.cover }),
+    };
+    return Object.keys(own).length === 0 ? {} : { flags: { [MODULE_ID]: own } };
 }
 
 /** A door's sound and animation, each left to Foundry's default when unset; nothing for a plain wall. */
@@ -363,6 +373,9 @@ export function tileCreateData(tile: TileDoc): TileCreateData {
             ...(tile.mirror === true ? { scaleX: MIRRORED } : {}),
         },
         ...tileLookData(tile.look),
+        // Always said, Foundry's own default when unsaid: a tile updated in place keeps a key left out, so a trap sprung
+        // to a variant that no longer hides would otherwise stay hidden.
+        hidden: tile.look?.hidden ?? false,
         // Foundry stores tile positions as integers; round here so the read-back matches.
         x: Math.round(tile.x + tile.width * TILE_ANCHOR),
         y: Math.round(tile.y + tile.height * TILE_ANCHOR),
@@ -432,8 +445,13 @@ export function regionUuid(scene: string, region: string): string {
     return `Scene.${scene}.Region.${region}`;
 }
 
+/** The colour a hazard's warning scrolls up in: a warning amber. */
+const HAZARD_COLOUR = '#f1c40f';
+
 /**
  * A region's native behaviour.
+ * - A hazard scrolls its warning, in the GM's language (`hazardText`), up over
+ *   a token coming into it, for everyone to see.
  * - A teleport names its destinations by region UUID, and travels as its link
  *   says: where the token lands and whether it snaps there, whether players
  *   see where it leads, the prompt and the scene transition. The token
@@ -444,9 +462,24 @@ export function regionUuid(scene: string, region: string): string {
  * - A floor is a `defineSurface` at the region's bottom that restricts every
  *   sense and movement and occludes what is beneath.
  */
-export function behaviourData(behaviour: RegionBehaviour | null): RegionCreateData['behaviors'] {
+export function behaviourData(behaviour: RegionBehaviour | null, hazardText: (kind: HazardKind) => string): RegionCreateData['behaviors'] {
     if (behaviour === null) {
         return [];
+    }
+    if (behaviour.kind === 'hazard') {
+        // Scrolled up over a token coming into it, for everyone to see; the harm itself is the GM's to add.
+        return [
+            {
+                type: 'displayScrollingText',
+                system: {
+                    events: ['tokenAnimateIn'],
+                    text: hazardText(behaviour.hazard),
+                    color: HAZARD_COLOUR,
+                    visibility: TEXT_VISIBILITIES.indexOf('anyone'),
+                    once: false,
+                },
+            },
+        ];
     }
     if (behaviour.kind === 'changeLevel') {
         return [{ type: 'changeLevel', system: { movementActions: behaviour.movement } }];
@@ -560,6 +593,8 @@ function regionLevels(region: RegionDoc): { readonly levels?: readonly string[] 
 /** Where regions are written: how each is named, the scene they are on, and the footprints of its tokens (null for one not there). */
 export interface RegionContext {
     readonly nameOf: (region: RegionDoc) => string;
+    /** A hazard's warning in the GM's language: "Fire!". */
+    readonly hazardText: (kind: HazardKind) => string;
     readonly scene: string;
     readonly tokenOf: (id: string) => TokenFootprint | null;
 }
@@ -581,7 +616,7 @@ export function regionCreateData(regions: readonly RegionDoc[], ids: readonly st
         ],
         ...(region.attachedTo === undefined ? {} : { attachment: { token: region.attachedTo } }),
         elevation: { bottom: region.bottom, top: region.top },
-        behaviors: [...behaviourData(region.behaviour), ...effectBehaviours(region.effects ?? [], { scene, region: ids[i] ?? '' })],
+        behaviors: [...behaviourData(region.behaviour, context.hazardText), ...effectBehaviours(region.effects ?? [], { scene, region: ids[i] ?? '' })],
         // A region drawn from a feature is edited through the feature, so it is locked and
         // shown on the Regions layer unless the GM chose otherwise. An interior exit is the GM's to place, so it stays free.
         locked: region.label.kind !== 'exit',

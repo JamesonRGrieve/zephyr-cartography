@@ -1042,6 +1042,38 @@ describe('named fixtures', () => {
         expect(labelled(stamps, 'crate')).toHaveLength(0);
     });
 
+    it('sets a piece astride its point into the wall, where a fixed one is drawn in to stand wholly inside', () => {
+        const port = (astride: boolean): FixtureIntent =>
+            fixture({ name: 'firing port', width: 0.6, height: 0.4, facing: 'left', fixed: true, place: { at: { x: 0, y: 0.5 }, astride } });
+        const [inWall] = labelled(furnishRoom({ ...HALL, fixtures: [port(true)] }, TEST_ROLES, seededRandom(1)).stamps, 'firing port');
+        const [inside] = labelled(furnishRoom({ ...HALL, fixtures: [port(false)] }, TEST_ROLES, seededRandom(1)).stamps, 'firing port');
+        // Centred on the left wall's face, half of it in the wall; or its whole depth (0.4, turned to face left) inside.
+        expect(inWall?.x).toBeCloseTo(0);
+        expect(inWall?.y).toBeCloseTo(4);
+        expect(inside?.x).toBeCloseTo(0.2);
+    });
+
+    it('strews grime only on open floor, never half under a piece standing against a wall', () => {
+        const debris = byKey.get('test:debris');
+        if (!debris) {
+            throw new Error('test debris');
+        }
+        const decal: RoleStamp = { ...debris, key: 'test:stain', role: 'decal', width: 0.8, height: 0.6 };
+        const roles = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['decal', [decal]]]);
+        // A long bench the whole height of the left wall, and one across most of the top: grime must keep off both.
+        const benches = [
+            fixture({ name: 'left bench', width: 7, height: 1, place: { wall: 'left', along: 'middle', standoff: 0 } }),
+            fixture({ name: 'top bench', width: 8, height: 1, place: { wall: 'top', along: 'middle', standoff: 0 } }),
+        ];
+        const { stamps } = furnishRoom({ ...HALL, fixtures: benches, grime: 1 }, withPlaceholders(roles), seededRandom(5));
+        const stains = stamps.filter((p) => p.stamp === 'test:stain');
+        expect(stains.length).toBeGreaterThan(0);
+        for (const s of stains) {
+            // Clear of the left bench (x 0..1) and the top one (y 0..1), their own half-size in.
+            expect(s.x - 0.4 >= 1 - 1e-9 && s.y - 0.4 >= 1 - 1e-9).toBe(true);
+        }
+    });
+
     it('strews grime along the walls, never across a doorway, beneath everything else', () => {
         const debris = byKey.get('test:debris');
         if (!debris) {

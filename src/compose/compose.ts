@@ -17,7 +17,7 @@ import type { Point } from '../geometry/spline';
 import type { StampRole } from '../stamps/schema';
 import type { BiomeKind } from '../tools/biome';
 import { WALL_BAND_SQUARES } from '../tools/materials';
-import { flightFor, type StormDoorway, stormDoorway, wayDownOver } from './access';
+import { type Flight, flightFor, narrowestFlight, type StormDoorway, stormDoorway, wayDownOver } from './access';
 import { curtainFeatures, moatOutlines } from './curtain';
 import { districtFeatures } from './district';
 import { composeExterior } from './exterior';
@@ -30,7 +30,7 @@ import { platformFeatures } from './platform';
 import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './preferences';
 import { type ComposeProblem, distinctProblems } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
-import { layOutStoreys, type Well, type Wells } from './storeys';
+import { flawsOf, layOutStoreys, type Storeys, type Well, type Wells } from './storeys';
 
 type FeatureInput = SceneSpecInput['features'][number];
 
@@ -399,6 +399,49 @@ const OPENING = {
     fill: { colour: '#140d08', alpha: 0.9 },
 } as const;
 
+/**
+ * `building`'s storeys round wells for the flights `asked`; where they come
+ * out flawed (a broad stairwell in a small stair core finds no well, a long
+ * flight fits between no corridor's doorways and lands in a bedroom), laid
+ * out again round the narrowest flights of the same kinds, kept where that
+ * lays better.
+ */
+function laidOut(
+    building: BuildingIntent,
+    footprint: Rect,
+    asked: { readonly up: Flight | null; readonly down: Flight | null },
+    map: MapContext,
+): { up: Flight | null; down: Flight | null; storeys: Storeys | null } {
+    const lay = (ways: typeof asked): Storeys | null =>
+        layOutStoreys(
+            building,
+            footprint,
+            { up: wellFor(ways.up?.stair, building.floors.length), down: wellFor(ways.down?.stair, building.cellars.length) },
+            map.random,
+        );
+    // A flight with no well is the worst flaw; then each room cut off from one it opens onto, and a landing in a bedroom.
+    const flaws = (ways: typeof asked, laid: Storeys | null): number => {
+        if (laid === null) {
+            return Number.POSITIVE_INFINITY;
+        }
+        const unwelled = (ways.up?.stair !== undefined && laid.stairwell === null) || (ways.down?.stair !== undefined && laid.cellarWell === null);
+        return (unwelled ? UNWELLED_FLAWS : 0) + flawsOf(laid);
+    };
+    const storeys = lay(asked);
+    const flawed = flaws(asked, storeys);
+    const narrow = { up: asked.up && narrowestFlight(asked.up, map.stamps), down: asked.down && narrowestFlight(asked.down, map.stamps) };
+    const narrower = narrow.up?.stair !== asked.up?.stair || narrow.down?.stair !== asked.down?.stair;
+    if (flawed === 0 || !narrower) {
+        return { ...asked, storeys };
+    }
+    // A long straight flight that fits between no doorways of a corridor: the narrowest flight of its kind, where that lays better.
+    const retried = lay(narrow);
+    return flaws(narrow, retried) < flawed ? { ...narrow, storeys: retried } : { ...asked, storeys };
+}
+
+/** What a flight without a well counts against its storeys: more than every other flaw a layout can have. */
+const UNWELLED_FLAWS = 1000;
+
 /** The size of the well a way of `count` flights of `stair` needs, or null without one. */
 const wellFor = (stair: RoleStamp | undefined, count: number): Wells['up'] =>
     stair && count > 0 ? { w: stair.width * stairLanes(count), h: stair.height } : null;
@@ -436,13 +479,14 @@ function composeBuilding(
 ): { features: FeatureInput[]; problems: ComposeProblem[]; ground: BuildingLayout | null; annexes: Rect[] } {
     const { stamps, random, levelOf, night, preferences, depth } = map;
     // A flight must not open onto a level beneath where it climbs from: the map's cellar levels lie under every ground floor.
-    const up = building.floors.length > 0 ? flightFor(building.floorAccess, stamps, random, { wantedIn: called, below: depth > 0 }) : null;
-    const down =
-        building.cellars.length > 0
-            ? flightFor(building.cellarAccess, stamps, random, { wantedIn: `${called}/cellar`, below: depth > building.cellars.length })
-            : null;
-    const wells: Wells = { up: wellFor(up?.stair, building.floors.length), down: wellFor(down?.stair, building.cellars.length) };
-    const storeys = layOutStoreys(building, footprint, wells, random);
+    const asked = {
+        up: building.floors.length > 0 ? flightFor(building.floorAccess, stamps, random, { wantedIn: called, below: depth > 0 }) : null,
+        down:
+            building.cellars.length > 0
+                ? flightFor(building.cellarAccess, stamps, random, { wantedIn: `${called}/cellar`, below: depth > building.cellars.length })
+                : null,
+    };
+    const { up, down, storeys } = laidOut(building, footprint, asked, map);
     if (!storeys) {
         return {
             features: [],

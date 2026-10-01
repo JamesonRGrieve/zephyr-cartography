@@ -76,6 +76,52 @@ describe('roleIndex door art', () => {
     });
 });
 
+describe('roleIndex variants', () => {
+    it('draws a piece in a variant seen from above, so it turns, where its default one is drawn side-on', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('shelf-module', {
+                    role: 'shelf',
+                    perspective: 'orthographic',
+                    variants: [
+                        { state: 'front', image: 'stamps/front.png', width: 100, height: 68, perspective: 'front' },
+                        { state: 'plan', image: 'stamps/plan.png', width: 100, height: 68 },
+                    ],
+                }),
+                stampDef('iso-shelf', { role: 'shelf', perspective: 'isometric' }),
+            ]),
+            [],
+        );
+        const shelves = new Map((index.get('shelf') ?? []).map((s) => [s.key, s]));
+        // The plan variant, turnable, drawn as such.
+        expect(shelves.get('pack:shelf-module')).toMatchObject({ variant: 1, upright: false });
+        // One with no view from above keeps its own default, standing as drawn.
+        expect(shelves.get('pack:iso-shelf')?.variant).toBeUndefined();
+    });
+});
+
+describe('roleIndex factions', () => {
+    it('keeps a faction’s own art to maps that name the faction, whatever broader setting it also carries', () => {
+        const pack = stamps([
+            stampDef('imperial-bed', { role: 'bed', tags: ['setting-grimdark'] }),
+            stampDef('ork-bunk', { role: 'bed', tags: ['setting-grimdark', 'setting-ork'] }),
+        ]);
+        const keys = (settings: readonly string[]): string[] => (roleIndex(pack, settings).get('bed') ?? []).map((s) => s.key);
+        expect(keys(['setting-grimdark'])).toEqual(['pack:imperial-bed']);
+        expect(keys(['setting-grimdark', 'setting-ork'])).toEqual(['pack:imperial-bed', 'pack:ork-bunk']);
+    });
+});
+
+describe('roleIndex fittings', () => {
+    it('keeps every fitting’s art, drawn from above or side-on, since each is one thing a map names', () => {
+        const pack = stamps([
+            stampDef('hatch', { tags: ['hatch'], perspective: 'orthographic' }),
+            stampDef('pict-recorder', { tags: ['pict', 'recorder'], perspective: 'front' }),
+        ]);
+        expect((roleIndex(pack, []).get('fitting') ?? []).map((s) => s.key)).toEqual(['pack:hatch', 'pack:pict-recorder']);
+    });
+});
+
 describe('roleIndex purposes', () => {
     it('keeps a piece to the rooms its tags name or imply: a cooking pot to a kitchen, a reliquary to a shrine or chapel', () => {
         const index = roleIndex(
@@ -92,6 +138,16 @@ describe('roleIndex purposes', () => {
         expect(purposes.get('pack:relic')).toEqual(['shrine', 'chapel']);
         expect(purposes.get('pack:satchel')).toEqual([]);
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
+    });
+
+    it("keeps a map table to a war room and a throne to a commander's room or a chapel, never a taproom's or a lobby's", () => {
+        const index = roleIndex(
+            stamps([stampDef('war', { role: 'table', tags: ['map', 'table'] }), stampDef('throne', { role: 'seat', tags: ['throne', 'chair'] })]),
+            [],
+        );
+        expect(index.get('table')?.[0]?.purposes).toEqual(['command']);
+        expect(index.get('seat')?.[0]?.purposes).toEqual(expect.arrayContaining(['command', 'chapel']));
+        expect(index.get('seat')?.[0]?.purposes).toHaveLength(2);
     });
 });
 
@@ -139,11 +195,11 @@ describe('roleIndex', () => {
                 tags: [],
             },
         ]);
-        // Neither a role nor a tag that makes one: only ever placed by hand.
-        expect([...index.values()].flat().map((s) => s.key)).not.toContain('pack:statue');
+        // Neither a role nor a tag that makes one: a fitting, drawn only where a map names it.
+        expect(index.get('fitting')?.map((s) => s.key)).toEqual(['pack:statue']);
     });
 
-    it('never turns isometric art, turns art seen from above, and uses only art seen from above wherever a role has any', () => {
+    it('never turns isometric or front art, turns art seen from above, and uses only art seen from above wherever a role has any', () => {
         const drawn = roleIndex(
             stamps([
                 stampDef('crates', { tags: ['crates'], perspective: 'isometric', placement: { back: 'left' } }),
@@ -152,16 +208,20 @@ describe('roleIndex', () => {
                 stampDef('plan-bed', { tags: ['bed'], perspective: 'orthographic' }),
                 stampDef('centre-bed', { tags: ['bed'], perspective: 'central' }),
                 stampDef('front-bed', { tags: ['bed'], perspective: 'isometric' }),
+                stampDef('side-bed', { tags: ['bed'], perspective: 'front' }),
+                stampDef('side-crates', { tags: ['crates'], perspective: 'front', placement: { back: 'left' } }),
             ]),
             [],
         );
+        // Front art, a level elevation, stands as drawn like isometric art.
+        expect(drawn.get('storage')).toContainEqual(expect.objectContaining({ key: 'pack:side-crates', upright: true, turn: 0 }));
         // Its back is its top, whatever the pack says, and it stands as drawn.
-        expect(drawn.get('storage')).toEqual([expect.objectContaining({ key: 'pack:crates', upright: true, turn: 0, width: 2, height: 1 })]);
+        expect(drawn.get('storage')).toContainEqual(expect.objectContaining({ key: 'pack:crates', upright: true, turn: 0, width: 2, height: 1 }));
         // Central art turns like a plan: its back is the pack's, turned to the top.
         expect(drawn.get('desk')).toEqual([expect.objectContaining({ key: 'pack:desk', upright: false, turn: 90, width: 1, height: 2 })]);
         // A structure stands upright whatever its art.
         expect(drawn.get('structure')).toEqual([expect.objectContaining({ upright: true })]);
-        // Beds seen from above exist, so the front-on one is left out.
+        // Beds seen from above exist, so the front-on and side-on ones are left out.
         expect(drawn.get('bed')?.map((s) => s.key)).toEqual(['pack:plan-bed', 'pack:centre-bed']);
     });
 
@@ -184,7 +244,9 @@ describe('roleIndex', () => {
         // A defence is drawn front up: its back is the image's bottom, turned half round to stand back up.
         expect(index.get('emplacement')).toEqual([expect.objectContaining({ key: 'pack:gun', turn: 180 })]);
         expect(index.get('structure')).toEqual([expect.objectContaining({ key: 'pack:silo', upright: true })]);
-        expect([...index.values()].flat().map((s) => s.key)).not.toContain('pack:gantry');
+        // An indoor gantry is no yard's structure: never dressed as one, only a fitting a map may name.
+        expect(index.get('structure')?.map((s) => s.key)).not.toContain('pack:gantry');
+        expect(index.get('fitting')?.map((s) => s.key)).toContain('pack:gantry');
         expect(index.get('clutter')?.map((s) => s.key)).toEqual(['pack:odd']);
     });
 

@@ -115,6 +115,11 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
         ],
     ],
     ['rug', ['rug', 'carpet']],
+    // A mark that says something (a cult's graffito, a scratched sigil, a violet warp-burn, brood resin), a thing laid
+    // flat (a hung bedsheet), or a strip made to run along a route: never strewn as grime, only where a map names it.
+    ['fitting', ['graffito', 'graffiti', 'sigil', 'bedsheet', 'segment', 'violet', 'brood', 'resin']],
+    // Fallen leaves lie under trees: ground cover outdoors, never a hive chapel's grime.
+    ['flora', ['leaf']],
     // Flat marks on a floor or the ground (an oil stain, cracks, a scorch, a drift of dust): grime, never a piece that stands.
     ['decal', ['decal', 'stain', 'grime', 'cracks', 'crack', 'scorch', 'dust', 'smear', 'grit']],
     ['tree', ['tree', 'copse']],
@@ -234,6 +239,7 @@ const ROLE_PLACEMENT: Readonly<Record<StampRole, RolePlacement>> = {
     armchair: { ...FREE, against: 'corner' },
     decal: FREE,
     door: WALL,
+    fitting: FREE,
 };
 
 /** Tags that say which ground land belongs on. */
@@ -242,7 +248,7 @@ const HABITAT_RULES: readonly (readonly [StampHabitat, readonly string[]])[] = [
     ['cave', ['cave', 'stalagmites', 'stalactites', 'crystal', 'mineral', 'mushroom']],
     ['arctic', ['ice', 'frost', 'snow']],
     ['forest', ['forest', 'woodland', 'jungle', 'mushroom']],
-    ['marsh', ['mire', 'marsh', 'swamp']],
+    ['marsh', ['mire', 'marsh', 'swamp', 'bog']],
     ['desert', ['desert', 'sand', 'dune']],
     ['ruin', ['bone', 'cairn', 'crypt', 'dungeon', 'ruin', 'ruined']],
     ['urban', ['street', 'metal', 'girders', 'cable', 'wreckage', 'casings', 'shards', 'splatter']],
@@ -261,16 +267,20 @@ const LAND_HABITATS: Partial<Readonly<Record<StampRole, readonly StampHabitat[]>
     debris: ['urban', 'ruin'],
 };
 
-/** Tags of what is set by the GM, never scattered by the composer: a trap is placed where it is meant to catch someone. */
-const NEVER_COMPOSED = ['trap'];
+/** Tags of what is only ever set where it is meant, never scattered: a trap lies where it is meant to catch someone. */
+const NAMED_ONLY = ['trap'];
 
-/** The role `tags` make a stamp, or undefined when none does (it is placed by hand only). */
+/**
+ * The role `tags` make a stamp: a fitting, drawn only where a map names it,
+ * when no rule says more, and always for a trap (a pressure plate in a
+ * tomb's guardian hall), whatever else its tags say.
+ */
 export function roleFromTags(tags: readonly string[]): StampRole | undefined {
-    if (tags.some((tag) => NEVER_COMPOSED.includes(tag))) {
-        return undefined;
+    if (tags.some((tag) => NAMED_ONLY.includes(tag))) {
+        return 'fitting';
     }
     const carries = (tag: string | readonly string[]): boolean => (typeof tag === 'string' ? tags.includes(tag) : tag.every((t) => tags.includes(t)));
-    return ROLE_RULES.find(([, any]) => any.some(carries))?.[0];
+    return ROLE_RULES.find(([, any]) => any.some(carries))?.[0] ?? 'fitting';
 }
 
 /** Roles that furnish a room, which take only stamps drawn at interior scale. */
@@ -311,6 +321,10 @@ const OUTDOOR_ROLES: readonly StampRole[] = ['structure', 'barricade', 'crater',
  * levels (a stair indoors, storm doors outside) serve either.
  */
 export function suitsScale(role: StampRole, scale: string): boolean {
+    // A fitting stands in a room or a yard, never a city block or a world drawn to look like one from far above.
+    if (role === 'fitting') {
+        return scale === 'interior' || scale === 'exterior';
+    }
     if (INDOOR_ROLES.includes(role)) {
         return scale === 'interior';
     }

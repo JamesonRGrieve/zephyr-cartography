@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import { type BuildingIntent, parseMapIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
-import { holdsStairwell, layOutStoreys, type Wells } from './storeys';
+import { flawsOf, holdsStairwell, layOutStoreys, type Wells } from './storeys';
 
 function buildingOf(given: object): BuildingIntent {
     const parsed = parseMapIntent({ schemaVersion: 1, buildings: [given] });
@@ -121,6 +121,23 @@ describe('a stair climbing into a guest corridor', () => {
             const from = well ? storeys.ground.rooms.find((r) => holdsStairwell({ ...storeys.ground, rooms: [r] }, well)) : undefined;
             expect(from?.key).toBe('common');
         }
+    });
+
+    it('counts a stair landing in a guest’s room and each room cut off from its corridor as flaws, none in a sound layout', () => {
+        const storeys = layOutStoreys(INN, INN_FOOTPRINT, SPIRAL, seededRandom(1));
+        const upstairs = storeys?.floors[0];
+        if (!storeys || !upstairs) {
+            throw new Error('no storeys');
+        }
+        expect(flawsOf(storeys)).toBe(0);
+        const guestRoom = upstairs.rooms.find((r) => r.intent.purpose === 'bedroom');
+        if (!guestRoom) {
+            throw new Error('no guest room');
+        }
+        // The same well moved into a guest's room: one flaw; a room left unreached besides: two.
+        const inBedroom = { ...storeys, stairwell: { x: guestRoom.rect.x + 1, y: guestRoom.rect.y + 1, w: 0.5, h: 0.5, turned: false } };
+        expect(flawsOf(inBedroom)).toBe(1);
+        expect(flawsOf({ ...inBedroom, floors: [{ ...upstairs, unmet: [['corridor', 'r1']] }] })).toBe(2);
     });
 
     it('lies a long stairwell turned along a corridor that runs the other way', () => {
@@ -257,6 +274,56 @@ describe('layOutStoreys', () => {
         // Straddling two rooms' shared wall.
         const [a] = ground.rooms;
         expect(holdsStairwell(ground, { x: (a?.rect.x ?? 0) + (a?.rect.w ?? 0) - 0.5, y: (a?.rect.y ?? 0) + 1, w: 1, h: 2 })).toBe(false);
+    });
+
+    it('keeps the stairwell out of an octagonal tower’s cut corners, and never lands it in a room reached only by a secret door', () => {
+        const octagon = (key: string, purpose: string): object => ({ key, purpose, rect: { x: 0, y: 0, w: 11, h: 11 }, chamfer: 3 });
+        const tower = buildingOf({
+            width: 11,
+            height: 11,
+            rooms: [{ ...octagon('antechamber', 'hall'), entrance: true }],
+            floors: [{ rooms: [octagon('study', 'office')] }],
+            cellars: [
+                {
+                    rooms: [
+                        { key: 'store', purpose: 'storage', rect: { x: 0, y: 5, w: 11, h: 6 }, chamfer: 3, chamferAt: ['bottom-left', 'bottom-right'] },
+                        // Ranked above a store for a stair, it would hold the flight down but for its secret door.
+                        {
+                            key: 'sanctum',
+                            purpose: 'shrine',
+                            rect: { x: 0, y: 0, w: 11, h: 5 },
+                            chamfer: 3,
+                            chamferAt: ['top-left', 'top-right'],
+                            secretTo: ['store'],
+                        },
+                    ],
+                },
+            ],
+            cellarAccess: 'stairs',
+        });
+        const footprint = { x: 0, y: 0, w: 11, h: 11 };
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const storeys = layOutStoreys(tower, footprint, { up: { w: 1.5, h: 2 }, down: { w: 1.5, h: 2 } }, seededRandom(seed));
+            const { stairwell, cellarWell } = storeys ?? {};
+            const [cellar] = storeys?.cellars ?? [];
+            if (!storeys || !stairwell || !cellarWell || !cellar) {
+                throw new Error(`seed ${seed}: no wells`);
+            }
+            for (const well of [stairwell, cellarWell]) {
+                // Every corner of the well lies inside the octagon: in from both walls of each corner by more than its cut.
+                for (const [cx, cy] of [
+                    [well.x, well.y],
+                    [well.x + well.w, well.y],
+                    [well.x, well.y + well.h],
+                    [well.x + well.w, well.y + well.h],
+                ] as const) {
+                    expect(Math.min(cx, 11 - cx) + Math.min(cy, 11 - cy)).toBeGreaterThan(3);
+                }
+            }
+            // The flight down arrives in the store, never the sanctum.
+            const sanctum = cellar.rooms.find((r) => r.key === 'sanctum');
+            expect(cellarWell.y).toBeGreaterThanOrEqual((sanctum?.rect.y ?? 0) + (sanctum?.rect.h ?? 0));
+        }
     });
 
     it('lays cellars out below round a well of their own, held by the ground floor and every cellar, clear of the stairwell up', () => {

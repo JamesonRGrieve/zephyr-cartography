@@ -163,6 +163,9 @@ describe('texture sets', () => {
         expect(resolve('wall.brick')).toBe('modules/p/brick.jpg');
         // Without a fallback, the sets as listed.
         expect(textureResolver({ ...painted, fallback: undefined }, PATTERNS, [warm, grey])('wall.concrete')).toBe('modules/p/beige.jpg');
+        // Another pack's set, named by its full key (a CC0 pack's photo concrete).
+        const cc0 = { key: 'cc0:grey', name: 'Grey', textures: { 'wall.concrete': 'modules/cc0/grey.jpg' } };
+        expect(textureResolver({ ...painted, fallback: ['cc0:grey'] }, PATTERNS, [warm, cc0, painted])('wall.concrete')).toBe('modules/cc0/grey.jpg');
     });
 
     it('offers each set by name as a setting choice', () => {

@@ -229,6 +229,43 @@ describe('doors as the design places them', () => {
         expect(layout.doors.find((d) => d.room === 'closet')?.slot).toMatchObject({ at: 6, width: 3, open: true });
     });
 
+    it('opens an unmarked front door into the room that reaches the side the building faces, not the first listed', () => {
+        // A vehicle: its cab listed first at the front, its troop bay behind reaching the rear, facing south.
+        const vehicle = pinned([
+            { key: 'cab', purpose: 'command', rect: { x: 0, y: 0, w: 20, h: 3 }, opensTo: ['bay'] },
+            { key: 'bay', purpose: 'barracks', rect: { x: 0, y: 3, w: 20, h: 7 } },
+        ]);
+        const front = layOut(vehicle, { x: 0, y: 0, w: 20, h: 10 }, 1).doors.find((d) => d.to === null);
+        expect(front).toMatchObject({ room: 'bay', slot: { side: 'bottom' } });
+        // A room marked the entrance keeps it, wherever it lies.
+        const marked = pinned([
+            { key: 'cab', purpose: 'command', rect: { x: 0, y: 0, w: 20, h: 3 }, opensTo: ['bay'], entrance: true },
+            { key: 'bay', purpose: 'barracks', rect: { x: 0, y: 3, w: 20, h: 7 } },
+        ]);
+        expect(layOut(marked, { x: 0, y: 0, w: 20, h: 10 }, 1).doors.find((d) => d.to === null)?.room).toBe('cab');
+    });
+
+    it('opens only an archway as wide as asked, centred where asked, the rest of the wall left standing', () => {
+        const narthex = (more: object): BuildingLayout =>
+            layOut(
+                pinned([
+                    { key: 'nave', purpose: 'chapel', rect: { x: 0, y: 0, w: 20, h: 6 }, entrance: true },
+                    { key: 'narthex', purpose: 'hall', rect: { x: 0, y: 6, w: 17, h: 4 }, archTo: ['nave'], ...more },
+                ]),
+                { x: 0, y: 0, w: 20, h: 10 },
+                1,
+            );
+        const archOf = (layout: BuildingLayout): object | undefined => layout.doors.find((d) => d.room === 'narthex' && d.to === 'nave')?.slot;
+        // Four squares in the middle of the seventeen they share.
+        expect(archOf(narthex({ archWidth: 4 }))).toMatchObject({ at: 7, width: 4, open: true, arch: true });
+        // Centred at two thirds of the way along: in line with an aisle off the wall's middle.
+        expect(archOf(narthex({ archWidth: 4, archAt: 2 / 3 }))).toMatchObject({ at: 9, width: 4 });
+        // Never through the pier at an end, however near it is asked for.
+        expect(archOf(narthex({ archWidth: 4, archAt: 1 }))).toMatchObject({ at: 12, width: 4 });
+        // Asked wider than the wall between its piers: the whole wall but its piers.
+        expect(archOf(narthex({ archWidth: 40 }))).toMatchObject({ at: 1, width: 15 });
+    });
+
     it('puts a room’s doors where along the wall it asks, alike in a row of cells', () => {
         const cells = [0, 5, 10, 15].map((x, i) => ({ key: `cell-${i}`, purpose: 'bedroom', rect: { x, y: 0, w: 5, h: 6 }, opensTo: ['hall'], doorAt: 0.25 }));
         const layout = layOut(

@@ -257,6 +257,15 @@ export const I18N = {
     sounds: {
         stamp: key('Sounds.Stamp'),
     },
+    /** What a hazard region warns of, scrolled over a token coming into it. */
+    hazards: {
+        fire: key('Hazards.Fire'),
+        acid: key('Hazards.Acid'),
+        toxic: key('Hazards.Toxic'),
+        radiation: key('Hazards.Radiation'),
+        electric: key('Hazards.Electric'),
+        fall: key('Hazards.Fall'),
+    },
     regions: {
         transition: key('Regions.Transition'),
         entrance: key('Regions.Entrance'),
@@ -267,6 +276,8 @@ export const I18N = {
         zone: key('Regions.Zone'),
         terrain: key('Regions.Terrain'),
         surface: key('Regions.Surface'),
+        hazard: key('Regions.Hazard'),
+        trap: key('Regions.Trap'),
     },
     submap: {
         title: key('Submap.Title'),

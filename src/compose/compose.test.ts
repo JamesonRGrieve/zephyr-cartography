@@ -396,6 +396,38 @@ describe('composeMap', () => {
         expect(composeMap(strip, TEST_ROLES).problems).toContainEqual(expect.objectContaining({ kind: 'not-beside', building: 'building-1', room: 'a' }));
     });
 
+    it('climbs by the narrowest flight of its kind where a long one fits between no doorways of the guest corridor', () => {
+        // The roadside inn: eight guest rooms off one corridor, their doors every few squares along both its walls.
+        const parsed = parseMapIntent(PRESET_INTENTS['roadside-inn']);
+        if (!parsed.ok) {
+            throw new Error('the roadside inn does not parse');
+        }
+        const inn = parsed.intent;
+        const stairs = TEST_ROLES.get('stairs') ?? [];
+        const flight = stairs.find((s) => s.key === 'test:stairs');
+        if (!flight) {
+            throw new Error('the test roles have no stairs');
+        }
+        const others = stairs.filter((s) => s !== flight);
+        const long = { ...flight, key: 'test:long-stairs', width: 1.53, height: 2.6 };
+        const spiral = { ...flight, key: 'test:spiral', width: 1.38, height: 1.4 };
+        const flights = (...ways: readonly RoleStamp[]): RoleIndex => new Map([...TEST_ROLES, ['stairs', [...others, ...ways]]]);
+        const climbs = (roles: RoleIndex): { keys: string[]; problems: readonly ComposeProblem[] } => {
+            const { spec, problems } = composeMap(inn, roles);
+            const keys = spec.features.flatMap((f) => (f.type === 'stamp' && (f.stamp === long.key || f.stamp === spiral.key) ? [f.stamp] : []));
+            return { keys, problems };
+        };
+        // Alone, the long flight fits between no doorways: it lands in a guest's room and costs the corridor its rooms.
+        const alone = climbs(flights(long));
+        expect(alone.keys).toContain('test:long-stairs');
+        expect(alone.problems.some((p) => p.kind === 'not-beside')).toBe(true);
+        // With a spiral of the same kind loaded, the inn climbs by it, every guest room off the corridor.
+        const both = climbs(flights(long, spiral));
+        expect(both.keys).toContain('test:spiral');
+        expect(both.keys).not.toContain('test:long-stairs');
+        expect(both.problems.filter((p) => p.kind === 'not-beside')).toEqual([]);
+    });
+
     it('reports a building of floors with no stair to join them, and an upper floor whose rooms do not fit', () => {
         const tower = (upper: readonly string[]): MapIntent =>
             intentOf({

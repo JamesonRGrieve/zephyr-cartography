@@ -23,6 +23,8 @@ const KIND_COLOURS: Readonly<Record<Exclude<RegionKind, 'terrain'>, number>> = {
     'room': 0x16a085,
     'stamp-surface': 0x8d6e63,
     'stamp-terrain': 0xe67e22,
+    'stamp-hazard': 0xf1c40f,
+    'stamp-trap': 0x8e44ad,
     'zone': 0xc0392b,
 };
 

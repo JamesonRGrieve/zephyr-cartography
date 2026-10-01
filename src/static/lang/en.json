@@ -288,6 +288,14 @@
         "Sounds": {
             "Stamp": "{name} sound"
         },
+        "Hazards": {
+            "Fire": "Fire!",
+            "Acid": "Acid!",
+            "Toxic": "Toxic!",
+            "Radiation": "Radiation!",
+            "Electric": "Live current!",
+            "Fall": "Drop!"
+        },
         "Regions": {
             "Entrance": "Enter {scene}",
             "Exit": "Back to {scene}",
@@ -297,6 +305,8 @@
             "Zone": "Zone",
             "Terrain": "{name} terrain",
             "Surface": "{name} surface",
+            "Hazard": "{name} hazard",
+            "Trap": "{name} trap",
             "Transition": "{kind}: {from} → {to}",
             "Kinds": {
                 "Stairs": "Stairs",

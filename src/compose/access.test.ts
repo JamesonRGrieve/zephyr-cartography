@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import { flightFor, stormDoorway, wayDownOver } from './access';
+import { flightFor, narrowestFlight, stormDoorway, wayDownOver } from './access';
 import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
@@ -111,6 +111,20 @@ describe('wayDownOver', () => {
     });
 });
 
+describe('narrowestFlight', () => {
+    it('takes the smallest way of the same kind, direction and source, and leaves one with none smaller as it is', () => {
+        const stairs = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:stairs');
+        if (!stairs) {
+            throw new Error('the test roles have no stairs');
+        }
+        const broad: RoleStamp = { ...stairs, key: 'test:broad-stairs', width: 3, height: 3 };
+        const other: RoleStamp = { ...stairs, key: 'test:borrowed-stairs', width: 0.5, height: 0.5, borrowed: true };
+        const pool = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['stairs', [broad, stairs, other]]]);
+        expect(narrowestFlight({ stair: broad, problems: [] }, pool).stair?.key).toBe('test:stairs');
+        expect(narrowestFlight({ stair: undefined, problems: [] }, pool).stair).toBeUndefined();
+    });
+});
+
 describe('stormDoorway', () => {
     it('opens an areaway beside the wall with a door through, the storm doors over it on the ground, backs to the wall', () => {
         const south = stormDoorway('south', FOOTPRINT, TEST_ROLES, seededRandom(1), at('inn/storm-door'));
@@ -128,6 +142,28 @@ describe('stormDoorway', () => {
         expect(rotations).toEqual([180, 270, 90]);
         const west = stormDoorway('west', FOOTPRINT, TEST_ROLES, seededRandom(1), at('x')).areaway;
         expect(west.x + west.w).toBe(FOOTPRINT.x);
+    });
+
+    it('takes storm doors, or failing them a hatch, before a flight going down, whichever seed', () => {
+        const stairs = TEST_ROLES.get('stairs') ?? [];
+        const doors = stairs.find((s) => s.key === 'test:storm-doors');
+        if (!doors) {
+            throw new Error('the test roles have no storm doors');
+        }
+        const crypt: RoleStamp = { ...doors, key: 'test:crypt-stair', tags: ['crypt', 'stair'], climb: { kind: 'stairs', direction: 'down' } };
+        const hatch: RoleStamp = { ...doors, key: 'test:trapdoor', tags: ['trapdoor'] };
+        const withDown = (...more: readonly RoleStamp[]): RoleIndex => new Map([...TEST_ROLES, ['stairs', [...stairs, ...more]]]);
+        for (const seed of [1, 2, 3, 4]) {
+            expect(stormDoorway('south', FOOTPRINT, withDown(crypt, { ...doors, tags: ['storm'] }), seededRandom(seed), at('x')).piece?.stamp.key).toBe(
+                'test:storm-doors',
+            );
+            const noStorm =
+                withDown(crypt, hatch)
+                    .get('stairs')
+                    ?.filter((s) => s.key !== 'test:storm-doors') ?? [];
+            const hatchKey = stormDoorway('south', FOOTPRINT, new Map([...TEST_ROLES, ['stairs', noStorm]]), seededRandom(seed), at('x')).piece?.stamp.key;
+            expect(hatchKey).toBe('test:trapdoor');
+        }
     });
 
     it('stands a flight up in the areaway when no storm doors are loaded, or they cannot lie against that wall, and says so', () => {

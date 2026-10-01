@@ -199,10 +199,15 @@ export function textureResolver(set: TextureSetRef | null, patterns: (pattern: P
     };
 }
 
-/** The sets that stand in for `set`'s missing walls, in order: those it names as its `fallback`, then the rest as listed. */
+/**
+ * The sets that stand in for `set`'s missing walls, in order: those it names
+ * as its `fallback` (a set of its own pack by id, or any pack's by its full
+ * `module:id` key), then the rest as listed.
+ */
 function standIns(set: TextureSetRef | null, others: readonly TextureSetRef[]): TextureSetRef[] {
     const pack = set === null ? '' : set.key.slice(0, set.key.indexOf(':') + 1);
-    const named = (set?.fallback ?? []).flatMap((id) => others.filter((other) => other.key === `${pack}${id}`));
+    const keyOf = (id: string): string => (id.includes(':') ? id : `${pack}${id}`);
+    const named = (set?.fallback ?? []).flatMap((id) => others.filter((other) => other.key === keyOf(id)));
     return [...named, ...others.filter((other) => !named.includes(other))];
 }
 

@@ -102,6 +102,13 @@ const ALONG = ['start', 'middle', 'end', 'spread'] as const;
 /** A fraction of a room's width or height, from its top-left corner. */
 const fraction = z.number().min(0).max(1);
 
+/**
+ * How much grime a room gathers when its intent says nothing: a little. The
+ * campaign's map prompts ask for loose scatter "sparse and subtle" almost
+ * without exception; a filthier room says so in its intent.
+ */
+export const DEFAULT_GRIME = 0.2;
+
 /** Part of a room, from one corner to the other, as fractions of its size: the archive behind a counter. */
 const area = z
     .object({ from: z.object({ x: fraction, y: fraction }).strict(), to: z.object({ x: fraction, y: fraction }).strict() })
@@ -128,7 +135,15 @@ const fixturePlace = z
             .strict()
             .describe('In the middle of the room.'),
         z
-            .object({ at: z.object({ x: fraction, y: fraction }).strict() })
+            .object({
+                at: z.object({ x: fraction, y: fraction }).strict(),
+                astride: z
+                    .boolean()
+                    .optional()
+                    .describe(
+                        'Centred on the point even where that sets it into the wall (a firing port in a hull), never drawn in to stand wholly inside the room; it stands there as a `fixed` piece does.',
+                    ),
+            })
             .strict()
             .describe('At this point of the room, as fractions of its size.'),
         z
@@ -364,7 +379,21 @@ const room = z
         archTo: z
             .array(text)
             .default([])
-            .describe('Rooms it opens onto through a wide doorless archway, the wall they share open but for a pier at each end (a narthex onto its nave).'),
+            .describe(
+                'Rooms it opens onto through a doorless archway: the wall they share open but for a pier at each end (a corridor’s mouth), or only `archWidth` of it.',
+            ),
+        archWidth: squares
+            .nullable()
+            .default(null)
+            .describe(
+                'Squares across its archways, the rest of each shared wall left standing (a narthex walled off from its nave but for one arch in line with the aisle); null: the whole wall but its piers.',
+            ),
+        archAt: fraction
+            .nullable()
+            .default(null)
+            .describe(
+                'Where along each shared wall the centre of an `archWidth` archway stands, as a fraction of that wall from its top or left end; null: its middle.',
+            ),
         secretTo: z
             .array(text)
             .default([])
@@ -386,7 +415,9 @@ const room = z
             .describe(
                 'Exactly where it lies, in squares from the building’s top-left corner. When every room of a floor gives one, the layout is taken as given.',
             ),
-        grime: fraction.default(0.5).describe('How much grime (stains, cracks, dust) gathers on its floor along its walls: 0 none, 1 filthy.'),
+        grime: fraction
+            .default(DEFAULT_GRIME)
+            .describe('How much grime (stains, cracks, dust) gathers on its floor along its walls: 0 none, 1 filthy; a little when omitted.'),
         chamfer: squares
             .nullable()
             .default(null)

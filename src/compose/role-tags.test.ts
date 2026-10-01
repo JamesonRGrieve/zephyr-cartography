@@ -47,10 +47,25 @@ describe('roleFromTags', () => {
         expect(suitsScale('dresser', 'exterior')).toBe(false);
     });
 
-    it('gives no role to a stamp nothing in its tags describes, or to a trap, so it is only placed by hand', () => {
-        expect(roleFromTags(['czech', 'barge', 'setting-modern'])).toBeUndefined();
-        expect(roleFromTags([])).toBeUndefined();
-        expect(roleFromTags(['pressure', 'plate', 'trap'])).toBeUndefined();
+    it('never strews a mark that says something, a thing laid flat, or a run’s strip as grime: each is a fitting', () => {
+        expect(roleFromTags(['cult', 'graffito', 'decal', 'sigil', 'six-limbed'])).toBe('fitting');
+        expect(roleFromTags(['hung', 'bedsheet', 'decal'])).toBe('fitting');
+        expect(roleFromTags(['cart', 'route', 'wear', 'decal', 'segment'])).toBe('fitting');
+        expect(roleFromTags(['violet', 'scorch'])).toBe('fitting');
+        expect(roleFromTags(['brood', 'resin', 'growth', 'decal'])).toBe('fitting');
+        // Leaf litter is a wood's ground cover, not grime indoors.
+        expect(roleFromTags(['leaf', 'litter', 'decal'])).toBe('flora');
+        // Grime is still grime, and a counter's segment still a counter.
+        expect(roleFromTags(['oil', 'stain'])).toBe('decal');
+        expect(roleFromTags(['service', 'counter', 'segment'])).toBe('counter');
+    });
+
+    it('makes a stamp nothing in its tags describes a fitting, drawn only where named, and a trap always one, never scattered', () => {
+        expect(roleFromTags(['czech', 'barge', 'setting-modern'])).toBe('fitting');
+        expect(roleFromTags([])).toBe('fitting');
+        expect(roleFromTags(['pressure', 'plate', 'trap'])).toBe('fitting');
+        // A spiked pit is still a trap, not a light or a hazard's scenery to strew.
+        expect(roleFromTags(['spike', 'pit', 'trap', 'lamp'])).toBe('fitting');
     });
 });
 
@@ -62,6 +77,10 @@ describe('suitsScale', () => {
         expect(suitsScale('structure', 'interior')).toBe(false);
         expect(suitsScale('storage', 'exterior')).toBe(true);
         expect(suitsScale('rock', 'interior')).toBe(true);
+        // A fitting stands in a room or a yard, never drawn at a city's scale.
+        expect(suitsScale('fitting', 'interior')).toBe(true);
+        expect(suitsScale('fitting', 'exterior')).toBe(true);
+        expect(suitsScale('fitting', 'city')).toBe(false);
     });
 });
 
@@ -88,6 +107,8 @@ describe('habitatsOf', () => {
         expect(habitatsOf('rock', ['boulder'], [])).toEqual(['forest', 'grassland', 'rocky', 'desert', 'ruin']);
         expect(habitatsOf('rock', ['rock', 'formation'], ['rocky', 'desert'])).toEqual(['rocky', 'desert']);
         expect(habitatsOf('debris', ['metal', 'debris'], [])).toEqual(['urban']);
+        // A bog log lies in a marsh, not the woods a log usually does.
+        expect(habitatsOf('log', ['bog', 'log'], [])).toEqual(['marsh']);
     });
 
     it('knows wild ground cover by its tags, and leaves lily pads, which float on open water, to be placed by hand', () => {
@@ -99,7 +120,8 @@ describe('habitatsOf', () => {
         // A cot-side cabinet stands by a bed: a nightstand, never taken for the cot.
         expect(roleFromTags(['top-down', 'cot', 'cabinet'])).toBe('nightstand');
         expect(roleFromTags(['camp', 'cot'])).toBe('bed');
-        expect(roleFromTags(['lily', 'pads'])).toBeUndefined();
+        // Lily pads float on open water, never strewn on a marsh's mud: a fitting, placed where named.
+        expect(roleFromTags(['lily', 'pads'])).toBe('fitting');
     });
 
     it('grows nothing planted in the wild, and fungus only in a wood or a cave', () => {

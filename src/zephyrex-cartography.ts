@@ -17,7 +17,7 @@ import { inOwnGroup, moduleTool, NATIVE_GROUPS, NATIVE_TOOLS, type NativeTool, n
 import { registerAdvisorSettings } from './foundry/advisor';
 import { registerApi } from './foundry/api';
 import { followViewedLevel } from './foundry/build-spec';
-import { lightName, regionName, soundName } from './foundry/document-names';
+import { hazardWarning, lightName, regionName, soundName } from './foundry/document-names';
 import { FoundryDocumentSink } from './foundry/documents';
 import { registerDoorRuntime } from './foundry/door-runtime';
 import { registerEffectsRuntime } from './foundry/effects-runtime';
@@ -475,9 +475,9 @@ function setupDrawLayer(): void {
         splats: createSplatStore(activeScene),
         splatRenderer: createSplatRenderer(terrain, packs.textures(), gridSize),
         store: new FoundrySceneStore(activeScene),
-        sink: new FoundryDocumentSink(activeScene, { makeId, modifyBatch, regionName, lightName, soundName }),
+        sink: new FoundryDocumentSink(activeScene, { makeId, modifyBatch, regionName, lightName, soundName, hazardText: hazardWarning }),
         levels: createLevelStore(activeScene),
-        scenes: createWorldScenes({ regionName }),
+        scenes: createWorldScenes({ regionName, hazardText: hazardWarning }),
         containers: createItemPilesContainers(() => activeScene()?.id ?? null),
         catalog: packs.catalog,
         silhouettes,

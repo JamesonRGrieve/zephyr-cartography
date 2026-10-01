@@ -19,6 +19,7 @@ import {
     type StampPile,
     type StampSound,
     type StampSurface,
+    type StampHazard,
     type StampTerrain,
     type StampTile,
     type StampVariant,
@@ -115,19 +116,41 @@ export function loadPacks(sources: readonly PackSource[]): LoadedPacks {
     const stamps: CatalogStamp[] = [];
     const textureSets: CatalogTextureSet[] = [];
     const errors: PackError[] = [];
-    for (const { moduleId, manifest } of sources) {
+    const parsed = sources.flatMap(({ moduleId, manifest }) => {
         const result = parseStampPack(manifest);
         if (!result.ok) {
             errors.push({ moduleId, issues: result.issues });
-            continue;
+            return [];
         }
-        const { referenceGridSize } = result.pack;
-        const url: AssetUrl = (path) => moduleAssetUrl(moduleId, path);
-        for (const stamp of result.pack.stamps) {
+        return [{ moduleId, pack: result.pack, url: ((path) => moduleAssetUrl(moduleId, path)) satisfies AssetUrl }];
+    });
+    for (const { moduleId, pack, url } of parsed) {
+        const { referenceGridSize } = pack;
+        // Ambience reaches every pack's stamps (a pack of sounds alone gives a machine its hum): the stamp's own pack's
+        // first, then the others' as loaded, each served from the pack that declares it.
+        const ambiences = [...parsed.filter((p) => p.moduleId === moduleId), ...parsed.filter((p) => p.moduleId !== moduleId)];
+        for (const stamp of pack.stamps) {
+            // Its own sound and particles, else those of the first of its tags an ambience gives any.
+            const byTag = <T>(library: (p: (typeof parsed)[number]) => Readonly<Record<string, T>>): { value: T; url: AssetUrl } | undefined =>
+                ambiences
+                    .flatMap((p) =>
+                        stamp.tags.flatMap((tag) => {
+                            const value = Object.hasOwn(library(p), tag) ? library(p)[tag] : undefined;
+                            return value === undefined ? [] : [{ value, url: p.url }];
+                        }),
+                    )
+                    .at(0);
+            const ambientParticles = stamp.particles === undefined ? byTag((p) => p.pack.ambience.particles) : undefined;
+            const ambientSound = stamp.sound === undefined ? byTag((p) => p.pack.ambience.sounds) : undefined;
+            const particles =
+                stamp.particles === undefined
+                    ? ambientParticles && servedEmitters(ambientParticles.value, ambientParticles.url)
+                    : servedEmitters(stamp.particles, url);
+            const sound = stamp.sound === undefined ? ambientSound && servedSound(ambientSound.value, ambientSound.url) : servedSound(stamp.sound, url);
             stamps.push({
                 ...stamp,
-                ...(stamp.particles === undefined ? {} : { particles: servedEmitters(stamp.particles, url) }),
-                ...(stamp.sound === undefined ? {} : { sound: servedSound(stamp.sound, url) }),
+                ...(particles === undefined ? {} : { particles }),
+                ...(sound === undefined ? {} : { sound }),
                 ...(stamp.door === undefined ? {} : { door: servedDoor(stamp.door, url) }),
                 container: servedContainer(stamp.container, url),
                 key: `${moduleId}:${stamp.id}`,
@@ -136,7 +159,7 @@ export function loadPacks(sources: readonly PackSource[]): LoadedPacks {
                 variants: stamp.variants.map((variant) => servedVariant(variant, url)),
             });
         }
-        for (const set of result.pack.textureSets) {
+        for (const set of pack.textureSets) {
             textureSets.push({
                 ...set,
                 key: `${moduleId}:${set.id}`,
@@ -261,6 +284,8 @@ export interface EffectiveStampProperties {
     readonly pile: StampPile | null;
     readonly surface: StampSurface | null;
     readonly terrain: StampTerrain | null;
+    /** `null` when the variant (or stamp) harms nothing near it. */
+    readonly hazard: StampHazard | null;
 }
 
 /** An override that replaces the stamp's value outright; `null` on the variant removes it. */
@@ -297,6 +322,7 @@ export function effectiveProperties(stamp: Stamp, index: number): EffectiveStamp
         pile: pileOf(variant.container ?? stamp.container),
         surface: overridden(variant.surface, stamp.surface),
         terrain: overridden(variant.terrain, stamp.terrain),
+        hazard: overridden(variant.hazard, stamp.hazard),
     };
 }
 

@@ -90,6 +90,7 @@ function sink(target: FoundryScene | null): { sink: FoundryDocumentSink; batches
             regionName: () => 'Region',
             lightName: () => 'Light',
             soundName: (stampName) => stampName,
+            hazardText: (kind) => `${kind}!`,
         }),
     };
 }

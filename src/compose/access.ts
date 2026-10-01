@@ -83,6 +83,24 @@ function waysDown(kind: StampTransitionKind, stamps: RoleIndex): readonly RoleSt
     return [...own.filter(built), ...own.filter((s) => !built(s))];
 }
 
+/**
+ * `flight` in the least floor its kind of way takes (a straight flight where
+ * a broad stairwell would not fit the room asked for it): the smallest of
+ * the loaded ways of its kind and direction, from the same settings; as it
+ * is where there is none smaller.
+ */
+export function narrowestFlight(flight: Flight, stamps: RoleIndex): Flight {
+    const { stair } = flight;
+    if (!stair) {
+        return flight;
+    }
+    const alike = (stamps.get('stairs') ?? []).filter(
+        (s) => s.climb?.kind === stair.climb?.kind && s.climb?.direction === stair.climb?.direction && s.borrowed === stair.borrowed,
+    );
+    const [least] = [...alike].sort((a, b) => a.width * a.height - b.width * b.height);
+    return least ? { ...flight, stair: least } : flight;
+}
+
 /** Tags naming a way down built into a floor, as a building's is: not a shaft or a hole broken through. */
 const BUILT_OPENING_TAGS: readonly string[] = ['well', 'hatch', 'trapdoor', 'stairwell'];
 
@@ -157,7 +175,14 @@ export function stormDoorway(
     const side = EDGE_SIDE[edge];
     const turn = BACK_TO_BUILDING[side];
     const lies = (s: RoleStamp): boolean => !s.upright || (turn + s.turn) % FULL_TURN === 0;
-    const doors = pick(random, firstOf(ownFirst(stamps.get('stairs') ?? [], (s) => s.climb?.direction === 'down' && lies(s))));
+    // Storm doors are a hatch over the areaway: art tagged so first, then any hatch going down, only then a flight down.
+    const [own = [], lent = []] = ownFirst(stamps.get('stairs') ?? [], (s) => s.climb?.direction === 'down' && lies(s));
+    const tiers = (list: readonly RoleStamp[]): (readonly RoleStamp[])[] => [
+        list.filter((s) => s.tags.includes('storm')),
+        list.filter((s) => s.climb?.kind === 'hatch'),
+        list,
+    ];
+    const doors = pick(random, firstOf([...tiers(own), ...tiers(lent)]));
     // Standing in, a ladder suits a cramped areaway best.
     const climbing = climbers(stamps, below);
     const [ownLadder = [], borrowedLadder = []] = ownFirst(climbing, (s) => s.climb?.kind === 'ladder');

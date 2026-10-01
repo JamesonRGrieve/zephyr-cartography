@@ -145,6 +145,29 @@ describe('named pieces', () => {
         expect(namedArt({ ...asked, role: undefined }, pool)).toBeUndefined();
     });
 
+    it('draws a piece in the art whose tags share most words with its name, among all its tags draw', () => {
+        const fitting = (key: string, tags: readonly string[]): RoleStamp => ({ ...desk(key, tags), role: 'fitting', width: 1, height: 1 });
+        const pool: RoleIndex = new Map([['fitting', [fitting('vent', ['roof', 'vent', 'stack']), fitting('hatch', ['roof', 'hatch'])]]]);
+        const roofTop = (called: string): string | undefined => namedArt({ name: called, role: 'fitting', tags: ['roof'], width: 1, height: 1 }, pool)?.key;
+        expect(roofTop('rooftop access hatch')).toBe('hatch');
+        expect(roofTop('rooftop vent stack')).toBe('vent');
+        // A plural in the name is the tag's word: filing cabinets are a cabinet.
+        const cabinets: RoleIndex = new Map([['fitting', [fitting('crate', ['roof']), fitting('cabinet', ['roof', 'cabinet'])]]]);
+        expect(namedArt({ name: 'roof cabinets', role: 'fitting', tags: ['roof'], width: 1, height: 1 }, cabinets)?.key).toBe('cabinet');
+    });
+
+    it('draws a fitting whole wherever one piece of its art fills what is asked, a run of it only where none does', () => {
+        const pipe: RoleStamp = { ...desk('pipe', ['pipe']), role: 'fitting', width: 1, height: 0.5 };
+        const pool: RoleIndex = new Map([['fitting', [pipe]]]);
+        // A 1.2 × 0.5 piece: one pipe fills it; a shelf there would run as two.
+        expect(namedArt({ name: 'pipe', role: 'fitting', tags: [], width: 1.2, height: 0.5 }, pool)).toMatchObject({ key: 'pipe', width: 1 });
+        // Six squares of pipe along a wall: a run of six.
+        expect(namedArt({ name: 'pipe', role: 'fitting', tags: [], width: 6, height: 0.5 }, pool)?.run?.count).toBe(6);
+        // Art whose length runs back from its front never runs: shrunk to the run's depth it would be slivers.
+        const partition = { ...pipe, width: 0.3, height: 3 };
+        expect(runOf(partition, 9, 0.2)).toBeUndefined();
+    });
+
     it('draws a named piece in art seen from above, which turns to face the way asked, before isometric art', () => {
         const pool: RoleIndex = new Map([['desk', [desk('front-on', ['desk'], true), desk('plan', ['desk'])]]]);
         for (const called of ['clerk desk', 'writing desk', 'desk', 'bureau']) {

@@ -89,6 +89,10 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     reliquary: ['shrine', 'chapel'],
     offering: ['shrine', 'chapel'],
     votive: ['shrine', 'chapel'],
+    // A table spread with maps is a war room's, and a throne a commander's or a chapel's: never a taproom's tables and stools,
+    // nor a lobby's seats (a hall is a reception or a corridor as often as a lord's; a great hall names its throne).
+    map: ['command'],
+    throne: ['command', 'chapel'],
 };
 
 /** The kinds of room `tags` name, or say a piece belongs in. */
@@ -99,8 +103,9 @@ const purposesOf = (tags: readonly string[]): RoomPurpose[] =>
  * Small pieces a room holds many of, drawn afresh one by one (crates, barrels
  * and sacks; a room's clutter; what is set on a table; lamps): their isometric
  * art stays beside what is seen from above, for variety, standing as drawn. A room's matched furniture is drawn one way only.
+ * Fittings are each one thing named by its tags (a pict-recorder, an iron maiden), no two alike: all their art stays.
  */
-const MIXED_ROLES: readonly StampRole[] = ['storage', 'chest', 'clutter', 'tabletop', 'light'];
+const MIXED_ROLES: readonly StampRole[] = ['storage', 'chest', 'clutter', 'tabletop', 'light', 'fitting'];
 
 /**
  * Roles a map is unplayable without (a way between levels; a bed in a guest
@@ -160,16 +165,22 @@ function capped(section: RoleStamp, end: RoleStamp): RoleStamp {
     return { ...section, width: section.width + 2 * cap.width, run: { count: 1, module: section, cap } };
 }
 
+/** Whether `variant` of `stamp` is drawn looking down on the piece (straight down or in one-point perspective), so turns like a plan. */
+function seenFromAbove(stamp: CatalogStamp, variant: CatalogStamp['variants'][number]): boolean {
+    const perspective = variant.perspective ?? stamp.perspective;
+    return perspective === 'orthographic' || perspective === 'central';
+}
+
 /**
  * How `stamp`, of `role`, stands as the composer handles it: sized in grid
  * squares from `variant`, its back turned to the top. Art seen from above,
  * straight down or in one-point perspective, turns to face any wall;
- * isometric art's back is the image's top whatever the pack says, and it is
- * never turned.
+ * isometric or front art's back is the image's top whatever the pack says,
+ * and it is never turned.
  */
 function roleStampOf(stamp: CatalogStamp, role: StampRole, variant: CatalogStamp['variants'][number], inSetting: boolean): RoleStamp {
     const placement = placementOf(role, stamp.tags, stamp.placement);
-    const flat = (variant.perspective ?? stamp.perspective) !== 'isometric';
+    const flat = seenFromAbove(stamp, variant);
     const back = flat ? placement.back : 'top';
     // A back on the image's left or right runs along its height.
     const sideways = back === 'left' || back === 'right';
@@ -206,10 +217,24 @@ export function partsOf(index: RoleIndex, role: StampRole): readonly RoleStamp[]
     return parts.filter((part, i) => parts.findIndex((other) => other.key === part.key) === i);
 }
 
+/** Setting tags naming a faction: its art stands only in maps that name it. */
+const FACTION_SETTINGS: readonly string[] = ['setting-tau', 'setting-necron', 'setting-chaos', 'setting-aeldari', 'setting-ork'];
+
+/**
+ * The role `stamp` is composed in: its pack's, else its tags'; none where
+ * its pack says null. Art drawn at a scale its role never takes (a room's
+ * horse stall, a street stall's counter out on a promenade) cannot furnish
+ * as that role, but a map can still name it: a fitting.
+ */
+export function composedRole(stamp: CatalogStamp): StampRole | undefined {
+    const tagged = stamp.role === null ? undefined : stamp.role ?? roleFromTags(stamp.tags);
+    return tagged !== undefined && !suitsScale(tagged, stamp.scale) && suitsScale('fitting', stamp.scale) ? 'fitting' : tagged;
+}
+
 /**
  * Index `stamps` by role, keeping only those carrying one of `settings` when
- * any are given. Isometric art stands as drawn, never turned: turned half
- * round it is upside down. Art seen from above (orthographic, or central
+ * any are given. Isometric and front art stands as drawn, never turned:
+ * turned half round it is upside down. Art seen from above (orthographic, or central
  * one-point perspective) turns like a plan, and a role with any such art
  * uses only that.
  */
@@ -222,10 +247,16 @@ export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly st
     // A run's gates and corners, kept out of every list, carried by the run pieces of their kind.
     const apart: RoleStamp[] = [];
     for (const stamp of stamps) {
-        const variant = stamp.variants[stamp.defaultVariant];
-        // A pack's null says never, whatever the tags.
-        const role = stamp.role === null ? undefined : stamp.role ?? roleFromTags(stamp.tags);
-        const inSetting = settings.length === 0 || stamp.tags.some((tag) => settings.includes(tag));
+        // Its default variant, unless that one is drawn side-on and another looks down on the piece: then that one, which turns.
+        const plan = stamp.variants.findIndex((v) => seenFromAbove(stamp, v));
+        const defaultSeen = stamp.variants[stamp.defaultVariant];
+        const drawn = defaultSeen !== undefined && !seenFromAbove(stamp, defaultSeen) && plan >= 0 ? plan : stamp.defaultVariant;
+        const variant = stamp.variants[drawn];
+        const role = composedRole(stamp);
+        // A faction's own art (Tau, Chaos, Ork...) is in a map only where the map names that faction, whatever broader setting
+        // (grimdark) it also carries: an Imperial fortress never climbs Ork stairs.
+        const factionless = stamp.tags.every((tag) => !FACTION_SETTINGS.includes(tag) || settings.includes(tag));
+        const inSetting = (settings.length === 0 || stamp.tags.some((tag) => settings.includes(tag))) && factionless;
         // A stair joins floors only if it carries a transition.
         if (role === undefined || variant === undefined || !suitsScale(role, stamp.scale) || (role === 'stairs' && stamp.transition === undefined)) {
             continue;
@@ -233,9 +264,10 @@ export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly st
         if (!inSetting && !BORROWED_ROLES.includes(role)) {
             continue;
         }
-        const entry = roleStampOf(stamp, role, variant, inSetting);
+        const own = roleStampOf(stamp, role, variant, inSetting);
+        const entry = drawn === stamp.defaultVariant ? own : { ...own, variant: drawn };
         // Seen from above: preferred where a role has any.
-        if ((variant.perspective ?? stamp.perspective) !== 'isometric') {
+        if (seenFromAbove(stamp, variant)) {
             orthographic.add(stamp.key);
         }
         const part = partOf(role, stamp.tags);

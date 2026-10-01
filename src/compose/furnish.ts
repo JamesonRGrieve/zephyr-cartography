@@ -23,7 +23,7 @@
 import { OPPOSITE_SIDE, type Rect, type Side } from '../generate/floor-plan';
 import { pick, randomInt, shuffled, type Random } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import { WALL_SIDES, type FixtureIntent, type RoomPurpose } from './intent';
+import { DEFAULT_GRIME, WALL_SIDES, type FixtureIntent, type RoomPurpose } from './intent';
 import { FACING_TURN, fittedTo, namedArt, namedBox, type PlacedPiece, runOf, standsAs } from './named';
 import { isPlaceholder } from './placeholders';
 import { isSurfaceRole } from './role-tags';
@@ -430,9 +430,6 @@ const ALONG_WALL: Readonly<Record<Side, (rect: Rect, t: number, along: number, d
     right: (rect, t, along, depth, inset) => ({ x: rect.x + rect.w - inset - depth, y: t, w: depth, h: along }),
 };
 
-/** How much grime a room gathers when its intent says nothing: some. */
-const DEFAULT_GRIME = 0.5;
-
 /**
  * Grime scattered at full measure: decals per square of floor; how far out
  * from a wall one lies at most (in squares, most close in, where dirt
@@ -446,7 +443,8 @@ const WALLS: readonly Side[] = ['top', 'right', 'bottom', 'left'];
  * Decals (stains, cracks, dust) laid flat on the floor, `amount` of the full
  * measure (0 none, 1 a filthy room), gathered along the walls and into the
  * corners as dirt does, the open floor left mostly clean; never in a doorway
- * or a stairwell. They lie beneath the furniture and take no floor from it.
+ * or a stairwell, and only on floor nothing stands on: a stain half under a
+ * pew's end reads as junk left there, not dirt. They take no floor.
  */
 function scatterGrime(floor: Floor, decals: readonly RoleStamp[], amount: number, random: Random): void {
     const { rect } = floor.room;
@@ -464,7 +462,7 @@ function scatterGrime(floor: Floor, decals: readonly RoleStamp[], amount: number
             const { lo, hi } = wallSpan(rect, side);
             // Squared, so most lie close in against the wall.
             const box = ALONG_WALL[side](rect, lo + random() * Math.max(0, hi - lo - along), along, depth, random() ** 2 * GRIME.reach);
-            if (within(box, rect) && !floor.inWay(box)) {
+            if (floor.free(box, false) && !floor.inWay(box)) {
                 floor.setOn(decal, box, turn);
                 break;
             }
@@ -1325,8 +1323,10 @@ function placeFixture(floor: Floor, fixture: FixtureIntent, piece: RoleStamp, na
     if (points !== null) {
         // One of many (a grid, a line) may give a little within its share of the floor where a doorway's approach takes its spot.
         const give = points.length > 1 ? cellGive(fixture) : { x: 0, y: 0 };
-        return points.filter((at) => NUDGES.some(([dx, dy]) => placeFree(floor, piece, { x: at.x + dx * give.x, y: at.y + dy * give.y }, turn, fixture.fixed)))
-            .length;
+        const astride = 'at' in place && place.astride === true;
+        return points.filter((at) =>
+            NUDGES.some(([dx, dy]) => placeFree(floor, piece, { x: at.x + dx * give.x, y: at.y + dy * give.y }, turn, fixture.fixed, astride)),
+        ).length;
     }
     if (!('rows' in place)) {
         return 0;
@@ -1424,12 +1424,17 @@ function freePoints(fixture: FixtureIntent): { x: number; y: number }[] | null {
  * `turn` (an isometric piece as drawn), kept wholly inside the room;
  * left out where the floor there is taken or kept clear. Whether it stood.
  */
-function placeFree(floor: Floor, piece: RoleStamp, at: { readonly x: number; readonly y: number }, turn: number, fixed = false): boolean {
+function placeFree(floor: Floor, piece: RoleStamp, at: { readonly x: number; readonly y: number }, turn: number, fixed = false, astride = false): boolean {
     const { rect } = floor.room;
     const rotation = Floor.stands(piece, turn) ? turn : 0;
     const across = rotation % HALF_TURN !== 0;
     const w = across ? piece.height : piece.width;
     const h = across ? piece.width : piece.height;
+    if (astride) {
+        // Centred on its point, into the wall if that is where the point is: set in the hull, not stood before it.
+        floor.setOn(piece, { x: rect.x + at.x * rect.w - w / 2, y: rect.y + at.y * rect.h - h / 2, w, h }, rotation);
+        return true;
+    }
     const clamp = (v: number, lo: number, span: number, size: number): number => Math.min(Math.max(v - size / 2, lo), lo + span - size);
     const box: Box = { x: clamp(rect.x + at.x * rect.w, rect.x, rect.w, w), y: clamp(rect.y + at.y * rect.h, rect.y, rect.h, h), w, h };
     if (fixed) {

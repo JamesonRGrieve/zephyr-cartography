@@ -305,6 +305,25 @@ const edgeSpan = (room: Rect, side: Side): { from: number; to: number } =>
 /** Squares of wall an archway leaves standing at each end of the wall it opens. */
 const ARCH_PIER = 1;
 
+/**
+ * Where an archway opens the wall two rooms share (from `from` to `to`):
+ * `width` squares of it centred at `at` of the wall's length (its middle
+ * when null), kept a pier in from each end; where no width is asked, the
+ * whole wall but a pier at each end where it is wide enough to keep them (a
+ * corridor's mouth is open wall to wall).
+ */
+function archSpan(wall: { readonly from: number; readonly to: number }, width: number | null, at: number | null): { at: number; width: number } {
+    const span = wall.to - wall.from;
+    const pier = span > 2 * ARCH_PIER + 1 ? ARCH_PIER : 0;
+    const most = span - 2 * pier;
+    if (width === null || width >= most) {
+        return { at: wall.from + pier, width: most };
+    }
+    const centre = wall.from + (at ?? 1 / 2) * span;
+    const start = Math.round(Math.min(Math.max(centre - width / 2, wall.from + pier), wall.to - pier - width));
+    return { at: start, width };
+}
+
 /** Doors: every asked-for adjacency that touches, then enough more between touching rooms that every room is reached. */
 function interiorDoors(rooms: readonly PlacedRoom[], random: Random): { doors: PlacedDoor[]; unmet: [string, string][] } {
     const doors: PlacedDoor[] = [];
@@ -321,9 +340,16 @@ function interiorDoors(rooms: readonly PlacedRoom[], random: Random): { doors: P
         }
         const span = wall.to - wall.from;
         if (joint === 'arch') {
-            // The whole wall they share open, but for a pier at each end where it is wide enough to keep them (a corridor's mouth is open wall to wall).
-            const pier = span > 2 * ARCH_PIER + 1 ? ARCH_PIER : 0;
-            doors.push({ room: a.key, to: b.key, slot: { side: wall.side, at: wall.from + pier, width: span - 2 * pier, open: true, arch: true } });
+            doors.push({
+                room: a.key,
+                to: b.key,
+                slot: {
+                    side: wall.side,
+                    ...archSpan(wall, a.intent.archWidth ?? b.intent.archWidth, a.intent.archAt ?? b.intent.archAt),
+                    open: true,
+                    arch: true,
+                },
+            });
         } else {
             // Where either room asks, there along the wall they share: a row of cells with their doors alike.
             const asked = a.intent.doorAt ?? b.intent.doorAt;
@@ -366,6 +392,35 @@ function interiorDoors(rooms: readonly PlacedRoom[], random: Random): { doors: P
  * faces, else its nearest outer wall; `at` squares along the facing side
  * where asked and that stretch of wall is the entrance room's.
  */
+/**
+ * The room the front door opens into: the one marked the entrance; else the
+ * first, in the intent's order, whose outer wall on the side the building
+ * faces holds the door (where it is asked, there), so a vehicle's rear ramp
+ * opens into its troop bay, never the cab listed first; else the first room.
+ */
+function doorRoom(
+    rooms: readonly [RoomIntent, ...RoomIntent[]],
+    placed: readonly PlacedRoom[],
+    building: Pick<BuildingIntent, 'entrance' | 'frontDoorAt' | 'frontDoorWidth'>,
+    footprint: Rect,
+): RoomIntent {
+    const marked = rooms.find((r) => r.entrance);
+    if (marked) {
+        return marked;
+    }
+    const side = SIDE_OF_EDGE[building.entrance];
+    const along = building.frontDoorAt === null ? null : (side === 'top' || side === 'bottom' ? footprint.x : footprint.y) + building.frontDoorAt;
+    const holds = (intent: RoomIntent): boolean => {
+        const stretch = placed.find((r) => r.key === intent.key)?.rect;
+        const outer = stretch && outerStretch(stretch, side, footprint);
+        if (!outer || outer.to - outer.from < building.frontDoorWidth) {
+            return false;
+        }
+        return along === null || (along >= outer.from && along + building.frontDoorWidth <= outer.to);
+    };
+    return rooms.find(holds) ?? rooms[0];
+}
+
 function frontDoor(
     rooms: readonly PlacedRoom[],
     entrance: RoomIntent,
@@ -470,7 +525,7 @@ export function layOutBuilding(
                 options.front && building.frontDoor
                     ? frontDoor(
                           placed,
-                          entranceRoom(rooms),
+                          doorRoom(rooms, placed, building, footprint),
                           {
                               facing: building.entrance,
                               at: building.frontDoorAt,

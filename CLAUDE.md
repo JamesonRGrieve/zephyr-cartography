@@ -225,10 +225,14 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   `map-prompts/` has an intent in `map-prompts/intents/`, composed and
   rendered (`showcase.spec.ts` "review render") and compared with its
   reference, the roadside inn preset included. Only once every map passes
-  does the full test suite run. Ship interiors and fantasy layouts (castles
+  does the full test suite run. Ship and vehicle interiors (a voidship, the
+  Inquisitorial warp shuttle, a Chimera's cab and troop bay, drawn a third
+  over true size so each trooper has a square) and fantasy layouts (castles
   with `curtains`, forest clearings, dungeons with `secretTo` doors and hewn
   caves) are held to the same bar: their briefs live in the campaign's
-  `map-prompts/briefs/`, rendered and reviewed like the prompts.
+  `map-prompts/briefs/`, rendered and reviewed like the prompts. An unmarked
+  front door opens into the first room reaching the side the building faces
+  (a vehicle's rear ramp into its troop bay, never the cab listed first).
 - **Use Foundry, never imitate it.** Shade and shadow come from Foundry's
   lighting engine (native lights, cut by native walls, darkness), never from
   painted shadow bands; doors, walls and levels are native documents.
@@ -1180,7 +1184,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
   hardcoded). A stamp's role (tree, table, console, altar, emplacement,
   stairs, tabletop and so on) comes from its descriptive tags by ordered
   rules (a `cogitator` `desk` is a desk, a `desk` `lamp` a light, a
-  `prep` table a workbench, a `trap` never composed; a rule may need a
+  `prep` table a workbench, a `trap` a fitting, drawn only where a map
+  names it, never scattered; a rule may need a
   combination, so `table` `clutter` is tabletop, not a table), and so
   does how the role stands (against a wall,
   its clearance, a defence's front facing out, a structure upright) and a
@@ -1192,14 +1197,72 @@ or a tavern is. Composition is the layer above them (operator decisions,
   is its head). Indoor roles take interior-scale stamps and outdoor works
   exterior ones. A role's matching pieces (chairs, tables, beds, pews) are
   one stamp per room; its other pieces vary piece by piece.
-- **Perspective** (pack `perspective`: `orthographic` straight down,
-  `isometric` with depth and no vanishing point, `central` one-point; the
-  old `top-down` reads as orthographic). Art seen from above (orthographic
-  or central) is turned like a plan; only the look of the turn differs
-  (operator ruling, 2026-09-28). Isometric art turned half round stands
-  upside down, so it stands as drawn, its back to the top wall or unturned
+  - **Fittings.** Art whose tags name no role (a pipe run, an anvil, an
+    alms box), or drawn at a scale its role never takes (a room's horse
+    stall, a street stall's counter), is a `fitting`: no purpose dresses
+    with it and it has no placeholder; it is drawn only where a map names
+    it (role `fitting` and one of its tags). Room and yard scales only.
+  - **Factions.** Art of a faction (`setting-tau`, `-necron`, `-chaos`,
+    `-aeldari`, `-ork`) is in a map only where the map names that faction,
+    whatever broader setting (`setting-grimdark`) it also carries: an
+    Imperial fortress never climbs Ork stairs.
+  - **Named pieces** (`compose/named.ts`) are drawn in art of their role
+    carrying one of their tags, the art whose tags share most words with
+    the piece's name first (a rooftop access hatch is the roof's hatch, not
+    its vent stack), then one fixed by the name's hash. Art must fill half
+    the footprint asked; a modular role (and a fitting's length of pipe,
+    cable or kerb) is drawn as a run of its art where one piece falls
+    short, but a fitting runs only where no one piece fills it, and art
+    deeper than twice its width never runs (it would be slivers).
+  - **Scene physics** (`compose/physics.ts`, applied in `behaviourOf`;
+    a pack's own `physical`, `occlusion`, `terrain`, `hazard`, `tile` or
+    `trap`, a `null` included, always wins). Foundry draws line of sight
+    from walls, so a stamp's role and tags wall it: tall solid bodies
+    (shelves, racks, dressers, machines, structures, vehicles; lockers,
+    columns, statues, generators among storage and fittings) are walled
+    round against sight, light and movement; low furniture (tables, desks,
+    counters, pews, benches, beds, crates, consoles) is seen over, crossed at
+    twice the going (Modify Movement Cost) and half cover; defences
+    (barricades, emplacements) bar movement, are seen over and are heavy
+    cover; railings, fences and grilles bar movement only; rubble and logs
+    are hard going. A piece giving cover but barring nothing is ringed with
+    walls restricting nothing, flagged `cover` (0 to 1) under the module's
+    id, which the wh40k-rpg system's auto-cover (#406) counts near the
+    target alongside move-blocking walls.
+  - **Hazards** (`hazard`: fire, acid, toxic, radiation, electric, fall;
+    tags `burning`, `acid`, `sludge`, `reactor`, `pit` and the like, never
+    a decal or a lamp): a region over the footprint and its reach that
+    scrolls a localized warning over a token coming in; the GM adds the
+    harm the game system deals.
+  - **Ambience**: a pack's `ambience` gives every stamp carrying a tag its
+    sound and particle emitters (every `machine` hums, every `brazier`
+    smokes), where the stamp declares none of its own. It reaches every
+    loaded pack's stamps (a pack of sounds alone voices another pack's
+    machines), the stamp's own pack's first, each file served from the pack
+    that declares it.
+  - **Overheads**: roofs, canopies and awnings fade over a token beneath and
+    keep the weather off; a tree's crown cuts away round one. Foundry
+    occludes a tile only over a token below its elevation, so their tiles
+    hang at their physical height.
+  - **Traps** (tagged `trap`, or `trap` in the pack; a sprung variant says
+    `false`): hidden from players, over a region that pauses the game the
+    first time a token moves in, for the GM to spring. A tile always says
+    whether it is hidden, so a sprung trap's tile, updated in place, shows.
+    `tests/e2e/physics.spec.ts` proves hazards, cover walls, traps and a
+    hinged variant's `anchor` in Foundry.
+- **Perspective** (pack `perspective`, per stamp and overridable per
+  variant: `orthographic` straight down, `isometric` three-quarter with depth
+  and no vanishing point, `front` a level elevation from the front or side,
+  `central` one-point; the old `top-down` reads as orthographic). Art seen
+  from above (orthographic or central) is turned like a plan; only the look
+  of the turn differs (operator ruling, 2026-09-28). Isometric and front art
+  turned half round stands upside down, so it stands as drawn, its back to the top wall or unturned
   in a corner, and a role with any art seen from above uses only that
-  (`Floor.put` refuses a turn outright). A light has no back, so isometric
+  (`Floor.put` refuses a turn outright), save the roles of small pieces
+  that vary one by one (storage, chests, clutter, tabletop, lights) and
+  fittings, which keep all their art. A stamp whose default variant is
+  side-on but another is seen from above is composed in that one, drawn
+  and turned as such (`roleIndex` sets its `variant`). A light has no back, so isometric
   light art still stands by any wall, unturned. Isometric seats seat each
   table from above only, in rows across the room.
 - **Interior.** A building's footprint, floor and wall materials, wall kind
@@ -1257,7 +1320,12 @@ or a tavern is. Composition is the layer above them (operator decisions,
     (an office, a workshop), a private or service room (a kitchen, a store,
     a bedroom) last. Failing that, among the spots the storeys can share,
     one in their halls wins unless a spot elsewhere keeps more rooms beside
-    those they open onto, ranked the same way.
+    those they open onto, ranked the same way. Where the storeys come out
+    flawed with the flight chosen (too broad for any well they share, as in
+    a stair core; or a long straight flight that fits between no doorways
+    of a guest corridor, landing in a bedroom and cutting rooms off it),
+    they are laid out again round the narrowest flight of the same kind,
+    direction and source (a spiral stair), kept where that lays better.
   - **Partial storeys.** A storey whose rooms (each given a `rect`) cover
     only part of the footprint (a commander's office over its stair core)
     has flat roof over the rest, in the building's wall texture, laid under
@@ -1275,7 +1343,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
   - **Storm doors** (`stormDoor`: a side) lead into the top cellar from
     outside: an areaway walled beside that wall on the cellar's level,
     with a door through into the cellar room behind it, and storm doors
-    (a stamp going down) over it on the ground, back to the wall. Without
+    over it on the ground, back to the wall: art tagged `storm` first, then
+    any hatch going down, only then a flight down (never a crypt stair
+    while storm doors are loaded). Without
     such art a ladder stands in the areaway. The areaway is the building's
     annex: paths and dressing keep off it.
   - **Borrowing.** A way between levels, or a guest room's bed, is never
@@ -1350,7 +1420,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
     area given to its edges), or before or behind another named fixture,
     facing it. A `fixed` one (a sign hung over a door, a floor inlay, rubble
     spilling from a collapsed doorway) stands exactly where asked, even
-    across a doorway, and keeps no floor from others. A piece's `state`
+    across a doorway, and keeps no floor from others; one `astride` its
+    point is centred there even into the wall (a firing port set in a hull),
+    never drawn in to stand wholly inside. A piece's `state`
     (`ajar`, `lit`) draws its art in the first variant whose state holds
     those words, a run's modules with it; as drawn where none does. A room's `doorOpen`
     leaves its doors standing open. A run's `open` ends (map sides across
@@ -1360,7 +1432,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
   - **Rooms and doors.** Every room of a floor may give its `rect`; a room's
     `doorAt` places its doors along the walls it shares (a row of cells
     alike); `archTo` opens the whole shared wall as a doorless arch (a pier
-    at each end where wide enough); `chamfer` cuts its corners (an octagonal
+    at each end where wide enough, a corridor's mouth), or only `archWidth`
+    squares of it centred at `archAt` of its length (a narthex walled off
+    from its nave but for one arch in line with the aisle); `chamfer` cuts its corners (an octagonal
     chamber), or only those `chamferAt` names (a hull's tapered bow, its blunt
     stern), the cut corners masonry where another room wraps them, void
     where none does. A building's front door takes `frontDoorAt`, a width
@@ -1388,11 +1462,19 @@ or a tavern is. Composition is the layer above them (operator decisions,
     frontages, roof pieces on the roofs.
   - **Grime.** Decal art (`decal` role: stains, cracks, scorch, dust) is
     strewn along a room's walls and into its corners by its `grime`
-    (default some), never across a doorway, beneath everything else.
+    (default a little, 0.2: the prompts ask for scatter "sparse and
+    subtle"), only on open floor (never half under a pew or a desk), never
+    across a doorway, beneath everything else. Marks that tell a story (a
+    cult's graffito, a sigil, violet warp-burns, brood resin, a hung sheet)
+    are fittings, drawn only where a map names them, never strewn.
   - The outdoors draws from its own random stream, so rearranging a room
     never replants the woods.
 - **Walls and doors as drawn.** A room's wall band (half a square) is
-  broken at each doorway (a secret door stays wall to look at). A doorway
+  broken at each doorway (a secret door stays wall to look at). It is
+  drawn as one band per run of wall (`wallRuns`): a run bends on through
+  gentle turns as one smooth band (a hewn tunnel, a curve), breaks at a
+  sharp corner, and meets the next run on the corner's mitre, never
+  notched or overlapping; a doorway's jambs are squared off. A doorway
   is hung with **door art** where it exists (`door` role: top-down art with
   a pack `door` and variants carrying `doorState`, carrying one of the
   building's `doorTags`, as wide as the doorway within a quarter square):
@@ -1533,9 +1615,17 @@ imports).
   is checked in code, because JSON Schema can't express it.
 - **Contents per stamp:**
   - identity, category, tags, scale band, perspective (orthographic,
-    isometric or central; how the picture is drawn);
+    isometric, front or central; how the picture is drawn, overridable per
+    variant);
   - **variants**: a free-text state label, an image, and a pixel size at the
-    pack's `referenceGridSize`;
+    pack's `referenceGridSize`, plus its `resolution`: the image's long side
+    rounded to the nearest step (32, 64, 128, 256, 512, 1K, 2K, 4K, 8K);
+    texture sets carry the same per role in `resolutions`; and an optional
+    `anchor`, the point of its image (fractions) that stands on the stamp's
+    placed point and stays there as variants switch (a lowered ramp's hinge
+    edge; omitted, the centre). Door art hangs with its image's top facing
+    out of the room it is hung from, so a ramp lowered outward is hinged
+    along its image's bottom edge, `anchor: {x: 0.5, y: 1}`;
   - `physical`: height in grid units, cover 0–1, blocksMovement;
   - `occlusion`: none, bounds or alpha, plus how the walls restrict each
     sense (on, off, or `limited`, `proximity`, `distance`), a one-way
@@ -1635,8 +1725,12 @@ packs (the `textureSets` of the pack manifest: role → image path, licence,
 credits). The GM picks one set with the world `textureSet` setting, whose choices
 fill in once packs load; an unset or uninstalled choice means the first loaded
 set. The renderer resolves each biome/path **role** through the active set.
-The stamp engine's own packs, `zephyrex-cartography-assets` (CC0 Poly Haven and
-ambientCG sets), own the fetch script and credits.
+The stamp engine's own packs (operator decision, 2026-09-30):
+`zephyrex-cartography-assets` holds the generated art (stamps and the
+hand-painted texture set), and `zephyrex-cartography-assets-cc0` every CC0
+asset: the Poly Haven and ambientCG texture sets with their fetch script and
+credits, and the ambience library (looping sounds and particle images, with
+their credits) whose `ambience` voices and smokes every pack's stamps by tag.
 
 - **Licence verified before bundling — never assumed** (in whichever pack ships it).
 - Assets are **static module files referenced by runtime URL**, never

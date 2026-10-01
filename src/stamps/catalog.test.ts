@@ -57,6 +57,46 @@ describe('moduleAssetUrl', () => {
     });
 });
 
+describe('pack ambience by tag', () => {
+    const hum = { path: 'sounds/hum.ogg', radius: 6 };
+    const smoke = [{ textures: ['particles/smoke.webp'], area: 'footprint', count: 8, lifetime: 3 }];
+    const ambience = { sounds: { machine: hum }, particles: { brazier: smoke } };
+    const load = (...stamps: object[]): readonly CatalogStamp[] => loadPacks([{ moduleId: 'assets', manifest: manifest(stamps, { ambience }) }]).stamps;
+
+    it('gives a stamp carrying a tag the pack’s sound and particles for it, served from the pack', () => {
+        const [press, brazier, crate] = load(
+            stampDef('press', { tags: ['press', 'machine'] }),
+            stampDef('brazier', { tags: ['iron', 'brazier'] }),
+            stampDef('crate', { tags: ['crate'] }),
+        );
+        expect(press?.sound).toMatchObject({ path: 'modules/assets/sounds/hum.ogg', radius: 6 });
+        expect(brazier?.particles?.[0]?.textures).toEqual(['modules/assets/particles/smoke.webp']);
+        expect(crate?.sound).toBeUndefined();
+        expect(crate?.particles).toBeUndefined();
+    });
+
+    it('keeps a stamp’s own sound over its tags’', () => {
+        const [generator] = load(stampDef('generator', { tags: ['machine'], sound: { path: 'sounds/own.ogg', radius: 3 } }));
+        expect(generator?.sound).toMatchObject({ path: 'modules/assets/sounds/own.ogg', radius: 3 });
+    });
+
+    it('reaches every pack’s stamps from a pack of sounds alone, served from that pack, the stamp’s own pack’s first', () => {
+        const drone = { path: 'sounds/drone.ogg', radius: 10 };
+        const { stamps } = loadPacks([
+            {
+                moduleId: 'art',
+                manifest: manifest([stampDef('press', { tags: ['machine'] }), stampDef('vat', { tags: ['reactor'] })], {
+                    ambience: { sounds: { reactor: drone } },
+                }),
+            },
+            { moduleId: 'cc0', manifest: manifest([], { ambience }) },
+        ]);
+        const [press, vat] = stamps;
+        expect(press?.sound).toMatchObject({ path: 'modules/cc0/sounds/hum.ogg', radius: 6 });
+        expect(vat?.sound).toMatchObject({ path: 'modules/art/sounds/drone.ogg', radius: 10 });
+    });
+});
+
 describe('loadPacks', () => {
     it('merges packs, keys stamps by module, and resolves image and texture URLs', () => {
         const loaded = loadPacks([
@@ -246,6 +286,7 @@ describe('effectiveProperties', () => {
             pile: null,
             surface: null,
             terrain: null,
+            hazard: null,
         });
     });
 

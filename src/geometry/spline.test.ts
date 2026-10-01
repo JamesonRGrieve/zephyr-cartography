@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { catmullRom, distance, offsetRibbon, pathLength, simplify, type Point } from './spline';
+import { catmullRom, distance, offsetRibbon, pathLength, roundCorners, simplify, type Point } from './spline';
 
 describe('distance', () => {
     it('computes euclidean distance', () => {
@@ -91,5 +91,35 @@ describe('offsetRibbon', () => {
 
     it('yields empty rails for degenerate input', () => {
         expect(offsetRibbon([{ x: 0, y: 0 }], 2)).toEqual({ left: [], right: [] });
+    });
+});
+
+describe('roundCorners', () => {
+    const square: Point[] = [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+        { x: 4, y: 4 },
+        { x: 0, y: 4 },
+    ];
+
+    it('cuts each corner, a quarter and three quarters along every edge, doubling the points each round', () => {
+        const once = roundCorners(square, 1);
+        expect(once).toHaveLength(8);
+        expect(once.slice(0, 2)).toEqual([
+            { x: 1, y: 0 },
+            { x: 3, y: 0 },
+        ]);
+        expect(roundCorners(square, 2)).toHaveLength(16);
+    });
+
+    it('stays within the outline it rounds, never overshooting a corner', () => {
+        for (const p of roundCorners(square, 3)) {
+            expect(p.x >= 0 && p.x <= 4 && p.y >= 0 && p.y <= 4).toBe(true);
+        }
+    });
+
+    it('leaves fewer than three points, and no rounds, as they are', () => {
+        expect(roundCorners(square.slice(0, 2), 2)).toEqual(square.slice(0, 2));
+        expect(roundCorners(square, 0)).toEqual(square);
     });
 });

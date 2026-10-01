@@ -18,9 +18,17 @@ const MODULE_ID = 'zephyrex-cartography';
 const PACK_ID = 'zc-e2e-pack';
 /**
  * Integrations the suite exercises when their modules are installed (see scripts/e2e-world.mjs), and the real asset
- * pack the showcase maps are built from.
+ * packs the showcase maps are built from (the private one, where installed, holds the Imperium's own art; the CC0 one,
+ * the public-domain textures and the ambience every pack's stamps sound and smoke by).
  */
-const OPTIONAL_MODULES = ['item-piles', 'socketlib', 'lib-wrapper', 'zephyrex-cartography-assets'];
+const OPTIONAL_MODULES = [
+    'item-piles',
+    'socketlib',
+    'lib-wrapper',
+    'zephyrex-cartography-assets',
+    'zephyrex-cartography-assets-private',
+    'zephyrex-cartography-assets-cc0',
+];
 
 /** The e2e system's one Actor type (tests/e2e/fixtures/system). */
 const E2E_ACTOR_TYPE = 'npc';

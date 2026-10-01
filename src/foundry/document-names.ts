@@ -6,6 +6,7 @@
  * stamp's pack name as it is, and v14 walls have no name.
  */
 import { BIOME_TITLE_KEYS, I18N, TRANSITION_KIND_KEYS } from '../i18n';
+import type { HazardKind } from '../stamps/schema';
 import type { LightSource, RegionDoc } from '../tools/documents';
 import { format, localize } from './localize';
 
@@ -13,7 +14,12 @@ import { format, localize } from './localize';
 export function regionName(region: RegionDoc): string {
     const label = region.label;
     if ('name' in label) {
-        const keys = { 'stamp-terrain': I18N.regions.terrain, 'stamp-surface': I18N.regions.surface } as const;
+        const keys = {
+            'stamp-terrain': I18N.regions.terrain,
+            'stamp-surface': I18N.regions.surface,
+            'stamp-hazard': I18N.regions.hazard,
+            'stamp-trap': I18N.regions.trap,
+        } as const;
         return format(keys[label.kind], { name: label.name });
     }
     if ('scene' in label) {
@@ -32,6 +38,11 @@ export function regionName(region: RegionDoc): string {
         return label.title === '' ? localize(I18N.regions.zone) : label.title;
     }
     return format(I18N.regions.transition, { kind: localize(TRANSITION_KIND_KEYS[label.kind]), from: label.from, to: label.to.join(' / ') });
+}
+
+/** A hazard's warning, scrolled over a token coming into it: "Fire!". */
+export function hazardWarning(kind: HazardKind): string {
+    return localize(I18N.hazards[kind]);
 }
 
 /** A stamp's sound's display name: "Generator sound". */

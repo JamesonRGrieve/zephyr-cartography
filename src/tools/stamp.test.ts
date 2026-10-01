@@ -63,6 +63,61 @@ describe('makeStamp', () => {
     });
 });
 
+describe('behaviourOf physics', () => {
+    const [shelf, walledOff, table, cleared] = catalogStamps([
+        {
+            id: 'shelf',
+            name: 'Shelf',
+            category: 'Furniture',
+            scale: 'interior',
+            perspective: 'top-down',
+            tags: ['archive', 'shelf'],
+            variants: [{ state: 'full', image: 's.png', width: 200, height: 50 }],
+        },
+        {
+            id: 'open-shelf',
+            name: 'Open Shelf',
+            category: 'Furniture',
+            scale: 'interior',
+            perspective: 'top-down',
+            tags: ['shelf'],
+            occlusion: { shape: 'none' },
+            variants: [{ state: 'full', image: 'o.png', width: 200, height: 50 }],
+        },
+        {
+            id: 'table',
+            name: 'Table',
+            category: 'Furniture',
+            scale: 'interior',
+            perspective: 'top-down',
+            tags: ['table'],
+            variants: [{ state: 'set', image: 't.png', width: 150, height: 100 }],
+        },
+        {
+            id: 'slab',
+            name: 'Slab',
+            category: 'Furniture',
+            scale: 'interior',
+            perspective: 'top-down',
+            tags: ['table'],
+            variants: [{ state: 'bare', image: 'b.png', width: 150, height: 100, terrain: null }],
+        },
+    ]);
+
+    it('walls a tall piece and slows over a low one by its role, where its pack says nothing', () => {
+        expect(shelf ? behaviourOf(shelf, 0).occlusion : null).toMatchObject({ shape: 'bounds', sight: true, movement: true });
+        const low = table ? behaviourOf(table, 0) : null;
+        expect(low?.occlusion).toBeNull();
+        expect(low?.physical).toEqual({ height: 0.5, cover: 0.5 });
+        expect(low?.terrain).toEqual({ difficulty: { walk: 2 } });
+    });
+
+    it('keeps the pack’s own word over its role’s, a null included', () => {
+        expect(walledOff ? behaviourOf(walledOff, 0).occlusion : undefined).toMatchObject({ shape: 'none' });
+        expect(cleared ? behaviourOf(cleared, 0).terrain : undefined).toBeNull();
+    });
+});
+
 describe('variants and frames', () => {
     it('changes variant keeping centre, rotation and elevation', () => {
         const s = stampOf(lamp, { rotation: 45, elevation: 3 });
@@ -77,6 +132,36 @@ describe('variants and frames', () => {
         const carried = { ...stampOf(lamp), switchTargets: [{ kind: 'light' as const, id: 'L1' }], pile: 'Scene.x.Token.y', level: 'lv1' };
         const next = lamp ? withStampVariant(carried, lamp, 1, 50) : null;
         expect(next).toMatchObject({ switchTargets: [{ kind: 'light', id: 'L1' }], pile: 'Scene.x.Token.y', level: 'lv1', variant: 1 });
+    });
+
+    it('stands a variant with an anchor on its placed point by that anchor, and keeps it there as variants switch', () => {
+        // A ramp: raised, a plate centred in the wall; lowered, lying out from its hinge along the image's bottom edge.
+        const [ramp] = catalogStamps([
+            {
+                id: 'ramp',
+                name: 'Ramp',
+                category: 'Doors',
+                scale: 'interior',
+                perspective: 'top-down',
+                door: { type: 'door' },
+                variants: [
+                    { state: 'raised', image: 'raised.png', width: 300, height: 50, doorState: 'closed' },
+                    { state: 'lowered', image: 'lowered.png', width: 300, height: 200, doorState: 'open', anchor: { x: 0.5, y: 1 } },
+                ],
+            },
+        ]);
+        if (!ramp) {
+            throw new Error('missing fixture');
+        }
+        // At 50 px squares, turned half round as in a south wall: the lowered ramp's centre lies 50 px beyond the wall line.
+        const lowered = makeStamp('r', ramp, { stamp: ramp.key, x: 500, y: 500, variant: 1, rotation: 180 }, 50);
+        expect(lowered.points[0]?.x).toBeCloseTo(500);
+        expect(lowered.points[0]?.y).toBeCloseTo(550);
+        const raised = withStampVariant(lowered, ramp, 0, 50);
+        expect(raised.points[0]?.x).toBeCloseTo(500);
+        expect(raised.points[0]?.y).toBeCloseTo(500);
+        // And back down again, from the hinge.
+        expect(withStampVariant(raised, ramp, 1, 50).points[0]?.y).toBeCloseTo(550);
     });
 
     it('adopts a new frame', () => {

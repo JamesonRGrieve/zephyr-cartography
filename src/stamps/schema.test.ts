@@ -89,6 +89,21 @@ describe('parseStampPack', () => {
         expect(result.ok).toBe(true);
     });
 
+    it('records each variant’s and texture’s resolution as a rounded step, and refuses any other value', () => {
+        const small = { ...crate, variants: [{ ...variant, resolution: '128' }] };
+        const set = {
+            id: 'painted',
+            name: 'Painted',
+            license: 'CC0-1.0',
+            textures: { 'floor.deck': 'textures/painted/deck.png' },
+            resolutions: { 'floor.deck': '2K' },
+        };
+        const result = parseStampPack(pack([small], { textureSets: [set] }));
+        expect(result.ok ? result.pack.stamps[0]?.variants[0]?.resolution : null).toBe('128');
+        expect(result.ok ? result.pack.textureSets[0]?.resolutions : null).toEqual({ 'floor.deck': '2K' });
+        expect(parseStampPack(pack([{ ...crate, variants: [{ ...variant, resolution: '190' }] }])).ok).toBe(false);
+    });
+
     it('rejects a wrong schema version', () => {
         expect(parseStampPack({ ...pack([crate]), schemaVersion: 2 }).ok).toBe(false);
     });

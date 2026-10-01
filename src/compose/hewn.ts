@@ -16,7 +16,7 @@ import type { Random } from '../generate/random';
 import type { SceneSpecInput } from '../generate/spec';
 import { distanceToPolyline } from '../geometry/hit';
 import { keyhole } from '../geometry/keyhole';
-import type { Point } from '../geometry/spline';
+import { type Point, roundCorners, simplify } from '../geometry/spline';
 import { traceShapes } from '../geometry/trace-shape';
 import type { RoomDoor } from '../tools/room';
 import type { HewnIntent } from './intent';
@@ -42,6 +42,19 @@ const MIN_AREA = 0.75;
 
 /** A keyhole's bridge, the way through the cut's floor to a pillar it holds: an opening, neither wall nor door. */
 const BRIDGE: RoomDoor = { segment: 0, type: 'opening', state: 'open', sound: null, animation: null };
+
+/** Times a traced outline's corners are cut: the marching squares' steps and the jag's teeth round into a worn curve. */
+const ROUNDING = 2;
+
+/** Squares a rounded outline may stray when its near-straight runs are thinned back to a few points. */
+const ROUNDED_TOLERANCE = 0.03;
+
+/** A traced loop rounded into a smooth, still ragged, curve: rock worn and hewn, not stepped. */
+function smoothed(loop: readonly Point[]): Point[] {
+    // Closed again on its first point to be thinned, then opened.
+    const round = roundCorners(loop, ROUNDING);
+    return simplify([...round, ...round.slice(0, 1)], ROUNDED_TOLERANCE).slice(0, -1);
+}
 
 /** A noise value in [0, 1) as a deviation in about [-1, 1]. */
 const centred = (field: NoiseField, p: Point): number => Math.max(-1, Math.min(1, (field(p.x, p.y) - 0.5) * 3));
@@ -81,7 +94,7 @@ export function hewnFeatures(
     // Rock left standing inside the cut is keyholed out of its floor: unfloored like the rock round it, walled round,
     // the bridges out to it openings, no wall at all.
     return shapes.map(({ outline, holes }): FeatureInput => {
-        const { points, bridges } = keyhole(outline, holes);
+        const { points, bridges } = keyhole(smoothed(outline), holes.map(smoothed));
         return {
             ...outlineRoomSpec(
                 points,

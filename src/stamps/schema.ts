@@ -23,22 +23,32 @@ const STAMP_SCALES = ['system', 'planet', 'regional', 'city', 'exterior', 'inter
 
 /**
  * How a stamp's image is drawn: `orthographic` straight down (a plan view,
- * which can be turned any way on a map); `isometric` a three-quarter or
- * front-on view with depth but no vanishing point; `central` from above in
- * one-point perspective, its sides converging. Orthographic and central art
- * can be turned, since both look down on the piece; isometric art turned
- * half round stands upside down.
+ * which can be turned any way on a map); `isometric` a three-quarter view
+ * with depth but no vanishing point; `front` a straight elevation, seen level
+ * from the front or side; `central` from above in one-point perspective, its
+ * sides converging. Orthographic and central art can be turned, since both
+ * look down on the piece; isometric and front art turned half round stands
+ * upside down.
  * `top-down` is the old name for orthographic, still read as it.
  */
-const STAMP_PERSPECTIVES = ['orthographic', 'isometric', 'central', 'top-down'] as const;
+const STAMP_PERSPECTIVES = ['orthographic', 'isometric', 'front', 'central', 'top-down'] as const;
 
 /** A perspective as read: the old `top-down` is `orthographic`. */
 const perspective = z
     .enum(STAMP_PERSPECTIVES)
     .transform((p) => (p === 'top-down' ? 'orthographic' : p))
-    .describe('How the image is drawn: orthographic (straight down), isometric (depth, no vanishing point) or central (one-point perspective).');
+    .describe(
+        'How the image is drawn: orthographic (straight down), isometric (three-quarter, depth, no vanishing point), front (a level elevation from the front or side) or central (one-point perspective).',
+    );
 
 const text = z.string().min(1);
+
+/**
+ * An image's own resolution: its long side in pixels, rounded to the nearest
+ * step. Low-resolution art is what to regenerate first.
+ */
+const RESOLUTIONS = ['32', '64', '128', '256', '512', '1K', '2K', '4K', '8K'] as const;
+const resolution = z.enum(RESOLUTIONS);
 const fraction = z.number().min(0).max(1);
 
 const physicalSchema = z
@@ -211,6 +221,17 @@ const terrainSchema = z
     .strict()
     .describe('Difficult terrain over the footprint (rubble, mud, a crowd).');
 
+/** What harms a token that comes too near: a fire, an acid or toxic spill, a live reactor, a live cable, a drop. */
+const HAZARD_KINDS = ['fire', 'acid', 'toxic', 'radiation', 'electric', 'fall'] as const;
+
+const hazardSchema = z
+    .object({
+        kind: z.enum(HAZARD_KINDS).describe('What the hazard is.'),
+        reach: z.number().min(0).default(0.5).describe('How far past the footprint it harms, in grid squares.'),
+    })
+    .strict()
+    .describe('A hazard round the footprint: a region that warns a token entering it, where the GM adds the harm the game system deals (a burning, a toxin).');
+
 const COLORATION = [
     'legacy',
     'luminance',
@@ -320,6 +341,14 @@ const variantSchema = z
         width: z.number().int().positive().describe('Pixel width at the pack referenceGridSize.'),
         height: z.number().int().positive().describe('Pixel height at the pack referenceGridSize.'),
         perspective: perspective.optional().describe('Overrides the stamp perspective.'),
+        resolution: resolution.optional().describe("The variant image's long side, rounded to the nearest step (32 to 8K)."),
+        anchor: z
+            .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+            .strict()
+            .optional()
+            .describe(
+                "The point of the image, as fractions of it (0,0 its top-left), that stands on the stamp's placed point and stays there as variants switch: a ramp or drawbridge lowered from its hinge, its hinge edge's middle. Omitted: the image's centre.",
+            ),
         doorState: z.enum(['closed', 'open', 'locked']).optional().describe('Door state this variant represents (door stamps).'),
         light: lightSchema.nullable().optional().describe('Overrides the stamp light; null means this variant emits none (e.g. "unlit").'),
         occlusion: occlusionSchema.optional().describe('Overrides the stamp occlusion.'),
@@ -334,6 +363,8 @@ const variantSchema = z
         container: z.union([z.boolean(), containerSchema]).optional().describe('Overrides whether (and how) the stamp is an Item Piles pile.'),
         surface: surfaceSchema.nullable().optional().describe('Overrides the stamp surface; null means none.'),
         terrain: terrainSchema.nullable().optional().describe('Overrides the stamp terrain; null means none (e.g. rubble only when "destroyed").'),
+        hazard: hazardSchema.nullable().optional().describe('Overrides the stamp hazard; null means none (a brazier only when "lit").'),
+        trap: z.boolean().optional().describe('Overrides whether the stamp is an armed trap (false for a "sprung" variant).'),
     })
     .strict();
 
@@ -412,6 +443,8 @@ export const STAMP_ROLES = [
     'armchair',
     'decal',
     'door',
+    // Anything else (a pipe run, an anvil, an alms box): never dressed by a purpose, drawn only where a map names it by its tags.
+    'fitting',
 ] as const;
 
 /** An image's edges, as a piece's back. */
@@ -493,6 +526,13 @@ const stampSchema = z
         tile: tileSchema.optional(),
         surface: surfaceSchema.optional(),
         terrain: terrainSchema.optional(),
+        hazard: hazardSchema.optional(),
+        trap: z
+            .boolean()
+            .optional()
+            .describe(
+                'An armed trap: placed hidden from players, over a region that pauses the game the first time a token moves in, for the GM to spring it. Tagged `trap`, a stamp is one unless it says otherwise.',
+            ),
     })
     .strict();
 
@@ -515,14 +555,29 @@ const textureSetSchema = z
             .array(text)
             .optional()
             .describe(
-                "Ids of this pack's other texture sets that stand in, in order, for the wall textures this set lacks (a painted set borrowing grey photo concrete); omitted, the pack's sets in their listed order.",
+                "Texture sets that stand in, in order, for the wall textures this set lacks (a painted set borrowing grey photo concrete): this pack's by id, another pack's by its full `module:id` key; omitted, the loaded sets in their listed order.",
             ),
+        resolutions: z.record(text, resolution).optional().describe("Texture role → the image's long side, rounded to the nearest step."),
         tileSquares: z
             .record(text, z.number().positive())
             .optional()
             .describe(
                 'Texture role → grid squares one tile of the image spans along its shorter side, where the art is drawn to a scale (three riveted plates meant to be two squares each: 6); omitted, 2.',
             ),
+    })
+    .strict();
+
+/**
+ * A pack's ambience by tag: the sound and the particles any of its stamps
+ * carrying the tag gives off, where the stamp declares none of its own (every
+ * `machine` hums, every `brazier` smokes and throws embers), so the pack
+ * ships each sound and emitter once. The first of a stamp's tags with an
+ * entry gives it.
+ */
+const ambienceSchema = z
+    .object({
+        sounds: z.record(text, soundSchema).default({}).describe('Tag → the ambient sound a stamp carrying it emits.'),
+        particles: z.record(text, z.array(particleEmitterSchema)).default({}).describe('Tag → the particle emitters a stamp carrying it gives off.'),
     })
     .strict();
 
@@ -536,6 +591,7 @@ export const stampPackSchema = z
         referenceGridSize: z.number().int().positive().default(100).describe('Grid size (px per square) the stamp pixel sizes were authored at.'),
         stamps: z.array(stampSchema),
         textureSets: z.array(textureSetSchema).default([]),
+        ambience: ambienceSchema.default({ sounds: {}, particles: {} }),
     })
     .strict();
 
@@ -562,9 +618,15 @@ export const placedBehaviourSchema = z.object({
     tile: tileSchema.nullable().optional(),
     surface: surfaceSchema.nullable().optional(),
     terrain: terrainSchema.nullable().optional(),
+    hazard: hazardSchema.nullable().optional(),
+    trap: z.boolean().optional(),
 });
 
 export type PlacedBehaviour = z.infer<typeof placedBehaviourSchema>;
+
+export type StampHazard = z.infer<typeof hazardSchema>;
+
+export type HazardKind = (typeof HAZARD_KINDS)[number];
 
 export type Stamp = StampPack['stamps'][number];
 

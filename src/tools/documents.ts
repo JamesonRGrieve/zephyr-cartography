@@ -7,7 +7,7 @@
  * feature that produced it (see `generated-docs.ts`).
  */
 import type { Point } from '../geometry/spline';
-import type { PlacedBehaviour, StampLight, StampTile } from '../stamps/schema';
+import type { HazardKind, PlacedBehaviour, StampLight, StampTile } from '../stamps/schema';
 import type { AreaDisplay, AreaEffect } from './area-effects';
 import type { BiomeKind } from './biome';
 import type { ShapeBox, ShapeStyle } from './shape';
@@ -94,6 +94,12 @@ export interface WallDoc {
     readonly segment?: number;
     /** A light switch's wall: its door control shows a light, on or off, instead of a door. */
     readonly lightSwitch?: true;
+    /**
+     * The cover an attack across this wall meets (0 none to 1 full), for the
+     * game system's cover check: a low piece's outline, restricting nothing
+     * itself (a table is seen over and climbed across), only graded as cover.
+     */
+    readonly cover?: number;
 }
 
 interface LightAnimation {
@@ -183,7 +189,7 @@ type RegionLabel =
     | { readonly kind: 'terrain'; readonly biome: BiomeKind }
     | { readonly kind: 'floor' | 'ceiling'; readonly level: string }
     | { readonly kind: 'room' }
-    | { readonly kind: 'stamp-terrain' | 'stamp-surface'; readonly name: string }
+    | { readonly kind: 'stamp-terrain' | 'stamp-surface' | 'stamp-hazard' | 'stamp-trap'; readonly name: string }
     /** A zone: named as the GM named it, or the module's own name when `title` is "". */
     | { readonly kind: 'zone'; readonly title: string };
 
@@ -238,7 +244,9 @@ export type RegionBehaviour =
     /** A Define Surface at the region's bottom, top or both that restricts everything; `reveal` is Foundry's Reveal Elevated Surface. */
     | { readonly kind: 'surface'; readonly placement: 'bottom' | 'top' | 'both'; readonly reveal: boolean }
     /** Foundry's Modify Movement Cost: a cost multiplier per movement action (walk, fly, ...). */
-    | { readonly kind: 'terrain'; readonly difficulties: Readonly<Record<string, number>> };
+    | { readonly kind: 'terrain'; readonly difficulties: Readonly<Record<string, number>> }
+    /** A hazard: a warning scrolls up over a token coming into it, naming the harm; the GM adds what the game system deals. */
+    | { readonly kind: 'hazard'; readonly hazard: HazardKind };
 
 /** A native Scene Region. The sink turns its targets into region UUIDs. */
 export interface RegionDoc {

@@ -42,7 +42,7 @@ export interface BrowserHandlers {
 }
 
 const SCALES: readonly Stamp['scale'][] = ['system', 'planet', 'regional', 'city', 'exterior', 'interior'];
-const PERSPECTIVES: readonly Stamp['perspective'][] = ['orthographic', 'isometric', 'central'];
+const PERSPECTIVES: readonly Stamp['perspective'][] = ['orthographic', 'isometric', 'front', 'central'];
 
 function labelledSelect<T extends string>(
     id: string,

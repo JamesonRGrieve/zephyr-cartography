@@ -222,6 +222,10 @@ describe('GraphicsFeatureRenderer', () => {
         const bunker = new FakeSurface();
         new GraphicsFeatureRenderer(bunker, concrete, 10).set('rm', { ...room, floor: 'floor.concrete', wall: 'wall.concrete' });
         expect(band(bunker)).toBe(band(walkway));
+        // And so do they round a room of polished stone among concrete ones, so a building's shared-out walls match.
+        const hall = new FakeSurface();
+        new GraphicsFeatureRenderer(hall, concrete, 10).set('rm', { ...room, floor: 'floor.dark-stone-flagstones', wall: 'wall.concrete' });
+        expect(band(hall)).toBe(band(bunker));
     });
 
     it('leaves an opening bare: no wall band across it, and no leaf', () => {

@@ -93,12 +93,23 @@ function pathWalls(path: CartographyPath, kind: WallPreset, floor: Floor): WallD
     return walls;
 }
 
+/**
+ * How far above its base an overhead stamp's tile hangs (a roof, a tree's
+ * crown): its physical height, in scene distance units. Foundry fades or
+ * cuts round a tile only over a token below its elevation, so a tile that
+ * gives way to tokens must hang above them; anything else lies at its base.
+ */
+function overhead(stamp: StampFeature, gridDistance: number): number {
+    const modes = stamp.behaviour.tile?.occlusion?.modes ?? [];
+    return modes.length === 0 ? 0 : (stamp.behaviour.physical?.height ?? 0) * gridDistance;
+}
+
 /** A stamp's own tile, as its unrotated top-left, rotated about its centre (the boundary anchors it for v14). */
-function stampTile(stamp: StampFeature, floor: Floor, levels: readonly Level[]): TileDoc {
+function stampTile(stamp: StampFeature, floor: Floor, context: { readonly levels: readonly Level[]; readonly gridDistance: number }): TileDoc {
     const c = stampCentre(stamp);
     // Foundry draws a tile only on its own levels: it shows too on those that see its level below them.
     const own = floor.level;
-    const seenFrom = own === null ? [] : levels.filter((level) => level.art.visibleLevels.includes(own)).map((level) => level.id);
+    const seenFrom = own === null ? [] : context.levels.filter((level) => level.art.visibleLevels.includes(own)).map((level) => level.id);
     return {
         name: stamp.name,
         src: stamp.src,
@@ -107,7 +118,7 @@ function stampTile(stamp: StampFeature, floor: Floor, levels: readonly Level[]):
         width: stamp.width,
         height: stamp.height,
         rotation: stamp.rotation,
-        elevation: floor.elevation + stamp.elevation,
+        elevation: floor.elevation + stamp.elevation + overhead(stamp, context.gridDistance),
         level: floor.level,
         ...(seenFrom.length > 0 ? { seenFrom } : {}),
         featureId: stamp.id,
@@ -320,6 +331,57 @@ function stampTerrainRegion(stamp: StampFeature, levels: readonly Level[]): Regi
 }
 
 /**
+ * A stamp that harms what comes near (an open fire, a vat of acid, a live
+ * reactor): a region over its footprint and its reach round it, warning a
+ * token coming in of the harm, where the GM adds what the game system deals.
+ */
+function stampHazardRegion(stamp: StampFeature, levels: readonly Level[]): RegionDoc | null {
+    const hazard = stamp.behaviour.hazard;
+    if (!hazard) {
+        return null;
+    }
+    const corners = stampCorners(stamp);
+    const reach = hazard.reach * stamp.gridSize;
+    const [xs, ys] = [corners.map((c) => c.x), corners.map((c) => c.y)];
+    const [west, east, north, south] = [Math.min(...xs) - reach, Math.max(...xs) + reach, Math.min(...ys) - reach, Math.max(...ys) + reach];
+    return {
+        id: null,
+        label: { kind: 'stamp-hazard', name: stamp.name },
+        polygon: [
+            { x: west, y: north },
+            { x: east, y: north },
+            { x: east, y: south },
+            { x: west, y: south },
+        ],
+        ...levelBand(stamp, levels),
+        level: stamp.level,
+        spans: [],
+        behaviour: { kind: 'hazard', hazard: hazard.kind },
+    };
+}
+
+/**
+ * An armed trap (a pressure plate, a spike pit): a region over its footprint
+ * that pauses the game the first time a token moves in, for the GM to spring
+ * it; its tile is hidden from players until then (see `behaviourOf`).
+ */
+function stampTrapRegion(stamp: StampFeature, levels: readonly Level[]): RegionDoc | null {
+    if (stamp.behaviour.trap !== true) {
+        return null;
+    }
+    return {
+        id: null,
+        label: { kind: 'stamp-trap', name: stamp.name },
+        polygon: stampCorners(stamp),
+        ...levelBand(stamp, levels),
+        level: stamp.level,
+        spans: [],
+        behaviour: null,
+        effects: [{ kind: 'pause', once: true }],
+    };
+}
+
+/**
  * A stamp whose body tokens cannot pass (a boulder, a pillar): walls round its
  * footprint that bar movement alone (Foundry's Invisible Wall), so it hides
  * and lights nothing. What bars movement in v14 is a wall; a region
@@ -334,6 +396,34 @@ function stampBodyWalls(stamp: StampFeature, floor: Floor): WallDoc[] {
     }
     const { blocks } = presetWall('invisible');
     return perimeterSegments(stampCorners(stamp)).map((s) => ({ a: s.a, b: s.b, door: 'none', doorState: 'closed', blocks, level: floor.level }));
+}
+
+/** A cover wall restricts nothing: a table is seen, lit, heard and climbed across; it is only graded as cover. */
+const OPEN_BLOCKS: SenseBlock = { sight: 'none', movement: false, light: 'none', sound: 'none' };
+
+/**
+ * A low piece that gives cover but bars nothing (a table, a pew, rubble):
+ * walls round its footprint that restrict nothing, each carrying its cover
+ * grade for the game system's cover check, which grades an attack by the
+ * walls it crosses. A piece walled against movement already stops those
+ * rays, and needs none.
+ */
+function stampCoverWalls(stamp: StampFeature, floor: Floor): WallDoc[] {
+    const cover = stamp.behaviour.physical?.cover;
+    const occlusion = stamp.behaviour.occlusion;
+    const barred = stamp.behaviour.physical?.blocksMovement === true || (occlusion !== null && occlusion.shape !== 'none' && occlusion.movement);
+    if (cover === undefined || cover <= 0 || barred) {
+        return [];
+    }
+    return perimeterSegments(stampCorners(stamp)).map((s) => ({
+        a: s.a,
+        b: s.b,
+        door: 'none',
+        doorState: 'closed',
+        blocks: OPEN_BLOCKS,
+        level: floor.level,
+        cover,
+    }));
 }
 
 /**
@@ -394,8 +484,8 @@ function stampPlan(stamp: StampFeature, context: PlanContext): DocumentPlan {
     const door = stampDoorWall(stamp, floor);
     return {
         ...NO_PLAN,
-        walls: [...(door ? [door] : []), ...stampWalls(stamp, floor), ...stampBodyWalls(stamp, floor)],
-        tiles: [stampTile(stamp, floor, context.levels)],
+        walls: [...(door ? [door] : []), ...stampWalls(stamp, floor), ...stampBodyWalls(stamp, floor), ...stampCoverWalls(stamp, floor)],
+        tiles: [stampTile(stamp, floor, context)],
         lights: light ? [light] : [],
         regions: [
             ...transitionRegions(stamp, context.levels),
@@ -403,6 +493,8 @@ function stampPlan(stamp: StampFeature, context: PlanContext): DocumentPlan {
             ...[
                 entranceRegion(stamp, context.levels),
                 stampTerrainRegion(stamp, context.levels),
+                stampHazardRegion(stamp, context.levels),
+                stampTrapRegion(stamp, context.levels),
                 stampSurfaceRegion(stamp, context.levels, context.gridDistance, floor),
             ].filter((r): r is RegionDoc => r !== null),
         ],

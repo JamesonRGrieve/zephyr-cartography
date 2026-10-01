@@ -9,6 +9,7 @@
  */
 import type { DocumentSink } from '../canvas/controller';
 import type { DocumentKind, StagedWrite } from '../canvas/staged-changes';
+import type { HazardKind } from '../stamps/schema';
 import type { LightSource, RegionDoc } from '../tools/documents';
 import type { BatchOperation, EmbeddedCollection, EmbeddedName, FoundryScene, IdentifiedCreateData, ModifyBatch, RegionCreateData } from './boundary';
 import {
@@ -33,6 +34,8 @@ export interface SinkOptions {
     readonly lightName: (source: LightSource) => string;
     /** The display name of a stamp's sound, from the stamp's name. */
     readonly soundName: (stampName: string) => string;
+    /** A hazard region's warning, scrolled over a token coming into it. */
+    readonly hazardText: (kind: HazardKind) => string;
 }
 
 /** Each generated kind's Foundry document name and its collection on a scene. */
@@ -63,7 +66,7 @@ export class FoundryDocumentSink implements DocumentSink {
         // A GM may have deleted a document by hand, and updating a missing one fails the whole batch: a missing tile is
         // left to its feature's next sync, a missing kept-id region is created afresh.
         const tileUpdates = write.tileUpdates.filter(({ id }) => scene.tiles.has(id)).map(({ id, doc }) => ({ _id: id, ...tileCreateData(doc) }));
-        const context = regionContext(scene, sceneId, this.options.regionName);
+        const context = regionContext(scene, sceneId, this.options);
         const replaced = write.regionUpdates.flatMap(({ id, doc }) => regionCreateData([doc], [id], context));
         const regionUpdates = replaced.filter((region) => scene.regions.has(region._id)).map(({ behaviors: _behaviors, ...region }) => region);
         const recreated = replaced.filter((region) => !scene.regions.has(region._id));
@@ -95,7 +98,7 @@ export class FoundryDocumentSink implements DocumentSink {
         const { grid } = scene;
         const regions = [
             ...write.regions.flatMap((group) =>
-                regionCreateData(group.regions, group.ids, regionContext(scene, sceneId, this.options.regionName)).filter(
+                regionCreateData(group.regions, group.ids, regionContext(scene, sceneId, this.options)).filter(
                     (region) => !group.cancelled.includes(region._id),
                 ),
             ),
@@ -129,9 +132,10 @@ function behaviourUpdates(scene: FoundryScene, regions: readonly RegionCreateDat
 }
 
 /** Where the scene's regions are written: named as the options name them, their tokens' footprints read off the live tokens. */
-function regionContext(scene: FoundryScene, sceneId: string, nameOf: (region: RegionDoc) => string): RegionContext {
+function regionContext(scene: FoundryScene, sceneId: string, names: Pick<SinkOptions, 'regionName' | 'hazardText'>): RegionContext {
     return {
-        nameOf,
+        nameOf: names.regionName,
+        hazardText: names.hazardText,
         scene: sceneId,
         tokenOf: (id) => {
             const token = scene.tokens.get(id);

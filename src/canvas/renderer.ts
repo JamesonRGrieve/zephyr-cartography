@@ -6,7 +6,7 @@
  * the concrete PIXI surface lives at the Foundry boundary, keeping this pure.
  */
 import { brushOutline, buildRibbon, RIBBON_SAMPLES, ribbonOutline } from '../geometry/ribbon';
-import { perimeterSegments, type Segment, segmentBand } from '../geometry/wall';
+import { perimeterSegments, type Segment, segmentBand, wallRuns } from '../geometry/wall';
 import { BIOME_STYLES, isBiomeKind, type BiomeKind } from '../tools/biome';
 import { tintToward } from '../tools/colour';
 import type { DoorAnimationType } from '../tools/documents';
@@ -277,8 +277,8 @@ function swungOpen(seg: Segment, inward: number, doubleFrom: number): Segment[] 
 }
 
 /**
- * The drawn walls of a room: one band per perimeter segment in its wall
- * material. A doorway breaks the band (a secret door is wall to look at): a
+ * The drawn walls of a room: one band per run of wall in its wall material,
+ * mitred where runs meet (see {@link wallRuns}). A doorway breaks the band (a secret door is wall to look at): a
  * closed door shows its leaf across the gap, an open one its leaves swung
  * into the room, an opening nothing. Shade is
  * Foundry's: its lights are cut by the native walls.
@@ -288,12 +288,14 @@ function wallBands(feature: Feature, resolve: TextureResolver, bandWidth: number
         return { leaf: [], wall: [] };
     }
     // A room floored in its own masonry (a wall-walk, a tower's top), or in the stuff its walls are made of (concrete within
-    // concrete), keeps its walls a shade darker, so its rim still reads against the floor.
-    const alike = materialName(feature.floor) === materialName(feature.wall);
+    // concrete), keeps its walls a shade darker, so its rim still reads against the floor. So does any wall of a stuff the set
+    // also floors with, whatever this room's floor: a building's walls are shared out among its rooms, and one room of
+    // polished stone among concrete ones would otherwise leave its stretch of the same concrete walls pale.
+    const material = materialName(feature.wall);
+    const alike = materialName(feature.floor) === material || resolve(`floor.${material}`) !== null;
     const { texture, tint } = texturing(resolve, [feature.wall], alike ? PARAPET_TINT : NO_TINT, 'grain', WALL_FALLBACK);
     const doorways = new Map(feature.doors.filter((d) => d.type !== 'secret').map((d) => [d.segment, d]));
     const segments = perimeterSegments(feature.points);
-    const walls = segments.filter((_, i) => !doorways.has(i));
     const inward = insideTurn(feature.points);
     const leaves = segments.flatMap((seg, i): Filled[] => {
         const door = doorways.get(i);
@@ -314,17 +316,10 @@ function wallBands(feature: Feature, resolve: TextureResolver, bandWidth: number
         // A panel slid into the wall or a shutter raised leaves a bare doorway; a hinged leaf stands swung into the room.
         return RETRACTED.has(door.animation ?? 'swing') ? [] : swungOpen(seg, inward, bandWidth * DOUBLE_LEAF_BANDS).map(leaf);
     });
-    // Each band's texture is turned to its wall, so courses of brick and grain of planks run along it.
-    const bands = walls.map(
-        (seg): Filled => ({
-            outline: segmentBand(seg, bandWidth),
-            fill: WALL_FALLBACK,
-            alpha: 1,
-            texture,
-            tint,
-            feather: false,
-            angle: Math.atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x),
-        }),
+    // One band per run of wall, mitred where runs meet; each band's texture turned to its run, so courses of brick and
+    // grain of planks run along it.
+    const bands = wallRuns(feature.points, new Set(doorways.keys()), bandWidth).map(
+        ({ outline, angle }): Filled => ({ outline, fill: WALL_FALLBACK, alpha: 1, texture, tint, feather: false, angle }),
     );
     return { leaf: leaves, wall: bands };
 }

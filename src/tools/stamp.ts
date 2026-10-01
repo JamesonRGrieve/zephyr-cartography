@@ -8,6 +8,8 @@
  * data. Model, placement, variant change, footprint and parser. Pure and
  * unit-tested.
  */
+import { physicsOf } from '../compose/physics';
+import { composedRole } from '../compose/roles';
 import { boxCorners, boxPoint, type OrientedRectangle } from '../geometry/rectangle';
 import type { Point } from '../geometry/spline';
 import { type CatalogStamp, clampVariantIndex, computeTilePlacement, effectiveProperties, resolveVariant } from '../stamps/catalog';
@@ -90,13 +92,25 @@ const NO_BEHAVIOUR: PlacedBehaviour = {
     container: false,
 };
 
-/** The behaviour a stamp carries in one variant (variant overrides applied). */
+/**
+ * The behaviour a stamp carries in one variant (variant overrides applied).
+ * Where its pack says nothing of what it hides, bars or slows, its role and
+ * tags do (a tall shelf walled round, a table crossed at a cost; see
+ * `physicsOf`); a pack's own word, `null` included, always wins.
+ */
 export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour {
     const props = effectiveProperties(stamp, index);
+    const derived = physicsOf(composedRole(stamp), stamp.tags);
+    const variant = resolveVariant(stamp, index);
+    // A pack's null (no terrain, no hazard in this variant) is its word too: only a field it never sets is the role's.
+    const terrainUnsaid = stamp.terrain === undefined && variant.terrain === undefined;
+    const hazardUnsaid = stamp.hazard === undefined && variant.hazard === undefined;
+    // Armed where its pack says so, else where its tags name it a trap; a sprung variant says it is not.
+    const trap = variant.trap ?? stamp.trap ?? stamp.tags.includes(TRAP_TAG);
     return {
         light: props.light,
-        occlusion: props.occlusion ?? null,
-        physical: props.physical ?? null,
+        occlusion: props.occlusion ?? derived.occlusion ?? null,
+        physical: props.physical ?? derived.physical ?? null,
         door: stamp.door ?? null,
         doorState: props.doorState ?? null,
         transition: stamp.transition ?? null,
@@ -105,11 +119,17 @@ export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour
         pile: props.pile,
         particles: props.particles,
         sound: props.sound,
-        tile: props.tile,
+        // An armed trap is hidden from players until it is sprung.
+        tile: trap ? { ...(props.tile ?? derived.tile), hidden: true } : props.tile ?? derived.tile ?? null,
         surface: props.surface,
-        terrain: props.terrain,
+        terrain: terrainUnsaid ? derived.terrain ?? null : props.terrain,
+        hazard: hazardUnsaid ? derived.hazard ?? null : props.hazard,
+        trap,
     };
 }
+
+/** The tag that names a stamp a trap (a pressure plate, a spike pit, a tripwire). */
+const TRAP_TAG = 'trap';
 
 /** Text for players to read, or null for none (nothing, or only blanks). */
 // eslint-disable-next-line no-restricted-syntax -- boundary: reads persisted or placement text of any shape
@@ -136,6 +156,10 @@ export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlace
         scale,
         snap: placement.snap ?? false,
     });
+    // The placed point is where the variant's anchor stands (its centre, unless a hinge is said): the centre lies off it.
+    const rotation = placement.rotation ?? 0;
+    const mirror = placement.mirror === true;
+    const anchor = boxPoint({ centre: { x: 0, y: 0 }, width: rect.width, height: rect.height, rotation }, anchorOf(image.anchor, mirror));
     return {
         type: 'stamp',
         id,
@@ -143,10 +167,10 @@ export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlace
         name: stamp.name,
         variant,
         src: image.image,
-        points: [{ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }],
+        points: [{ x: rect.x + rect.width / 2 - anchor.x, y: rect.y + rect.height / 2 - anchor.y }],
         width: rect.width,
         height: rect.height,
-        rotation: placement.rotation ?? 0,
+        rotation,
         scale,
         elevation: placement.elevation ?? 0,
         gridSize,
@@ -157,9 +181,18 @@ export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlace
         switchTargets: [],
         floors: [],
         reads: readsOf(placement.reads),
-        mirror: placement.mirror === true,
+        mirror,
         ...NEW_FEATURE,
     };
+}
+
+/** The middle of an image, where it stands on its placed point unless its variant says another `anchor`. */
+const IMAGE_CENTRE: Point = { x: 0.5, y: 0.5 };
+
+/** A variant's anchor as a fraction of its image as drawn (a mirrored image's runs from its other side). */
+function anchorOf(anchor: Point | undefined, mirror: boolean): Point {
+    const at = anchor ?? IMAGE_CENTRE;
+    return mirror ? { x: 1 - at.x, y: at.y } : at;
 }
 
 /** The footprint centre. */
@@ -167,10 +200,15 @@ export function stampCentre(feature: StampFeature): Point {
     return feature.points[0] ?? { x: 0, y: 0 };
 }
 
-/** Switch to another variant, keeping the centre, rotation and scale. */
+/** Switch to another variant, keeping where its anchor stands (the centre, unless a hinge is said), rotation and scale. */
 export function withStampVariant(feature: StampFeature, stamp: CatalogStamp, index: number, gridSize: number): StampFeature {
-    const centre = stampCentre(feature);
-    const placed = makeStamp(feature.id, stamp, { stamp: stamp.key, variant: index, x: centre.x, y: centre.y, scale: feature.scale }, gridSize);
+    const at = stampPoint(feature, resolveVariant(stamp, feature.variant).anchor ?? IMAGE_CENTRE);
+    const placed = makeStamp(
+        feature.id,
+        stamp,
+        { stamp: stamp.key, variant: index, x: at.x, y: at.y, scale: feature.scale, rotation: feature.rotation, mirror: feature.mirror },
+        gridSize,
+    );
     // Only what the variant decides changes; everything else the stamp carries (its links, pile, documents, level…) stays.
     return {
         ...feature,

@@ -155,6 +155,28 @@ export function closedSpline(points: readonly Point[], samplesPerSegment: number
 }
 
 /**
+ * A CLOSED loop with its corners cut `rounds` times (Chaikin): each edge
+ * gives way to points a quarter and three quarters along it, so a jagged
+ * outline rounds into a smooth one that stays within it, never overshooting
+ * a sharp corner as a spline through the points would. Fewer than 3 points
+ * returns a copy.
+ */
+export function roundCorners(points: readonly Point[], rounds: number): Point[] {
+    let loop = [...points];
+    for (let r = 0; r < rounds && loop.length >= 3; r++) {
+        const ring = loop;
+        loop = ring.flatMap((a, i) => {
+            const b = ring[(i + 1) % ring.length] ?? a;
+            return [
+                { x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 },
+                { x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 },
+            ];
+        });
+    }
+    return loop;
+}
+
+/**
  * Offset a centerline by `halfWidth` on each side using averaged vertex normals,
  * producing the two rails of a textured ribbon (road/river). Degenerate inputs
  * (< 2 points) yield empty rails.

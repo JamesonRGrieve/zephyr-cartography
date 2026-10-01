@@ -117,7 +117,15 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     // A named piece stands exactly where asked, facing the way asked: art seen from above, which turns, before isometric art.
     const turnable = asked.filter((s) => !s.upright);
     const tagged = turnable.length > 0 ? turnable : asked;
-    const byName = <T>(list: readonly T[]): T | undefined => list[nameHash(piece.name) % Math.max(1, list.length)];
+    // Chosen by its name: of the art whose tags share most words with it (a rooftop access hatch is the roof's hatch, not its
+    // vent stack), one picked by the name's hash, the same wherever a piece of that name stands.
+    const words = nameWords(piece.name);
+    const byName = (list: readonly RoleStamp[]): RoleStamp | undefined => {
+        const shared = (s: RoleStamp): number => s.tags.filter((tag) => words.has(tag)).length;
+        const most = Math.max(0, ...list.map(shared));
+        const best = list.filter((s) => shared(s) === most);
+        return best[nameHash(piece.name) % Math.max(1, best.length)];
+    };
     // Of the art that fills enough of it, that nearly as close to its shape as the closest (a long desk is no round table).
     const filling = tagged.filter((s) => cover(s) >= NAMED_FILL);
     const closest = Math.max(0, ...filling.map(cover));
@@ -132,9 +140,20 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     // Art made to join (a section between its end pieces, a module with square ends) beats repeating a piece made to stand alone.
     const made = runs.filter(joinsByDesign);
     const run = byName(made.length > 0 ? made : runs);
-    // A piece with an open end butts against another run: only a run leaves an end open.
-    const drawn = run !== undefined && (openEnds.length > 0 || whole === undefined || reach(run) > reach(whole)) ? run : whole;
+    // A piece with an open end butts against another run: only a run leaves an end open. A fitting is one thing (an aquila,
+    // a hatch): a run of it only where no one piece of its art fills what is asked (a length of pipe).
+    const longer = whole === undefined || (role !== 'fitting' && reach(run ?? whole) > reach(whole));
+    const drawn = run !== undefined && (openEnds.length > 0 || longer) ? run : whole;
     return drawn && inState(reading(drawn, piece), piece.state);
+}
+
+/** The words of a piece's name as tags spell them: lower case, each also without a plural `s` (`cabinets` is a `cabinet`). */
+function nameWords(called: string): ReadonlySet<string> {
+    const words = called
+        .toLowerCase()
+        .split(/[^a-z]+/u)
+        .filter((word) => word.length > 0);
+    return new Set(words.flatMap((word) => (word.endsWith('s') ? [word, word.slice(0, -1)] : [word])));
 }
 
 /** How much longer than deep a table's art must be to join others end to end: round tables never make one board. */
@@ -175,9 +194,10 @@ const RUN_ENDS = 2;
 /**
  * Roles built of modules set side by side: a wall of shelving units, a row of
  * lockers, a bank of cogitators, a line of pews, a hall's trestle tables
- * pushed end to end into one long board.
+ * pushed end to end into one long board; a fitting's length of pipe, cable,
+ * kerb or railing laid along a wall.
  */
-const MODULAR_ROLES: readonly StampRole[] = ['shelf', 'bench', 'pew', 'rack', 'storage', 'console', 'table', 'counter'];
+const MODULAR_ROLES: readonly StampRole[] = ['shelf', 'bench', 'pew', 'rack', 'storage', 'console', 'table', 'counter', 'fitting'];
 
 /**
  * `stamp` as modules `height` deep side by side along `width`, as many as
@@ -191,6 +211,11 @@ export function runOf(given: RoleStamp, width: number, height: number, openEnds:
     const cap = given.run?.cap;
     // Isometric seating, shrunk to a run's depth, reads as a scatter of tiny seats, not one bench: only flat segments run.
     if (cap === undefined && stamp.upright && SEATING_RUNS.includes(stamp.role)) {
+        return undefined;
+    }
+    // Art whose length runs back from its front (a partition drawn lying down the image) is no module to set side by side:
+    // shrunk to a run's depth it is a row of slivers.
+    if (stamp.height > DEEPEST_MODULE * stamp.width) {
         return undefined;
     }
     const [section, end] = [depthOf(stamp, height), cap === undefined ? undefined : depthOf(cap, height)];
@@ -209,6 +234,9 @@ export function runOf(given: RoleStamp, width: number, height: number, openEnds:
     const run = { count, module: unit, ...capped };
     return { ...given, width: runLength(run), height: unit.height, run };
 }
+
+/** How many times deeper than wide a module may be drawn and still be set side by side in a run. */
+const DEEPEST_MODULE = 2;
 
 /** The least a run is shrunk evenly to end exactly at the length asked; any further and it takes a module fewer. */
 const MIN_RUN_SHRINK = 0.75;

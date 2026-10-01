@@ -73,6 +73,10 @@ describe('wallCreateData', () => {
         expect(wallCreateData(door, GRID)).not.toHaveProperty('flags');
     });
 
+    it('notes a cover wall’s grade for the game system’s cover check', () => {
+        expect(wallCreateData({ ...BLOCKS_WALL, cover: 0.5 }, GRID).flags).toEqual({ 'zephyrex-cartography': { cover: 0.5 } });
+    });
+
     it('translates every sense level, one-way walls and thresholds in scene distance units', () => {
         const data = wallCreateData(
             {
@@ -188,6 +192,8 @@ describe('tileCreateData', () => {
             height: 40,
             rotation: 90,
             elevation: 5,
+            // Shown, said outright: an update in place clears a hidden it leaves behind (a trap sprung).
+            hidden: false,
             flags: { 'zephyrex-cartography': { featureId: 'f1' } },
             levels: ['L1'],
         });
@@ -478,7 +484,27 @@ describe('regionCreateData', () => {
     const SCENE = 'sceneAAAAAAAAAAA';
     /** A 2×1 token standing at (300, 200), the one token on the scene. */
     const FOOTPRINT = { x: 300, y: 200, width: 2, height: 1, shape: 4 };
-    const CONTEXT = { nameOf, scene: SCENE, tokenOf: (id: string) => (id === 'tk1' ? FOOTPRINT : null) };
+    const CONTEXT = { nameOf, hazardText: (kind: string) => `${kind}!`, scene: SCENE, tokenOf: (id: string) => (id === 'tk1' ? FOOTPRINT : null) };
+
+    it('warns of a hazard over a token coming into its region, in the GM’s language, for everyone to see', () => {
+        const fire: RegionDoc = {
+            id: null,
+            label: { kind: 'stamp-hazard', name: 'Burning Barrel' },
+            polygon: [
+                { x: 0, y: 0 },
+                { x: 100, y: 0 },
+                { x: 100, y: 100 },
+            ],
+            bottom: null,
+            top: null,
+            level: null,
+            spans: [],
+            behaviour: { kind: 'hazard', hazard: 'fire' },
+        };
+        expect(regionCreateData([fire], ['h0'], CONTEXT)[0]?.behaviors).toEqual([
+            { type: 'displayScrollingText', system: { events: ['tokenAnimateIn'], text: 'fire!', color: '#f1c40f', visibility: 2, once: false } },
+        ]);
+    });
 
     it('makes a stair a native changeLevel region on every level it joins', () => {
         const stair: RegionDoc = {

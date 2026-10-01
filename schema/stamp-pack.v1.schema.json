@@ -69,11 +69,12 @@
                         ]
                     },
                     "perspective": {
-                        "description": "How the image is drawn: orthographic (straight down), isometric (depth, no vanishing point) or central (one-point perspective).",
+                        "description": "How the image is drawn: orthographic (straight down), isometric (three-quarter, depth, no vanishing point), front (a level elevation from the front or side) or central (one-point perspective).",
                         "type": "string",
                         "enum": [
                             "orthographic",
                             "isometric",
+                            "front",
                             "central",
                             "top-down"
                         ]
@@ -129,7 +130,8 @@
                                     "dresser",
                                     "armchair",
                                     "decal",
-                                    "door"
+                                    "door",
+                                    "fitting"
                                 ]
                             },
                             {
@@ -237,9 +239,46 @@
                                     "enum": [
                                         "orthographic",
                                         "isometric",
+                                        "front",
                                         "central",
                                         "top-down"
                                     ]
+                                },
+                                "resolution": {
+                                    "description": "The variant image's long side, rounded to the nearest step (32 to 8K).",
+                                    "type": "string",
+                                    "enum": [
+                                        "32",
+                                        "64",
+                                        "128",
+                                        "256",
+                                        "512",
+                                        "1K",
+                                        "2K",
+                                        "4K",
+                                        "8K"
+                                    ]
+                                },
+                                "anchor": {
+                                    "description": "The point of the image, as fractions of it (0,0 its top-left), that stands on the stamp's placed point and stays there as variants switch: a ramp or drawbridge lowered from its hinge, its hinge edge's middle. Omitted: the image's centre.",
+                                    "type": "object",
+                                    "properties": {
+                                        "x": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                        },
+                                        "y": {
+                                            "type": "number",
+                                            "minimum": 0,
+                                            "maximum": 1
+                                        }
+                                    },
+                                    "required": [
+                                        "x",
+                                        "y"
+                                    ],
+                                    "additionalProperties": false
                                 },
                                 "doorState": {
                                     "description": "Door state this variant represents (door stamps).",
@@ -1108,6 +1147,46 @@
                                             "type": "null"
                                         }
                                     ]
+                                },
+                                "hazard": {
+                                    "description": "Overrides the stamp hazard; null means none (a brazier only when \"lit\").",
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "fire",
+                                                        "acid",
+                                                        "toxic",
+                                                        "radiation",
+                                                        "electric",
+                                                        "fall"
+                                                    ],
+                                                    "description": "What the hazard is."
+                                                },
+                                                "reach": {
+                                                    "default": 0.5,
+                                                    "description": "How far past the footprint it harms, in grid squares.",
+                                                    "type": "number",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "kind"
+                                            ],
+                                            "additionalProperties": false,
+                                            "description": "A hazard round the footprint: a region that warns a token entering it, where the GM adds the harm the game system deals (a burning, a toxin)."
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                },
+                                "trap": {
+                                    "description": "Overrides whether the stamp is an armed trap (false for a \"sprung\" variant).",
+                                    "type": "boolean"
                                 }
                             },
                             "required": [
@@ -2064,6 +2143,38 @@
                         ],
                         "additionalProperties": false,
                         "description": "Difficult terrain over the footprint (rubble, mud, a crowd)."
+                    },
+                    "hazard": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "fire",
+                                    "acid",
+                                    "toxic",
+                                    "radiation",
+                                    "electric",
+                                    "fall"
+                                ],
+                                "description": "What the hazard is."
+                            },
+                            "reach": {
+                                "default": 0.5,
+                                "description": "How far past the footprint it harms, in grid squares.",
+                                "type": "number",
+                                "minimum": 0
+                            }
+                        },
+                        "required": [
+                            "kind"
+                        ],
+                        "additionalProperties": false,
+                        "description": "A hazard round the footprint: a region that warns a token entering it, where the GM adds the harm the game system deals (a burning, a toxin)."
+                    },
+                    "trap": {
+                        "description": "An armed trap: placed hidden from players, over a region that pauses the game the first time a token moves in, for the GM to spring it. Tagged `trap`, a stamp is one unless it says otherwise.",
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -2126,11 +2237,33 @@
                         }
                     },
                     "fallback": {
-                        "description": "Ids of this pack's other texture sets that stand in, in order, for the wall textures this set lacks (a painted set borrowing grey photo concrete); omitted, the pack's sets in their listed order.",
+                        "description": "Texture sets that stand in, in order, for the wall textures this set lacks (a painted set borrowing grey photo concrete): this pack's by id, another pack's by its full `module:id` key; omitted, the loaded sets in their listed order.",
                         "type": "array",
                         "items": {
                             "type": "string",
                             "minLength": 1
+                        }
+                    },
+                    "resolutions": {
+                        "description": "Texture role → the image's long side, rounded to the nearest step.",
+                        "type": "object",
+                        "propertyNames": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "additionalProperties": {
+                            "type": "string",
+                            "enum": [
+                                "32",
+                                "64",
+                                "128",
+                                "256",
+                                "512",
+                                "1K",
+                                "2K",
+                                "4K",
+                                "8K"
+                            ]
                         }
                     },
                     "tileSquares": {
@@ -2154,6 +2287,338 @@
                 ],
                 "additionalProperties": false
             }
+        },
+        "ambience": {
+            "default": {
+                "sounds": {},
+                "particles": {}
+            },
+            "type": "object",
+            "properties": {
+                "sounds": {
+                    "default": {},
+                    "description": "Tag → the ambient sound a stamp carrying it emits.",
+                    "type": "object",
+                    "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Audio file relative to the pack module root."
+                            },
+                            "radius": {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "description": "Audible radius in grid units."
+                            },
+                            "volume": {
+                                "default": 0.5,
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                            },
+                            "repeat": {
+                                "default": true,
+                                "type": "boolean"
+                            },
+                            "walls": {
+                                "default": true,
+                                "description": "Walls muffle the sound.",
+                                "type": "boolean"
+                            },
+                            "easing": {
+                                "default": true,
+                                "description": "Volume falls off with distance.",
+                                "type": "boolean"
+                            },
+                            "offset": {
+                                "description": "Emitter position as a fraction of the footprint (default: centre).",
+                                "type": "object",
+                                "properties": {
+                                    "x": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                    },
+                                    "y": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 1
+                                    }
+                                },
+                                "required": [
+                                    "x",
+                                    "y"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "path",
+                            "radius"
+                        ],
+                        "additionalProperties": false,
+                        "description": "A native ambient sound emitted by the placed stamp."
+                    }
+                },
+                "particles": {
+                    "default": {},
+                    "description": "Tag → the particle emitters a stamp carrying it gives off.",
+                    "type": "object",
+                    "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "textures": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "description": "Particle images, relative to the pack module root; each particle takes one at random."
+                                },
+                                "area": {
+                                    "default": {
+                                        "x": 0.5,
+                                        "y": 0.5,
+                                        "radius": 0
+                                    },
+                                    "description": "Where particles spawn.",
+                                    "anyOf": [
+                                        {
+                                            "type": "string",
+                                            "const": "footprint",
+                                            "description": "Anywhere over the stamp footprint."
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "x": {
+                                                    "type": "number",
+                                                    "minimum": 0,
+                                                    "maximum": 1,
+                                                    "description": "Emitter centre as a fraction of the footprint width."
+                                                },
+                                                "y": {
+                                                    "type": "number",
+                                                    "minimum": 0,
+                                                    "maximum": 1,
+                                                    "description": "Emitter centre as a fraction of the footprint height."
+                                                },
+                                                "radius": {
+                                                    "default": 0,
+                                                    "description": "Spawn radius in grid units; 0 is a point.",
+                                                    "type": "number",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "x",
+                                                "y"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                },
+                                "count": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "How many particles are alive at once."
+                                },
+                                "lifetime": {
+                                    "anyOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "prefixItems": [
+                                                {
+                                                    "type": "number"
+                                                },
+                                                {
+                                                    "type": "number"
+                                                }
+                                            ],
+                                            "items": false,
+                                            "minItems": 2,
+                                            "maxItems": 2
+                                        }
+                                    ],
+                                    "description": "Particle lifetime in milliseconds."
+                                },
+                                "velocity": {
+                                    "type": "object",
+                                    "properties": {
+                                        "speed": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "number"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "prefixItems": [
+                                                        {
+                                                            "type": "number"
+                                                        },
+                                                        {
+                                                            "type": "number"
+                                                        }
+                                                    ],
+                                                    "items": false,
+                                                    "minItems": 2,
+                                                    "maxItems": 2
+                                                }
+                                            ],
+                                            "description": "Grid units per second."
+                                        },
+                                        "angle": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "number"
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "prefixItems": [
+                                                        {
+                                                            "type": "number"
+                                                        },
+                                                        {
+                                                            "type": "number"
+                                                        }
+                                                    ],
+                                                    "items": false,
+                                                    "minItems": 2,
+                                                    "maxItems": 2
+                                                }
+                                            ],
+                                            "description": "Direction in degrees, clockwise from east (the stamp rotation is added)."
+                                        }
+                                    },
+                                    "required": [
+                                        "speed",
+                                        "angle"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "alpha": {
+                                    "description": "Peak opacity, 0 to 1.",
+                                    "anyOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "prefixItems": [
+                                                {
+                                                    "type": "number"
+                                                },
+                                                {
+                                                    "type": "number"
+                                                }
+                                            ],
+                                            "items": false,
+                                            "minItems": 2,
+                                            "maxItems": 2
+                                        }
+                                    ]
+                                },
+                                "scale": {
+                                    "anyOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "prefixItems": [
+                                                {
+                                                    "type": "number"
+                                                },
+                                                {
+                                                    "type": "number"
+                                                }
+                                            ],
+                                            "items": false,
+                                            "minItems": 2,
+                                            "maxItems": 2
+                                        }
+                                    ]
+                                },
+                                "rotationSpeed": {
+                                    "description": "Degrees per second.",
+                                    "anyOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "prefixItems": [
+                                                {
+                                                    "type": "number"
+                                                },
+                                                {
+                                                    "type": "number"
+                                                }
+                                            ],
+                                            "items": false,
+                                            "minItems": 2,
+                                            "maxItems": 2
+                                        }
+                                    ]
+                                },
+                                "fade": {
+                                    "description": "Fade-in and fade-out, in milliseconds (or a fraction of lifetime when below 1).",
+                                    "type": "object",
+                                    "properties": {
+                                        "in": {
+                                            "type": "number",
+                                            "minimum": 0
+                                        },
+                                        "out": {
+                                            "type": "number",
+                                            "minimum": 0
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "blend": {
+                                    "type": "string",
+                                    "enum": [
+                                        "normal",
+                                        "add",
+                                        "multiply",
+                                        "screen"
+                                    ]
+                                },
+                                "elevation": {
+                                    "description": "Height above the stamp base, in grid units.",
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "textures",
+                                "count",
+                                "lifetime"
+                            ],
+                            "additionalProperties": false,
+                            "description": "A native particle emitter (Foundry's ParticleGenerator, effect mode) anchored to the stamp."
+                        }
+                    }
+                }
+            },
+            "additionalProperties": false
         }
     },
     "required": [
