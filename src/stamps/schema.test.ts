@@ -123,6 +123,15 @@ describe('parseStampPack', () => {
         expect(parseStampPack(pack([{ ...crate, provenance: { ...photo, ai: 'yes' } }])).ok).toBe(false);
     });
 
+    it('records how a stamp’s, texture set’s and particle emitter’s art is made, from six styles', () => {
+        const smoke = [{ textures: ['particles/smoke.webp'], count: 4, lifetime: 2000, style: 'flat' }];
+        const set = { id: 'photo', name: 'Photo', license: 'CC0-1.0', textures: { grassland: 'textures/grass.jpg' }, style: 'photorealistic' };
+        const result = parseStampPack(pack([{ ...crate, style: 'painted' }], { textureSets: [set], ambience: { sounds: {}, particles: { brazier: smoke } } }));
+        expect(result.ok ? [result.pack.stamps[0]?.style, result.pack.textureSets[0]?.style] : null).toEqual(['painted', 'photorealistic']);
+        expect(result.ok ? result.pack.ambience.particles['brazier']?.[0]?.style : null).toBe('flat');
+        expect(parseStampPack(pack([{ ...crate, style: 'watercolour' }])).ok).toBe(false);
+    });
+
     it('records each variant’s and texture’s resolution as a rounded step, and refuses any other value', () => {
         const small = { ...crate, variants: [{ ...variant, resolution: '128' }] };
         const set = {

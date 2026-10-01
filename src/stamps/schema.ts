@@ -33,6 +33,17 @@ const STAMP_SCALES = ['system', 'planet', 'regional', 'city', 'exterior', 'inter
  */
 const STAMP_PERSPECTIVES = ['orthographic', 'isometric', 'front', 'central', 'top-down'] as const;
 
+/**
+ * How an asset's art is made, as a gallery filters it: `painted` (digital or
+ * traditional painting), `photorealistic` (photographs and photo scans),
+ * `hand-drawn` (inked or sketched), `flat` (vector or cartoon shading),
+ * `pixel-art`, or `line-art` (blueprints and black-and-white plans).
+ */
+const ART_STYLES = ['painted', 'photorealistic', 'hand-drawn', 'flat', 'pixel-art', 'line-art'] as const;
+
+/** An asset's art style. */
+const artStyle = z.enum(ART_STYLES).describe('How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art.');
+
 /** A perspective as read: the old `top-down` is `orthographic`. */
 const perspective = z
     .enum(STAMP_PERSPECTIVES)
@@ -153,6 +164,7 @@ const particleEmitterSchema = z
         blend: z.enum(['normal', 'add', 'multiply', 'screen']).optional(),
         elevation: z.number().optional().describe('Height above the stamp base, in grid units.'),
         provenance: provenanceSchema.optional().describe('Where its particle images came from.'),
+        style: artStyle.optional(),
     })
     .strict()
     .describe("A native particle emitter (Foundry's ParticleGenerator, effect mode) anchored to the stamp.");
@@ -517,6 +529,7 @@ const stampSchema = z
         scale: z.enum(STAMP_SCALES),
         perspective,
         provenance: provenanceSchema.optional().describe('Where every variant’s image came from: one origin per stamp.'),
+        style: artStyle.optional(),
         role: z
             .enum(STAMP_ROLES)
             .nullable()
@@ -565,6 +578,7 @@ const textureSetSchema = z
         license: text.describe('SPDX id or licence name covering every file in the set.'),
         credits: text.optional().describe('Path to the set attribution file.'),
         provenance: provenanceSchema.optional().describe('Where the set as a whole came from.'),
+        style: artStyle.optional().describe('How its textures are made, the whole set alike.'),
         sources: z
             .record(text, provenanceSchema)
             .optional()

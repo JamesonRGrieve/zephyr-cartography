@@ -114,6 +114,18 @@
                         ],
                         "additionalProperties": false
                     },
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "painted",
+                            "photorealistic",
+                            "hand-drawn",
+                            "flat",
+                            "pixel-art",
+                            "line-art"
+                        ],
+                        "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
+                    },
                     "role": {
                         "description": "What the map composer uses it as. Omitted, its tags say (a stamp tagged `console` is a console); null, it is never composed, however it is tagged (an L-shaped counter no wall takes). A stamp neither names nor tags as anything is only placed by hand.",
                         "anyOf": [
@@ -898,6 +910,18 @@
                                                             "license"
                                                         ],
                                                         "additionalProperties": false
+                                                    },
+                                                    "style": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "painted",
+                                                            "photorealistic",
+                                                            "hand-drawn",
+                                                            "flat",
+                                                            "pixel-art",
+                                                            "line-art"
+                                                        ],
+                                                        "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
                                                     }
                                                 },
                                                 "required": [
@@ -2086,6 +2110,18 @@
                                         "license"
                                     ],
                                     "additionalProperties": false
+                                },
+                                "style": {
+                                    "type": "string",
+                                    "enum": [
+                                        "painted",
+                                        "photorealistic",
+                                        "hand-drawn",
+                                        "flat",
+                                        "pixel-art",
+                                        "line-art"
+                                    ],
+                                    "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
                                 }
                             },
                             "required": [
@@ -2421,6 +2457,18 @@
                             "license"
                         ],
                         "additionalProperties": false
+                    },
+                    "style": {
+                        "description": "How its textures are made, the whole set alike.",
+                        "type": "string",
+                        "enum": [
+                            "painted",
+                            "photorealistic",
+                            "hand-drawn",
+                            "flat",
+                            "pixel-art",
+                            "line-art"
+                        ]
                     },
                     "sources": {
                         "description": "Texture role → where that one texture came from, where it differs from the set’s (each photo texture’s own author and page).",
@@ -2928,6 +2976,18 @@
                                         "license"
                                     ],
                                     "additionalProperties": false
+                                },
+                                "style": {
+                                    "type": "string",
+                                    "enum": [
+                                        "painted",
+                                        "photorealistic",
+                                        "hand-drawn",
+                                        "flat",
+                                        "pixel-art",
+                                        "line-art"
+                                    ],
+                                    "description": "How its art is made: painted, photorealistic, hand-drawn, flat, pixel-art or line-art."
                                 }
                             },
                             "required": [

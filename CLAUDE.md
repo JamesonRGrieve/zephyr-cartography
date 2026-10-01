@@ -1621,7 +1621,10 @@ imports).
     are AI-generated (`source`: the pack's own repository for art made for it,
     or a provider; `license` as SPDX; optional `author` and `url`, the source
     page or the pack's repository; `ai`, its own flag, since work brought in
-    from elsewhere can be AI-generated too), one per stamp. Texture sets carry one too, and `sources` per role
+    from elsewhere can be AI-generated too), one per stamp.
+  - `style`: how its art is made (`painted`, `photorealistic`, `hand-drawn`,
+    `flat`, `pixel-art` or `line-art`), on stamps, texture sets and particle
+    emitters. The engine reads none of it; galleries filter by it; Texture sets carry one too, and `sources` per role
     for each photo texture's own author; ambience sounds and particle emitters
     carry their own. The engine reads none of it: it is the pack's record, for
     galleries and credits;
