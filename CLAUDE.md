@@ -1310,7 +1310,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
   above, and everything outside is on the ground level. A stairwell sized
   to the stair (a stamp whose `transition` climbs, found by tags) is fixed
   in one place on every floor, inside one room on each, against a wall,
-  clear of every doorway and of furniture. A flight on each floor but the
+  clear of every doorway and of furniture, and off the floor any storey's
+  named fixtures are asked to stand on (`compose/claims.ts`), so a stair
+  never takes a piece's spot; spots a storey whose rooms the intent places
+  could never hold (behind secret doors) are never tried. A flight on each floor but the
   top joins it to the next; three floors or more make a switchback, each
   flight beside the one below, so no two level changes overlap. On a scene
   of several levels the map drawn and edited is the viewed level's.
