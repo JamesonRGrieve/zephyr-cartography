@@ -89,6 +89,8 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     reliquary: ['shrine', 'chapel'],
     offering: ['shrine', 'chapel'],
     votive: ['shrine', 'chapel'],
+    // A chamber pot goes under a guest's bed, never out on a taproom's floor.
+    chamber: ['bedroom'],
     // A table spread with maps is a war room's, and a throne a commander's or a chapel's: never a taproom's tables and stools,
     // nor a lobby's seats (a hall is a reception or a corridor as often as a lord's; a great hall names its throne).
     map: ['command'],

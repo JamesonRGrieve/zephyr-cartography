@@ -1402,7 +1402,7 @@ or a tavern is. Composition is the layer above them (operator decisions,
     never out in the floor. A wall piece whose art fits no wall gives way to
     the smallest of its role (a dresser where a wardrobe will not go).
     Clutter keeps to the rooms its tags imply: a cooking pot to a kitchen, a
-    reliquary to a shrine or chapel.
+    reliquary to a shrine or chapel, a chamber pot to a bedroom.
   - **Stand-ins inside.** A role no stamp fills takes a fitting other
     one's: a work surface or desk is a long table (never a round one), a
     guest's chest is storage. A nightstand or an easy chair has none: a

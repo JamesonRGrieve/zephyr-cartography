@@ -141,10 +141,11 @@ describe('roleIndex fittings', () => {
 });
 
 describe('roleIndex purposes', () => {
-    it('keeps a piece to the rooms its tags name or imply: a cooking pot to a kitchen, a reliquary to a shrine or chapel', () => {
+    it('keeps a piece to the rooms its tags name or imply: a cooking pot to a kitchen, a reliquary to a shrine or chapel, a chamber pot to a bedroom', () => {
         const index = roleIndex(
             stamps([
                 stampDef('pot', { role: 'clutter', tags: ['cooking', 'pot'] }),
+                stampDef('chamber-pot', { role: 'clutter', tags: ['chamber', 'pot'] }),
                 stampDef('relic', { role: 'clutter', tags: ['reliquary'] }),
                 stampDef('bunk', { role: 'bed', tags: ['cell'] }),
                 stampDef('satchel', { role: 'clutter', tags: ['adventuring'] }),
@@ -154,6 +155,7 @@ describe('roleIndex purposes', () => {
         const purposes = new Map((index.get('clutter') ?? []).map((s) => [s.key, s.purposes]));
         expect(purposes.get('pack:pot')).toEqual(['kitchen']);
         expect(purposes.get('pack:relic')).toEqual(['shrine', 'chapel']);
+        expect(purposes.get('pack:chamber-pot')).toEqual(['bedroom']);
         expect(purposes.get('pack:satchel')).toEqual([]);
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
