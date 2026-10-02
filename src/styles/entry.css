@@ -173,18 +173,50 @@
     padding-top: 0.35rem;
 }
 
-/* Variant bar the stamp engine adds to the Tile HUD's right column. */
+/*
+ * Variant picker the stamp engine adds to the Tile HUD's right column: a grid of
+ * thumbnails large enough to tell the art apart (88 px on screen at any zoom),
+ * beside the column as Foundry's own palettes stand, never stretched down it.
+ */
 .zephyr-cartography-hud-variants {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    --zc-variant-size: 88px;
+
+    position: absolute;
+    top: 0;
+    left: calc(var(--column-width, 50px) + 8px);
+    display: grid;
+    grid-template-columns: repeat(var(--zc-variant-columns, 3), var(--zc-variant-size));
+    gap: 6px;
+    padding: 6px;
+    background: var(--control-bg-color);
+    border: 1px solid var(--control-border-color);
+    border-radius: 4px;
+    box-shadow: 0 0 10px var(--color-shadow-dark);
+    pointer-events: all;
+
+    /* Undo the HUD's zoom (set from the canvas as it renders and pans), so the thumbnails keep their size on screen. */
+    transform: scale(calc(1 / var(--zc-hud-scale, 1)));
+    transform-origin: top left;
 }
 
-.zephyr-cartography-hud-variants img {
-    width: 32px;
-    height: 32px;
+.placeable-hud .zephyr-cartography-hud-variants .control-icon {
+    flex: none;
+    width: var(--zc-variant-size);
+    height: var(--zc-variant-size);
+    padding: 3px;
+    line-height: normal;
+    box-shadow: none;
+}
+
+.placeable-hud .zephyr-cartography-hud-variants .control-icon img {
     object-fit: contain;
     border: 0;
+    opacity: 0.85;
+}
+
+.placeable-hud .zephyr-cartography-hud-variants [aria-pressed='true'] img,
+.placeable-hud .zephyr-cartography-hud-variants .control-icon:hover img {
+    opacity: 1;
 }
 
 .zephyr-cartography-hud-variants [aria-pressed='true'],

@@ -409,7 +409,9 @@ tool; an auto `AmbientLightDocument` per room at its centroid.
   stamp catalog must validate against. Pack modules are discovered by flag.
 - **Placement** as native `TileDocument`s from the browser (click, drag or
   double-click). A placed stamp records its image, footprint and behaviour at
-  placement. Variants cycle in place from the Tile HUD, and GM edits to the tile
+  placement. Variants cycle in place from the Tile HUD (a grid of thumbnails,
+  three to a row, beside its right column as Foundry's palettes stand, kept
+  one size on screen whatever the canvas zoom), and GM edits to the tile
   (move, resize, rotate, delete) flow back into the feature.
 - **Occlusion walls:** `bounds` wraps the rotated footprint; `alpha` traces the
   image once per variant (marching squares), falling back to bounds.

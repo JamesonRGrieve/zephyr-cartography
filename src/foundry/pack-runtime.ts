@@ -43,6 +43,44 @@ const TEXTURE_SET_SETTING = 'textureSet';
 /** Range of the stamp scale setting slider. */
 const SCALE_RANGE = { min: 0.25, max: 4, step: 0.05 } as const;
 
+/** Thumbnails a row of the Tile HUD's variant picker holds. */
+const HUD_VARIANT_COLUMNS = 3;
+
+const HUD_VARIANTS_CLASS = `${MODULE_ID}-hud-variants`;
+
+/**
+ * How much Foundry scales the HUD on screen: its container by the canvas zoom,
+ * the placeable HUD by the scene's UI scale. The variant picker undoes it, so
+ * its thumbnails stay one size on screen however far the canvas is zoomed out.
+ */
+function hudScreenScale(): number {
+    return (canvas?.stage?.scale.x ?? 1) * (canvas?.dimensions?.uiScale ?? 1);
+}
+
+function fitHudVariants(bar: HTMLElement): void {
+    bar.style.setProperty('--zc-hud-scale', String(hudScreenScale()));
+}
+
+/** How long to wait for a tile's redraw before giving up on it (a tile deleted meanwhile is never drawn). */
+const REDRAW_WAIT_MS = 5000;
+
+/** Resolves once Foundry has drawn the tile `tileId` again, or after REDRAW_WAIT_MS. */
+async function tileRedrawn(tileId: string | null): Promise<void> {
+    return new Promise((resolve) => {
+        const done = (): void => {
+            Hooks.off('drawTile', hook);
+            clearTimeout(timer);
+            resolve();
+        };
+        const hook = Hooks.on('drawTile', (drawn) => {
+            if (drawn.document.id === tileId) {
+                done();
+            }
+        });
+        const timer = setTimeout(done, REDRAW_WAIT_MS);
+    });
+}
+
 declare global {
     interface SettingConfig {
         'zephyr-cartography.stampSnap': boolean;
@@ -269,7 +307,9 @@ export function registerPackRuntime(controller: () => CartographyController | nu
             return;
         }
         const bar = document.createElement('div');
-        bar.className = `${MODULE_ID}-hud-variants`;
+        bar.className = HUD_VARIANTS_CLASS;
+        bar.style.setProperty('--zc-variant-columns', String(Math.min(HUD_VARIANT_COLUMNS, stamp.variants.length)));
+        fitHudVariants(bar);
         stamp.variants.forEach((variant, index) => {
             const button = document.createElement('button');
             button.type = 'button';
@@ -288,8 +328,16 @@ export function registerPackRuntime(controller: () => CartographyController | nu
                 button.textContent = String(index + 1);
             }
             const choose = async (): Promise<void> => {
+                const shownBefore = tile?.texture.src;
                 await active.setStampVariant(feature.id, index);
-                await hud.render();
+                // A new image redraws the tile, and Foundry closes the HUD of a tile it redraws: open it again once drawn.
+                if (tile && tile.texture.src !== shownBefore) {
+                    await tileRedrawn(tile.id);
+                }
+                const placeable = tile?.object;
+                if (placeable) {
+                    await hud.bind(placeable);
+                }
             };
             button.addEventListener('click', (clickEvent) => {
                 clickEvent.preventDefault();
@@ -298,6 +346,13 @@ export function registerPackRuntime(controller: () => CartographyController | nu
             bar.append(button);
         });
         column.append(bar);
+    });
+
+    // Zooming rescales the open HUD; the variant picker keeps its size on screen.
+    Hooks.on('canvasPan', () => {
+        for (const bar of document.querySelectorAll<HTMLElement>(`.${HUD_VARIANTS_CLASS}`)) {
+            fitHudVariants(bar);
+        }
     });
 
     Hooks.on('updateTile', (tile, changed, _options, userId) => {

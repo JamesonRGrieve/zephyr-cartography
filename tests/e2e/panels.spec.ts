@@ -16,6 +16,9 @@ const IN_ROOM = { x: 450, y: 450 } as const;
 /** Empty canvas, away from the test room. */
 const OPEN_GROUND = { x: 1200, y: 900 } as const;
 
+/** A variant thumbnail's side on screen, at any zoom (the stylesheet's `--zc-variant-size`). */
+const THUMBNAIL_PX = 88;
+
 /**
  * Clear Foundry's notifications, which float over the top of the screen (a
  * headless browser's "no hardware acceleration" warning among them), so a
@@ -157,4 +160,38 @@ test('the interior panel is usable, as an enterable stamp’s Tile HUD button op
     });
     await world.getByRole('button', { name: 'Interior' }).click();
     await expectUsable(world, 'submap');
+});
+
+test('a stamp’s variants are picked from a grid of thumbnails beside the Tile HUD, large enough to tell apart', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyr-cartography').api.controller()?.placeStamp({ stamp: 'zc-e2e-pack:lamp', x: 600, y: 600 });
+    });
+    await activate(world, 'tiles', 'select');
+    await world.evaluate(async () => {
+        const tile = canvas?.tiles?.placeables[0];
+        const hud = canvas?.hud?.tile;
+        if (tile && hud) {
+            tile.control();
+            await hud.bind(tile);
+        }
+    });
+    const lit = world.getByRole('button', { name: 'Variant: lit' });
+    const unlit = world.getByRole('button', { name: 'Variant: unlit' });
+    await expect(lit).toBeVisible();
+    const [a, b, column] = await Promise.all([lit.boundingBox(), unlit.boundingBox(), world.locator('#tile-hud .col.right').boundingBox()]);
+    // Side by side in one row, not stacked down the column; each far larger than a HUD icon.
+    expect(a?.y).toBe(b?.y);
+    expect((b?.x ?? 0) - (a?.x ?? 0)).toBeGreaterThan(0);
+    expect(a?.width).toBeCloseTo(THUMBNAIL_PX, 0);
+    // Beside the right column, as Foundry's palettes stand.
+    expect(a?.x ?? 0).toBeGreaterThanOrEqual((column?.x ?? 0) + (column?.width ?? 0));
+    // The same size on screen at another zoom, though Foundry scales the HUD with the canvas.
+    await world.evaluate(async () => {
+        await canvas?.animatePan({ scale: 1.5, duration: 0 });
+    });
+    await expect.poll(async () => Math.round((await lit.boundingBox())?.width ?? 0)).toBe(THUMBNAIL_PX);
+    // Picking one switches the stamp to it.
+    // Its new image redraws the tile, which closes Foundry's HUD; the picker opens it again, the new variant marked.
+    await unlit.click();
+    await expect(world.getByRole('button', { name: 'Variant: unlit' })).toHaveAttribute('aria-pressed', 'true');
 });
