@@ -554,8 +554,10 @@ const stampSchema = z
         enterable: z.boolean().default(false).describe('Can open into a linked interior scene (submap).'),
         container: z
             .union([z.boolean(), containerSchema])
-            .default(false)
-            .describe('Backed by an Item Piles pile: true for a plain container, or its pile options.'),
+            .optional()
+            .describe(
+                'Backed by an Item Piles pile: true for a plain container, or its pile options; false for none. Omitted: as its role and tags say (a chest, a footlocker, a locker holds things).',
+            ),
         particles: z.array(particleEmitterSchema).optional().describe('Native particle emitters (smoke, embers, sparks, drips).'),
         sound: soundSchema.optional(),
         tile: tileSchema.optional(),
