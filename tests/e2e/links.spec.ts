@@ -130,6 +130,8 @@ test('ways stand over the edge a road leaves by, along an edge, over an area and
             { key: 'road-east', at: { edge: 'east' }, to: { map: 'e2e-region', link: 'farm' } },
             { key: 'north', at: { edge: 'north', along: 3 }, to: null },
             { key: 'cellar-hatch', at: { area: { x: 16, y: 1, w: 1, h: 1 } }, to: null },
+            // No road leaves by the south edge: the way stands at its middle.
+            { key: 'south', at: { edge: 'south' }, to: null },
             { key: 'house-door', at: { building: 'house' }, to: null },
         ],
     };
@@ -148,10 +150,38 @@ test('ways stand over the edge a road leaves by, along an edge, over an area and
         };
     }, intent);
     expect(built.ok).toBe(true);
-    // Two floors, and the four ways as rectangle regions.
+    // Two floors, and the five ways as rectangle regions.
     expect(built.levels).toBe(2);
-    expect(built.ways).toHaveLength(4);
+    expect(built.ways).toHaveLength(5);
+    expect(built.ways.some((w) => w !== null && w.y > 13 && Math.abs(w.x - 10) < 2)).toBe(true);
     // One stands over the east edge, where the road leaves the map; one at the north edge three squares along.
     expect(built.ways.some((w) => w !== null && w.x > 18)).toBe(true);
     expect(built.ways.some((w) => w !== null && w.y < 2 && w.x < 4)).toBe(true);
+});
+
+test('a map is refused, building nothing, where its ways need a key it lacks or stand at places not on it', async ({ world }) => {
+    const base = { schemaVersion: 1, width: 20, height: 15 };
+    const intents = [
+        { ...base, links: [{ key: 'north', at: { edge: 'north' } }] },
+        { ...base, key: 'farm', links: [{ key: 'door', at: { building: 'barn' } }] },
+        { ...base, key: 'farm', links: [{ key: 'well', at: { fixture: 'the well' } }] },
+        { ...base, key: 'farm', links: [{ key: 'pit', at: { area: { x: 19, y: 14, w: 3, h: 3 } } }] },
+    ];
+    const refused = await world.evaluate(async (all) => {
+        const api = game.modules?.get('zephyr-cartography').api;
+        const messages: string[] = [];
+        for (const intent of all) {
+            // eslint-disable-next-line no-await-in-loop -- one scene: each refusal is checked before the next intent
+            const composed = await api?.compose(intent);
+            messages.push(composed?.ok === false ? composed.issues.map((i) => i.message).join('; ') : 'built');
+        }
+        return { messages, walls: canvas?.scene?.walls.size, regions: canvas?.scene?.regions.size };
+    }, intents);
+    expect(refused.messages).toEqual([
+        expect.stringContaining('needs its own key'),
+        expect.stringContaining('no building named barn'),
+        expect.stringContaining('no piece outside named the well'),
+        expect.stringContaining('an area off the map'),
+    ]);
+    expect([refused.walls, refused.regions]).toEqual([0, 0]);
 });
