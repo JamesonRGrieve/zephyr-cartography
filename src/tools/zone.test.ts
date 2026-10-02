@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { parseFeatures } from './feature';
+import { planDocuments } from './plan';
+import { DEFAULT_TRAVEL } from './submap';
 import {
     absoluteCells,
     cellBlock,
@@ -8,6 +10,7 @@ import {
     makeZone,
     NEW_ZONE,
     parseZone,
+    parseZoneLink,
     reshapedZone,
     scaledZoneShape,
     shapeSizes,
@@ -16,14 +19,36 @@ import {
     withShapeSize,
     withZonePlace,
     withZoneSettings,
-    ZONE_SHAPES,
-    type ZoneShape,
     zoneHit,
     zonePoint,
     zoneSettingsOf,
 } from './zone';
+import { ZONE_SHAPES, type ZoneShape } from './zone-shape';
 
 const AT = { x: 1000, y: 500 };
+
+describe('zones as ways to other maps', () => {
+    const DOOR = 'DoorRegion000001';
+    const TAVERN = { scene: 'TavernScene00001', region: 'TavernFrontDoor1' };
+
+    it('keep their fixed region id and teleport whoever enters to the map they lead to', () => {
+        const zone = {
+            ...makeZone('z1', AT, { ...NEW_ZONE, shape: { kind: 'rectangle', width: 100, height: 100 } }),
+            link: { region: DOOR, targets: [TAVERN], travel: DEFAULT_TRAVEL },
+        };
+        const [region] = planDocuments(zone, { features: [zone], levels: [], terrainRegions: false, gridDistance: 5 }).regions;
+        expect(region).toMatchObject({ id: DOOR, behaviour: { kind: 'teleport', targets: [TAVERN] } });
+    });
+
+    it('persist their link, a way still to be linked included; a link naming no region of its own is dropped', () => {
+        const linked = { ...makeZone('z1', AT), link: { region: DOOR, targets: [TAVERN], travel: DEFAULT_TRAVEL } };
+        expect(parseZone(JSON.parse(JSON.stringify(linked)))?.link).toEqual(linked.link);
+        expect(parseZoneLink({ region: DOOR })).toEqual({ region: DOOR, targets: [], travel: DEFAULT_TRAVEL });
+        expect(parseZoneLink({ region: DOOR, targets: [{ scene: '', region: 'x' }, TAVERN] })?.targets).toEqual([TAVERN]);
+        expect(parseZoneLink({ targets: [TAVERN] })).toBeNull();
+        expect(parseZone(JSON.parse(JSON.stringify(makeZone('z2', AT))))).not.toHaveProperty('link');
+    });
+});
 
 describe('zones', () => {
     it('start as a circle at the point placed, on no token', () => {

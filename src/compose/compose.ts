@@ -20,11 +20,12 @@ import { WALL_BAND_SQUARES } from '../tools/materials';
 import { type Flight, flightFor, narrowestFlight, type StormDoorway, stormDoorway, wayDownOver, withStairTags } from './access';
 import { curtainFeatures, moatOutlines } from './curtain';
 import { districtFeatures } from './district';
-import { composeExterior } from './exterior';
+import { composeExterior, type LaidPath } from './exterior';
 import { type Box, type ComposedStamp, furnishRoom, type RoomFloor } from './furnish';
 import { hewnFeatures } from './hewn';
 import { type BuildingIntent, type MapIntent, WALL_SIDES, type ZoneIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
+import { type LinkPlaces, linkFeatures } from './links';
 import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders } from './placeholders';
 import { platformFeatures } from './platform';
 import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './preferences';
@@ -868,10 +869,31 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     const districts = intent.districts.map((d) => districtFeatures(d, stamps, random, levelOf(0)));
     const hewn = [...intent.hewn.flatMap((network) => hewnFeatures(network, intent, random, levelOf(0))), ...districts.flatMap((d) => d.features)];
     const streetBoxes = districts.flatMap((d) => d.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: 'street' })));
+    // Ways to other maps: over an edge a road runs off, over a place, or just inside a building's front door. The
+    // intent's own check holds every place to one on the map, so only a way into a building left unbuilt (reported as
+    // its rooms not fitting) goes without its zone.
+    const ways = intent.key === undefined ? [] : linkFeatures(intent.key, intent.links, linkPlaces(intent, composed, exterior.paths), levelOf(0));
     // Ground first, then roads and rivers, then vegetation, then the buildings standing on it all.
-    const features = drawPlaceholders([...outside, ...hewn, ...curtains, ...bands, ...composed.flatMap((c) => c.features), ...platforms.features]);
+    const features = drawPlaceholders([...outside, ...hewn, ...curtains, ...bands, ...composed.flatMap((c) => c.features), ...platforms.features, ...ways]);
     return {
         spec: { schemaVersion: SCENE_SPEC_SCHEMA_VERSION, units: 'grid', levels, features, ...(scene === null ? {} : { scene }) },
         problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems), ...platforms.problems]),
     };
+}
+
+/** Where a map's ways can stand: its buildings' front doors, the roads laid on it and its named pieces outside. */
+function linkPlaces(
+    intent: MapIntent,
+    composed: readonly { readonly building: BuildingIntent; readonly ground: BuildingLayout | null }[],
+    paths: readonly LaidPath[],
+): LinkPlaces {
+    const fronts = new Map(
+        composed.flatMap(({ building, ground }) => {
+            const front = ground?.doors.find((d) => d.to === null);
+            const room = front && ground?.rooms.find((r) => r.key === front.room);
+            return building.key !== undefined && front && room ? [[building.key, { slot: front.slot, room: room.rect }] as const] : [];
+        }),
+    );
+    const fixtures = new Map(intent.fixtures.map((f) => [f.name, { x: f.at.x - f.width / 2, y: f.at.y - f.height / 2, w: f.width, h: f.height }] as const));
+    return { width: intent.width, height: intent.height, fronts, paths, fixtures };
 }

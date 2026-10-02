@@ -2566,6 +2566,54 @@
                                 "type": "string",
                                 "const": "zone"
                             },
+                            "link": {
+                                "type": "object",
+                                "properties": {
+                                    "region": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9]{16}$",
+                                        "description": "This zone's own region id, fixed so the other map's way can name it before either exists."
+                                    },
+                                    "targets": {
+                                        "default": [],
+                                        "description": "Where it leads: a region in a scene, by id; none yet is a way still to be linked (a door into no map).",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "scene": {
+                                                    "type": "string",
+                                                    "pattern": "^[A-Za-z0-9]{16}$"
+                                                },
+                                                "region": {
+                                                    "type": "string",
+                                                    "pattern": "^[A-Za-z0-9]{16}$"
+                                                }
+                                            },
+                                            "required": [
+                                                "scene",
+                                                "region"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "placement": {
+                                        "default": "center",
+                                        "description": "Where an arriving token lands in the region it reaches.",
+                                        "type": "string",
+                                        "enum": [
+                                            "relative",
+                                            "center",
+                                            "random"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "region"
+                                ],
+                                "additionalProperties": false,
+                                "description": "A way to another map: a door, a ramp, a map edge or a place on a chart. Its region teleports a token that enters it."
+                            },
                             "key": {
                                 "description": "A name other entries use for this feature, as a light switch's `controls` do.",
                                 "type": "string",

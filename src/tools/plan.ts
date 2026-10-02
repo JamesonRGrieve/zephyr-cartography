@@ -35,6 +35,7 @@ import { regionOutline, type RegionFeature } from './region';
 import { roomDoorLook, roomLight, roomWalls, type RoomDoor, type RoomFeature } from './room';
 import { shapeBox } from './shape';
 import { customSpawn, spawnOf } from './spawn';
+import { stableId } from './stable-id';
 import { stampCentre, stampCorners, stampDoorAxis, stampPoint, type StampFeature } from './stamp';
 import type { StrokeFeature } from './stroke';
 import { SWITCH_BLOCKS } from './switches';
@@ -208,9 +209,57 @@ function stampWalls(stamp: StampFeature, floor: Floor): WallDoc[] {
     };
     const loops =
         occlusion.shape === 'alpha' && stamp.silhouette ? stamp.silhouette.map((loop) => loop.map((f) => stampPoint(stamp, f))) : [stampCorners(stamp)];
+    // Its ways in (a lowered ramp, a hatch, a door drawn on the art) are gaps in its walls: nothing traps a token.
+    const gaps = wayGaps(stamp);
     return loops.flatMap((loop) =>
-        perimeterSegments(loop).map((s) => ({ a: s.a, b: s.b, door: 'none' as const, doorState: 'closed' as const, blocks, ...shape, level: floor.level })),
+        perimeterSegments(loop)
+            .flatMap((s) => withoutGaps(s, gaps))
+            .map((s) => ({ a: s.a, b: s.b, door: 'none' as const, doorState: 'closed' as const, blocks, ...shape, level: floor.level })),
     );
+}
+
+/** A circle a stamp's walls stay out of: centred on one of its ways in, as wide as it. */
+interface Gap {
+    readonly centre: Point;
+    readonly radius: number;
+}
+
+/** The gaps a stamp's ways in leave in its walls, in scene points (its rotation and scale applied). */
+export function wayGaps(stamp: StampFeature): Gap[] {
+    return (stamp.behaviour.ways ?? []).map((way) => {
+        const from = stampPoint(stamp, { x: way.x - way.width / 2, y: way.y });
+        const to = stampPoint(stamp, { x: way.x + way.width / 2, y: way.y });
+        return { centre: stampPoint(stamp, { x: way.x, y: way.y }), radius: Math.hypot(to.x - from.x, to.y - from.y) / 2 };
+    });
+}
+
+/** Squares of a segment left when trimmed shorter than this are dropped: no sliver of wall stands in a gap. */
+const SLIVER = 1e-6;
+
+/** The parts of the segment from `a` to `b` outside every gap. */
+export function withoutGaps(segment: { readonly a: Point; readonly b: Point }, gaps: readonly Gap[]): { a: Point; b: Point }[] {
+    let pieces: { a: Point; b: Point }[] = [{ a: segment.a, b: segment.b }];
+    for (const gap of gaps) {
+        pieces = pieces.flatMap((piece) => {
+            const d = { x: piece.b.x - piece.a.x, y: piece.b.y - piece.a.y };
+            const f = { x: piece.a.x - gap.centre.x, y: piece.a.y - gap.centre.y };
+            const dd = d.x * d.x + d.y * d.y;
+            const fd = f.x * d.x + f.y * d.y;
+            const disc = fd * fd - dd * (f.x * f.x + f.y * f.y - gap.radius * gap.radius);
+            if (dd === 0 || disc <= 0) {
+                return [piece];
+            }
+            const root = Math.sqrt(disc);
+            const enter = Math.max(0, (-fd - root) / dd);
+            const leave = Math.min(1, (-fd + root) / dd);
+            if (enter >= leave) {
+                return [piece];
+            }
+            const at = (t: number): Point => ({ x: piece.a.x + d.x * t, y: piece.a.y + d.y * t });
+            return [...(enter > SLIVER ? [{ a: piece.a, b: at(enter) }] : []), ...(leave < 1 - SLIVER ? [{ a: at(leave), b: piece.b }] : [])];
+        });
+    }
+    return pieces;
 }
 
 /** A door stamp's own door wall, along its axis, in the state its variant shows. */
@@ -288,24 +337,42 @@ function buildingStairs(stamp: StampFeature, levels: readonly Level[]): RegionDo
     return here ? joiningRegions(stamp, 'stairs', here, floors, []) : [];
 }
 
-/** A linked stamp's entrance: over its footprint on its own level, teleporting to the interior's exit. */
-function entranceRegion(stamp: StampFeature, levels: readonly Level[]): RegionDoc | null {
+/**
+ * A linked stamp's entrances, each teleporting to the interior's exit: over
+ * each of its ways in (the shuttle's two side ramps; the first keeps the
+ * link's fixed id, which the exit leads back to, the rest ids derived from
+ * it), or over its whole footprint where its art has none.
+ */
+function entranceRegions(stamp: StampFeature, levels: readonly Level[]): RegionDoc[] {
     const link = stamp.submap;
     if (!link) {
-        return null;
+        return [];
     }
     const band = findLevel(levels, stamp.level);
-    return {
-        id: link.entryRegion,
+    const gaps = wayGaps(stamp);
+    const squares =
+        gaps.length === 0
+            ? [stampCorners(stamp)]
+            : gaps.map(({ centre: c, radius: r }) => [
+                  { x: c.x - r, y: c.y - r },
+                  { x: c.x + r, y: c.y - r },
+                  { x: c.x + r, y: c.y + r },
+                  { x: c.x - r, y: c.y + r },
+              ]);
+    return squares.map((polygon, i) => ({
+        id: i === 0 ? link.entryRegion : nthEntranceId(link.entryRegion, i),
         label: { kind: 'entrance', scene: link.sceneName },
-        polygon: stampCorners(stamp),
+        polygon,
         bottom: band?.bottom ?? null,
         top: band?.top ?? null,
         level: stamp.level,
         spans: [],
         behaviour: { kind: 'teleport', targets: [{ scene: link.scene, region: link.exitRegion }], travel: link.travel },
-    };
+    }));
 }
+
+/** The id of a linked stamp's `n`th entrance after its first, derived from the first's so a re-sync keeps it. */
+export const nthEntranceId = (first: string, n: number): string => stableId(`entrance:${first}:${String(n)}`);
 
 /** A stamp's region band: its level's, or open-ended when it stands on no level. */
 function levelBand(stamp: StampFeature, levels: readonly Level[]): { readonly bottom: number | null; readonly top: number | null } {
@@ -395,7 +462,14 @@ function stampBodyWalls(stamp: StampFeature, floor: Floor): WallDoc[] {
         return [];
     }
     const { blocks } = presetWall('invisible');
-    return perimeterSegments(stampCorners(stamp)).map((s) => ({ a: s.a, b: s.b, door: 'none', doorState: 'closed', blocks, level: floor.level }));
+    // Round its traced outline where it has one, and open at its ways in, as its occlusion walls are.
+    const loops = stamp.silhouette ? stamp.silhouette.map((loop) => loop.map((f) => stampPoint(stamp, f))) : [stampCorners(stamp)];
+    const gaps = wayGaps(stamp);
+    return loops.flatMap((loop) =>
+        perimeterSegments(loop)
+            .flatMap((s) => withoutGaps(s, gaps))
+            .map((s): WallDoc => ({ a: s.a, b: s.b, door: 'none', doorState: 'closed', blocks, level: floor.level })),
+    );
 }
 
 /** A cover wall restricts nothing: a table is seen, lit, heard and climbed across; it is only graded as cover. */
@@ -490,8 +564,8 @@ function stampPlan(stamp: StampFeature, context: PlanContext): DocumentPlan {
         regions: [
             ...transitionRegions(stamp, context.levels),
             ...buildingStairs(stamp, context.levels),
+            ...entranceRegions(stamp, context.levels),
             ...[
-                entranceRegion(stamp, context.levels),
                 stampTerrainRegion(stamp, context.levels),
                 stampHazardRegion(stamp, context.levels),
                 stampTrapRegion(stamp, context.levels),
@@ -716,11 +790,18 @@ function areaRegion(feature: Feature & Costed & Affected, label: RegionDoc['labe
     };
 }
 
-/** A zone's region: always there, in its own Foundry shape, moving with its token if it has one. */
+/**
+ * A zone's region: always there, in its own Foundry shape, moving with its
+ * token if it has one. A way to another map keeps its fixed id, so the other
+ * map's way can name it, and teleports whoever enters it.
+ */
 function zoneRegion(zone: ZoneFeature, levels: readonly Level[]): RegionDoc {
     const { x, y } = zonePoint(zone);
+    const area = areaRegion(zone, { kind: 'zone', title: zone.name }, [], levels);
+    const { link } = zone;
     return {
-        ...areaRegion(zone, { kind: 'zone', title: zone.name }, [], levels),
+        ...area,
+        ...(link === undefined ? {} : { id: link.region, behaviour: { kind: 'teleport' as const, targets: link.targets, travel: link.travel } }),
         geometry: { ...zone.shape, x, y, rotation: zone.rotation, gridBased: zone.gridBased },
         ...(zone.attachedTo === null ? {} : { attachedTo: zone.attachedTo }),
     };

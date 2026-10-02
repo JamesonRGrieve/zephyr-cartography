@@ -139,13 +139,15 @@ export interface SceneSize {
     readonly gridSize: number;
 }
 
-export async function freshScene(page: Page, sceneTitle: string, size: SceneSize = SCENE): Promise<void> {
+export async function freshScene(page: Page, sceneTitle: string, size: SceneSize = SCENE, id: string | null = null): Promise<void> {
     await page.evaluate(
-        async ({ sceneName, scene }) => {
-            const created = await Scene.create({ name: sceneName, width: scene.width, height: scene.height, padding: 0, grid: { size: scene.gridSize } });
+        async ({ sceneName, scene, sceneId }) => {
+            // Made under a given id where the test names one (a map whose ways other maps name by its id).
+            const data = { name: sceneName, width: scene.width, height: scene.height, padding: 0, grid: { size: scene.gridSize } };
+            const created = sceneId === null ? await Scene.create(data) : await Scene.create({ ...data, _id: sceneId }, { keepId: true });
             await created?.view();
         },
-        { sceneName: sceneTitle, scene: size },
+        { sceneName: sceneTitle, scene: size, sceneId: id },
     );
     await page.waitForFunction(
         ([sceneName, moduleId]) =>

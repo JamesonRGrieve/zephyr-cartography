@@ -7,20 +7,8 @@
  * A pure function from the zone's settings, the scene's tokens and the
  * preset names to elements; unit-tested under happy-dom.
  */
-import {
-    cellBlock,
-    cellExtent,
-    CONE_CURVATURES,
-    type ConeCurvature,
-    reshapedZone,
-    shapeSizes,
-    withCurvature,
-    withShapeSize,
-    ZONE_SHAPES,
-    type ZoneSettings,
-    type ZoneShape,
-    type ZoneShapeKind,
-} from '../tools/zone';
+import { cellBlock, cellExtent, reshapedZone, shapeSizes, withCurvature, withShapeSize, type ZoneSettings } from '../tools/zone';
+import { CONE_CURVATURES, type ConeCurvature, ZONE_SHAPES, type ZoneShape, type ZoneShapeKind } from '../tools/zone-shape';
 import { button, choice, el, labelledCheckbox, labelledInput, replacePreservingFocus } from './dom';
 
 /** A token on the scene a zone can move with. */

@@ -501,6 +501,27 @@ describe('realizeSpec', () => {
         });
     });
 
+    it('makes a zone with a link a way to another map: its fixed region teleports to the region named, landing at its centre', async () => {
+        const h = makeHarness();
+        const tavern = { scene: 'TavernScene00001', region: 'TavernFrontDoor1' };
+        const link = { region: 'RoadToTavern0001', targets: [tavern] };
+        await realizeSpec(h.c, spec({ features: [{ type: 'zone', x: 2, y: 3, shape: { kind: 'rectangle', width: 1, height: 1 }, link }] }), {
+            origin: ORIGIN,
+            gridSize: GRID,
+        });
+        expect(h.s.last()[0]).toMatchObject({ link: { ...link, travel: { placement: 'center' } } });
+        const [region] = h.d.regions.flat();
+        expect(region?.id).toBe('RoadToTavern0001');
+        expect(region?.behaviour).toMatchObject({ kind: 'teleport', targets: [tavern] });
+        // A link's ids are Foundry's: sixteen letters and digits.
+        expect(
+            parseSceneSpec({
+                ...spec({ features: [] }),
+                features: [{ type: 'zone', x: 0, y: 0, shape: { kind: 'circle', radius: 1 }, link: { region: 'short' } }],
+            }).ok,
+        ).toBe(false);
+    });
+
     it('puts map pins where the spec says, opening their journal page, and a lamp switch can be keyed beside them', async () => {
         const h = makeHarness();
         await realizeSpec(

@@ -12,7 +12,8 @@ import type { AreaSettings } from './areas';
 import { isRecord } from './guards';
 import { NO_SPAWN } from './spawn';
 import { NORMAL_COST } from './terrain-cost';
-import { parseZoneShape, type ZoneSettings, type ZoneShape } from './zone';
+import { parseZoneShape, type ZoneSettings } from './zone';
+import type { ZoneShape } from './zone-shape';
 
 export interface ZonePreset {
     readonly name: string;

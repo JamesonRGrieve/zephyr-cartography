@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
-import { districtFeatures } from './district';
+import { districtFeatures, withFrontDoor } from './district';
 import type { DistrictIntent } from './intent';
 import { TEST_ROLES } from './test-roles';
 
@@ -55,6 +55,46 @@ describe('districts', () => {
             }
         });
         expect(features.every((f) => f.type !== 'room' || f.wall === 'wall.concrete')).toBe(true);
+    });
+
+    it('gives every block a front door in its longest side, its way to the building’s own map just inside it', () => {
+        const { features } = districtFeatures(district({}), TEST_ROLES, seededRandom(5), {});
+        const roofs = features.filter((f) => f.type === 'room' && f.floor === 'floor.deck-plating');
+        const ways = features.flatMap((f) => (f.type === 'zone' ? [f] : []));
+        expect(roofs.length).toBeGreaterThan(1);
+        expect(ways).toHaveLength(roofs.length);
+        for (const roof of roofs) {
+            if (roof.type !== 'room') {
+                continue;
+            }
+            const [door] = roof.doors ?? [];
+            expect(door).toMatchObject({ type: 'door', state: 'closed' });
+            const a = roof.points[door?.segment ?? 0];
+            const b = roof.points[((door?.segment ?? 0) + 1) % roof.points.length];
+            // A one-square doorway, and a way standing just inside it, leading nowhere until linked.
+            expect(Math.hypot((b?.x ?? 0) - (a?.x ?? 0), (b?.y ?? 0) - (a?.y ?? 0))).toBeCloseTo(1);
+            const mid = { x: ((a?.x ?? 0) + (b?.x ?? 0)) / 2, y: ((a?.y ?? 0) + (b?.y ?? 0)) / 2 };
+            const way = ways.find((w) => Math.hypot(w.x - mid.x, w.y - mid.y) <= 0.5 + 1e-9);
+            expect(way).toMatchObject({ name: 'Door', link: { targets: [] } });
+        }
+    });
+
+    it('sets a block’s door in the middle of its longest side, the square inside it to the side’s right', () => {
+        // Clockwise on screen: the top side (0,0)→(6,0) is the longest, and in is down.
+        const front = withFrontDoor([
+            { x: 0, y: 0 },
+            { x: 6, y: 0 },
+            { x: 6, y: 4 },
+            { x: 0, y: 4 },
+        ]);
+        expect(front.door).toBe(1);
+        expect(front.points.slice(1, 3)).toEqual([
+            { x: 2.5, y: 0 },
+            { x: 3.5, y: 0 },
+        ]);
+        expect(front.inside).toEqual({ x: 2.5, y: 0, w: 1, h: 1 });
+        // An outline with no sides still answers, its door at the origin.
+        expect(withFrontDoor([]).door).toBe(0);
     });
 
     it('never ruled: blocks stand back differently, some lose a corner to a yard, larger ones keep a courtyard', () => {

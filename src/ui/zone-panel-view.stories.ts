@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** Stories for the zone panel; each keeps its own zone, so the controls work in Storybook. */
 import type { Meta, StoryObj } from '@storybook/html-vite';
-import { cellBlock, NEW_ZONE, type ZoneSettings, type ZoneShapeKind } from '../tools/zone';
+import { cellBlock, NEW_ZONE, type ZoneSettings } from '../tools/zone';
+import type { ZoneShapeKind } from '../tools/zone-shape';
 import { renderZonePanel, type TokenChoice, type ZoneLabels } from './zone-panel-view';
 
 export interface ZonePanelArgs {

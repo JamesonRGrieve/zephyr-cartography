@@ -11,6 +11,122 @@
             "type": "number",
             "const": 1
         },
+        "key": {
+            "description": "This map’s own key: what other maps’ ways name it by, and the id its scene is made under.",
+            "type": "string",
+            "minLength": 1
+        },
+        "links": {
+            "default": [],
+            "description": "Its ways to other maps (needs the map’s own `key`).",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The way's key, unique in its map: what another map's way names it by."
+                    },
+                    "name": {
+                        "description": "The region’s name; omitted, \"To <map>\".",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "at": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "edge": {
+                                        "type": "string",
+                                        "enum": [
+                                            "north",
+                                            "east",
+                                            "south",
+                                            "west"
+                                        ]
+                                    },
+                                    "along": {
+                                        "description": "Squares along the edge from its top or left end; omitted, where a road runs off it, else its middle.",
+                                        "type": "number",
+                                        "minimum": 0
+                                    }
+                                },
+                                "required": [
+                                    "edge"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "fixture": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "A named piece outside on this map (a town on a chart)."
+                                    }
+                                },
+                                "required": [
+                                    "fixture"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "building": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "A building on this map: the way stands just inside its front door."
+                                    }
+                                },
+                                "required": [
+                                    "building"
+                                ],
+                                "additionalProperties": false
+                            }
+                        ],
+                        "description": "Where the way stands: over a map edge, over a place, or just inside a building’s door."
+                    },
+                    "to": {
+                        "default": null,
+                        "description": "Where it leads; null: a way still to be linked (a house’s door with no map of its own yet).",
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "map": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "The other map’s key."
+                                    },
+                                    "link": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Its way that this one leads to."
+                                    }
+                                },
+                                "required": [
+                                    "map",
+                                    "link"
+                                ],
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "key",
+                    "at"
+                ],
+                "additionalProperties": false,
+                "description": "A way to another map: a scene change for a token that walks into it, and the other map’s way leads back."
+            }
+        },
         "seed": {
             "default": 1,
             "description": "The same intent and seed always compose the same map.",

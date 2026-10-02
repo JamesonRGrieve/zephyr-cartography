@@ -11,7 +11,7 @@ import type { HazardKind, PlacedBehaviour, StampLight, StampTile } from '../stam
 import type { AreaDisplay, AreaEffect } from './area-effects';
 import type { BiomeKind } from './biome';
 import type { ShapeBox, ShapeStyle } from './shape';
-import type { ZoneShape } from './zone';
+import type { ZoneShape } from './zone-shape';
 
 export type DoorType = 'none' | 'door' | 'secret';
 
@@ -221,7 +221,7 @@ export interface SubmapTravel {
 }
 
 /** Where a teleport leads: a region in any scene, by id (a submap's other side). */
-interface RegionTarget {
+export interface RegionTarget {
     readonly scene: string;
     readonly region: string;
 }

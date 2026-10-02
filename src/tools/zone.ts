@@ -12,52 +12,12 @@
 import { localPoint } from '../geometry/rectangle';
 import type { Point } from '../geometry/spline';
 import { type Affected, parseAreaFields } from './area-effects';
+import type { RegionTarget, SubmapTravel } from './documents';
 import { NEW_FEATURE, parseFeatureCommon, type FeatureCommon } from './feature-common';
 import { isPoint, isRecord, numberOr, stringOrNull } from './guards';
+import { parseTravel } from './submap';
 import type { Costed } from './terrain-cost';
-
-/** Foundry's region shape types a zone can take (`BaseShapeData.TYPES`); `cells` is its grid-spaces shape. */
-export const ZONE_SHAPES = ['circle', 'ellipse', 'ring', 'cone', 'line', 'rectangle', 'cells', 'emanation'] as const;
-
-export type ZoneShapeKind = (typeof ZONE_SHAPES)[number];
-
-/** A grid cell by its row `i` and column `j`, from the cell the zone's point is in. */
-export interface CellOffset {
-    readonly i: number;
-    readonly j: number;
-}
-
-/** A cone's far edge: an arc, a straight edge, or a half circle (`ConeShapeData` `curvature`). */
-export const CONE_CURVATURES = ['round', 'flat', 'semicircle'] as const;
-
-export type ConeCurvature = (typeof CONE_CURVATURES)[number];
-
-/**
- * A zone's shape and size, in scene px. A circle, ellipse or ring is centred
- * on the zone's point; a cone or line starts there and points along its
- * rotation; a rectangle is centred there.
- */
-export type ZoneShape =
-    | { readonly kind: 'circle'; readonly radius: number }
-    | { readonly kind: 'ellipse'; readonly radiusX: number; readonly radiusY: number }
-    /** The band runs from `radius - innerWidth` to `radius + outerWidth`. */
-    | { readonly kind: 'ring'; readonly radius: number; readonly innerWidth: number; readonly outerWidth: number }
-    /** `angle` is the cone's spread, in degrees. */
-    | { readonly kind: 'cone'; readonly radius: number; readonly angle: number; readonly curvature: ConeCurvature }
-    | { readonly kind: 'line'; readonly length: number; readonly width: number }
-    | { readonly kind: 'rectangle'; readonly width: number; readonly height: number }
-    /**
-     * Whole spaces of a square grid (`GridShapeData`), relative to the one
-     * the zone's point is in, so moving the zone moves them by whole cells.
-     * `size` is the grid's cell size (px) it was made on.
-     */
-    | { readonly kind: 'cells'; readonly size: number; readonly cells: readonly CellOffset[] }
-    /**
-     * `radius` px round the attached token's own footprint (Foundry's
-     * emanation), which Foundry keeps fitted to the token as it moves; a
-     * circle at the zone's point while no token is attached.
-     */
-    | { readonly kind: 'emanation'; readonly radius: number };
+import { type CellOffset, CONE_CURVATURES, type ConeCurvature, ZONE_SHAPES, type ZoneShape, type ZoneShapeKind } from './zone-shape';
 
 /** What the zone panel edits. */
 export interface ZoneSettings {
@@ -72,9 +32,24 @@ export interface ZoneSettings {
     readonly attachedTo: string | null;
 }
 
+/**
+ * A zone that is a way to another map: its region has the fixed id `region`
+ * (so the other map's way can name it before either exists) and teleports a
+ * token that enters it to one of `targets`, travelling by `travel`. No
+ * targets yet is a way still to be linked (a house's door on a town map with
+ * no interior map), which takes no one anywhere.
+ */
+export interface ZoneLink {
+    readonly region: string;
+    readonly targets: readonly RegionTarget[];
+    readonly travel: SubmapTravel;
+}
+
 /** A zone; its one point is where its shape is placed. */
 export interface ZoneFeature extends FeatureCommon, ZoneSettings, Costed, Affected {
     readonly type: 'zone';
+    /** A way to another map (a door, a ramp, a map's edge); absent for a plain zone. */
+    readonly link?: ZoneLink;
 }
 
 /** A new zone's size (px): a circle this wide across three grid squares at Foundry's default 100 px grid. */
@@ -355,5 +330,20 @@ export function parseZone(v: unknown): ZoneFeature | null {
         gridBased: v['gridBased'] === true,
         attachedTo: stringOrNull(v['attachedTo']),
     });
-    return { ...zone, ...parseAreaFields(v), ...parseFeatureCommon(v) };
+    const link = parseZoneLink(v['link']);
+    return { ...zone, ...parseAreaFields(v), ...parseFeatureCommon(v), ...(link === null ? {} : { link }) };
+}
+
+/** A persisted way to another map, or null when there is none or it names no region of its own. */
+// eslint-disable-next-line no-restricted-syntax -- boundary: parses a zone's persisted link from scene-flag JSON
+export function parseZoneLink(v: unknown): ZoneLink | null {
+    if (!isRecord(v) || typeof v['region'] !== 'string' || v['region'] === '') {
+        return null;
+    }
+    const targets = (Array.isArray(v['targets']) ? v['targets'] : []).flatMap((t): RegionTarget[] =>
+        isRecord(t) && typeof t['scene'] === 'string' && typeof t['region'] === 'string' && t['scene'] !== '' && t['region'] !== ''
+            ? [{ scene: t['scene'], region: t['region'] }]
+            : [],
+    );
+    return { region: v['region'], targets, travel: parseTravel(v['travel']) };
 }

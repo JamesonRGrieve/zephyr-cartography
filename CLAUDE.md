@@ -288,9 +288,17 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   off its edge (its egress), a teleport region over that edge leads to the
   regional map, landing at the place it stands for; each place on a
   regional map (a town, a tavern, a landing site, a barrow) is a teleport
-  into that place's own map; a system chart's worlds lead into their
-  regional maps. Links name scenes by intent key, resolved when the scenes
-  are built or imported, so a set of maps arrives already joined.
+  into that place's own map; on a town or city map, each building with a
+  map of its own (the inn, the church, the wizard's tower) is a teleport
+  into that building's map at its door; a system chart's worlds lead into
+  their regional maps. Every link leads back the same way. Links name
+  scenes by intent key, resolved when the scenes are built or imported, so
+  a set of maps arrives already joined.
+- **Every building in a town has a door** (operator, 2026-10-02): a real
+  door in its wall (a native door the GM can lock), and its way to the
+  building's own map just inside it, so a token gets in only through a
+  door left unlocked. A building with no map of its own yet keeps the way,
+  leading nowhere until the GM links it.
 
 ---
 
@@ -818,6 +826,14 @@ These make everything after them cheaper and safer, so they come first.
     - The scene spec takes `zone` entries sized in its units, and rejects a
       shape Foundry would refuse.
     - Proven in `tests/e2e/pointer.spec.ts`.
+  - **Ways to other maps** (a zone's `link`, `ZoneLink`): the zone's
+    region has a fixed id (`region`) and teleports a token that enters it
+    to one of `targets` (a region in a scene, by id), landing as its
+    travel says (the spec's `placement`, the centre by default). No
+    targets is a way still to be linked, which takes no one anywhere. The
+    fixed id lets the other map's way name it before either exists, as a
+    submap link fixes both its regions. The scene spec's zones take
+    `link` (Foundry ids: sixteen letters and digits).
   - **[done] Grid spaces.** A zone's `cells` shape is Foundry's
     `GridShapeData`: whole spaces of a square grid, by row and column.
     - The spaces are relative to the cell the zone's point is in, so the
@@ -1506,7 +1522,22 @@ or a tavern is. Composition is the layer above them (operator decisions,
     amounts, some losing a corner to a yard, larger ones keeping a
     courtyard; the ground kept open (a chapel, its forecourt) carved out
     first with a street round it. Street pieces stand against the
-    frontages, roof pieces on the roofs.
+    frontages, roof pieces on the roofs. Every block has a front door, a
+    square wide in the middle of its longest side (a native door, closed,
+    for the GM to lock), and its way to the building's own map just
+    inside it (a linked zone with no targets until the GM links it).
+  - **Ways to other maps** (intent `key` and `links`, `compose/links.ts`).
+    A map with ways names itself by `key`; each way stands over a map edge
+    (where a road runs off it, as wide as the road, else the edge's
+    middle; or `along` it), over a named piece outside (a town on a
+    chart), or just inside a building's front door, and leads to another
+    map's way (`to: { map, link }`), or nowhere yet (`to: null`). It is a
+    rectangle zone with a link. Every id comes from keys: a map's scene is
+    made under `sceneIdOf(key)` and a way's region under
+    `linkRegionIdOf(map, link)`, so maps name each other's ways before
+    either is built, and scenes made under their maps' ids arrive joined.
+    The intent refuses a way with no map key, a key used twice, or a place
+    not on the map.
   - **Grime.** Decal art (`decal` role: stains, cracks, scorch, dust) is
     strewn along a room's walls and into its corners by its `grime`
     (default a little, 0.2: the prompts ask for scatter "sparse and
@@ -1721,6 +1752,14 @@ imports).
   - `transition`: stairs, ladder, lift or hatch; up, down or both; and the
     movement actions that use it;
   - `enterable` (submap-capable);
+  - `ways`: the ways in drawn on the art (a lowered `ramp`, a `hatch`, a
+    `door`), each a point of the image (fractions) and a `width` (a
+    fraction of the image's long side), per stamp and overridable per
+    variant (`null`: none, a ship with its ramps raised). Each is a gap
+    in the stamp's occlusion and body walls, and where the stamp is
+    linked to an interior, a teleport region of its own over each
+    (`nthEntranceId` derives the further ids from the link's first), so
+    nothing traps a token and every way in leads in;
   - `container`: `true`, or Item Piles pile options (type, starting closed or
     locked, distance, sounds, and which variant shows each pile state:
     closed, open, empty, locked); `false` for none. Omitted, its role and

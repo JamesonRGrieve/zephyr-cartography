@@ -287,6 +287,7 @@ describe('effectiveProperties', () => {
             surface: null,
             terrain: null,
             hazard: null,
+            ways: [],
         });
     });
 

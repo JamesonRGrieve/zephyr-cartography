@@ -253,6 +253,55 @@
                         "items": {
                             "type": "object",
                             "properties": {
+                                "ways": {
+                                    "description": "Overrides the stamp’s ways in; null for none in this variant (its ramps raised).",
+                                    "anyOf": [
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "kind": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "ramp",
+                                                            "hatch",
+                                                            "door"
+                                                        ]
+                                                    },
+                                                    "x": {
+                                                        "type": "number",
+                                                        "minimum": 0,
+                                                        "maximum": 1,
+                                                        "description": "Where it is on the image, a fraction of its width from the left."
+                                                    },
+                                                    "y": {
+                                                        "type": "number",
+                                                        "minimum": 0,
+                                                        "maximum": 1,
+                                                        "description": "A fraction of its height from the top."
+                                                    },
+                                                    "width": {
+                                                        "type": "number",
+                                                        "exclusiveMinimum": 0,
+                                                        "maximum": 1,
+                                                        "description": "How wide it is, a fraction of the image’s width."
+                                                    }
+                                                },
+                                                "required": [
+                                                    "kind",
+                                                    "x",
+                                                    "y",
+                                                    "width"
+                                                ],
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                },
                                 "state": {
                                     "type": "string",
                                     "minLength": 1,
@@ -1748,6 +1797,48 @@
                         "default": false,
                         "description": "Can open into a linked interior scene (submap).",
                         "type": "boolean"
+                    },
+                    "ways": {
+                        "description": "Its ways in drawn on the art (a vehicle’s ramps, a building’s doors): gaps in its walls, and its entrances where it is linked to an interior.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                        "ramp",
+                                        "hatch",
+                                        "door"
+                                    ]
+                                },
+                                "x": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "Where it is on the image, a fraction of its width from the left."
+                                },
+                                "y": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                    "description": "A fraction of its height from the top."
+                                },
+                                "width": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1,
+                                    "description": "How wide it is, a fraction of the image’s width."
+                                }
+                            },
+                            "required": [
+                                "kind",
+                                "x",
+                                "y",
+                                "width"
+                            ],
+                            "additionalProperties": false
+                        }
                     },
                     "container": {
                         "description": "Backed by an Item Piles pile: true for a plain container, or its pile options; false for none. Omitted: as its role and tags say (a chest, a footlocker, a locker holds things).",

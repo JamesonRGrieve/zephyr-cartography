@@ -21,6 +21,7 @@ import { DEFAULT_SHAPE_STYLE, makeShape, type ShapeFeature, type ShapeStyle } fr
 import { storedSpawn } from '../tools/spawn';
 import type { StampPlacement } from '../tools/stamp';
 import { DEFAULT_BRUSH_RADIUS, makeStroke } from '../tools/stroke';
+import { DEFAULT_TRAVEL } from '../tools/submap';
 import type { SwitchTarget } from '../tools/switch-targets';
 import { type Costed, storedCost } from '../tools/terrain-cost';
 import { DEFAULT_WALL_PRESET } from '../tools/wall-presets';
@@ -63,6 +64,19 @@ function scaleOf(spec: SceneSpec, options: RealizeOptions): Scale {
     };
 }
 
+/** The zone a spec describes, on `level`, a way to another map where it has a link; null where Foundry would refuse its shape. */
+function buildZone(spec: Extract<FeatureSpec, { type: 'zone' }>, id: string, level: string | null, scale: Scale): Feature | null {
+    const zone = withZoneSettings(makeZone(id, scale.point(spec)), {
+        name: spec.name,
+        shape: spec.shape.kind === 'cells' ? { ...spec.shape, size: scale.gridSize } : scaledZoneShape(spec.shape, scale.length(1)),
+        rotation: spec.rotation,
+        gridBased: spec.gridBased,
+        attachedTo: spec.attachedTo,
+    });
+    const link = spec.link && { region: spec.link.region, targets: spec.link.targets, travel: { ...DEFAULT_TRAVEL, placement: spec.link.placement } };
+    return zone && { ...zone, ...areaOf(spec), level, ...(link ? { link } : {}) };
+}
+
 /** The plain (non-stamp) feature a spec describes, on `level`, or null if it is malformed. */
 function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string, level: string | null, scale: Scale): Feature | null {
     if (spec.type === 'label') {
@@ -80,14 +94,7 @@ function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string,
         return shape && { ...shape, level };
     }
     if (spec.type === 'zone') {
-        const zone = withZoneSettings(makeZone(id, scale.point(spec)), {
-            name: spec.name,
-            shape: spec.shape.kind === 'cells' ? { ...spec.shape, size: scale.gridSize } : scaledZoneShape(spec.shape, scale.length(1)),
-            rotation: spec.rotation,
-            gridBased: spec.gridBased,
-            attachedTo: spec.attachedTo,
-        });
-        return zone && { ...zone, ...areaOf(spec), level };
+        return buildZone(spec, id, level, scale);
     }
     if (spec.type === 'region' || spec.type === 'stroke') {
         const ground = buildGround(spec, id, scale);

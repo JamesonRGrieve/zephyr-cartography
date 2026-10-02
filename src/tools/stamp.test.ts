@@ -5,8 +5,9 @@ import { deletePoint, movePoint } from './edit';
 import { NO_DOCS } from './generated-docs';
 import { featureHit } from './hit';
 import { type Level, NO_LEVEL_ART } from './levels';
-import { planDocuments } from './plan';
+import { nthEntranceId, planDocuments, wayGaps, withoutGaps } from './plan';
 import { behaviourOf, makeStamp, parseStamp, stampCorners, stampPoint, withStampFrame, withStampReads, withStampVariant } from './stamp';
+import { DEFAULT_TRAVEL } from './submap';
 
 const [lamp, crate] = catalogStamps([
     {
@@ -38,6 +39,114 @@ function stampOf(stamp: typeof lamp, placement: Partial<Parameters<typeof makeSt
     }
     return makeStamp('s1', stamp, { stamp: stamp.key, x: 500, y: 500, ...placement }, 50);
 }
+
+describe('ways in', () => {
+    // A shuttle 200 px square, walled round its box, with a ramp lowered from each side; raised in its second variant.
+    const [shuttle] = catalogStamps([
+        {
+            id: 'shuttle',
+            name: 'Shuttle',
+            category: 'Vehicles',
+            scale: 'exterior',
+            perspective: 'top-down',
+            occlusion: { shape: 'bounds', sight: true, movement: true },
+            ways: [
+                { kind: 'ramp', x: 0, y: 0.5, width: 0.3 },
+                { kind: 'ramp', x: 1, y: 0.5, width: 0.3 },
+            ],
+            variants: [
+                { state: 'landed', image: 'landed.png', width: 200, height: 200 },
+                { state: 'ramps raised', image: 'raised.png', width: 200, height: 200, ways: null },
+            ],
+        },
+    ]);
+    const placed = (variant = 0): ReturnType<typeof makeStamp> => {
+        if (!shuttle) {
+            throw new Error('missing fixture');
+        }
+        return makeStamp('sh', shuttle, { stamp: shuttle.key, x: 500, y: 500, variant }, 100);
+    };
+    const context = { features: [], levels: [], terrainRegions: false, gridDistance: 5 };
+    // Walls on the stamp's left side (x = 400): where the box's west wall runs.
+    const leftWall = (variant: number) =>
+        planDocuments(placed(variant), context).walls.filter((w) => Math.abs(w.a.x - 400) < 1e-6 && Math.abs(w.b.x - 400) < 1e-6);
+
+    it('leave a gap in the walls at each ramp, so a token coming down it can walk off', () => {
+        // Its west wall stands in two pieces, a ramp's width (0.3 of 200 px) open about its middle.
+        const pieces = leftWall(0)
+            .map((w) => [Math.min(w.a.y, w.b.y), Math.max(w.a.y, w.b.y)])
+            .sort(([a = 0], [b = 0]) => a - b);
+        expect(pieces).toEqual([
+            [400, 470],
+            [530, 600],
+        ]);
+        // With its ramps raised, the wall is whole.
+        expect(leftWall(1)).toHaveLength(1);
+    });
+
+    it('are its entrances where it is linked to an interior: one teleport over each ramp', () => {
+        const link = {
+            scene: 'Interior00000001',
+            sceneName: 'Shuttle',
+            entryRegion: 'ShuttleEntry0001',
+            exitRegion: 'ShuttleExit00001',
+            travel: DEFAULT_TRAVEL,
+        };
+        const regions = planDocuments({ ...placed(0), submap: link }, context).regions.filter((r) => r.label.kind === 'entrance');
+        // The first keeps the link's id; the second's is derived from it, never the same.
+        expect(regions.map((r) => r.id)).toEqual(['ShuttleEntry0001', nthEntranceId('ShuttleEntry0001', 1)]);
+        expect(regions[1]?.id).not.toBe('ShuttleEntry0001');
+        expect(regions.every((r) => r.behaviour?.kind === 'teleport')).toBe(true);
+        // Each a ramp's width square, about the ramp.
+        expect(regions[0]?.polygon[0]).toEqual({ x: 370, y: 470 });
+        // A stamp with no ramps drawn keeps one entrance over its whole footprint.
+        expect(planDocuments({ ...placed(1), submap: link }, context).regions.filter((r) => r.label.kind === 'entrance')).toHaveLength(1);
+    });
+
+    it('open its traced body walls at each ramp too, where only its body bars movement', () => {
+        const stamp = placed(0);
+        const body = {
+            ...stamp,
+            silhouette: [
+                [
+                    { x: 0, y: 0 },
+                    { x: 1, y: 0 },
+                    { x: 1, y: 1 },
+                    { x: 0, y: 1 },
+                ],
+            ],
+            behaviour: { ...stamp.behaviour, occlusion: null, physical: { blocksMovement: true } },
+        };
+        const left = planDocuments(body, context).walls.filter((w) => Math.abs(w.a.x - 400) < 1e-6 && Math.abs(w.b.x - 400) < 1e-6);
+        expect(left).toHaveLength(2);
+    });
+
+    it('leave a stamp saved before ways were kept whole', () => {
+        const { ways: _, ...behaviour } = placed(0).behaviour;
+        expect(wayGaps({ ...placed(0), behaviour })).toEqual([]);
+    });
+});
+
+describe('withoutGaps', () => {
+    const gap = { centre: { x: 5, y: 0 }, radius: 1 };
+    const along = (a: number, b: number) => ({ a: { x: a, y: 0 }, b: { x: b, y: 0 } });
+
+    it('cuts a gap out of a wall running through it', () => {
+        expect(withoutGaps(along(0, 10), [gap])).toEqual([along(0, 4), along(6, 10)]);
+    });
+
+    it('keeps a wall the gap misses, or one only its line would cross', () => {
+        const wide = { a: { x: 0, y: 3 }, b: { x: 10, y: 3 } };
+        expect(withoutGaps(wide, [gap])).toEqual([wide]);
+        expect(withoutGaps(along(0, 2), [gap])).toEqual([along(0, 2)]);
+        expect(withoutGaps(along(1, 1), [gap])).toEqual([along(1, 1)]);
+    });
+
+    it('drops what lies inside the gap, leaving no sliver', () => {
+        expect(withoutGaps(along(0, 5), [gap])).toEqual([along(0, 4)]);
+        expect(withoutGaps(along(4.5, 5.5), [gap])).toEqual([]);
+    });
+});
 
 describe('makeStamp', () => {
     it('scales the footprint to the scene grid and centres it on the point', () => {

@@ -362,8 +362,24 @@ const transitionSchema = z
     .strict()
     .describe('The stamp moves tokens between elevation levels.');
 
+/**
+ * A way into a stamp drawn on its art: a lowered ramp, a hatch, a door. Its
+ * walls leave a gap there (a token coming down a ramp can always walk off
+ * it), and where the stamp is linked to an interior, the way in is a scene
+ * change into it.
+ */
+const waySchema = z
+    .object({
+        kind: z.enum(['ramp', 'hatch', 'door']),
+        x: fraction.describe('Where it is on the image, a fraction of its width from the left.'),
+        y: fraction.describe('A fraction of its height from the top.'),
+        width: z.number().positive().max(1).describe('How wide it is, a fraction of the image’s width.'),
+    })
+    .strict();
+
 const variantSchema = z
     .object({
+        ways: z.array(waySchema).nullable().optional().describe('Overrides the stamp’s ways in; null for none in this variant (its ramps raised).'),
         state: text.describe('Display label for this variant, e.g. "intact", "open", "lit".'),
         image: text.describe(
             'Image path relative to the pack module root. GPU-compressed art (.ktx2, .basis) is drawn by the canvas, which browsers cannot show as an image, so give it a preview.',
@@ -552,6 +568,12 @@ const stampSchema = z
         door: doorSchema.optional(),
         transition: transitionSchema.optional(),
         enterable: z.boolean().default(false).describe('Can open into a linked interior scene (submap).'),
+        ways: z
+            .array(waySchema)
+            .optional()
+            .describe(
+                'Its ways in drawn on the art (a vehicle’s ramps, a building’s doors): gaps in its walls, and its entrances where it is linked to an interior.',
+            ),
         container: z
             .union([z.boolean(), containerSchema])
             .optional()
@@ -814,9 +836,12 @@ export const placedBehaviourSchema = z.object({
     terrain: terrainSchema.nullable().optional(),
     hazard: hazardSchema.nullable().optional(),
     trap: z.boolean().optional(),
+    ways: z.array(waySchema).optional(),
 });
 
 export type PlacedBehaviour = z.infer<typeof placedBehaviourSchema>;
+
+export type StampWay = z.infer<typeof waySchema>;
 
 export type StampHazard = z.infer<typeof hazardSchema>;
 

@@ -411,7 +411,7 @@ function siteBounds(site: Site): Rect {
     return { x, y, w: Math.max(...rects.map((r) => r.x + r.w)) - x, h: Math.max(...rects.map((r) => r.y + r.h)) - y };
 }
 
-interface LaidPath {
+export interface LaidPath {
     readonly kind: PathIntent['kind'];
     readonly points: readonly Point[];
     readonly halfWidth: number;
@@ -1071,7 +1071,7 @@ export function composeExterior(
     stamps: RoleIndex,
     random: Random,
     preferences: Preferences,
-): { features: FeatureInput[]; problems: ComposeProblem[] } {
+): { features: FeatureInput[]; problems: ComposeProblem[]; paths: readonly LaidPath[] } {
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     if (intent.ground !== null) {
@@ -1159,7 +1159,7 @@ export function composeExterior(
         features.push(...placed.map((s) => ({ type: 'stamp' as const, ...s })));
     }
     if (charted) {
-        return { features, problems };
+        return { features, problems, paths };
     }
     const placedProps = placeProps(intent.props, sites, stamps, keepout, props, random);
     features.push(...placedProps.features);
@@ -1195,5 +1195,5 @@ export function composeExterior(
     problems.push(...crossed.problems);
     const leads = intent.paths.map((p) => typeof p.to === 'object' && 'building' in p.to);
     features.push(...waymarks(paths, leads, stamps, keepout, random));
-    return { features, problems };
+    return { features, problems, paths };
 }

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { BLOCKS_ALL, type DrawingDoc, type RegionDoc } from '../tools/documents';
 import { DEFAULT_TRAVEL } from '../tools/submap';
-import type { ZoneShape } from '../tools/zone';
+import type { ZoneShape } from '../tools/zone-shape';
 import {
     doorStateFromDs,
     drawingCreateData,

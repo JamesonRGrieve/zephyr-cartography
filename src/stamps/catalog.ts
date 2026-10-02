@@ -20,6 +20,7 @@ import {
     type StampSound,
     type StampSurface,
     type StampHazard,
+    type StampWay,
     type StampTerrain,
     type StampTile,
     type StampVariant,
@@ -286,6 +287,8 @@ export interface EffectiveStampProperties {
     readonly terrain: StampTerrain | null;
     /** `null` when the variant (or stamp) harms nothing near it. */
     readonly hazard: StampHazard | null;
+    /** Its ways in drawn on this variant (ramps, hatches, doors); none where it has none or the variant says so. */
+    readonly ways: readonly StampWay[];
 }
 
 /** An override that replaces the stamp's value outright; `null` on the variant removes it. */
@@ -323,6 +326,8 @@ export function effectiveProperties(stamp: Stamp, index: number): EffectiveStamp
         surface: overridden(variant.surface, stamp.surface),
         terrain: overridden(variant.terrain, stamp.terrain),
         hazard: overridden(variant.hazard, stamp.hazard),
+        // A variant's null is its word: none in this state (its ramps raised).
+        ways: variant.ways === null ? [] : variant.ways ?? stamp.ways ?? [],
     };
 }
 

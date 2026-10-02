@@ -13,6 +13,8 @@ import type { SceneSpecInput } from '../generate/spec';
 import { boundsOf } from '../geometry/bounds';
 import { pointInPolygon } from '../geometry/hit';
 import type { Point } from '../geometry/spline';
+import { perimeterSegments } from '../geometry/wall';
+import { stableId } from '../tools/stable-id';
 import type { DistrictIntent } from './intent';
 import { namedArt, namedBox, standsAs } from './named';
 import type { RoleIndex } from './roles';
@@ -133,6 +135,39 @@ function blockOutline(block: Rect, random: Random, notchable: boolean): Point[] 
         ],
     ];
     return corners.flatMap((p, i) => (i === corner ? cut[i] ?? [p] : [p]));
+}
+
+/** Squares wide a block's front door is, and how far inside it its way to the building's own map stands. */
+const BLOCK_DOOR = 1;
+
+const ORIGIN: Point = { x: 0, y: 0 };
+
+/**
+ * A block's outline with a front door in the middle of its longest side, and
+ * the square just inside that door (operator, 2026-10-02: every building in a
+ * town has a door, its way to the building's map just inside, so a token gets
+ * in only through a door left unlocked). The outline runs clockwise, so the
+ * inside of a side is to its right.
+ */
+export function withFrontDoor(outline: readonly Point[]): { readonly points: Point[]; readonly door: number; readonly inside: Rect } {
+    const sides = perimeterSegments(outline);
+    const spans = sides.map((side) => Math.hypot(side.b.x - side.a.x, side.b.y - side.a.y));
+    const longest = spans.indexOf(Math.max(...spans));
+    // An outline with no sides (never a block's) takes its door at the origin.
+    const { a, b } = sides[longest] ?? { a: ORIGIN, b: ORIGIN };
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const dir = { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const half = BLOCK_DOOR / 2;
+    const doorFrom = { x: mid.x - dir.x * half, y: mid.y - dir.y * half };
+    const doorTo = { x: mid.x + dir.x * half, y: mid.y + dir.y * half };
+    const inward = { x: -dir.y, y: dir.x };
+    const centre = { x: mid.x + inward.x * half, y: mid.y + inward.y * half };
+    return {
+        points: [...outline.slice(0, longest + 1), doorFrom, doorTo, ...outline.slice(longest + 1)],
+        door: longest + 1,
+        inside: { x: centre.x - half, y: centre.y - half, w: BLOCK_DOOR, h: BLOCK_DOOR },
+    };
 }
 
 /** The turn that stands a piece against a block's `side`, outside it: its back (the image's top) to the block. */
@@ -284,10 +319,23 @@ export function districtFeatures(
             const outline = blockOutline(block, random, !courtyard);
             outlines.push(outline);
             const roofing = district.roofs[randomInt(random, 0, district.roofs.length - 1)] ?? 'floor.deck-plating';
-            const roof: FeatureInput = { ...outlineRoomSpec(outline, build(roofing)), ...level };
+            const front = withFrontDoor(outline);
+            const door = { segment: front.door, type: 'door' as const, state: 'closed' as const, sound: null, animation: null };
+            const roof: FeatureInput = { ...outlineRoomSpec(front.points, build(roofing), [door]), ...level };
+            // The way into the building's own map, just inside its door; leading nowhere until the GM links it.
+            const { inside } = front;
+            const way: FeatureInput = {
+                type: 'zone',
+                x: inside.x + inside.w / 2,
+                y: inside.y + inside.h / 2,
+                shape: { kind: 'rectangle', width: inside.w, height: inside.h },
+                name: 'Door',
+                link: { region: stableId(`block:${String(block.x)},${String(block.y)}`), targets: [], placement: 'center' },
+                ...level,
+            };
             if (!courtyard) {
                 dressRoof(outline, null);
-                return [roof];
+                return [roof, way];
             }
             // Its size and where it lies differ block to block, never nearer the edge than a quarter of the block.
             const share = (): number => COURTYARD.share[0] + random() * (COURTYARD.share[1] - COURTYARD.share[0]);
@@ -303,7 +351,7 @@ export function districtFeatures(
             ];
             dressRoof(outline, { x: cx, y: cy, w: cw, h: ch });
             // Drawn after the roof, so it lies over it: a room within a room is drawn above it.
-            return [roof, { ...outlineRoomSpec(court, build(district.courtyard)), ...level }];
+            return [roof, { ...outlineRoomSpec(court, build(district.courtyard)), ...level }, way];
         });
     const dressed = frontagePieces(district, outlines.map(boundsOf), stamps, random, level);
     return { features: [...buildings, ...onRoofs, ...dressed.features], boxed: [...boxed, ...dressed.boxed] };

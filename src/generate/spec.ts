@@ -24,7 +24,7 @@ import {
     TOGGLE_EVENTS,
 } from '../tools/area-effects';
 import { BIOMES } from '../tools/biome';
-import { DOOR_ANIMATIONS, type DoorState } from '../tools/documents';
+import { DOOR_ANIMATIONS, type DoorState, TRAVEL_PLACEMENTS } from '../tools/documents';
 import { MAX_FONT_SIZE, MIN_FONT_SIZE, NEW_LABEL } from '../tools/label';
 import { NO_LEVEL_ART, TEXTURE_FITS } from '../tools/levels';
 import type { Liquid, PathKind } from '../tools/path';
@@ -34,7 +34,8 @@ import { DEFAULT_SHAPE_STYLE, SHAPE_KINDS } from '../tools/shape';
 import { MAX_SPAWN_COUNT, NO_SPAWN, SPAWN_PLACEMENTS } from '../tools/spawn';
 import { MAX_SPLAT_LAYERS } from '../tools/splat';
 import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
-import { CONE_CURVATURES, FULL_TURN, validZoneShape } from '../tools/zone';
+import { FULL_TURN, validZoneShape } from '../tools/zone';
+import { CONE_CURVATURES } from '../tools/zone-shape';
 
 export const SCENE_SPEC_SCHEMA_VERSION = 1;
 
@@ -436,9 +437,25 @@ const zoneShapeSpec = z
     ])
     .describe("One of Foundry's region shapes, sized in the spec's units. A cone or line starts at the zone's point; the rest are centred on it.");
 
+/** A Foundry document id: sixteen letters and digits. */
+const documentId = z.string().regex(/^[A-Za-z0-9]{16}$/u, 'a Foundry id: 16 letters and digits');
+
+const zoneLinkSpec = z
+    .object({
+        region: documentId.describe("This zone's own region id, fixed so the other map's way can name it before either exists."),
+        targets: z
+            .array(z.object({ scene: documentId, region: documentId }).strict())
+            .default([])
+            .describe('Where it leads: a region in a scene, by id; none yet is a way still to be linked (a door into no map).'),
+        placement: z.enum(TRAVEL_PLACEMENTS).default('center').describe('Where an arriving token lands in the region it reaches.'),
+    })
+    .strict()
+    .describe('A way to another map: a door, a ramp, a map edge or a place on a chart. Its region teleports a token that enters it.');
+
 const zoneSpec = z
     .object({
         type: z.literal('zone'),
+        link: zoneLinkSpec.optional(),
         key: featureKey,
         x: z.number(),
         y: z.number(),

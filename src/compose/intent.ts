@@ -722,10 +722,42 @@ const platform = z
     })
     .describe('A raised platform: its floor on the level above the ground, railed round but where its stair from the ground arrives.');
 
+const mapLink = z
+    .object({
+        key: text.describe("The way's key, unique in its map: what another map's way names it by."),
+        name: text.optional().describe('The region’s name; omitted, "To <map>".'),
+        at: z
+            .union([
+                z
+                    .object({
+                        edge: z.enum(EDGES),
+                        along: z
+                            .number()
+                            .min(0)
+                            .optional()
+                            .describe('Squares along the edge from its top or left end; omitted, where a road runs off it, else its middle.'),
+                    })
+                    .strict(),
+                z.object({ fixture: text.describe('A named piece outside on this map (a town on a chart).') }).strict(),
+                z.object({ building: text.describe('A building on this map: the way stands just inside its front door.') }).strict(),
+            ])
+            .describe('Where the way stands: over a map edge, over a place, or just inside a building’s door.'),
+        to: z
+            .object({ map: text.describe('The other map’s key.'), link: text.describe('Its way that this one leads to.') })
+            .strict()
+            .nullable()
+            .default(null)
+            .describe('Where it leads; null: a way still to be linked (a house’s door with no map of its own yet).'),
+    })
+    .strict()
+    .describe('A way to another map: a scene change for a token that walks into it, and the other map’s way leads back.');
+
 export const mapIntentSchema = z
     .object({
         $schema: z.string().optional(),
         schemaVersion: z.literal(MAP_INTENT_SCHEMA_VERSION),
+        key: text.optional().describe('This map’s own key: what other maps’ ways name it by, and the id its scene is made under.'),
+        links: z.array(mapLink).default([]).describe('Its ways to other maps (needs the map’s own `key`).'),
         seed: z.number().int().default(1).describe('The same intent and seed always compose the same map.'),
         width: z.number().int().min(4).default(DEFAULT_MAP_SQUARES.width).describe('Map width in grid squares.'),
         height: z.number().int().min(4).default(DEFAULT_MAP_SQUARES.height),
@@ -785,6 +817,23 @@ export const mapIntentSchema = z
                 ctx.addIssue({ code: 'custom', path: ['props', i, 'beside', 'building'], message: `no building named ${p.beside.building}` });
             }
         });
+        if (intent.links.length > 0 && intent.key === undefined) {
+            ctx.addIssue({ code: 'custom', path: ['key'], message: 'a map with ways to others needs its own key' });
+        }
+        const fixtures = intent.fixtures.map((f) => f.name);
+        const seen = new Set<string>();
+        intent.links.forEach((l, i) => {
+            if (seen.has(l.key)) {
+                ctx.addIssue({ code: 'custom', path: ['links', i, 'key'], message: `a second way keyed ${l.key}` });
+            }
+            seen.add(l.key);
+            if ('building' in l.at && !buildings.includes(l.at.building)) {
+                ctx.addIssue({ code: 'custom', path: ['links', i, 'at', 'building'], message: `no building named ${l.at.building}` });
+            }
+            if ('fixture' in l.at && !fixtures.includes(l.at.fixture)) {
+                ctx.addIssue({ code: 'custom', path: ['links', i, 'at', 'fixture'], message: `no piece outside named ${l.at.fixture}` });
+            }
+        });
     });
 
 export type MapIntent = z.infer<typeof mapIntentSchema>;
@@ -798,6 +847,7 @@ export type PlatformIntent = MapIntent['platforms'][number];
 export type ZoneIntent = MapIntent['zones'][number];
 export type PathIntent = MapIntent['paths'][number];
 export type PropIntent = MapIntent['props'][number];
+export type MapLinkIntent = MapIntent['links'][number];
 export type AccessKind = (typeof ACCESS_KINDS)[number];
 export type Anchor = PathIntent['from'];
 export type RoomPurpose = (typeof ROOM_PURPOSES)[number];

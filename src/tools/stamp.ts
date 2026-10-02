@@ -127,6 +127,7 @@ export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour
         terrain: terrainUnsaid ? derived.terrain ?? null : props.terrain,
         hazard: hazardUnsaid ? derived.hazard ?? null : props.hazard,
         trap,
+        ways: [...props.ways],
     };
 }
 
