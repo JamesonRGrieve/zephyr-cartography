@@ -48,7 +48,7 @@
         "deps:ratchet": "node scripts/depcruise-ratchet.mjs",
         "lockfile:validate": "node scripts/lockfile-validate.mjs",
         "check": "pnpm lint && pnpm lint:biome && pnpm format && pnpm stylelint && pnpm typecheck && pnpm typecheck:tests && pnpm test && pnpm type-coverage && pnpm knip && pnpm deps:check && pnpm build && pnpm size-limit",
-        "gate": "pnpm format && pnpm stylelint && pnpm typecheck && pnpm typecheck:tests && pnpm test:coverage && pnpm coverage:ratchet && pnpm symmetry && pnpm schema:check && pnpm lint:ratchet && pnpm biome:ratchet && pnpm ts:ratchet && pnpm strict:ratchet && pnpm test:typecheck:ratchet && pnpm type-coverage:ratchet && pnpm knip:ratchet && pnpm deps:ratchet && pnpm lockfile:validate && pnpm build && pnpm size-limit && pnpm test:e2e && pnpm e2e:ratchet && pnpm test:storybook",
+        "gate": "bash scripts/gate.sh",
         "prepare": "husky"
     },
     "devDependencies": {

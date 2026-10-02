@@ -47,17 +47,22 @@ happens to sit inside the `dh-campaign` directory, but that campaign vault and i
 
 ## Code-quality bar — the full gate
 
-`pnpm gate` runs the whole gate serially (CI uses it) and must be green
-before a PR. `.husky/pre-commit` fans out everything but the e2e suite in
-parallel and must be green before a commit; the e2e suite is a PR and manual
-check, never a commit gate (operator decision, 2026-09-25). Every ratchet
+One script, `scripts/gate.sh`, is the whole gate, as parallel as the box
+allows (operator, 2026-10-02): every check, ratchet, the unit tests,
+Storybook and the build at once, then the e2e suite and its ratchet alone,
+wherever a Foundry release is present (as foundry-system's hook runs it).
+The e2e runner fans the suite out over isolated Foundry worlds, as many as
+the RAM and cores free when it starts allow (`scripts/run-e2e.mjs`; one for a
+filtered run; `E2E_WORKERS` overrides). `pnpm gate` (CI) and
+`.husky/pre-commit` (after lint-staged) both run it, and it must be green
+before a commit: commits never skip the e2e suite (operator, 2026-10-02,
+reversing the 2026-09-25 exclusion). Every ratchet
 is a **one-way valve**: a metric may improve, never regress, and a rule that
 reaches zero **graduates to a hard error** (and, for ESLint, flips
 `warn`→`error` in `.eslintrc.json`). Baselines are committed alongside the change
 that moves them.
 
-Gate members (all wired into `gate` + CI, and all but the e2e suite into
-pre-commit):
+Gate members (all wired into `gate`, CI and pre-commit):
 
 - **prettier** `--check` (zero diff), **stylelint**, **biome** (`biome:ratchet`, 0 diagnostics)
 - **tsc** `--noEmit` (main + `tsconfig.test.json`), **strict:ratchet**, **test:typecheck:ratchet**
@@ -80,8 +85,7 @@ pre-commit):
   Foundry v14 server** (see "E2E suite" below). No test may fail; the passed
   count and the source coverage the suite reaches (`.e2e-baseline`) may not
   fall. Skipped with a banner where no Foundry release is available (CI).
-  Not in the pre-commit hook: run it by hand (`pnpm test:e2e`) or through
-  `pnpm gate` before a PR.
+  The pre-commit hook's last phase, after the build.
 - **test:storybook**: Storybook builds, and Playwright renders **every
   story** in its `index.json` in a real browser. Each must mount with no page
   or console errors or failed loads, and match its committed screenshot

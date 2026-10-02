@@ -240,6 +240,41 @@
             ]
         },
         {
+            "id": "lander",
+            "name": "Lander",
+            "category": "Vehicles",
+            "scale": "exterior",
+            "perspective": "top-down",
+            "enterable": true,
+            "occlusion": {
+                "shape": "bounds",
+                "sight": true,
+                "movement": true
+            },
+            "ways": [
+                {
+                    "kind": "ramp",
+                    "x": 0,
+                    "y": 0.5,
+                    "width": 0.3
+                },
+                {
+                    "kind": "ramp",
+                    "x": 1,
+                    "y": 0.5,
+                    "width": 0.3
+                }
+            ],
+            "variants": [
+                {
+                    "state": "landed",
+                    "image": "stamps/residence.svg",
+                    "width": 200,
+                    "height": 200
+                }
+            ]
+        },
+        {
             "id": "stairs",
             "name": "Stairs",
             "category": "Access",

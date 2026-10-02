@@ -9,8 +9,9 @@
  * Usage: node scripts/run-e2e.mjs [playwright args...]
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { cpus } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,7 +28,44 @@ if (!existsSync(resolve(RELEASE, 'main.js'))) {
 }
 
 const PORT_BASE = Number(process.env['FOUNDRY_TEST_PORT'] ?? 30101);
-const WORKERS = Math.max(1, Number(process.env['E2E_WORKERS'] ?? 1));
+
+/** RAM one worker takes (a Foundry server and a Chromium drawing in software GL), in GB, with a worker's slack. */
+const WORKER_RAM_GB = 7;
+/** Cores one worker keeps busy. */
+const WORKER_CORES = 3;
+/** The most isolated worlds a run fans out to. */
+const MAX_WORKERS = 8;
+
+/** The box's memory available right now, in GB (MemAvailable: free plus what the kernel can reclaim). */
+function availableGb() {
+    const line = readFileSync('/proc/meminfo', 'utf8')
+        .split('\n')
+        .find((l) => l.startsWith('MemAvailable:'));
+    const kb = Number(line?.split(/\s+/u)[1] ?? 0);
+    return kb / 1024 / 1024;
+}
+
+/**
+ * Workers, one isolated Foundry world each: E2E_WORKERS when set; one for a
+ * filtered run (every worker boots its own server, which a single spec would
+ * waste); else as many as the box has room for now, as foundry-system's runner
+ * sizes its full runs (software GL: RAM / 7 GB and cores / 3, 1 to 8).
+ */
+function workerCount(filtered) {
+    if (process.env['E2E_WORKERS'] !== undefined) {
+        return Math.max(1, Number(process.env['E2E_WORKERS']));
+    }
+    if (filtered) {
+        return 1;
+    }
+    const byRam = Math.floor(availableGb() / WORKER_RAM_GB);
+    const byCores = Math.floor(cpus().length / WORKER_CORES);
+    return Math.min(MAX_WORKERS, Math.max(1, Math.min(byRam, byCores)));
+}
+
+const filtered = process.argv.slice(2).some((arg) => !arg.startsWith('-'));
+const WORKERS = workerCount(filtered);
+console.log(`[e2e] ${String(WORKERS)} worker(s), one isolated Foundry world each`);
 /** How long a previous run's servers get to release their ports and world databases. */
 const PORT_WAIT_MS = 60_000;
 const PORT_POLL_MS = 500;
@@ -69,7 +107,8 @@ for (const stale of ['.e2e-raw-coverage', '.e2e-coverage', '.e2e-results.json'])
     rmSync(resolve(ROOT, stale), { recursive: true, force: true });
 }
 
-const run = (command, args) => spawnSync(command, args, { cwd: ROOT, stdio: 'inherit' }).status ?? 1;
+// The config reads the worker count back, so it boots one server per worker.
+const run = (command, args) => spawnSync(command, args, { cwd: ROOT, stdio: 'inherit', env: { ...process.env, E2E_WORKERS: String(WORKERS) } }).status ?? 1;
 const tests = run(resolve(ROOT, 'node_modules/.bin/playwright'), ['test', '-c', 'playwright.e2e.config.ts', ...process.argv.slice(2)]);
 const coverage = run(process.execPath, [resolve(ROOT, 'scripts/e2e-coverage.mjs')]);
 process.exit(tests === 0 ? coverage : tests);

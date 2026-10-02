@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { z } from 'zod';
 import { parseMapIntent } from '../../src/compose/intent';
+import { sceneIdOf } from '../../src/compose/links';
 import { MAP_PRESETS, type MapPreset, PRESET_INTENTS } from '../../src/compose/presets';
 import { expect, freshScene, moduleActive, type SceneSize, test } from './lib/foundry';
 
@@ -86,7 +87,8 @@ for (const { key, intent: source } of listed) {
             throw new Error(`${key}: ${JSON.stringify(parsed.issues)}`);
         }
         const size: SceneSize = { width: parsed.intent.width * GRID, height: parsed.intent.height * GRID, gridSize: GRID };
-        await freshScene(world, key, size);
+        // A map with ways to others is made under its key's scene id, so the other maps' ways reach it when imported.
+        await freshScene(world, key, size, parsed.intent.key === undefined ? null : sceneIdOf(parsed.intent.key));
         await world.evaluate(async (set) => {
             await game.settings?.set('zephyr-cartography', 'textureSet', set);
         }, PAINTED);

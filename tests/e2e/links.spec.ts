@@ -86,3 +86,72 @@ test('every block of a city has a native door, its way to the building’s own m
     expect(built.doors).toBeGreaterThan(1);
     expect(built.teleports).toBe(built.doors);
 });
+
+test('ways stand over the edge a road leaves by, along an edge, over an area and at a two-storey house’s door, round the pieces its brief places', async ({
+    world,
+}) => {
+    const house = {
+        key: 'house',
+        at: { x: 4, y: 3 },
+        width: 10,
+        height: 8,
+        entrance: 'south',
+        rooms: [
+            {
+                key: 'hall',
+                purpose: 'hall',
+                entrance: true,
+                rect: { x: 0, y: 0, w: 6, h: 8 },
+                opensTo: ['store'],
+                furnish: 'fixtures',
+                // Pieces placed exactly, which the stairwell must keep off: at a point, against a wall, in a corner, along a line,
+                // and before another.
+                fixtures: [
+                    { name: 'centre chest', role: 'storage', width: 1, height: 1, place: { at: { x: 0.5, y: 0.5 } } },
+                    { name: 'wall chest', role: 'storage', width: 1, height: 1, place: { wall: 'top', along: 'start' } },
+                    { name: 'corner chest', role: 'storage', width: 1, height: 1, place: { corner: 'bottom-left' } },
+                    { name: 'line of chests', role: 'storage', width: 1, height: 1, place: { line: { from: { x: 0.8, y: 0.2 }, to: { x: 0.8, y: 0.6 } } } },
+                    { name: 'chest before', role: 'storage', width: 1, height: 1, place: { before: 'wall chest', gap: 0 } },
+                ],
+            },
+            { key: 'store', purpose: 'storage', rect: { x: 6, y: 0, w: 4, h: 8 } },
+        ],
+        floors: [{ name: 'Upper floor', rooms: [{ key: 'loft', purpose: 'storage' }] }],
+    };
+    const intent = {
+        schemaVersion: 1,
+        seed: 11,
+        key: 'e2e-farm',
+        width: 20,
+        height: 15,
+        paths: [{ kind: 'road', from: 'west', to: 'east', meander: 0 }],
+        buildings: [house],
+        links: [
+            { key: 'road-east', at: { edge: 'east' }, to: { map: 'e2e-region', link: 'farm' } },
+            { key: 'north', at: { edge: 'north', along: 3 }, to: null },
+            { key: 'cellar-hatch', at: { area: { x: 16, y: 1, w: 1, h: 1 } }, to: null },
+            { key: 'house-door', at: { building: 'house' }, to: null },
+        ],
+    };
+    const built = await world.evaluate(async (given) => {
+        const composed = await game.modules?.get('zephyr-cartography').api.compose(given);
+        const scene = canvas?.scene;
+        const grid = scene?.grid.size ?? 1;
+        const ways = (scene?.regions.contents ?? []).filter((r) => r.behaviors.contents.some((b) => b.type === 'teleportToken'));
+        return {
+            ok: composed?.ok === true,
+            ways: ways.map((r) => {
+                const shape = r.shapes[0];
+                return shape?.type === 'rectangle' ? { x: shape.x / grid, y: shape.y / grid } : null;
+            }),
+            levels: scene?.levels.size ?? 0,
+        };
+    }, intent);
+    expect(built.ok).toBe(true);
+    // Two floors, and the four ways as rectangle regions.
+    expect(built.levels).toBe(2);
+    expect(built.ways).toHaveLength(4);
+    // One stands over the east edge, where the road leaves the map; one at the north edge three squares along.
+    expect(built.ways.some((w) => w !== null && w.x > 18)).toBe(true);
+    expect(built.ways.some((w) => w !== null && w.y < 2 && w.x < 4)).toBe(true);
+});

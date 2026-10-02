@@ -2,48 +2,48 @@ name: CI
 
 # Self-contained code-quality gate for every push and pull request. It needs no
 # Foundry runtime: the unit suite (vitest) tests the pure geometry/tools/canvas
-# core, and the Playwright `test:e2e` lane (which needs a licensed Foundry) is
-# deliberately NOT run here.
+# core, and the e2e phase (which needs a licensed Foundry) skips itself here.
 #
-# `pnpm gate` runs the same set the pre-commit hook fans out in parallel:
+# `pnpm gate` is scripts/gate.sh, the same script the pre-commit hook runs:
 # format + stylelint + typecheck (main + tests) + vitest + every ratchet
 # (lint / biome / ts / strict / test-typecheck / type-coverage / knip / deps /
-# lockfile) + build + size-limit. The ratchets are one-way valves: none may
+# lockfile) + Storybook + build + size-limit, all in parallel, then the e2e
+# suite alone where a Foundry release is present. The ratchets are one-way valves: none may
 # regress against the committed baselines. The trailing `git diff --exit-code`
 # fails the build if a ratchet had to mutate a baseline or config, i.e. the
 # contributor did not run the gate locally.
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
 
 permissions:
-  contents: read
+    contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-  gate:
-    name: Format · lint · typecheck · tests · ratchets · build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      # The Storybook render suite drives a real browser. CI uses Playwright's
-      # bundled Chromium and ignores pixel snapshots (they are pinned to the
-      # system Chromium they were taken with); rendering and errors still gate.
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm gate
-      # A ratchet that mutated a baseline/config means the gate was not run
-      # locally before the commit — fail so the drift is committed deliberately.
-      - name: No baseline drift
-        run: git diff --exit-code
+    gate:
+        name: Format · lint · typecheck · tests · ratchets · build
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
+            - run: pnpm install --frozen-lockfile
+            # The Storybook render suite drives a real browser. CI uses Playwright's
+            # bundled Chromium and ignores pixel snapshots (they are pinned to the
+            # system Chromium they were taken with); rendering and errors still gate.
+            - run: pnpm exec playwright install --with-deps chromium
+            - run: pnpm gate
+            # A ratchet that mutated a baseline/config means the gate was not run
+            # locally before the commit — fail so the drift is committed deliberately.
+            - name: No baseline drift
+              run: git diff --exit-code

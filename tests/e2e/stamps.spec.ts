@@ -173,3 +173,29 @@ test('a GM moving the tile moves the stamp and its light', async ({ world }) => 
         )
         .toEqual({ x: 800, y: 600 });
 });
+
+test('a vehicle’s walls stand open at each ramp, and linked to an interior each ramp is a way into it', async ({ world }) => {
+    const found = await world.evaluate(async () => {
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
+        const id = (await controller?.placeStamp({ stamp: 'zc-e2e-pack:lander', x: 600, y: 600 })) ?? '';
+        const interior = await controller?.createInterior(id, 'Lander interior');
+        const scene = canvas?.scene;
+        const entrances = (scene?.regions.contents ?? []).filter((r) => r.behaviors.contents.some((b) => b.type === 'teleportToken'));
+        // The stamp's left and right sides: its box wall broken about each ramp's middle.
+        const side = (x: number): number[][] =>
+            (scene?.walls.contents ?? [])
+                .filter((w) => Math.abs(w.c[0] - x) < 1 && Math.abs(w.c[2] - x) < 1)
+                .map((w) => [Math.min(w.c[1], w.c[3]), Math.max(w.c[1], w.c[3])]);
+        return { interior, entrances: entrances.map((r) => r.id), left: side(500), right: side(700) };
+    });
+    expect(found.interior).not.toBeNull();
+    // One way in per ramp, under ids of their own.
+    expect(found.entrances).toHaveLength(2);
+    expect(new Set(found.entrances).size).toBe(2);
+    // Each side stands in two pieces, a ramp's width (0.3 of 200 px) open about its middle.
+    for (const wall of [found.left, found.right]) {
+        expect(wall).toHaveLength(2);
+        expect(wall.some(([, end]) => Math.abs((end ?? 0) - 570) < 1)).toBe(true);
+        expect(wall.some(([start]) => Math.abs((start ?? 0) - 630) < 1)).toBe(true);
+    }
+});

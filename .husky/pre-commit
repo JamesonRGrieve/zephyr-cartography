@@ -1,115 +1,21 @@
 # husky's hook runner invokes this via `sh`; on systems where `sh` is dash the
-# bash-specific syntax below (arrays, process management) fails to parse. Re-exec
-# under bash when we weren't started by it. POSIX-safe test; no-op in bash.
+# bash-specific syntax below fails to parse. Re-exec under bash when we weren't
+# started by it. POSIX-safe test; no-op in bash.
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 
 #
-# pre-commit — maximally parallelized gate, all of `pnpm gate` but the e2e suite.
+# pre-commit — lint-staged's auto-fixes, then the whole gate (scripts/gate.sh,
+# the same script `pnpm gate` and CI run): every check, the unit tests, Storybook
+# and the build in parallel, then the e2e suite alone across isolated Foundry
+# worlds, as foundry-system's hook runs it.
 #
-# Phase 1 (serial):   lint-staged writes back auto-fixes; every ratchet reads
-#                     source, so it must finish first.
-# Phase 2 (parallel): every read-only analysis / ratchet + tests + build run
-#                     concurrently. Each logs to .husky/_logs/<label>-<ts>.log;
-#                     on success the log is suppressed, on failure it is dumped
-#                     with a [<label>] prefix so a fanout failure is legible.
-#
-# Memory note: three tsc --noEmit passes (typecheck, strict:ratchet,
-# test:typecheck:ratchet) + type-coverage run concurrently. On a <16GB box move
-# the tsc passes into their own serial phase with a dedicated wait_all.
 
 set -u
 
 ROOT="$(git rev-parse --show-toplevel)"
-LOG_DIR="${ROOT}/.husky/_logs"
-mkdir -p "${LOG_DIR}"
-TS="$(date +%Y%m%d-%H%M%S)"
 
-PIDS=()
-LABELS=()
-LOGS=()
-FAILED=0
-
-run_bg() {
-    local label="$1"
-    shift
-    local log="${LOG_DIR}/${label}-${TS}.log"
-    echo "[pre-commit] ▶ ${label}"
-    ( "$@" ) >"$log" 2>&1 &
-    PIDS+=("$!")
-    LABELS+=("$label")
-    LOGS+=("$log")
-}
-
-wait_all() {
-    local i=0
-    local pid
-    local status
-    for pid in "${PIDS[@]}"; do
-        wait "$pid"
-        status=$?
-        if [ "$status" = "0" ]; then
-            echo "[pre-commit] ✓ ${LABELS[$i]}"
-        else
-            # 128+N means the job died from signal N (137 = killed), with nothing in its log.
-            echo "[pre-commit] ✗ ${LABELS[$i]} (exit ${status}; log: ${LOGS[$i]})" >&2
-            sed "s|^|[${LABELS[$i]}] |" "${LOGS[$i]}" >&2
-            FAILED=1
-        fi
-        i=$((i + 1))
-    done
-    PIDS=()
-    LABELS=()
-    LOGS=()
-}
-
-# ---------------------------------------------------------------------------
-# Phase 1: lint-staged (serial — writes back to source)
-# ---------------------------------------------------------------------------
-echo "[pre-commit] phase 1: lint-staged"
+# lint-staged writes back to source, so it finishes before anything reads it.
+echo "[pre-commit] lint-staged"
 pnpm exec lint-staged --hide-unstaged || exit 1
 
-# ---------------------------------------------------------------------------
-# Phase 2: every read-only analysis / ratchet + tests + build run concurrently.
-# ---------------------------------------------------------------------------
-echo "[pre-commit] phase 2: gate (parallel)"
-
-# Vitest is the slowest job — start it first so it overlaps the rest.
-run_bg "vitest"         bash -c './node_modules/.bin/vitest run --coverage && node scripts/coverage-ratchet.mjs'
-
-# tsc passes — heaviest, several GB each.
-run_bg "typecheck"      pnpm -s typecheck
-run_bg "strict"         pnpm -s strict:ratchet
-run_bg "test-typecheck" pnpm -s test:typecheck:ratchet
-run_bg "type-coverage"  pnpm -s type-coverage:ratchet
-
-# Whole-tree analyzers / ratchets.
-run_bg "eslint"         pnpm -s lint:ratchet
-run_bg "biome"          pnpm -s biome:ratchet
-run_bg "ts"             pnpm -s ts:ratchet
-run_bg "knip"           pnpm -s knip:ratchet
-run_bg "deps"           pnpm -s deps:ratchet
-
-# Formatting / style / supply-chain.
-run_bg "format"         pnpm -s format
-run_bg "stylelint"      pnpm -s stylelint
-run_bg "lockfile"       pnpm -s lockfile:validate
-run_bg "schema"         pnpm -s schema:check
-run_bg "symmetry"       pnpm -s symmetry
-
-# Storybook: the stories and their config must still build.
-run_bg "storybook"      pnpm -s test:storybook
-
-wait_all
-[ "$FAILED" = "0" ] || exit 1
-
-# ---------------------------------------------------------------------------
-# Phase 3: build, then the bundle size check against that build. The e2e suite
-# is not a commit gate: it boots a real Foundry server for tens of minutes, so
-# it runs by hand (`pnpm test:e2e`) and in `pnpm gate` before a PR.
-# ---------------------------------------------------------------------------
-echo "[pre-commit] phase 3: build + size"
-run_bg "build-size"     bash -c 'pnpm -s build && pnpm -s size-limit'
-wait_all
-[ "$FAILED" = "0" ] || exit 1
-
-echo "[pre-commit] all phases passed"
+GATE_LABEL=pre-commit exec bash "${ROOT}/scripts/gate.sh"

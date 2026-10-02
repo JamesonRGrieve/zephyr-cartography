@@ -36,7 +36,8 @@ export default defineConfig({
     testDir: './tests/e2e',
     testIgnore: FOUNDRY_PRESENT || REQUIRED ? [] : ['**/*.spec.ts'],
     workers: WORKERS,
-    fullyParallel: false,
+    // Each worker has its own world, so even one file's tests spread across them.
+    fullyParallel: WORKERS > 1,
     forbidOnly: process.env['CI'] !== undefined,
     retries: 0,
     timeout: 120_000,

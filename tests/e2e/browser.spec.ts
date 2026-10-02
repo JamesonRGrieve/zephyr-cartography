@@ -9,7 +9,7 @@ import { expect, test } from './lib/foundry';
 const BROWSER = '#zephyr-cartography-stamp-browser';
 
 /** Stamps in the e2e pack (tests/e2e/fixtures/pack/zephyr-pack.json). */
-const FIXTURE_STAMPS = 35;
+const FIXTURE_STAMPS = 36;
 
 async function openBrowser(page: Page): Promise<Locator> {
     await page.evaluate(async () => {
