@@ -8,7 +8,7 @@
 import { OPPOSITE_SIDE, type Side } from '../generate/floor-plan';
 import type { StampRole } from '../stamps/schema';
 import { isPlaceholder, placeholder } from './placeholders';
-import { partsOf, type RoleIndex, type RoleStamp, type RunEnd } from './roles';
+import { drawnAs, partsOf, type RoleIndex, type RoleStamp, type RunEnd } from './roles';
 
 /** What a named piece asks for. */
 export interface NamedPiece {
@@ -42,19 +42,32 @@ const reading = (stamp: RoleStamp, piece: NamedPiece): RoleStamp => (piece.reads
 /**
  * `art` drawn in the variant whose state holds `words` (a locker `ajar`), the
  * sharpest of several (one picture drawn at 128 pixels and again at 512), the
- * first of equals; a run's modules with it; as it is where none does.
+ * first of equals, of those drawn as its own is (never a side-on picture
+ * among plans), sized as that picture is at the art's scale; a run's modules
+ * with it and its ends refitted to their depth; as it is where none does.
  */
-function inState(art: RoleStamp, words: string | undefined): RoleStamp {
+export function inState(art: RoleStamp, words: string | undefined): RoleStamp {
     if (words === undefined) {
         return art;
     }
+    if (art.run !== undefined) {
+        const unit = inState(art.run.module, words);
+        const cap = art.run.cap === undefined ? undefined : depthOf(inState(art.run.cap, words), unit.height);
+        const run = { ...art.run, module: unit, ...(cap === undefined ? {} : { cap }) };
+        return { ...art, width: runLength(run), height: unit.height, run };
+    }
     const sharpness = (i: number): number => art.sharpness?.[i] ?? 0;
     const variant = (art.states ?? []).reduce(
-        (best, state, i) => (state.toLowerCase().includes(words.toLowerCase()) && (best < 0 || sharpness(i) > sharpness(best)) ? i : best),
+        (best, state, i) =>
+            art.sizes?.[i] !== null && state.toLowerCase().includes(words.toLowerCase()) && (best < 0 || sharpness(i) > sharpness(best)) ? i : best,
         -1,
     );
-    const stated = variant < 0 ? art : { ...art, variant };
-    return art.run === undefined ? stated : { ...stated, run: { ...art.run, module: inState(art.run.module, words) } };
+    const size = art.sizes?.[variant];
+    if (variant < 0) {
+        return art;
+    }
+    const scale = art.scale ?? 1;
+    return size ? { ...art, variant, width: size.width * scale, height: size.height * scale } : { ...art, variant };
 }
 
 /** The role a named piece stands as when it names none: a free-standing piece of plant. */
@@ -112,7 +125,8 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     };
     // A piece asking for a run's part by its tag (a counter's gate) is drawn in that part, which no list offers otherwise.
     const partAsked = tags.filter((tag) => PART_TAGS.includes(tag));
-    const asked =
+    // Each in the state asked (an open door, a lit lamp), sized as that picture is, before it is fitted or run.
+    const asked = (
         role === undefined
             ? []
             : partAsked.length > 0
@@ -121,7 +135,8 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
                   partsOf(pool, role).filter((s) => partAsked.some((tag) => s.tags.includes(tag))),
                   tags.filter((tag) => !partAsked.includes(tag)),
               )
-            : (pool.get(role) ?? []).filter((s) => !isPlaceholder(s.key) && (tags.length === 0 || tags.some((tag) => s.tags.includes(tag))));
+            : (pool.get(role) ?? []).filter((s) => !isPlaceholder(s.key) && (tags.length === 0 || tags.some((tag) => s.tags.includes(tag))))
+    ).map((s) => inState(s, piece.state));
     // A named piece stands exactly where asked, facing the way asked: art seen from above, which turns, before isometric art.
     const turnable = asked.filter((s) => !s.upright);
     const tagged = turnable.length > 0 ? turnable : asked;
@@ -152,7 +167,7 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     // a hatch): a run of it only where no one piece of its art fills what is asked (a length of pipe).
     const longer = whole === undefined || (role !== 'fitting' && reach(run ?? whole) > reach(whole));
     const drawn = run !== undefined && (openEnds.length > 0 || longer) ? run : whole;
-    return drawn && inState(reading(drawn, piece), piece.state);
+    return drawn && reading(drawn, piece);
 }
 
 /** The words of a piece's name as tags spell them: lower case, each also without a plural `s` (`cabinets` is a `cabinet`). */
@@ -287,14 +302,13 @@ const FULL_TURN = 360;
  */
 export function standsAs(piece: RoleStamp, at: { readonly x: number; readonly y: number }, rotation: number): PlacedPiece[] {
     const one = (art: RoleStamp, x: number, y: number, reads: string | undefined, mirror = false): PlacedPiece => ({
-        stamp: art.key,
+        ...drawnAs(art),
         x,
         y,
         rotation: (rotation + art.turn) % FULL_TURN,
         ...(art.scale === undefined ? {} : { scale: art.scale }),
         ...(reads === undefined ? {} : { reads }),
         ...(mirror ? { mirror: true as const } : {}),
-        ...(art.variant === undefined ? {} : { variant: art.variant }),
     });
     if (piece.run === undefined) {
         return [one(piece, at.x, at.y, piece.reads)];

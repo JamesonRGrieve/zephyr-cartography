@@ -27,7 +27,7 @@ import { DEFAULT_GRIME, WALL_SIDES, type FixtureIntent, type RoomPurpose } from 
 import { FACING_TURN, fittedTo, namedArt, namedBox, type PlacedPiece, runOf, standsAs } from './named';
 import { isPlaceholder } from './placeholders';
 import { isSurfaceRole } from './role-tags';
-import type { RoleIndex, RoleStamp } from './roles';
+import { drawnAs, type RoleIndex, type RoleStamp } from './roles';
 
 /** A stamp placed by the composer: its catalog key, footprint centre in squares, and rotation in degrees. */
 export type ComposedStamp = PlacedPiece;
@@ -273,13 +273,12 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
         { kind: 'scatter', role: 'debris', count: [0, 2] },
         { kind: 'scatter', role: 'clutter', count: [0, 2] },
     ],
-    // Open on three sides: a lamp by the door, a bench against the building, barrels at its ends, a crate or two.
+    // Open on three sides, kept clear to walk (operator, 2026-10-02: a porch heaped with sacks, crates and firewood read as a
+    // junk pile): a lamp by the door, a bench or two against the building, a barrel at an end.
     'porch': [
         { kind: 'wall', role: 'light', count: { per: LIGHT_SPACING * 2 }, prefer: 'inner' },
-        { kind: 'wall', role: 'bench', count: [2, 3], prefer: 'inner' },
-        { kind: 'corner', role: 'storage', count: [2, 3] },
-        { kind: 'wall', role: 'storage', count: [2, 4], prefer: 'inner' },
-        { kind: 'scatter', role: 'clutter', count: [1, 3] },
+        { kind: 'wall', role: 'bench', count: [1, 2], prefer: 'inner' },
+        { kind: 'corner', role: 'storage', count: [1, 2] },
     ],
 };
 
@@ -980,7 +979,7 @@ function placeUnderlay(floor: Floor, stamp: RoleStamp): void {
     const box = { x: rect.x + (rect.w - w) / 2, y: rect.y + (rect.h - h) / 2, w, h };
     if (w <= rect.w - 1 && h <= rect.h - 1 && !floor.inWay(box)) {
         floor.placed.push({
-            stamp: stamp.key,
+            ...drawnAs(stamp),
             x: rect.x + rect.w / 2,
             y: rect.y + rect.h / 2,
             rotation: ((turned ? QUARTER_TURN : 0) + stamp.turn) % FULL_TURN,

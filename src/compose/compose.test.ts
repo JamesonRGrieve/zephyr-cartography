@@ -673,7 +673,8 @@ describe('a roadside inn', () => {
 
     it('climbs to the guest rooms by the stair and down to the cellar by a ladder standing in the cellar, each inside the inn', () => {
         const [stair] = stampsOf('test:stairs');
-        const ladders = stampsOf('test:ladder');
+        // The ladder drawn under the storm doors outside is theirs (see below), drawn only.
+        const ladders = stampsOf('test:ladder').filter((l) => l.type === 'stamp' && l.inert !== true);
         expect(stair?.level).toBe('ground');
         expect(ladders.map((l) => l.level)).toEqual(['cellar-1']);
         for (const flight of [stair, ...ladders]) {
@@ -705,6 +706,9 @@ describe('a roadside inn', () => {
         const [doors] = stampsOf('test:storm-doors');
         expect(doors).toMatchObject({ level: 'ground', rotation: 0 });
         expect(doors?.type === 'stamp' && doors.y > inn.y + inn.h).toBe(true);
+        // Below them in the areaway, on the cellar level, what climbs up to them: drawn only, the doors' own region the way.
+        const foot = stampsOf('test:ladder').filter((l) => l.type === 'stamp' && l.y > inn.y + inn.h);
+        expect(foot).toEqual([expect.objectContaining({ level: 'cellar-1', inert: true, x: doors?.type === 'stamp' ? doors.x : NaN })]);
         // The cellar room on the other side of the wall has the door too.
         // With no way down loaded at all, the areaway is still walled, its door through, and nothing is placed to join it.
         const noWays = new Map([...TEST_ROLES].filter(([role]) => role !== 'stairs'));
@@ -780,6 +784,11 @@ describe('a roadside inn', () => {
         expect([Math.min(...xs), Math.max(...xs)]).toEqual([inn.x - 2, inn.x]);
         const onDeck = spec.features.filter((f) => f.type === 'stamp' && f.x > inn.x - 2 && f.x < inn.x && f.level === 'ground');
         expect(onDeck.length).toBeGreaterThanOrEqual(3);
+        // Kept clear to walk: a lamp, a bench or two, a barrel; no heap of stores and clutter.
+        const deckOutline = deck.points.flatMap((p) => [p.x, p.y]);
+        const standing = onDeck.filter((f) => f.type === 'stamp' && pointInPolygon(f, deckOutline));
+        expect(standing.filter((f) => f.type === 'stamp' && !['test:storage', 'test:light', 'test:bench'].includes(f.stamp))).toEqual([]);
+        expect(standing.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage').length).toBeLessThanOrEqual(2);
         // Stores stacked just outside the walls, and a cart.
         const stores = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage' && f.level === 'ground' && !inside(f));
         expect(stores.length).toBeGreaterThanOrEqual(4);
@@ -1046,6 +1055,51 @@ describe('maps drawn to a brief', () => {
         expect(roomA?.type === 'room' && (roomA.doors ?? []).map((d) => d.type)).toEqual(['opening']);
         const roomC = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(':c') === true);
         expect(roomC?.type === 'room' && (roomC.doors ?? []).map((d) => d.type)).toEqual(['opening']);
+    });
+
+    it('starts a locked room’s doors locked: in its door art’s locked picture, else the room’s own door, which locks', () => {
+        const seat = TEST_ROLES.get('seat')?.[0];
+        if (!seat) {
+            throw new Error('test seat');
+        }
+        const intent = intentOf({
+            ground: null,
+            buildings: [
+                {
+                    at: { x: 0, y: 0 },
+                    width: 12,
+                    height: 6,
+                    frontDoorAt: 2,
+                    rooms: [
+                        { key: 'a', purpose: 'hall', rect: { x: 0, y: 0, w: 6, h: 6 }, entrance: true, furnish: 'fixtures', grime: 0 },
+                        // Locked though left open: a locked door is never left standing open.
+                        {
+                            key: 'b',
+                            purpose: 'bedroom',
+                            rect: { x: 6, y: 0, w: 6, h: 6 },
+                            opensTo: ['a'],
+                            doorLocked: true,
+                            doorOpen: true,
+                            furnish: 'fixtures',
+                            grime: 0,
+                        },
+                    ],
+                },
+            ],
+        });
+        const stateOf = (spec: SceneSpec): (string | undefined)[] =>
+            spec.features.flatMap((f) => (f.type === 'room' && f.key?.endsWith(':b') === true ? f.doors.map((d) => d.state) : []));
+        // No door art: the room draws its door, locked.
+        expect(stateOf(composeMap(intent, TEST_ROLES).spec)).toEqual(['locked']);
+        // Art with a locked picture hangs in it, in that picture.
+        const lockable = { ...seat, key: 'test:door', role: 'door' as const, width: 1, height: 0.3, doorStates: { closed: 0, open: 1, locked: 2 } };
+        const hung = composeMap(intent, new Map([...TEST_ROLES, ['door' as const, [lockable]]])).spec;
+        expect(hung.features).toContainEqual(expect.objectContaining({ type: 'stamp', stamp: 'test:door', x: 6, variant: 2 }));
+        // Art that draws no lock is not hung there: the room's own door keeps the lock.
+        const unlockable = { ...lockable, doorStates: { closed: 0, open: 1 } };
+        const kept = composeMap(intent, new Map([...TEST_ROLES, ['door' as const, [unlockable]]])).spec;
+        expect(kept.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:door' && f.x === 6)).toEqual([]);
+        expect(stateOf(kept)).toEqual(['locked']);
     });
 
     it('lets players read a named piece’s words on hover, over its art or its box', () => {

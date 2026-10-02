@@ -1426,7 +1426,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
     with a door through into the cellar room behind it, and storm doors
     over it on the ground, back to the wall: art tagged `storm` first, then
     any hatch going down, only then a flight down (never a crypt stair
-    while storm doors are loaded). Without
+    while storm doors are loaded), drawn standing open where its art has
+    an `open` state, so the way down is seen; below them in the areaway, on
+    the cellar's level, a ladder (else a flight) climbing up to them is
+    drawn, `inert`, the doors' own region being the way. Without
     such art a ladder stands in the areaway. The areaway is the building's
     annex: paths and dressing keep off it.
   - **Borrowing.** A way between levels, or a guest room's bed, is never
@@ -1507,9 +1510,13 @@ or a tavern is. Composition is the layer above them (operator decisions,
     point is centred there even into the wall (a firing port set in a hull),
     never drawn in to stand wholly inside. A piece's `state`
     (`ajar`, `lit`) draws its art in the variant whose state holds
-    those words (the sharpest of several, by their `resolution`), a run's
-    modules with it; as drawn where none does. A room's `doorOpen`
-    leaves its doors standing open. A run's `open` ends (map sides across
+    those words (the sharpest of several, by their `resolution`, of those
+    drawn as its own is: never a side-on picture among plans), sized as
+    that picture is before it is fitted, a run's modules with it and its
+    end pieces refitted to their depth; as drawn where none does. A
+    room's `doorOpen` leaves its doors standing open; its `doorLocked`
+    starts them locked (an inn's guest rooms), in its door art's locked
+    picture, else the room's own door, which locks. A run's `open` ends (map sides across
     its front, for a piece standing where asked) take no end piece, so two
     runs butt square into one piece: an L-shaped bar is two counters, the
     short leg open where it meets the long one and where it meets the wall.
@@ -1623,11 +1630,21 @@ or a tavern is. Composition is the layer above them (operator decisions,
     square inside its shore nearest the other end.
   - **Bridges.** Wherever a road crosses a river, a `bridge` stamp is laid
     along the road (art drawn with depth only where the road runs as it
-    is drawn); none loaded is reported.
+    is drawn), a bridge built for a road (tagged `road`) before a
+    footbridge or a rope span; none loaded is reported.
+  - **Sound before wrecked.** Art tagged as a wreck (`ruined`, `broken`,
+    `collapsed`, `destroyed`, `abandoned`) stands as a bridge or a prop
+    only where no sound art of its role is loaded (`soundFirst`): a
+    lived-in place's well stands whole.
   - **Props** stand one named piece (by role) at a point or in a
     building's yard (its front first, or the side asked for), clear of
     paths, walls and what the building has outside (a porch), before
     anything is scattered round it.
+  - **Variants.** Every placement names its art with `drawnAs`: its key
+    and the variant it is drawn in where that is not its default (the
+    picture seen from above where the default is side-on, a named
+    state), so nothing is sized and turned for one picture and drawn in
+    another.
   - **Waymarks.** Where a road leading to a building turns off another,
     a milestone or wayside post stands at the corner.
   - A zone's dressing that clumping and thinning leave empty (a camp

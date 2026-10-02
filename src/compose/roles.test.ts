@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { type CatalogStamp, loadPacks } from '../stamps/catalog';
-import { partsOf, roleIndex } from './roles';
+import { drawnAs, partsOf, roleIndex, soundFirst } from './roles';
 
 function stamps(defs: readonly object[], referenceGridSize = 100): readonly CatalogStamp[] {
     const packs = loadPacks([{ moduleId: 'pack', manifest: { schemaVersion: 1, id: 'pack', name: 'Pack', referenceGridSize, stamps: defs } }]);
@@ -132,6 +132,62 @@ describe('roleIndex variants', () => {
             [],
         );
         expect(index.get('storage')?.[0]?.sharpness).toEqual([128, 2048, 0]);
+    });
+
+    it("knows each variant's size in squares as its drawn one is turned, and none for a picture drawn another way", () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('cabinet', {
+                    role: 'storage',
+                    perspective: 'orthographic',
+                    placement: { back: 'left' },
+                    variants: [
+                        { state: 'shut', image: 'stamps/a.png', width: 200, height: 100 },
+                        { state: 'open', image: 'stamps/b.png', width: 300, height: 100 },
+                        { state: 'open', image: 'stamps/c.png', width: 300, height: 100, perspective: 'front' },
+                    ],
+                }),
+            ]),
+            [],
+        );
+        // Its back on the image's left: lengths run along the image's height.
+        expect(index.get('storage')?.[0]?.sizes).toEqual([{ width: 1, height: 2 }, { width: 1, height: 3 }, null]);
+    });
+
+    it('names a placed piece by its key and the variant it is drawn in, where that is not its default', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('shelf-module', {
+                    role: 'shelf',
+                    perspective: 'orthographic',
+                    variants: [
+                        { state: 'front', image: 'stamps/front.png', width: 100, height: 68, perspective: 'front' },
+                        { state: 'plan', image: 'stamps/plan.png', width: 100, height: 68 },
+                    ],
+                }),
+                stampDef('plain-shelf', { role: 'shelf' }),
+            ]),
+            [],
+        );
+        const [planned, plain] = index.get('shelf') ?? [];
+        expect(planned && drawnAs(planned)).toEqual({ stamp: 'pack:shelf-module', variant: 1 });
+        expect(plain && drawnAs(plain)).toEqual({ stamp: 'pack:plain-shelf' });
+    });
+});
+
+describe('soundFirst', () => {
+    it('keeps wrecked art out of a lived-in place while any sound art is loaded, and takes it only where it is all there is', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('ruined-well', { role: 'well', scale: 'exterior', tags: ['ruined', 'well'] }),
+                stampDef('stone-well', { role: 'well', scale: 'exterior', tags: ['stone', 'well'] }),
+            ]),
+            [],
+        );
+        const wells = index.get('well') ?? [];
+        expect(soundFirst(wells).map((s) => s.key)).toEqual(['pack:stone-well']);
+        const ruins = wells.filter((s) => s.tags.includes('ruined'));
+        expect(soundFirst(ruins)).toBe(ruins);
     });
 });
 

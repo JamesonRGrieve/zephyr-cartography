@@ -31,7 +31,7 @@ import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders
 import { platformFeatures } from './platform';
 import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './preferences';
 import { type ComposeProblem, distinctProblems } from './problems';
-import type { RoleIndex, RoleStamp } from './roles';
+import { drawnAs, type RoleIndex, type RoleStamp } from './roles';
 import { flawsOf, layOutStoreys, type Storeys, type Well, type Wells } from './storeys';
 import { windowSlots } from './windows';
 
@@ -257,7 +257,12 @@ function hungDoor(slot: DoorSlot, rect: Rect, stamps: RoleIndex, tags: readonly 
         right: { x: rect.x + rect.w, y: mid },
     };
     const states = art.doorStates ?? {};
-    const variant = (slot.open === true ? states.open : undefined) ?? states.closed ?? 0;
+    // Art's door takes its state from the variant it shows: a locked doorway whose art draws no lock keeps the room's own door, which locks.
+    if (slot.locked === true && states.locked === undefined) {
+        return null;
+    }
+    const shown = slot.locked === true ? states.locked : slot.open === true ? states.open : undefined;
+    const variant = shown ?? states.closed ?? 0;
     return {
         type: 'stamp',
         stamp: art.key,
@@ -394,7 +399,7 @@ function flights(
         if (foot !== null) {
             const box = placeholder('stairs', foot, width, height);
             return [
-                { type: 'stamp', stamp: stair.key, x, y, rotation, ...above },
+                { type: 'stamp', ...drawnAs(stair), x, y, rotation, ...above },
                 { type: 'stamp', stamp: box.key, x, y, ...levelOf(lowest + n) },
             ];
         }
@@ -402,7 +407,7 @@ function flights(
         const opening: FeatureInput = wayDown
             ? {
                   type: 'stamp',
-                  stamp: wayDown.key,
+                  ...drawnAs(wayDown),
                   x,
                   y,
                   rotation: (wayDown.turn + turned) % FULL_TURN,
@@ -412,7 +417,7 @@ function flights(
                   ...above,
               }
             : { type: 'shape', kind: 'rectangle', x, y, width, height, stroke: OPENING.stroke, fill: OPENING.fill, ...above };
-        return [{ type: 'stamp', stamp: stair.key, x, y, rotation, ...levelOf(lowest + n) }, opening];
+        return [{ type: 'stamp', ...drawnAs(stair), x, y, rotation, ...levelOf(lowest + n) }, opening];
     }).flat();
 }
 
@@ -747,14 +752,19 @@ function stormDoorFeatures(doorway: StormDoorway, building: BuildingIntent, call
     }
     const joined: FeatureInput = {
         type: 'stamp',
-        stamp: piece.stamp.key,
+        ...drawnAs(piece.stamp),
         x: piece.x,
         y: piece.y,
         rotation: piece.rotation,
         ...(piece.onGround ? levelOf(0) : cellar),
     };
     if (piece.onGround) {
-        return [areaway, joined];
+        // Below the storm doors, what climbs up to them: drawn only, the doors' own region being the way between the levels.
+        const { foot } = doorway;
+        const climb: FeatureInput[] = foot
+            ? [{ type: 'stamp', ...drawnAs(foot.stamp), x: foot.x, y: foot.y, rotation: foot.rotation, inert: true, ...cellar }]
+            : [];
+        return [areaway, joined, ...climb];
     }
     // Without storm door art, the flight stands below; on the ground the doors are boards over the areaway, so it is seen and found.
     return [areaway, joined, boardsOver(doorway.areaway, levelOf(0))];

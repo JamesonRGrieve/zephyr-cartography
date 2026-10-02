@@ -13,7 +13,7 @@ import { flightFor } from './access';
 import type { PlatformIntent } from './intent';
 import { standingAt } from './named';
 import type { ComposeProblem } from './problems';
-import type { RoleIndex, RoleStamp } from './roles';
+import { drawnAs, type RoleIndex, type RoleStamp } from './roles';
 
 type FeatureInput = SceneSpecInput['features'][number];
 
@@ -72,7 +72,7 @@ function stairUp(
         flight: [
             {
                 type: 'stamp',
-                stamp: stair.key,
+                ...drawnAs(stair),
                 ...stairFoot(rect, asked.side, asked.at, stair),
                 rotation: (stair.turn + CLIMB_TURN[asked.side]) % FULL_TURN,
                 ...ground,

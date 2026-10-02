@@ -63,6 +63,13 @@ export interface RoleStamp {
     readonly states?: readonly string[];
     /** Each variant's image resolution (its long side in pixels), by variant; omitted where none says. */
     readonly sharpness?: readonly number[];
+    /**
+     * Each variant's size in grid squares, as `width` and `height` are its
+     * drawn variant's (back to the top), by variant; null for one drawn
+     * another way (side-on among plans), never asked for by state. Omitted
+     * where none says.
+     */
+    readonly sizes?: readonly ({ readonly width: number; readonly height: number } | null)[];
     /** The variant it is drawn in (a named piece's state); omitted, its default. */
     readonly variant?: number;
     /** For a run piece, the gate and corner pieces of its kind (never drawn alone): what a named piece may ask for by its tag. */
@@ -192,6 +199,11 @@ function roleStampOf(stamp: CatalogStamp, role: StampRole, variant: CatalogStamp
     const sideways = back === 'left' || back === 'right';
     const w = variant.width / stamp.referenceGridSize;
     const h = variant.height / stamp.referenceGridSize;
+    // Each variant's size as this one is sized, its back turned alike; none for one drawn another way (side-on beside plans).
+    const sizes = stamp.variants.map((v) => {
+        const [vw, vh] = [v.width / stamp.referenceGridSize, v.height / stamp.referenceGridSize];
+        return seenFromAbove(stamp, v) === flat ? { width: sideways ? vh : vw, height: sideways ? vw : vh } : null;
+    });
     return {
         key: stamp.key,
         role,
@@ -208,7 +220,9 @@ function roleStampOf(stamp: CatalogStamp, role: StampRole, variant: CatalogStamp
         tags: stamp.tags,
         ...(stamp.door === undefined ? {} : { doorStates: doorStatesOf(stamp) }),
         // A state to ask for only where there is another to choose from.
-        ...(stamp.variants.length > 1 ? { states: stamp.variants.map((v) => v.state), sharpness: stamp.variants.map((v) => pixelsOf(v.resolution)) } : {}),
+        ...(stamp.variants.length > 1
+            ? { states: stamp.variants.map((v) => v.state), sharpness: stamp.variants.map((v) => pixelsOf(v.resolution)), sizes }
+            : {}),
     };
 }
 
@@ -220,6 +234,26 @@ const pixelsOf = (resolution: string | undefined): number =>
 const TURN_TO_TOP: Readonly<Record<StampBack, number>> = { top: 0, right: 270, bottom: 180, left: 90 };
 
 export type RoleIndex = ReadonlyMap<StampRole, readonly RoleStamp[]>;
+
+/**
+ * `art` as a placed stamp names it: its key, and the variant it is drawn in
+ * where that is not its default (art seen from above where the default is
+ * side-on, a named state). Every placement goes through this, so none draws
+ * the default picture the composer sized and turned another for.
+ */
+export const drawnAs = (art: RoleStamp): { readonly stamp: string; readonly variant?: number } => ({
+    stamp: art.key,
+    ...(art.variant === undefined ? {} : { variant: art.variant }),
+});
+
+/** Tags of art showing its piece wrecked (a ruined well, a collapsed span): a ruin's art. */
+const WRECKED_TAGS: readonly string[] = ['ruined', 'ruin', 'broken', 'destroyed', 'collapsed', 'wrecked', 'abandoned'];
+
+/** `choices` but the wrecked, where any sound art is left: a lived-in place's well stands whole (operator, 2026-10-02). */
+export function soundFirst(choices: readonly RoleStamp[]): readonly RoleStamp[] {
+    const sound = choices.filter((art) => !art.tags.some((tag) => WRECKED_TAGS.includes(tag)));
+    return sound.length > 0 ? sound : choices;
+}
 
 /** The gate and corner pieces `index` holds for `role` on its run pieces (a counter's lifting gate, its corner), for a named piece asking for one. */
 export function partsOf(index: RoleIndex, role: StampRole): readonly RoleStamp[] {

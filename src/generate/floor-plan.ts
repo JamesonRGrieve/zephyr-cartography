@@ -73,6 +73,8 @@ export interface DoorSlot {
     readonly width?: number;
     /** Standing open: a door left open, or an archway. */
     readonly open?: boolean;
+    /** Shut and locked: a key, a pick or a GM wanted to open it. */
+    readonly locked?: boolean;
     /** A doorless archway, never hung with a door. */
     readonly arch?: boolean;
     /** A secret door: wall to look at, a native secret door to find. */
@@ -189,7 +191,7 @@ function sidePoints(start: Corner, end: Corner, doorsAt: readonly DoorSlot[]): {
     return { points: [start, ...breaks.map(along)], doorStarts: entries.map(along) };
 }
 
-/** The door in a doorway: an archway is an opening with no door and no wall; else a door, standing open where the slot says. */
+/** The door in a doorway: an archway is an opening with no door and no wall; else a door, locked or standing open where the slot says. */
 function doorOf(slot: DoorSlot | undefined): DoorSettings {
     if (slot?.arch === true) {
         return { ...NEW_DOOR, type: 'opening', state: 'open' };
@@ -197,7 +199,8 @@ function doorOf(slot: DoorSlot | undefined): DoorSettings {
     if (slot?.secret === true) {
         return { ...NEW_DOOR, type: 'secret' };
     }
-    return { ...NEW_DOOR, ...(slot?.open === true ? { state: 'open' } : {}), ...(slot?.animation === undefined ? {} : { animation: slot.animation }) };
+    const state = slot?.locked === true ? { state: 'locked' as const } : slot?.open === true ? { state: 'open' as const } : {};
+    return { ...NEW_DOOR, ...state, ...(slot?.animation === undefined ? {} : { animation: slot.animation }) };
 }
 
 /** What a room is built of: its floor, its drawn walls, their Foundry kind, and whether it has a ceiling. */

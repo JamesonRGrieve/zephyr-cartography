@@ -13,6 +13,7 @@ import { type DoorSlot, OPPOSITE_SIDE, type Rect, type Side } from '../generate/
 import { pick, type Random } from '../generate/random';
 import type { StampTransitionKind } from '../stamps/schema';
 import type { AccessKind, Edge } from './intent';
+import { inState } from './named';
 import type { ComposeProblem } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
 
@@ -143,10 +144,23 @@ export interface StormDoorway {
     readonly door: DoorSlot;
     /** The same door, as the building's own wall has it. */
     readonly through: DoorSlot;
-    /** The storm doors over the areaway on the ground level, or a flight standing in for them on the cellar's; null with neither. */
+    /**
+     * The storm doors over the areaway on the ground level (drawn flung open
+     * where their art has such a state, so the way down is seen), or a
+     * flight standing in for them on the cellar's; null with neither.
+     */
     readonly piece: { readonly stamp: RoleStamp; readonly x: number; readonly y: number; readonly rotation: number; readonly onGround: boolean } | null;
+    /**
+     * Under storm doors, what climbs to them in the areaway on the cellar's
+     * level: drawn only, the storm doors' own way between the levels being
+     * the one way; null where the doors are the flight itself or none climbs.
+     */
+    readonly foot: { readonly stamp: RoleStamp; readonly x: number; readonly y: number; readonly rotation: number } | null;
     readonly problems: readonly ComposeProblem[];
 }
+
+/** The state storm doors are drawn in: standing open, the way down seen. */
+const STORM_DOORS_SHOWN = 'open';
 
 /** Each map edge as the side of a footprint facing it. */
 const EDGE_SIDE: Readonly<Record<Edge, Side>> = { north: 'top', east: 'right', south: 'bottom', west: 'left' };
@@ -196,29 +210,28 @@ export function stormDoorway(
         list.filter((s) => s.climb?.kind === 'hatch'),
         list,
     ];
-    const doors = pick(random, firstOf([...tiers(own), ...tiers(lent)]));
+    const picked = pick(random, firstOf([...tiers(own), ...tiers(lent)]));
+    const doors = picked && inState(picked, STORM_DOORS_SHOWN);
     // Standing in, a ladder suits a cramped areaway best.
     const climbing = climbers(stamps, below);
     const [ownLadder = [], borrowedLadder = []] = ownFirst(climbing, (s) => s.climb?.kind === 'ladder');
     const [ownAny = [], borrowedAny = []] = ownFirst(climbing, () => true);
-    const stamp = doors ?? pick(random, firstOf([ownLadder, ownAny, borrowedLadder, borrowedAny]));
-    const along = Math.max(MIN_AREAWAY, Math.ceil(stamp?.width ?? 0));
-    const depth = Math.max(MIN_AREAWAY, Math.ceil(stamp?.height ?? 0));
+    const climber = pick(random, firstOf([ownLadder, ownAny, borrowedLadder, borrowedAny]));
+    const stamp = doors ?? climber;
+    // Under storm doors the climber stands below them too, so the areaway is as big as the larger.
+    const under = doors === undefined ? undefined : climber;
+    const along = Math.max(MIN_AREAWAY, Math.ceil(Math.max(stamp?.width ?? 0, under?.width ?? 0)));
+    const depth = Math.max(MIN_AREAWAY, Math.ceil(Math.max(stamp?.height ?? 0, under?.height ?? 0)));
     const areaway = areawayRect(footprint, side, along, depth);
     const at = (side === 'top' || side === 'bottom' ? areaway.x : areaway.y) + Math.floor((along - 1) / 2);
+    const centre = { x: areaway.x + areaway.w / 2, y: areaway.y + areaway.h / 2 };
+    const turned = (s: RoleStamp): number => (s.upright ? 0 : (turn + s.turn) % FULL_TURN);
     return {
         areaway,
         door: { side: OPPOSITE_SIDE[side], at },
         through: { side, at },
-        piece: stamp
-            ? {
-                  stamp,
-                  x: areaway.x + areaway.w / 2,
-                  y: areaway.y + areaway.h / 2,
-                  rotation: stamp.upright ? 0 : (turn + stamp.turn) % FULL_TURN,
-                  onGround: doors !== undefined,
-              }
-            : null,
+        piece: stamp ? { stamp, ...centre, rotation: turned(stamp), onGround: doors !== undefined } : null,
+        foot: under ? { stamp: under, ...centre, rotation: turned(under) } : null,
         problems: flightProblems(stamp, doors === undefined && stamp !== undefined, 'storm-door', wantedIn),
     };
 }

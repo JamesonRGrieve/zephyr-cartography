@@ -822,6 +822,11 @@
                                     "description": "Its doors to the rooms it opens onto stand open (a room left open, its sliding door slid back).",
                                     "type": "boolean"
                                 },
+                                "doorLocked": {
+                                    "default": false,
+                                    "description": "Its doors to the rooms it opens onto start locked (an inn’s guest rooms, a key wanted for each); a locked door is never left open.",
+                                    "type": "boolean"
+                                },
                                 "archTo": {
                                     "default": [],
                                     "description": "Rooms it opens onto through a doorless archway: the wall they share open but for a pier at each end (a corridor’s mouth), or only `archWidth` of it.",
@@ -1545,6 +1550,11 @@
                                             "doorOpen": {
                                                 "default": false,
                                                 "description": "Its doors to the rooms it opens onto stand open (a room left open, its sliding door slid back).",
+                                                "type": "boolean"
+                                            },
+                                            "doorLocked": {
+                                                "default": false,
+                                                "description": "Its doors to the rooms it opens onto start locked (an inn’s guest rooms, a key wanted for each); a locked door is never left open.",
                                                 "type": "boolean"
                                             },
                                             "archTo": {
@@ -2285,6 +2295,11 @@
                                             "doorOpen": {
                                                 "default": false,
                                                 "description": "Its doors to the rooms it opens onto stand open (a room left open, its sliding door slid back).",
+                                                "type": "boolean"
+                                            },
+                                            "doorLocked": {
+                                                "default": false,
+                                                "description": "Its doors to the rooms it opens onto start locked (an inn’s guest rooms, a key wanted for each); a locked door is never left open.",
                                                 "type": "boolean"
                                             },
                                             "archTo": {

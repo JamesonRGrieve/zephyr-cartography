@@ -383,6 +383,10 @@ const room = z
         size: squares.default(1).describe('Floor area relative to the building’s other rooms (2 is twice as big as 1).'),
         opensTo: z.array(text).default([]).describe('Rooms it has a door into; the layout puts them side by side.'),
         doorOpen: z.boolean().default(false).describe('Its doors to the rooms it opens onto stand open (a room left open, its sliding door slid back).'),
+        doorLocked: z
+            .boolean()
+            .default(false)
+            .describe('Its doors to the rooms it opens onto start locked (an inn’s guest rooms, a key wanted for each); a locked door is never left open.'),
         archTo: z
             .array(text)
             .default([])

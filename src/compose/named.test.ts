@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import type { Side } from '../generate/floor-plan';
-import { fittedTo, namedArt, namedBox, runEnds, runOf, standsAs } from './named';
+import { fittedTo, inState, namedArt, namedBox, runEnds, runOf, standsAs } from './named';
 import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
@@ -300,6 +300,52 @@ describe('named pieces', () => {
         // Without resolutions, the first.
         const { sharpness: _unused, ...unknown } = lighter;
         expect(namedArt({ ...asked, state: 'intact' }, new Map([['vehicle', [unknown]]]))?.variant).toBe(0);
+    });
+
+    it('sizes art in a state as that picture is, never takes a side-on picture among plans, and fits a run’s ends to its modules', () => {
+        const well = {
+            ...desk('well', ['well']),
+            role: 'well' as const,
+            width: 1,
+            height: 1,
+            states: ['stone well', 'wooden well', 'wooden well'],
+            sharpness: [64, 64, 512],
+            // The sharp wooden well is drawn side-on: never asked for among plans.
+            sizes: [{ width: 1, height: 1 }, { width: 1.2, height: 0.8 }, null],
+        };
+        const shown = inState(well, 'wooden');
+        expect(shown).toMatchObject({ variant: 1, width: 1.2, height: 0.8 });
+        // At the scale the art is drawn at.
+        expect(inState({ ...well, scale: 2 }, 'wooden')).toMatchObject({ width: 2.4, height: 1.6 });
+        expect(inState(well, 'golden')).toBe(well);
+        expect(inState(well, undefined)).toBe(well);
+        // A run: its modules in the state, its ends refitted to the modules' depth, the run's length theirs.
+        const unit = {
+            ...well,
+            key: 'test:segment',
+            role: 'counter' as const,
+            states: ['oak', 'brass'],
+            sharpness: [],
+            sizes: [
+                { width: 1, height: 0.5 },
+                { width: 1, height: 0.4 },
+            ],
+        };
+        const cap = {
+            ...unit,
+            key: 'test:end',
+            sizes: [
+                { width: 0.5, height: 0.5 },
+                { width: 0.4, height: 0.8 },
+            ],
+            width: 0.5,
+            height: 0.5,
+        };
+        const counter = { ...unit, width: 3, height: 0.5, run: { count: 2, module: { ...unit, width: 1, height: 0.5 }, cap } };
+        const brass = inState(counter, 'brass');
+        expect(brass.run?.module).toMatchObject({ variant: 1, height: 0.4 });
+        expect(brass.run?.cap).toMatchObject({ variant: 1, height: 0.4, width: 0.2 });
+        expect(brass).toMatchObject({ width: 2 + 2 * 0.2, height: 0.4 });
     });
 
     it('stands a piece no art draws as a labelled box its size, a free-standing piece of plant when it names no role', () => {

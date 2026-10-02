@@ -26,7 +26,7 @@ import { noiseField, type NoiseField } from './noise';
 import { isPlaceholder, missing } from './placeholders';
 import { narrowed, type Preferences, zonePlace } from './preferences';
 import type { ComposeProblem } from './problems';
-import type { RoleIndex, RoleStamp } from './roles';
+import { drawnAs, type RoleIndex, type RoleStamp, soundFirst } from './roles';
 import { poissonDisc } from './scatter';
 
 type FeatureInput = SceneSpecInput['features'][number];
@@ -523,7 +523,7 @@ function dress(
             standing.push({ x: p.x, y: p.y, r });
         }
         // Drawn side-on, it stands as drawn; seen from above, any way round.
-        return [{ type: 'stamp' as const, stamp: stamp.key, x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) }];
+        return [{ type: 'stamp' as const, ...drawnAs(stamp), x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) }];
     };
     // A patch grows round each spot: its pieces close about it, each still only where the zone allows.
     const patched = (spots: readonly Point[]): Point[] => {
@@ -596,7 +596,7 @@ function perimeter(
             const clear = !blocked(p, dressing.role, keepout, r, r) && !standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r);
             if (clear) {
                 standing.push({ x: p.x, y: p.y, r: Math.max(stamp.width, stamp.height) / 2 });
-                out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: facing({ x: -toCentre.x, y: -toCentre.y }, stamp.turn) });
+                out.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: facing({ x: -toCentre.x, y: -toCentre.y }, stamp.turn) });
                 stamp = pick(random, choices);
             }
             t += step;
@@ -629,7 +629,7 @@ function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, 
                     const stamp = pick(random, rocks);
                     const clearOfBuildings = !blocked(p, 'rock', { ...keepout, paths: [] });
                     if (stamp && clearOfBuildings && random() < BANK.chance) {
-                        out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: Math.floor(random() * FULL_TURN) });
+                        out.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: Math.floor(random() * FULL_TURN) });
                     }
                 }
                 return b;
@@ -656,7 +656,7 @@ function shore(outline: readonly Point[], keepout: Keepout, stamps: RoleIndex, r
             const role = random() < SHORE.reeds ? 'flora' : 'rock';
             const stamp = pick(random, role === 'flora' ? reeds : rocks);
             if (stamp && random() < SHORE.chance && !blocked(p, role, keepout)) {
-                out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) });
+                out.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) });
             }
         }
         return b;
@@ -691,7 +691,7 @@ function waymarks(paths: readonly LaidPath[], leads: readonly boolean[], stamps:
         const aside = spur.halfWidth + WAYMARK_GAP;
         const spots = [1, -1].map((side) => ({ x: start.x + along.x * out - along.y * aside * side, y: start.y + along.y * out + along.x * aside * side }));
         const spot = spots.find((p) => !keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + WAYMARK_GAP / 2));
-        return spot ? [{ type: 'stamp' as const, stamp: stamp.key, x: spot.x, y: spot.y, rotation: squareTurn(stamp, random) }] : [];
+        return spot ? [{ type: 'stamp' as const, ...drawnAs(stamp), x: spot.x, y: spot.y, rotation: squareTurn(stamp, random) }] : [];
     });
 }
 
@@ -747,9 +747,18 @@ function bridgeRotation(stamp: RoleStamp, along: Point): number | null {
     return Math.min(off, FULL_TURN / 2 - off) <= UPRIGHT_BRIDGE_SLACK ? 0 : null;
 }
 
-/** A bridge wherever a road crosses a river, laid along the road; a problem when a road needs one and no stamp is a bridge. */
+/** Tags of a bridge built to carry a road (a timber or stone road bridge), before a footbridge or a rope span. */
+const ROAD_BRIDGE_TAGS: readonly string[] = ['road'];
+
+/**
+ * A bridge wherever a road crosses a river, laid along the road, sound, and
+ * built for a road where any such is loaded; a problem when a road needs one
+ * and no stamp is a bridge.
+ */
 function bridges(paths: readonly LaidPath[], stamps: RoleIndex, random: Random): { features: FeatureInput[]; problems: ComposeProblem[] } {
-    const choices = stamps.get('bridge') ?? [];
+    const sound = soundFirst(stamps.get('bridge') ?? []);
+    const forRoads = sound.filter((art) => art.tags.some((tag) => ROAD_BRIDGE_TAGS.includes(tag)));
+    const choices = forRoads.length > 0 ? forRoads : sound;
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     for (const road of paths.filter((p) => p.kind === 'road')) {
@@ -761,7 +770,7 @@ function bridges(paths: readonly LaidPath[], stamps: RoleIndex, random: Random):
                 });
                 const chosen = pick(random, fits);
                 if (chosen) {
-                    features.push({ type: 'stamp', stamp: chosen.stamp.key, x: at.x, y: at.y, rotation: chosen.rotation });
+                    features.push({ type: 'stamp', ...drawnAs(chosen.stamp), x: at.x, y: at.y, rotation: chosen.rotation });
                 } else {
                     problems.push({ kind: 'no-stamp', role: 'bridge', wantedIn: 'road' });
                 }
@@ -825,7 +834,7 @@ function placeProps(
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     for (const prop of props) {
-        const stamp = pick(random, stamps.get(prop.role) ?? []);
+        const stamp = pick(random, soundFirst(stamps.get(prop.role) ?? []));
         const lacking = missing(prop.role, 'beside' in prop ? prop.beside.building : OUTSIDE_PLACE, stamp);
         if (lacking) {
             problems.push(lacking);
@@ -837,7 +846,7 @@ function placeProps(
         const p = 'at' in prop ? prop.at : site ? yardSpot(site, prop.beside.side, stamp, keepout, placed) : null;
         if (p) {
             placed.push({ x: p.x, y: p.y, r: footprintRadius(stamp) });
-            features.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
+            features.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
         }
     }
     return { features, problems };
@@ -902,7 +911,7 @@ function penOf(site: Site, sides: readonly Side[], pen: RoleStamp, stamps: RoleI
     const { spot } = found;
     const r = footprintRadius(pen);
     standing.push({ x: spot.x, y: spot.y, r });
-    const out: FeatureInput[] = [{ type: 'stamp', stamp: pen.key, x: spot.x, y: spot.y, rotation: squareTurn(pen, random) }];
+    const out: FeatureInput[] = [{ type: 'stamp', ...drawnAs(pen), x: spot.x, y: spot.y, rotation: squareTurn(pen, random) }];
     const fodder = pick(random, stamps.get('fodder') ?? []);
     if (fodder) {
         const fr = footprintRadius(fodder);
@@ -912,7 +921,7 @@ function penOf(site: Site, sides: readonly Side[], pen: RoleStamp, stamps: RoleI
             .find((p) => !blocked(p, 'fodder', keepout, fr, fr) && !standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + fr));
         if (beside) {
             standing.push({ x: beside.x, y: beside.y, r: fr });
-            out.push({ type: 'stamp', stamp: fodder.key, x: beside.x, y: beside.y, rotation: squareTurn(fodder, random) });
+            out.push({ type: 'stamp', ...drawnAs(fodder), x: beside.x, y: beside.y, rotation: squareTurn(fodder, random) });
         }
     }
     return out;
@@ -967,7 +976,7 @@ function yardOf(site: Site, stamps: RoleIndex, keepout: Keepout, standing: Stand
         (penSide ? cartAt(penSide, false) : null);
     if (cart && spot) {
         standing.push({ x: spot.x, y: spot.y, r: footprintRadius(cart) });
-        out.push({ type: 'stamp', stamp: cart.key, x: spot.x, y: spot.y, rotation: squareTurn(cart, random) });
+        out.push({ type: 'stamp', ...drawnAs(cart), x: spot.x, y: spot.y, rotation: squareTurn(cart, random) });
     }
     if (pen) {
         out.push(...penOf(site, penSide ? [penSide, ...penSides.filter((s) => s !== penSide)] : penSides, pen, stamps, keepout, standing, random));
@@ -1018,7 +1027,7 @@ function storesAlong(site: Site, side: Side, stores: readonly RoleStamp[], keepo
             // Within its own wall's run: never round the corner, into the next side's clumps.
             if (start >= lo && start + 2 * r <= hi && clear(p, r * 0.9)) {
                 standing.push({ x: p.x, y: p.y, r });
-                out.push({ type: 'stamp', stamp: stamp.key, x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
+                out.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: squareTurn(stamp, random) });
             }
             if (!ranked) {
                 along += 2 * r;

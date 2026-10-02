@@ -199,7 +199,34 @@ describe('stormDoorway', () => {
         expect(stormDoorway('north', FOOTPRINT, upright, seededRandom(1), at('x')).piece?.stamp.key).toBe('test:ladder');
         expect(stormDoorway('north', FOOTPRINT, withAccess([]), seededRandom(1), at('x'))).toMatchObject({
             piece: null,
+            foot: null,
             problems: [{ kind: 'no-stamp', role: 'stairs', wantedIn: 'x' }],
         });
+        // A flight standing in is the way itself: nothing more stands under it.
+        expect(noDoors.foot).toBeNull();
+    });
+
+    it('draws the storm doors flung open, the way down seen, with what climbs up to them standing below in the areaway', () => {
+        const stairs = TEST_ROLES.get('stairs') ?? [];
+        const doors = stairs.find((s) => s.key === 'test:storm-doors');
+        if (!doors) {
+            throw new Error('the test roles have no storm doors');
+        }
+        const states: RoleStamp = {
+            ...doors,
+            states: ['pair closed', 'doors flung open'],
+            sizes: [
+                { width: 2, height: 1.5 },
+                { width: 2, height: 2.5 },
+            ],
+        };
+        const pool: RoleIndex = new Map([...TEST_ROLES, ['stairs', [...stairs.filter((s) => s !== doors), states]]]);
+        const south = stormDoorway('south', FOOTPRINT, pool, seededRandom(1), at('x'));
+        expect(south.piece?.stamp).toMatchObject({ variant: 1, height: 2.5 });
+        // The areaway is as deep as the open doors.
+        expect(south.areaway.h).toBe(3);
+        expect(south.foot).toMatchObject({ stamp: { key: 'test:ladder' }, x: south.piece?.x, y: south.piece?.y, rotation: 0 });
+        // Doors with no open picture are drawn as they are.
+        expect(stormDoorway('south', FOOTPRINT, TEST_ROLES, seededRandom(1), at('x')).piece?.stamp).not.toHaveProperty('variant');
     });
 });

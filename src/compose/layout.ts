@@ -354,10 +354,11 @@ function interiorDoors(rooms: readonly PlacedRoom[], random: Random): { doors: P
             // Where either room asks, there along the wall they share: a row of cells with their doors alike.
             const asked = a.intent.doorAt ?? b.intent.doorAt;
             const at = asked === null ? doorAt(wall.from, wall.to, random) : wall.from + Math.round(asked * (span - 1));
-            // Standing open where either room is left open.
+            // Locked where either room is locked, else standing open where either is left open.
+            const locked = a.intent.doorLocked || b.intent.doorLocked;
             const leftOpen = a.intent.doorOpen || b.intent.doorOpen;
             // A secret door is found shut: never left standing open.
-            const state = joint === 'secret' ? { secret: true } : leftOpen ? { open: true } : {};
+            const state = joint === 'secret' ? { secret: true } : locked ? { locked: true } : leftOpen ? { open: true } : {};
             doors.push({ room: a.key, to: b.key, slot: { side: wall.side, at, ...state } });
         }
         joined.set(rootOf(a.key), rootOf(b.key));

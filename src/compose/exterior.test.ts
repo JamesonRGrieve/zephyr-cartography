@@ -117,6 +117,39 @@ describe('bridges and yard pieces', () => {
         expect(composed.problems).toContainEqual({ kind: 'no-stamp', role: 'bridge', wantedIn: 'road' });
     });
 
+    it('carries a road on a sound road bridge where one is loaded, in the picture of it seen from above', () => {
+        const [plain] = TEST_ROLES.get('bridge') ?? [];
+        if (!plain) {
+            throw new Error('test bridge');
+        }
+        const rope = { ...plain, key: 'test:rope-bridge', tags: ['rope', 'bridge'] };
+        const broken = { ...plain, key: 'test:broken-road-bridge', tags: ['road', 'bridge', 'collapsed'] };
+        const road = { ...plain, key: 'test:road-bridge', tags: ['road', 'bridge'], variant: 3 };
+        const bridges = (...list: readonly RoleStamp[]): RoleIndex => new Map([...TEST_ROLES, ['bridge', list]]);
+        for (const seed of [1, 2, 3]) {
+            const { spec } = composeMap({ ...crossing(), seed }, bridges(rope, broken, road));
+            const laid = spec.features.filter((f) => f.type === 'stamp' && f.stamp.includes('bridge'));
+            expect(laid).toEqual([expect.objectContaining({ stamp: 'test:road-bridge', variant: 3 })]);
+        }
+        // With no road bridge, any sound bridge; only a wreck where nothing else is loaded.
+        expect(stampsOf(composeMap(crossing(), bridges(rope, broken)).spec, 'test:rope-bridge')).toBe(1);
+        expect(stampsOf(composeMap(crossing(), bridges(broken)).spec, 'test:broken-road-bridge')).toBe(1);
+    });
+
+    it('stands a sound well in a yard, never a ruin’s while a whole one is loaded', () => {
+        const [whole] = TEST_ROLES.get('well') ?? [];
+        if (!whole) {
+            throw new Error('test well');
+        }
+        const ruin = { ...whole, key: 'test:ruined-well', tags: ['ruined', 'well'] };
+        const wells: RoleIndex = new Map([...TEST_ROLES, ['well', [ruin, whole]]]);
+        for (const seed of [1, 2, 3, 4]) {
+            const { spec } = composeMap({ ...crossing({ props: [{ role: 'well', at: { x: 5, y: 5 } }] }), seed }, wells);
+            expect(stampsOf(spec, 'test:ruined-well')).toBe(0);
+            expect(stampsOf(spec, 'test:well')).toBe(1);
+        }
+    });
+
     it('runs a river between two lakes from the shore of one to the shore of the other, each end a little inside its water', () => {
         const lakes = crossing({
             zones: [
