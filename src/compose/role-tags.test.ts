@@ -81,6 +81,11 @@ describe('suitsScale', () => {
         expect(suitsScale('fitting', 'interior')).toBe(true);
         expect(suitsScale('fitting', 'exterior')).toBe(true);
         expect(suitsScale('fitting', 'city')).toBe(false);
+        // A chart's art never stands on a battlemap, whatever its role: a regional supply pin is no crate in a store.
+        for (const scale of ['regional', 'planet', 'system']) {
+            expect(suitsScale('storage', scale)).toBe(false);
+            expect(suitsScale('rock', scale)).toBe(false);
+        }
     });
 
     it('draws a chart (a region, a world, a system) only from named art of its own scale', () => {

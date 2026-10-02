@@ -315,6 +315,9 @@ const INDOOR_ROLES: readonly StampRole[] = [
 /** Roles that stand outdoors, which take only stamps drawn at exterior scale. */
 const OUTDOOR_ROLES: readonly StampRole[] = ['structure', 'barricade', 'crater', 'emplacement', 'vehicle', 'well', 'bridge', 'waymark', 'enclosure', 'fodder'];
 
+/** Scales of art drawn for charts, never for a battlemap. */
+const CHART_SCALES: readonly string[] = ['regional', 'planet', 'system'];
+
 /**
  * Whether a stamp drawn at `scale` can fill `role` on a map drawn at
  * `mapScale`: a room's altar is an interior altar, not a wayside shrine; a
@@ -332,6 +335,10 @@ export function suitsScale(role: StampRole, scale: string, mapScale: MapScale = 
     // A fitting stands in a room or a yard, never a city block or a world drawn to look like one from far above.
     if (role === 'fitting') {
         return scale === 'interior' || scale === 'exterior';
+    }
+    // A chart's art (a map pin, a town seen from far above, a world) never stands on a battlemap: a supply pin is no crate.
+    if (CHART_SCALES.includes(scale)) {
+        return false;
     }
     if (INDOOR_ROLES.includes(role)) {
         return scale === 'interior';
