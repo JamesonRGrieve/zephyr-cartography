@@ -100,6 +100,8 @@ const room: RoomFeature = {
         { x: 0, y: 100 },
     ],
     doors: [],
+    windows: [],
+    daylight: [],
     ...NEW_FEATURE,
 };
 

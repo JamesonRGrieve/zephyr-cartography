@@ -303,6 +303,21 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   building's own map just inside it, so a token gets in only through a
   door left unlocked. A building with no map of its own yet keeps the way,
   leading nowhere until the GM links it.
+- **Day and night out of doors; indoors only through windows and doors**
+  (operator, 2026-10-02). A map out of doors (a battlemap with ground) is
+  lit by the day: Foundry's global light, shining only while the scene's
+  darkness is a day's (`globalLightDarkness` up to `DAYLIGHT_MAX_DARKNESS`,
+  0.6, the wh40k-rpg system's own threshold), so whatever drives the
+  darkness (that system's clock, binding the scene to a celestial body)
+  brings day and night. Under a roof the day never shines but through the
+  openings: every roofed room keeps the global light out (an Adjust Darkness
+  Level region overriding it to full), its outer walls carry windows
+  (Foundry window walls, one square wide, evenly spaced clear of corners and
+  doorways; a building's `windows: false` for none; never in a cellar), and
+  a daylight light stands just outside each window and outer door, shining
+  in, cut by walls (a shut door keeps it out) and lit only by day
+  (`tools/daylight.ts`). Lamps and hearths light the rest. A room's
+  `windows` and `daylight` are perimeter segments, in the scene spec too.
 
 ---
 

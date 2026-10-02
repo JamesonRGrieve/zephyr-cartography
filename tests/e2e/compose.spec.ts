@@ -665,3 +665,31 @@ test('AI-assisted, the Map builder asks the model to choose stamps and critique 
     expect(asked[0]?.sent).toContain('"chat_template_kwargs":{"enable_thinking":false}');
     await world.unroute(`${ADVISOR}/chat/completions`);
 });
+
+test('a map out of doors is lit by the day, and a building on it only through its windows and outer doors', async ({ world }) => {
+    await world.evaluate(async (intent) => {
+        await game.modules?.get('zephyr-cartography').api.compose(intent);
+    }, INTENT);
+    const lit = await world.evaluate(() => {
+        const scene = canvas?.scene;
+        const room = (scene?.regions.contents ?? []).find((r) => r.behaviors.contents.some((b) => b.type === 'adjustDarknessLevel'));
+        return {
+            global: { enabled: scene?.environment.globalLight.enabled, max: scene?.environment.globalLight.darkness.max },
+            keptOut: room?.behaviors.contents.find((b) => b.type === 'adjustDarknessLevel')?.system,
+            daylight: (scene?.lights.contents ?? [])
+                .filter((l) => l.name === 'Daylight')
+                .map((l) => ({ max: l.config.darkness.max, walls: l.walls, angle: l.config.angle })),
+            // Foundry's window walls: sight and light limited by proximity.
+            windows: (scene?.walls.contents ?? []).filter((w) => w.sight === CONST.EDGE_SENSE_TYPES.PROXIMITY && w.light === CONST.EDGE_SENSE_TYPES.PROXIMITY)
+                .length,
+        };
+    });
+    // The global light shines while the darkness is a day's, so whatever drives the darkness brings day and night.
+    expect(lit.global).toEqual({ enabled: true, max: 0.6 });
+    // The roof keeps it out: the room's darkness is overridden to full, past the global light's range.
+    expect(lit.keptOut).toMatchObject({ mode: 0, modifier: 1 });
+    expect(lit.windows).toBeGreaterThan(0);
+    // A daylight per window and per outer door, cut by walls and lit only by day.
+    expect(lit.daylight.length).toBeGreaterThan(lit.windows);
+    expect(lit.daylight.every((l) => l.max === 0.6 && l.walls && l.angle === 120)).toBe(true);
+});

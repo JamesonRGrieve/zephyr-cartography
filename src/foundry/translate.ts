@@ -47,11 +47,15 @@ import type {
 
 /** A scene's settings as the partial Scene update Foundry takes; settings not given are left out, so they keep their values. */
 export function sceneSettingsData(settings: SceneSettings): SceneSettingsUpdate {
-    const { darkness, darknessLock, globalLight, tokenVision, fog, fogColours, cycle, base, dark, weather, transition } = settings;
+    const { darkness, darknessLock, globalLight, globalLightDarkness, tokenVision, fog, fogColours, cycle, base, dark, weather, transition } = settings;
+    const sceneLight = {
+        ...(globalLight === undefined ? {} : { enabled: globalLight }),
+        ...(globalLightDarkness === undefined ? {} : { darkness: { min: globalLightDarkness.min, max: globalLightDarkness.max } }),
+    };
     const environment = {
         ...(darkness === undefined ? {} : { darknessLevel: darkness }),
         ...(darknessLock === undefined ? {} : { darknessLock }),
-        ...(globalLight === undefined ? {} : { globalLight: { enabled: globalLight } }),
+        ...(Object.keys(sceneLight).length === 0 ? {} : { globalLight: sceneLight }),
         ...(cycle === undefined ? {} : { cycle }),
         ...(base === undefined ? {} : { base: environmentData(base) }),
         ...(dark === undefined ? {} : { dark: environmentData(dark) }),

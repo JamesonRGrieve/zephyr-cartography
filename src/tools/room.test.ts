@@ -39,6 +39,12 @@ describe('withRoomPoints', () => {
         expect(shrunk?.floor).toBe('rock');
         expect(r ? withRoomPoints(r, pts.slice(0, 2)) : 'x').toBeNull();
     });
+
+    it('drops windows and daylight on segments the new outline no longer has', () => {
+        const r = makeRoom('r', 'rock', pts);
+        const shrunk = r ? withRoomPoints({ ...r, windows: [0, 3], daylight: [1, 3] }, pts.slice(0, 3)) : null;
+        expect([shrunk?.windows, shrunk?.daylight]).toEqual([[0], [1]]);
+    });
 });
 
 describe('materials', () => {

@@ -283,7 +283,8 @@
         },
         "Lights": {
             "Stamp": "{name} light",
-            "Room": "Room light"
+            "Room": "Room light",
+            "Daylight": "Daylight"
         },
         "Sounds": {
             "Stamp": "{name} sound"

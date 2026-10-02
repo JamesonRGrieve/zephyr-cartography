@@ -69,6 +69,14 @@ export interface RoomFeature extends FeatureCommon, Costed, Affected {
     /** Whether a level above gets a ceiling over the room; an open courtyard has none. */
     readonly ceiling: boolean;
     readonly doors: RoomDoor[];
+    /** Perimeter segments that are windows: Foundry window walls, which let light and sight through only close by. */
+    readonly windows: readonly number[];
+    /**
+     * Perimeter segments daylight comes in through (its windows, and doors to
+     * the outside): each has a native light just outside it, shining in, cut
+     * by walls (a shut door keeps it out) and lit only by day.
+     */
+    readonly daylight: readonly number[];
     /** Whether its centre light is on; a light switch linked to the room turns it on and off. */
     readonly lit: boolean;
 }
@@ -102,7 +110,20 @@ export function makeRoom(
     if (points.length < 3) {
         return null;
     }
-    return { type: 'room', id, floor, wall, wallKind, ceiling, points: points.map((p) => ({ x: p.x, y: p.y })), doors: [], lit: true, ...NEW_FEATURE };
+    return {
+        type: 'room',
+        id,
+        floor,
+        wall,
+        wallKind,
+        ceiling,
+        points: points.map((p) => ({ x: p.x, y: p.y })),
+        doors: [],
+        windows: [],
+        daylight: [],
+        lit: true,
+        ...NEW_FEATURE,
+    };
 }
 
 /** The same room with its light on or off. */
@@ -127,7 +148,14 @@ export function withRoomPoints(room: RoomFeature, points: readonly Point[]): Roo
     }
     // A closed polygon of n points has n perimeter segments; drop doors on segments that no longer exist.
     const doors = room.doors.filter((d) => d.segment < points.length);
-    return { ...room, points: points.map((p) => ({ x: p.x, y: p.y })), doors };
+    const onOutline = (segment: number): boolean => segment < points.length;
+    return {
+        ...room,
+        points: points.map((p) => ({ x: p.x, y: p.y })),
+        doors,
+        windows: room.windows.filter(onOutline),
+        daylight: room.daylight.filter(onOutline),
+    };
 }
 
 /** The door on `segment`, or null. */
@@ -159,6 +187,15 @@ function roomDocs(v: Record<string, unknown>): GeneratedDocs {
         return parseGeneratedDocs(v['docs']);
     }
     return { ...NO_DOCS, walls: stringArray(v['wallIds']), lights: stringArray(v['lightIds']) };
+}
+
+// eslint-disable-next-line no-restricted-syntax -- boundary: parses a persisted list of perimeter segments, keeping each one on the outline once
+function parseSegments(v: unknown, count: number): number[] {
+    if (!Array.isArray(v)) {
+        return [];
+    }
+    const valid = v.filter((s): s is number => typeof s === 'number' && Number.isInteger(s) && s >= 0 && s < count);
+    return [...new Set(valid)];
 }
 
 // eslint-disable-next-line no-restricted-syntax -- boundary: parses persisted doors; a bare segment index (the original format) is an ordinary closed door
@@ -204,6 +241,9 @@ export function parseRoom(v: unknown): RoomFeature | null {
         lit: v['lit'] !== false,
         points: points.map((p) => ({ x: p.x, y: p.y })),
         doors,
+        // Rooms saved before windows and daylight have neither.
+        windows: parseSegments(v['windows'], points.length),
+        daylight: parseSegments(v['daylight'], points.length),
         ...parseAreaFields(v),
         ...parseFeatureCommon(v),
         docs: roomDocs(v),

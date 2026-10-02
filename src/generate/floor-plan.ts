@@ -79,6 +79,10 @@ export interface DoorSlot {
     readonly secret?: boolean;
     /** How its door opens (a panel sliding into the wall, a shutter rising); omitted, Foundry's default swing. */
     readonly animation?: DoorAnimationType;
+    /** A window, not a door: a Foundry window wall in the gap, which light and sight pass only close by. */
+    readonly window?: boolean;
+    /** The day comes in through it (a window, a door to the outside): a light outside shines in by day. */
+    readonly daylight?: boolean;
 }
 
 interface Split {
@@ -235,15 +239,25 @@ export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild, c
             doorStarts.push(...along.doorStarts.map((at, n) => ({ at, slot: onSide[n] })));
         }
     });
-    const doors = doorStarts
+    const gaps = doorStarts
         .map(({ at, slot }) => ({ segment: points.findIndex((p) => p.x === at.x && p.y === at.y), slot }))
-        .filter(({ segment }) => segment >= 0)
-        .map(({ segment, slot }) => ({ segment, ...doorOf(slot) }));
-    return outlineRoomSpec(points, o, doors);
+        .filter(({ segment }) => segment >= 0);
+    const doors = gaps.filter(({ slot }) => slot?.window !== true).map(({ segment, slot }) => ({ segment, ...doorOf(slot) }));
+    const windows = gaps.filter(({ slot }) => slot?.window === true).map(({ segment }) => segment);
+    const daylight = gaps.filter(({ slot }) => slot?.daylight === true).map(({ segment }) => segment);
+    return outlineRoomSpec(points, o, doors, { windows, daylight });
 }
 
+/** A room's windows and the openings the day comes in through, by perimeter segment. */
+interface RoomOpenings {
+    readonly windows: readonly number[];
+    readonly daylight: readonly number[];
+}
+
+const NO_OPENINGS: RoomOpenings = { windows: [], daylight: [] };
+
 /** A room spec walled along any outline `points` (a hewn cavern's), with the doors given by segment. */
-export function outlineRoomSpec(points: readonly Corner[], o: RoomBuild, doors: RoomSpec['doors'] = []): RoomSpec {
+export function outlineRoomSpec(points: readonly Corner[], o: RoomBuild, doors: RoomSpec['doors'] = [], openings: RoomOpenings = NO_OPENINGS): RoomSpec {
     return {
         type: 'room',
         points: [...points],
@@ -257,6 +271,8 @@ export function outlineRoomSpec(points: readonly Corner[], o: RoomBuild, doors: 
         display: DEFAULT_AREA_DISPLAY,
         spawn: { ...NO_SPAWN, actors: [] },
         doors: [...doors],
+        windows: [...openings.windows],
+        daylight: [...openings.daylight],
     };
 }
 

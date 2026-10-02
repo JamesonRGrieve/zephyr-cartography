@@ -50,7 +50,10 @@ export function soundName(stampName: string): string {
     return format(I18N.sounds.stamp, { name: stampName });
 }
 
-/** A generated light's display name: "Brass Lamp light", or "Room light". */
+/** A generated light's display name: "Brass Lamp light", "Room light", or "Daylight". */
 export function lightName(source: LightSource): string {
-    return source.kind === 'stamp' ? format(I18N.lights.stamp, { name: source.name }) : localize(I18N.lights.room);
+    if (source.kind === 'stamp') {
+        return format(I18N.lights.stamp, { name: source.name });
+    }
+    return localize(source.kind === 'room' ? I18N.lights.room : I18N.lights.daylight);
 }

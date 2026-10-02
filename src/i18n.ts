@@ -253,6 +253,7 @@ export const I18N = {
     lights: {
         stamp: key('Lights.Stamp'),
         room: key('Lights.Room'),
+        daylight: key('Lights.Daylight'),
     },
     sounds: {
         stamp: key('Sounds.Stamp'),

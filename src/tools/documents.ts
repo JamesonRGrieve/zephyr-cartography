@@ -109,7 +109,7 @@ interface LightAnimation {
 }
 
 /** What emits a generated light; the boundary names the light after it. */
-export type LightSource = { readonly kind: 'stamp'; readonly name: string } | { readonly kind: 'room' };
+export type LightSource = { readonly kind: 'stamp'; readonly name: string } | { readonly kind: 'room' } | { readonly kind: 'daylight' };
 
 export interface LightDoc {
     readonly source: LightSource;

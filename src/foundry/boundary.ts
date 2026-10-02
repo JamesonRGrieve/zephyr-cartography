@@ -516,7 +516,7 @@ export interface SceneSettingsUpdate {
     readonly environment?: {
         readonly darknessLevel?: number;
         readonly darknessLock?: boolean;
-        readonly globalLight?: { readonly enabled: boolean };
+        readonly globalLight?: { readonly enabled?: boolean; readonly darkness?: { readonly min: number; readonly max: number } };
         readonly cycle?: boolean;
         readonly base?: EnvironmentUpdate;
         readonly dark?: EnvironmentUpdate;

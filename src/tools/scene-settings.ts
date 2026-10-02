@@ -39,6 +39,8 @@ export interface SceneSettings {
     readonly darknessLock?: boolean | undefined;
     /** Foundry's global illumination, lighting the whole scene. */
     readonly globalLight?: boolean | undefined;
+    /** The darkness range global light shines in, 0–1 (`environment.globalLight.darkness`); where a region leaves it darker, none. */
+    readonly globalLightDarkness?: { readonly min: number; readonly max: number } | undefined;
     readonly tokenVision?: boolean | undefined;
     readonly fog?: FogMode | undefined;
     /** The fog's colours over explored and unexplored ground, `#rrggbb`. */

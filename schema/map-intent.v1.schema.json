@@ -720,6 +720,11 @@
                         "description": "The front door standing open (stuck on seized hinges, left unbarred).",
                         "type": "boolean"
                     },
+                    "windows": {
+                        "default": true,
+                        "description": "On a map out of doors, windows in its outer walls above ground, which let the day in; false for a building with none (a vault, a bunker).",
+                        "type": "boolean"
+                    },
                     "frontDoorGap": {
                         "default": false,
                         "description": "No door at all where the front door would be: a breach, a street running on off the map.",

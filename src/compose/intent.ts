@@ -489,6 +489,12 @@ const building = z
             ),
         frontDoorWidth: z.number().int().min(1).default(1).describe('Squares wide: 2 for double doors.'),
         frontDoorOpen: z.boolean().default(false).describe('The front door standing open (stuck on seized hinges, left unbarred).'),
+        windows: z
+            .boolean()
+            .default(true)
+            .describe(
+                'On a map out of doors, windows in its outer walls above ground, which let the day in; false for a building with none (a vault, a bunker).',
+            ),
         frontDoorGap: z.boolean().default(false).describe('No door at all where the front door would be: a breach, a street running on off the map.'),
         doorAnimation: z
             .enum(DOOR_ANIMATIONS)

@@ -294,6 +294,15 @@ describe('sceneSettingsData', () => {
         expect(sceneSettingsData({ fog: 'individual', fogColours: { explored: '#000000' } })).toEqual({ fog: { mode: 1, colors: { explored: '#000000' } } });
         expect(sceneSettingsData({ fogColours: {} })).toEqual({});
     });
+
+    it('writes the darkness range global light shines in, with or without turning it on', () => {
+        expect(sceneSettingsData({ globalLight: true, globalLightDarkness: { min: 0, max: 0.6 } })).toEqual({
+            environment: { globalLight: { enabled: true, darkness: { min: 0, max: 0.6 } } },
+        });
+        expect(sceneSettingsData({ globalLightDarkness: { min: 0.1, max: 0.5 } })).toEqual({
+            environment: { globalLight: { darkness: { min: 0.1, max: 0.5 } } },
+        });
+    });
 });
 
 describe('noteCreateData', () => {

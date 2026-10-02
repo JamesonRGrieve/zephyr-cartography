@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseSceneSpec, type RoomSpec, type SceneSpec } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { StampRole } from '../stamps/schema';
+import { DAYLIGHT_MAX_DARKNESS } from '../tools/daylight';
 import { composeMap, footprintOf, withApproaches } from './compose';
 import { type MapIntent, parseMapIntent } from './intent';
 import { PRESET_INTENTS } from './presets';
@@ -338,7 +339,8 @@ describe('composeMap', () => {
 
     it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {
         const { spec } = compose({ ...INN_IN_THE_WOODS, lighting: 'night' });
-        expect(spec.scene).toMatchObject({ darkness: 0.85, globalLight: false });
+        // Out of doors: dark past the day's darkness, the global light waiting on the day.
+        expect(spec.scene).toMatchObject({ darkness: 0.85, globalLightDarkness: { max: DAYLIGHT_MAX_DARKNESS } });
         const rooms = spec.features.flatMap((f) => (f.type === 'room' ? [f] : []));
         // Each room is dark but for its own hearth and lamps where it has any, and keeps a light of its own where it has none.
         const glowing = new Set(['test:hearth', 'test:light']);
@@ -1113,14 +1115,50 @@ describe('maps drawn to a brief', () => {
         expect(sharedDoors(room('a'))).toEqual(['opening:open']);
     });
 
-    it('darkens the scene for dim or night lighting, never with the global light, and leaves it be by day', () => {
-        const scene = (lighting: string): SceneSpec['scene'] => {
-            const parsed = parseSceneSpec(composeMap(intentOf({ lighting }), TEST_ROLES).spec);
+    it('lights a map out of doors by the day, global light shining while the darkness is a day’s, whatever drives it', () => {
+        const scene = (given: object): SceneSpec['scene'] => {
+            const parsed = parseSceneSpec(composeMap(intentOf(given), TEST_ROLES).spec);
+            return parsed.ok ? parsed.spec.scene : undefined;
+        };
+        const daylit = { globalLight: true, globalLightDarkness: { min: 0, max: DAYLIGHT_MAX_DARKNESS } };
+        expect(scene({ lighting: 'day' })).toEqual(daylit);
+        // Night starts the scene dark, past the day's darkness, so the global light is out until the clock brings the day.
+        expect(scene({ lighting: 'night' })).toEqual({ ...daylit, darkness: 0.85 });
+        expect(scene({ lighting: 'dim' })).toEqual({ ...daylit, darkness: 0.55 });
+    });
+
+    it('darkens an interior or a chart for dim or night lighting, never with the global light, and leaves it be by day', () => {
+        const scene = (lighting: string, given: object = { ground: null }): SceneSpec['scene'] => {
+            const parsed = parseSceneSpec(composeMap(intentOf({ lighting, ...given }), TEST_ROLES).spec);
             return parsed.ok ? parsed.spec.scene : undefined;
         };
         expect(scene('dim')).toMatchObject({ darkness: 0.55, globalLight: false });
         expect(scene('night')).toMatchObject({ darkness: 0.85, globalLight: false });
         expect(scene('day')).toBeUndefined();
+        expect(scene('day', { scale: 'regional' })).toBeUndefined();
+    });
+
+    it('keeps the day out of a building on a map out of doors but through its windows and outer doors', () => {
+        const building = { at: { x: 4, y: 4 }, width: 10, height: 8, entrance: 'south', rooms: [{ key: 'hall', purpose: 'hall', entrance: true }] };
+        // The room as composed, parsed so every field has its value.
+        const roomOf = (given: object): RoomSpec | undefined => {
+            const parsed = parseSceneSpec(composeMap(intentOf({ buildings: [building], ...given }), TEST_ROLES).spec);
+            const found = parsed.ok ? parsed.spec.features.find((f) => f.type === 'room' && f.key === 'building-1:hall') : undefined;
+            return found?.type === 'room' ? found : undefined;
+        };
+        const outdoors = roomOf({});
+        // Its roof keeps the global light out.
+        expect(outdoors?.effects).toEqual([{ kind: 'darkness', mode: 'override', modifier: 1, disabled: false }]);
+        // Windows along its outer walls, the day through each and through its front door.
+        const windows = outdoors?.windows ?? [];
+        expect(windows.length).toBeGreaterThan(2);
+        expect(outdoors?.daylight).toEqual(expect.arrayContaining([...windows, outdoors?.doors[0]?.segment]));
+        // A building with no windows lets the day in only through its door.
+        const shut = roomOf({ buildings: [{ ...building, windows: false }] });
+        expect([shut?.windows, shut?.daylight]).toEqual([[], [shut?.doors[0]?.segment]]);
+        // An interior map (no ground) has no sky to keep out.
+        const inside = roomOf({ ground: null });
+        expect([inside?.effects, inside?.windows, inside?.daylight]).toEqual([[], [], []]);
     });
 
     it('keeps the outdoors on its own random stream: rearranging a room never replants the woods', () => {

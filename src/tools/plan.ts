@@ -12,6 +12,7 @@ import { catmullRom, distanceToSegment, type Point } from '../geometry/spline';
 import { cutSegment, perimeterSegments, type Segment, splitSegment } from '../geometry/wall';
 import type { StampLight } from '../stamps/schema';
 import { type Affected, customDisplay, displayOf, effectsOf } from './area-effects';
+import { daylightLights } from './daylight';
 import {
     BLOCKS_ALL,
     type DrawingDoc,
@@ -692,13 +693,17 @@ function roomPlan(room: RoomFeature, context: PlanContext): DocumentPlan {
                         stretchDoor(wall.door, part.covered ? coveringDoor(part) : null),
                         wall.segment,
                         floor.level,
-                        presetWall(room.wallKind),
+                        presetWall(room.windows.includes(wall.segment) ? 'window' : room.wallKind),
                     );
                     return doc === null ? [] : [doc];
                 }),
             ),
         ),
-        lights: room.lit && light.dim > 0 ? [{ source: { kind: 'room' }, ...light, elevation: floor.elevation, level: floor.level }] : [],
+        // Its own light (switched by `lit`), and the day through its windows and outer doors, which no switch turns off.
+        lights: [
+            ...(room.lit && light.dim > 0 ? [{ source: { kind: 'room' } as const, ...light, elevation: floor.elevation, level: floor.level }] : []),
+            ...daylightLights(room, floor),
+        ],
         tiles: [],
         regions: [
             roomFloor(room, context.levels),

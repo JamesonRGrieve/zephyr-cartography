@@ -266,6 +266,14 @@ const roomSpec = z
         display: areaDisplay,
         spawn: areaSpawn,
         doors: z.array(doorSpec).default([]),
+        windows: z
+            .array(z.number().int().min(0))
+            .default([])
+            .describe('Perimeter segments that are windows: Foundry window walls, letting light and sight through only close by.'),
+        daylight: z
+            .array(z.number().int().min(0))
+            .default([])
+            .describe('Perimeter segments the day comes in through (windows, doors to the outside): a light outside each shines in by day.'),
         level,
     })
     .strict()
@@ -523,6 +531,12 @@ const sceneSettingsSpec = z
         darkness: z.number().min(0).max(1).optional().describe('Scene darkness, 0 (day) to 1 (night).'),
         darknessLock: z.boolean().optional().describe('Lock the darkness so time of day does not change it.'),
         globalLight: z.boolean().optional().describe("Foundry's global illumination, lighting the whole scene."),
+        globalLightDarkness: z
+            .object({ min: z.number().min(0).max(1), max: z.number().min(0).max(1) })
+            .strict()
+            .refine((range) => range.min <= range.max, { message: 'max may not be less than min' })
+            .optional()
+            .describe('The darkness range global light shines in: the day; none where a region leaves it darker (a roofed room).'),
         tokenVision: z.boolean().optional(),
         fog: z.enum(FOG_MODES).optional().describe('Fog of war exploration: disabled, individual (each user their own), or shared.'),
         fogColours: z

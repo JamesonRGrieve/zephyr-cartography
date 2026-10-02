@@ -115,7 +115,14 @@ function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string,
         const room = makeRoom(id, spec.floor ?? DEFAULT_FLOOR, points, spec.wall, spec.wallKind, spec.ceiling);
         const doored =
             room && spec.doors.reduce((r, d) => withRoomDoor(r, d.segment, { type: d.type, state: d.state, sound: d.sound, animation: d.animation }), room);
-        feature = doored && { ...withRoomLit(doored, spec.lit), ...areaOf(spec) };
+        // Windows and daylight on segments the outline has.
+        const onOutline = (segment: number): boolean => segment < points.length;
+        feature = doored && {
+            ...withRoomLit(doored, spec.lit),
+            windows: spec.windows.filter(onOutline),
+            daylight: spec.daylight.filter(onOutline),
+            ...areaOf(spec),
+        };
     }
     return feature && { ...feature, level };
 }

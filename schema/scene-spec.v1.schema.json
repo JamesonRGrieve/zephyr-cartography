@@ -37,6 +37,27 @@
                     "description": "Foundry's global illumination, lighting the whole scene.",
                     "type": "boolean"
                 },
+                "globalLightDarkness": {
+                    "description": "The darkness range global light shines in: the day; none where a region leaves it darker (a roofed room).",
+                    "type": "object",
+                    "properties": {
+                        "min": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "max": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        }
+                    },
+                    "required": [
+                        "min",
+                        "max"
+                    ],
+                    "additionalProperties": false
+                },
                 "tokenVision": {
                     "type": "boolean"
                 },
@@ -2254,6 +2275,26 @@
                                         "segment"
                                     ],
                                     "additionalProperties": false
+                                }
+                            },
+                            "windows": {
+                                "default": [],
+                                "description": "Perimeter segments that are windows: Foundry window walls, letting light and sight through only close by.",
+                                "type": "array",
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                }
+                            },
+                            "daylight": {
+                                "default": [],
+                                "description": "Perimeter segments the day comes in through (windows, doors to the outside): a light outside each shines in by day.",
+                                "type": "array",
+                                "items": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
                                 }
                             },
                             "level": {

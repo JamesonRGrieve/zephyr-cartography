@@ -16,6 +16,7 @@ import { boundsOf } from '../geometry/bounds';
 import type { Point } from '../geometry/spline';
 import type { StampRole } from '../stamps/schema';
 import type { BiomeKind } from '../tools/biome';
+import { DAYLIGHT_MAX_DARKNESS } from '../tools/daylight';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { type Flight, flightFor, narrowestFlight, type StormDoorway, stormDoorway, wayDownOver, withStairTags } from './access';
 import { curtainFeatures, moatOutlines } from './curtain';
@@ -32,8 +33,10 @@ import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './pr
 import { type ComposeProblem, distinctProblems } from './problems';
 import type { RoleIndex, RoleStamp } from './roles';
 import { flawsOf, layOutStoreys, type Storeys, type Well, type Wells } from './storeys';
+import { windowSlots } from './windows';
 
 type FeatureInput = SceneSpecInput['features'][number];
+type SceneSettingsInput = NonNullable<SceneSpecInput['scene']>;
 
 /** A composed map: the spec to build, and what the composer could not do. */
 export interface Composition {
@@ -111,14 +114,26 @@ interface StoreyContext {
     readonly onLevel: { level?: string };
     readonly night: boolean;
     readonly preferences: Preferences;
+    /** Under a roof on a map out of doors: the day kept out but through windows and outer doors. */
+    readonly indoors: boolean;
+    /** Windows in its outer walls (above ground, where the building has them). */
+    readonly windowed: boolean;
 }
+
+/**
+ * A roofed room's darkness, whatever the time of day: full, above the range a
+ * scene's global light shines in (Foundry drops global light wherever a
+ * region leaves the darkness outside its range), so the day falls only
+ * through the room's windows and outer doors, and its lamps light the rest.
+ */
+const KEEP_DAY_OUT = { kind: 'darkness', mode: 'override', modifier: 1 } as const;
 
 /** Roles whose pieces give light: a room holding one needs no light of its own by night. */
 const LIGHT_SOURCES: readonly StampRole[] = ['light', 'hearth'];
 
 /** One storey's rooms and furniture. */
 function composeStorey(layout: BuildingLayout, context: StoreyContext): { features: FeatureInput[]; problems: ComposeProblem[] } {
-    const { building, called, footprint, stamps, random, reserved, onLevel, night, preferences } = context;
+    const { building, called, footprint, stamps, random, reserved, onLevel, night, preferences, indoors, windowed } = context;
     const roleOf = new Map([...stamps.values()].flat().map((s) => [s.key, s.role]));
     const problems: ComposeProblem[] = layout.unmet.map(([room, other]) => ({ kind: 'not-beside', building: called, room, other }));
     const rooms: FeatureInput[] = [];
@@ -166,7 +181,9 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
                 return [];
             }
             if (d.room === room.key) {
-                return [building.doorAnimation === null ? d.slot : { ...d.slot, animation: building.doorAnimation }];
+                const animated = building.doorAnimation === null ? d.slot : { ...d.slot, animation: building.doorAnimation };
+                // A door to the outside lets the day in while it stands open.
+                return [indoors && d.to === null ? { ...animated, daylight: true } : animated];
             }
             if (d.to !== room.key) {
                 return [];
@@ -176,10 +193,11 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
             return [d.slot.secret === true ? { ...d.slot, side } : { ...d.slot, side, open: true, arch: true }];
         });
         rooms.push(...corners.map((points): FeatureInput => ({ type: 'region', biome: 'rock', texture: building.wall, sharp: true, points, ...onLevel })));
+        const windows = windowed ? windowSlots(room.rect, outerSides(room.rect, footprint), slots, chamfer) : [];
         rooms.push({
             ...roomSpec(
                 room.rect,
-                slots,
+                [...slots, ...windows],
                 { floor: room.intent.floor ?? building.floor, wall: building.wall, wallKind: building.wallKind, ceiling: true },
                 chamfer,
                 room.intent.chamferAt,
@@ -187,6 +205,8 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
             key: `${called}:${room.key}`,
             // By night a room is lit by its hearth and lamps, not a flat light; one with neither keeps its own.
             lit: !(night && glows),
+            // Under its roof the day never shines but through its windows and outer doors: the scene's global light is kept out.
+            ...(indoors ? { effects: [KEEP_DAY_OUT] } : {}),
             ...onLevel,
         });
         furniture.push(...furnished.stamps.map((s) => ({ ...stampFeature(s), ...onLevel })));
@@ -341,6 +361,8 @@ interface MapContext {
     readonly preferences: Preferences;
     /** The map's cellar levels: the deepest building's cellars. */
     readonly depth: number;
+    /** The map is out of doors (a battlemap with ground): its buildings keep the day out but through windows and outer doors. */
+    readonly outdoor: boolean;
 }
 
 /**
@@ -517,7 +539,9 @@ function composeBuilding(
     footprint: Rect,
     map: MapContext,
 ): { features: FeatureInput[]; problems: ComposeProblem[]; ground: BuildingLayout | null; annexes: Rect[] } {
-    const { stamps, random, levelOf, night, preferences, depth } = map;
+    const { stamps, random, levelOf, night, preferences, depth, outdoor } = map;
+    // Windows in a building's outer walls out of doors, where it has them; cellars are below ground, with none.
+    const windowedOn = (storey: number): boolean => outdoor && building.windows && storey >= 0;
     const ways = withStairTags(stamps, building.stairTags);
     // A flight must not open onto a level beneath where it climbs from: the map's cellar levels lie under every ground floor.
     const asked = {
@@ -575,6 +599,8 @@ function composeBuilding(
             onLevel: levelOf(storey),
             night,
             preferences,
+            indoors: outdoor,
+            windowed: windowedOn(storey),
         });
         features.push(...composed.features);
         problems.push(...composed.problems);
@@ -789,6 +815,26 @@ const LIGHTING_SCENE = {
     night: { darkness: 0.85, globalLight: false },
 } as const;
 
+/** A map out of doors: a battlemap with ground under it (a chart, or an interior on a bare scene, is not). */
+function isOutdoor(intent: MapIntent): boolean {
+    return intent.scale === 'battlemap' && intent.ground !== null;
+}
+
+/**
+ * The scene's lighting. Out of doors, the day lights the scene: Foundry's
+ * global light shines while the darkness is a day's (up to
+ * DAYLIGHT_MAX_DARKNESS), so whatever drives the scene's darkness (a game
+ * system's clock) brings day and night, and roofed rooms keep it out. Indoors
+ * and on charts, as `lighting` says.
+ */
+function sceneLighting(lighting: MapIntent['lighting'], outdoor: boolean): SceneSettingsInput | null {
+    const asked = LIGHTING_SCENE[lighting];
+    if (!outdoor) {
+        return asked;
+    }
+    return { ...(asked === null ? {} : { darkness: asked.darkness }), globalLight: true, globalLightDarkness: { min: 0, max: DAYLIGHT_MAX_DARKNESS } };
+}
+
 /** The ground level's key and name on a map with levels. */
 const GROUND_LEVEL = 'ground';
 const GROUND_LEVEL_NAME = 'Ground floor';
@@ -813,13 +859,14 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     });
     const levelOf: LevelOf = (storey) => (layered ? { level: levelKey(storey) } : {});
     const night = intent.lighting === 'night';
-    const scene = LIGHTING_SCENE[intent.lighting];
+    const outdoor = isOutdoor(intent);
+    const scene = sceneLighting(intent.lighting, outdoor);
     const composed = intent.buildings.map((building, i) => {
         const footprint = footprintOf(building, intent);
         return {
             building,
             footprint,
-            ...composeBuilding(building, buildingName(building, i), footprint, { stamps, random, levelOf, night, preferences, depth }),
+            ...composeBuilding(building, buildingName(building, i), footprint, { stamps, random, levelOf, night, preferences, depth, outdoor }),
         };
     });
     // Raised platforms over the ground, each with its stair up from it: after the buildings, so they move nothing in them.
