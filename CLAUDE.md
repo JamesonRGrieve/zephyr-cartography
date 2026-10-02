@@ -1231,7 +1231,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
     from walls, so a stamp's role and tags wall it: tall solid bodies
     (shelves, racks, dressers, machines, structures, vehicles; lockers,
     columns, statues, generators among storage and fittings) are walled
-    round against sight, light and movement; low furniture (tables, desks,
+    round with terrain walls (sight and light limited, movement barred), so
+    a token sees the piece through its near side but never what lies
+    beyond it (operator, 2026-10-01: solid walls hid the piece itself);
+    low furniture (tables, desks,
     counters, pews, benches, beds, crates, consoles) is seen over, crossed at
     twice the going (Modify Movement Cost) and half cover; defences
     (barricades, emplacements) bar movement, are seen over and are heavy

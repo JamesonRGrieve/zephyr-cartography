@@ -81,8 +81,14 @@ const HARD_GOING: StampTerrain = { difficulty: { walk: 2 } };
 /** Cover as the schema grades it: half behind furniture, three-quarter behind a defence, full behind a solid body. */
 const COVER = { half: 0.5, heavy: 0.75, full: 1 } as const;
 
-/** Walls round the footprint that hide what is behind it and bar the way: a solid body. Sound carries round furniture. */
-const SOLID: StampOcclusion = { shape: 'bounds', sight: true, movement: true, light: true, sound: false };
+/**
+ * Walls round the footprint that hide what is behind it and bar the way: a
+ * solid body. Foundry's terrain walls (sight and light limited): a token sees
+ * through the one nearest it, so it sees the piece itself, but never through
+ * both sides, so nothing behind it shows. Solid walls hid the piece too
+ * (operator, 2026-10-01). Sound carries round furniture.
+ */
+const SOLID: StampOcclusion = { shape: 'bounds', sight: 'limited', movement: true, light: 'limited', sound: false };
 
 /** Walls round the footprint that bar the way but hide nothing: a railing, a fence, a barricade seen over. */
 const BARRIER: StampOcclusion = { shape: 'bounds', sight: false, movement: true, light: false, sound: false };

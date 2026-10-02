@@ -12,7 +12,8 @@ describe('physicsOf', () => {
             ['fitting', ['support', 'column']],
         ] as const) {
             const physics = physicsOf(role, tags);
-            expect(physics.occlusion).toMatchObject({ shape: 'bounds', sight: true, movement: true, light: true });
+            // Terrain walls: the piece itself is seen through its near side, never what lies beyond both.
+            expect(physics.occlusion).toMatchObject({ shape: 'bounds', sight: 'limited', movement: true, light: 'limited' });
             expect(physics.physical).toMatchObject({ cover: 1, blocksMovement: true });
         }
     });
@@ -40,7 +41,7 @@ describe('physicsOf', () => {
         // A reactor is a solid body and a hazard both.
         const reactor = physicsOf('machine', ['reactor', 'core']);
         expect(reactor.hazard?.kind).toBe('radiation');
-        expect(reactor.occlusion).toMatchObject({ sight: true });
+        expect(reactor.occlusion).toMatchObject({ sight: 'limited' });
         expect(physicsOf('fitting', ['open', 'pit']).hazard?.kind).toBe('fall');
         // A scorch mark, a lamp, a candle: fire's traces or fire kept in check.
         expect(physicsOf('decal', ['scorch', 'fire']).hazard).toBeUndefined();

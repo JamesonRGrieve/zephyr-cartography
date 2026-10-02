@@ -105,7 +105,7 @@ describe('behaviourOf physics', () => {
     ]);
 
     it('walls a tall piece and slows over a low one by its role, where its pack says nothing', () => {
-        expect(shelf ? behaviourOf(shelf, 0).occlusion : null).toMatchObject({ shape: 'bounds', sight: true, movement: true });
+        expect(shelf ? behaviourOf(shelf, 0).occlusion : null).toMatchObject({ shape: 'bounds', sight: 'limited', movement: true });
         const low = table ? behaviourOf(table, 0) : null;
         expect(low?.occlusion).toBeNull();
         expect(low?.physical).toEqual({ height: 0.5, cover: 0.5 });
