@@ -109,9 +109,25 @@ for (const { key, intent: source } of listed) {
         // The scene as composed, before anything is changed to draw it: its grid, darkness and lights as they are.
         const sceneData = await world.evaluate(() => canvas?.scene?.toObject() ?? null);
 
-        // Full daylight and no grid while drawing: the exported lights light it in the VTT.
-        await world.evaluate(async () => {
-            await canvas?.scene?.update({ grid: { alpha: 0 }, environment: { darknessLevel: 0, globalLight: { enabled: true } } });
+        // Full daylight and no grid while drawing: the exported lights light it in the VTT. A roofed room keeps the day out
+        // with a darkness region, so those are switched off for the picture too (and back on after), and the token layer
+        // (Item Piles' container tokens, their names and heights) is hidden: the picture is the map's art alone.
+        const darkening = await world.evaluate(async () => {
+            const scene = canvas?.scene;
+            await scene?.update({ grid: { alpha: 0 }, environment: { darknessLevel: 0, globalLight: { enabled: true } } });
+            const found = (scene?.regions.contents ?? []).flatMap((region) => {
+                const ids = region.behaviors.contents.filter((b) => b.type === 'adjustDarknessLevel' && !b.disabled).map((b) => b.id);
+                return ids.length === 0 ? [] : [{ region, ids }];
+            });
+            await Promise.all(
+                found.map(async ({ region, ids }) =>
+                    region.updateEmbeddedDocuments(
+                        'RegionBehavior',
+                        ids.map((_id) => ({ _id, disabled: true })),
+                    ),
+                ),
+            );
+            return found.map(({ region, ids }) => ({ region: region.id, ids }));
         });
         const scale = Math.min(1, MAX_SIDE / Math.max(size.width, size.height));
         await world.setViewportSize({ width: Math.round(size.width * scale), height: Math.round(size.height * scale) });
@@ -140,6 +156,12 @@ for (const { key, intent: source } of listed) {
                 { x: size.width / 2, y: size.height / 2, zoom: scale },
             );
             await drawn(world);
+            // Viewing a level redraws the canvas, the token layer with it: hidden again for each picture.
+            await world.evaluate(() => {
+                if (canvas?.tokens) {
+                    canvas.tokens.visible = false;
+                }
+            });
             await world.locator('#board').screenshot({ path: join(out, `${key}.${n}.png`) });
             const uvtt = await world.evaluate(
                 async ({ shining, imageGridSize }) => {
@@ -154,6 +176,22 @@ for (const { key, intent: source } of listed) {
             expect(uvtt).not.toBeNull();
             writeFileSync(join(out, `${key}.${n}.uvtt.json`), `${JSON.stringify({ level: level.name, ...uvtt })}\n`);
         }, Promise.resolve());
+        await world.evaluate(async (found) => {
+            const regions = canvas?.scene?.regions.contents ?? [];
+            await Promise.all(
+                regions.flatMap((region) => {
+                    const ids = found.find((f) => f.region === region.id)?.ids ?? [];
+                    return ids.length === 0
+                        ? []
+                        : [
+                              region.updateEmbeddedDocuments(
+                                  'RegionBehavior',
+                                  ids.map((_id) => ({ _id, disabled: false })),
+                              ),
+                          ];
+                }),
+            );
+        }, darkening);
         writeFileSync(join(out, `${key}.scene.json`), `${JSON.stringify({ grid: GRID, scale, levels, scene: sceneData })}\n`);
     });
 }
