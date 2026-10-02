@@ -269,6 +269,28 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   building; never a ruled grid of identical lots.
 - **The prompt governs where a reference ignored it** (ships drawn into an
   empty berth, a tunnel maze for a straight street): follow the prompt.
+- **Walls follow the object's shape** (operator, 2026-10-02). A stamp's
+  occlusion walls trace its art's outline (`alpha`), never a box round its
+  footprint, so a token stands as close to a curved hull, a round well or a
+  tree's trunk as the picture shows. Tall pieces block with terrain walls
+  (sight and light limited), so the piece itself is seen and only what lies
+  beyond it is hidden.
+- **Nothing traps a token.** A vehicle's or building's walls leave its way
+  in open: a lowered ramp, a hatch or a door drawn on the art is a gap in
+  its walls, never walled shut, so a token coming down a ramp can always
+  walk off it.
+- **Ways in lead in.** A vehicle's ramps and hatches, and a building's
+  doors, are scene changes into its interior map (a native teleport region
+  over each, as submaps make), on the floor the interior boards on (the
+  shuttle's side ramps land on its boarding deck); the interior's own ramps
+  and doors lead back out to where it stands.
+- **Maps are linked into a world.** Where a map's road, river or path runs
+  off its edge (its egress), a teleport region over that edge leads to the
+  regional map, landing at the place it stands for; each place on a
+  regional map (a town, a tavern, a landing site, a barrow) is a teleport
+  into that place's own map; a system chart's worlds lead into their
+  regional maps. Links name scenes by intent key, resolved when the scenes
+  are built or imported, so a set of maps arrives already joined.
 
 ---
 
