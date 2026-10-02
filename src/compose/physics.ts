@@ -101,10 +101,11 @@ const COVER = { half: 0.5, heavy: 0.75, full: 1 } as const;
  * both sides, so nothing behind it shows. Solid walls hid the piece too
  * (operator, 2026-10-01). Sound carries round furniture.
  */
-const SOLID: StampOcclusion = { shape: 'bounds', sight: 'limited', movement: true, light: 'limited', sound: false };
+// Traced round the art's own outline (`alpha`), never a box round the footprint (operator, 2026-10-02).
+const SOLID: StampOcclusion = { shape: 'alpha', sight: 'limited', movement: true, light: 'limited', sound: false };
 
 /** Walls round the footprint that bar the way but hide nothing: a railing, a fence, a barricade seen over. */
-const BARRIER: StampOcclusion = { shape: 'bounds', sight: false, movement: true, light: false, sound: false };
+const BARRIER: StampOcclusion = { shape: 'alpha', sight: false, movement: true, light: false, sound: false };
 
 /** Roles whose every stamp is a solid body taller than a figure. */
 const TALL_ROLES: readonly StampRole[] = ['shelf', 'rack', 'dresser', 'machine', 'structure', 'vehicle'];

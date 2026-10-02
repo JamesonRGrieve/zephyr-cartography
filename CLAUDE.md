@@ -1253,7 +1253,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     from walls, so a stamp's role and tags wall it: tall solid bodies
     (shelves, racks, dressers, machines, structures, vehicles; lockers,
     columns, statues, generators among storage and fittings) are walled
-    round with terrain walls (sight and light limited, movement barred), so
+    round with terrain walls (sight and light limited, movement barred)
+    traced along the art's own outline (`alpha`), never a box, so
     a token sees the piece through its near side but never what lies
     beyond it (operator, 2026-10-01: solid walls hid the piece itself);
     low furniture (tables, desks,

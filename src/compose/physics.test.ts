@@ -13,7 +13,8 @@ describe('physicsOf', () => {
         ] as const) {
             const physics = physicsOf(role, tags);
             // Terrain walls: the piece itself is seen through its near side, never what lies beyond both.
-            expect(physics.occlusion).toMatchObject({ shape: 'bounds', sight: 'limited', movement: true, light: 'limited' });
+            // Traced round the art's outline, never a box round the footprint.
+            expect(physics.occlusion).toMatchObject({ shape: 'alpha', sight: 'limited', movement: true, light: 'limited' });
             expect(physics.physical).toMatchObject({ cover: 1, blocksMovement: true });
         }
     });
