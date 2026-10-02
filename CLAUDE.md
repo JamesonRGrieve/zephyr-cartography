@@ -1700,7 +1700,10 @@ imports).
   - `enterable` (submap-capable);
   - `container`: `true`, or Item Piles pile options (type, starting closed or
     locked, distance, sounds, and which variant shows each pile state:
-    closed, open, empty, locked);
+    closed, open, empty, locked); `false` for none. Omitted, its role and
+    tags decide (`compose/physics.ts`): a chest, and storage or a fitting
+    tagged chest, trunk, footlocker, strongbox, coffer, crate, locker,
+    cabinet or reliquary, is a plain container; barrels and sacks are not;
   - `particles`: native particle emitters (textures, spawn area, count,
     lifetime, velocity, alpha, scale, fade, blend);
   - `sound`: an ambient sound emitter;

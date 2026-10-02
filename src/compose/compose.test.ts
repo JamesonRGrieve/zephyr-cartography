@@ -584,7 +584,7 @@ describe('composeMap', () => {
         const points = roof?.type === 'region' ? roof.points : [];
         // The hold's octagonal bow: six corners, none at the footprint's cut-off top corners.
         expect(points).toHaveLength(6);
-        const { x, y } = footprintOf({ at: null, width: 10, height: 8 }, hull);
+        const { x, y } = footprintOf({ at: undefined, width: 10, height: 8 }, hull);
         expect(points.some((p) => (p.x === x && p.y === y) || (p.x === x + 10 && p.y === y))).toBe(false);
     });
 
