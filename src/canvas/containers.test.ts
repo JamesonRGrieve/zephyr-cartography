@@ -99,6 +99,26 @@ describe('CartographyController containers', () => {
         expect(await c.applyPileState('pile2', 'open')).toBe(false);
     });
 
+    it('follow their pile’s state as the game’s, never an undo step: undo takes back what the GM did', async () => {
+        const { c } = makeHarness(stamps);
+        await c.placeStamp({ stamp: 'pack:strongbox', x: 50, y: 50 });
+        expect(await c.applyPileState('pile1', 'open')).toBe(true);
+        // The undo takes back the placing, not the box's opening.
+        await c.undo();
+        expect(c.getFeature('p1')).toBeNull();
+    });
+
+    it('let an undo asked while their pile is being followed wait for it, never joining its write', async () => {
+        const { c, k } = makeHarness(stamps);
+        await c.placeStamp({ stamp: 'pack:strongbox', x: 50, y: 50 });
+        const following = c.applyPileState('pile1', 'open');
+        await c.undo();
+        expect(await following).toBe(true);
+        // The follow ran first, on its own; the undo then took back the placing, pile and all.
+        expect(c.getFeature('p1')).toBeNull();
+        expect(k.removed).toEqual(['pile1']);
+    });
+
     it('places the pile at the level floor', async () => {
         const { c, k } = makeHarness(stamps);
         await c.addLevel('above', 'Ground');

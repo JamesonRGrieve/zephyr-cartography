@@ -335,6 +335,8 @@ export class CartographyController {
     private readonly staged: StagedChanges;
     /** Depth of nested transactions; only the outermost one writes. */
     private writing = 0;
+    /** Settles when the transaction under way ends: what an independent operation waits for before starting its own. */
+    private settled: Promise<void> = Promise.resolve();
     /** The features changed inside the transaction under way, to be saved as it ends. */
     private unsaved = false;
 
@@ -854,6 +856,7 @@ export class CartographyController {
      * does.
      */
     async applyDoorState(wallId: string, state: DoorState): Promise<boolean> {
+        await this.whenIdle();
         const feature = this.features.find((f) => f.docs.walls.includes(wallId));
         if (feature?.type === 'room') {
             return this.recordRoomDoorState(feature, wallId, state);
@@ -964,13 +967,18 @@ export class CartographyController {
 
     /** Switch a placed stamp to variant `index` (clamped); false if it is not a stamp or its pack is gone. */
     async setStampVariant(id: string, index: number): Promise<boolean> {
+        return this.switchVariant(id, index, true);
+    }
+
+    /** Switch a stamp's variant, as an undo step (`recorded`) or as following the game, which no undo takes back. */
+    private async switchVariant(id: string, index: number, recorded: boolean): Promise<boolean> {
         const feature = this.getFeature(id);
         const stamp = feature?.type === 'stamp' ? this.catalog.get(feature.stamp) : null;
         if (feature?.type !== 'stamp' || !stamp) {
             return false;
         }
         const varied = await this.withSilhouette(withStampVariant(feature, stamp, index, this.stampGrid(stamp)));
-        await this.replaceFeature(id, await this.followPile(varied, feature.pile));
+        await this.replaceFeature(id, await this.followPile(varied, feature.pile), recorded);
         return true;
     }
 
@@ -986,6 +994,7 @@ export class CartographyController {
      * that pile, the pack names no variant for the state, or it shows already.
      */
     async applyPileState(pileUuid: string, state: PileState): Promise<boolean> {
+        await this.whenIdle();
         const feature = this.features.find((f): f is StampFeature => f.type === 'stamp' && f.pile === pileUuid);
         const stamp = feature ? this.catalog.get(feature.stamp) : null;
         const label = feature ? pileStateLabel(feature.behaviour.pile?.states, state) : undefined;
@@ -993,7 +1002,9 @@ export class CartographyController {
         if (!feature || index < 0 || index === feature.variant) {
             return false;
         }
-        return this.setStampVariant(feature.id, index);
+        // The pile's state is the game's, followed as it changes: never a GM's undo step, or undoing a composed map would
+        // undo the look its chests took on instead.
+        return this.switchVariant(feature.id, index, false);
     }
 
     /** Step a placed stamp to its next (or previous) variant, wrapping. */
@@ -1451,6 +1462,7 @@ export class CartographyController {
 
     /** Step back one edit, bringing the scene's generated documents (or a blend's mask) back with it. */
     async undo(): Promise<void> {
+        await this.whenIdle();
         const prev = this.history.pop();
         if (!prev) {
             return;
@@ -1461,6 +1473,7 @@ export class CartographyController {
 
     /** Re-apply an undone edit, documents included. */
     async redo(): Promise<void> {
+        await this.whenIdle();
         const next = this.future.pop();
         if (!next) {
             return;
@@ -1547,13 +1560,15 @@ export class CartographyController {
     }
 
     /** Swap the feature with `id` for `next`, snapshotting for undo, then persist + redraw it. */
-    private async replaceFeature(id: string, next: Feature): Promise<void> {
+    private async replaceFeature(id: string, next: Feature, recorded = true): Promise<void> {
         const old = this.features.find((f) => f.id === id);
         if (!old) {
             return;
         }
         await this.transaction(async () => {
-            this.snapshot();
+            if (recorded) {
+                this.snapshot();
+            }
             const before = this.features;
             this.features = this.features.map((f) => (f.id === id ? next : f));
             this.show(next);
@@ -1639,6 +1654,10 @@ export class CartographyController {
         }
         const before = { features: [...this.features], history: [...this.history], future: [...this.future] };
         this.writing = 1;
+        let ended = (): void => undefined;
+        this.settled = new Promise((resolve) => {
+            ended = resolve;
+        });
         try {
             const result = await work();
             // The features are saved once, as the transaction ends, before the documents they own are written.
@@ -1661,6 +1680,20 @@ export class CartographyController {
             throw error;
         } finally {
             this.writing = 0;
+            ended();
+        }
+    }
+
+    /**
+     * Wait until no transaction is under way. A transaction started while
+     * another runs joins it (nested edits, a batch's own); an independent
+     * operation (an undo, a follow of the game's state) must not, or its
+     * changes would be written, and rolled back, with another's.
+     */
+    private async whenIdle(): Promise<void> {
+        while (this.writing > 0) {
+            // eslint-disable-next-line no-await-in-loop -- each wait is for the transaction under way, and another may start after it
+            await this.settled;
         }
     }
 
@@ -1688,6 +1721,7 @@ export class CartographyController {
             await work();
             return;
         }
+        await this.whenIdle();
         this.snapshot();
         this.batching = true;
         this.batchSteps = [];
