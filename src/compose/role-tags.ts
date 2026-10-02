@@ -315,8 +315,8 @@ const INDOOR_ROLES: readonly StampRole[] = [
 /** Roles that stand outdoors, which take only stamps drawn at exterior scale. */
 const OUTDOOR_ROLES: readonly StampRole[] = ['structure', 'barricade', 'crater', 'emplacement', 'vehicle', 'well', 'bridge', 'waymark', 'enclosure', 'fodder'];
 
-/** Scales of art drawn for charts, never for a battlemap. */
-const CHART_SCALES: readonly string[] = ['regional', 'planet', 'system'];
+/** Scales of art seen from far above, for charts (a city's blocks drawn for a region's towns), never for a battlemap. */
+const CHART_SCALES: readonly string[] = ['city', 'regional', 'planet', 'system'];
 
 /**
  * Whether a stamp drawn at `scale` can fill `role` on a map drawn at
@@ -336,7 +336,8 @@ export function suitsScale(role: StampRole, scale: string, mapScale: MapScale = 
     if (role === 'fitting') {
         return scale === 'interior' || scale === 'exterior';
     }
-    // A chart's art (a map pin, a town seen from far above, a world) never stands on a battlemap: a supply pin is no crate.
+    // A chart's art (a map pin, a town seen from far above, a world) never stands on a battlemap: a supply pin is no crate,
+    // a city tile's cart and crates no cellar store.
     if (CHART_SCALES.includes(scale)) {
         return false;
     }
