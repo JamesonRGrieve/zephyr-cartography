@@ -102,6 +102,7 @@ describe('linkFeatures', () => {
                 { key: 'west', at: { edge: 'west', along: 6 }, to: null },
                 { key: 'east', at: { edge: 'east' }, to: null },
                 { key: 'lost', at: { fixture: 'nowhere' }, to: null },
+                { key: 'trapdoor', at: { area: { x: 21.9, y: 13.3, w: 1.2, h: 1.2 } }, to: { map: 'tomb', link: 'stair' } },
             ],
             places,
             {},
@@ -110,6 +111,8 @@ describe('linkFeatures', () => {
             ['north', 14, 1, { kind: 'rectangle', width: 3, height: 2 }],
             ['west', 1, 6, { kind: 'rectangle', width: 2, height: 3 }],
             ['east', 29, 10, { kind: 'rectangle', width: 2, height: 3 }],
+            // A way down inside a building, over the area asked.
+            ['To tomb', 22.5, 13.9, { kind: 'rectangle', width: 1.2, height: 1.2 }],
         ]);
     });
 });
@@ -122,6 +125,10 @@ describe('map links in an intent', () => {
         expect(parseMapIntent({ schemaVersion: 1, key: 'town', links: [link], buildings: [] }).ok).toBe(false);
         expect(parseMapIntent({ schemaVersion: 1, key: 'town', links: [link, link], buildings: [building] }).ok).toBe(false);
         expect(parseMapIntent({ schemaVersion: 1, key: 'town', links: [{ ...link, at: { fixture: 'nowhere' } }] }).ok).toBe(false);
+        const area = (x: number) => ({ schemaVersion: 1, key: 'town', width: 20, height: 10, links: [{ ...link, at: { area: { x, y: 2, w: 2, h: 2 } } }] });
+        expect(parseMapIntent(area(19)).ok).toBe(false);
+        expect(parseMapIntent(area(-1)).ok).toBe(false);
+        expect(parseMapIntent(area(4)).ok).toBe(true);
         expect(parseMapIntent({ schemaVersion: 1, key: 'town', links: [link], buildings: [building] }).ok).toBe(true);
     });
 

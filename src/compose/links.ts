@@ -76,6 +76,9 @@ function placeOf(at: MapLinkIntent['at'], places: LinkPlaces): Rect | null {
     if ('fixture' in at) {
         return places.fixtures.get(at.fixture) ?? null;
     }
+    if ('area' in at) {
+        return at.area;
+    }
     const front = places.fronts.get(at.building);
     return front ? insideDoor(front.slot, front.room) : null;
 }

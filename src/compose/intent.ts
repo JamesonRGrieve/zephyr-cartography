@@ -740,8 +740,13 @@ const mapLink = z
                     .strict(),
                 z.object({ fixture: text.describe('A named piece outside on this map (a town on a chart).') }).strict(),
                 z.object({ building: text.describe('A building on this map: the way stands just inside its front door.') }).strict(),
+                z
+                    .object({
+                        area: mapRect.describe('Squares on the map: a way down or up inside a building (a trapdoor, the foot of a stair).'),
+                    })
+                    .strict(),
             ])
-            .describe('Where the way stands: over a map edge, over a place, or just inside a building’s door.'),
+            .describe('Where the way stands: over a map edge, over a place, just inside a building’s door, or over an area.'),
         to: z
             .object({ map: text.describe('The other map’s key.'), link: text.describe('Its way that this one leads to.') })
             .strict()
@@ -827,14 +832,29 @@ export const mapIntentSchema = z
                 ctx.addIssue({ code: 'custom', path: ['links', i, 'key'], message: `a second way keyed ${l.key}` });
             }
             seen.add(l.key);
-            if ('building' in l.at && !buildings.includes(l.at.building)) {
-                ctx.addIssue({ code: 'custom', path: ['links', i, 'at', 'building'], message: `no building named ${l.at.building}` });
-            }
-            if ('fixture' in l.at && !fixtures.includes(l.at.fixture)) {
-                ctx.addIssue({ code: 'custom', path: ['links', i, 'at', 'fixture'], message: `no piece outside named ${l.at.fixture}` });
+            const problem = linkPlaceProblem(l.at, { buildings, fixtures, width: intent.width, height: intent.height });
+            if (problem !== null) {
+                ctx.addIssue({ code: 'custom', path: ['links', i, 'at', problem.field], message: problem.message });
             }
         });
     });
+
+/** Why a way's place is not on its map (a building or piece it lacks, an area off it), or null. */
+function linkPlaceProblem(
+    at: z.infer<typeof mapLink>['at'],
+    map: { readonly buildings: readonly string[]; readonly fixtures: readonly string[]; readonly width: number; readonly height: number },
+): { readonly field: string; readonly message: string } | null {
+    if ('building' in at && !map.buildings.includes(at.building)) {
+        return { field: 'building', message: `no building named ${at.building}` };
+    }
+    if ('fixture' in at && !map.fixtures.includes(at.fixture)) {
+        return { field: 'fixture', message: `no piece outside named ${at.fixture}` };
+    }
+    if ('area' in at && (at.area.x < 0 || at.area.y < 0 || at.area.x + at.area.w > map.width || at.area.y + at.area.h > map.height)) {
+        return { field: 'area', message: 'an area off the map' };
+    }
+    return null;
+}
 
 export type MapIntent = z.infer<typeof mapIntentSchema>;
 export type BuildingIntent = MapIntent['buildings'][number];

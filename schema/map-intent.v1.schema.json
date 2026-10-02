@@ -85,9 +85,45 @@
                                     "building"
                                 ],
                                 "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "properties": {
+                                    "area": {
+                                        "type": "object",
+                                        "properties": {
+                                            "x": {
+                                                "type": "number"
+                                            },
+                                            "y": {
+                                                "type": "number"
+                                            },
+                                            "w": {
+                                                "type": "number",
+                                                "exclusiveMinimum": 0
+                                            },
+                                            "h": {
+                                                "type": "number",
+                                                "exclusiveMinimum": 0
+                                            }
+                                        },
+                                        "required": [
+                                            "x",
+                                            "y",
+                                            "w",
+                                            "h"
+                                        ],
+                                        "additionalProperties": false,
+                                        "description": "Squares on the map: a way down or up inside a building (a trapdoor, the foot of a stair)."
+                                    }
+                                },
+                                "required": [
+                                    "area"
+                                ],
+                                "additionalProperties": false
                             }
                         ],
-                        "description": "Where the way stands: over a map edge, over a place, or just inside a building’s door."
+                        "description": "Where the way stands: over a map edge, over a place, just inside a building’s door, or over an area."
                     },
                     "to": {
                         "default": null,
