@@ -105,8 +105,6 @@ export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour
     // A pack's null (no terrain, no hazard in this variant) is its word too: only a field it never sets is the role's.
     const terrainUnsaid = stamp.terrain === undefined && variant.terrain === undefined;
     const hazardUnsaid = stamp.hazard === undefined && variant.hazard === undefined;
-    // A chest or a locker holds things as Item Piles where its pack never says either way.
-    const pile = stamp.container === undefined && variant.container === undefined && derived.container === true ? { type: 'container' as const } : props.pile;
     // Armed where its pack says so, else where its tags name it a trap; a sprung variant says it is not.
     const trap = variant.trap ?? stamp.trap ?? stamp.tags.includes(TRAP_TAG);
     return {
@@ -117,8 +115,8 @@ export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour
         doorState: props.doorState ?? null,
         transition: stamp.transition ?? null,
         enterable: stamp.enterable,
-        container: pile !== null,
-        pile,
+        container: props.pile !== null,
+        pile: props.pile,
         particles: props.particles,
         sound: props.sound,
         // An armed trap is hidden from players until it is sprung.

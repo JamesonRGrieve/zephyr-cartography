@@ -1750,7 +1750,8 @@
                         "type": "boolean"
                     },
                     "container": {
-                        "description": "Backed by an Item Piles pile: true for a plain container, or its pile options; false for none. Omitted: as its role and tags say (a chest, a footlocker, a locker holds things).",
+                        "default": false,
+                        "description": "Backed by an Item Piles pile: true for a plain container, or its pile options.",
                         "anyOf": [
                             {
                                 "type": "boolean"

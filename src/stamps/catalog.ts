@@ -152,7 +152,7 @@ export function loadPacks(sources: readonly PackSource[]): LoadedPacks {
                 ...(particles === undefined ? {} : { particles }),
                 ...(sound === undefined ? {} : { sound }),
                 ...(stamp.door === undefined ? {} : { door: servedDoor(stamp.door, url) }),
-                ...(stamp.container === undefined ? {} : { container: servedContainer(stamp.container, url) }),
+                container: servedContainer(stamp.container, url),
                 key: `${moduleId}:${stamp.id}`,
                 moduleId,
                 referenceGridSize,
@@ -293,9 +293,9 @@ function overridden<T>(variant: T | null | undefined, stamp: T | undefined): T |
     return variant === undefined ? stamp ?? null : variant;
 }
 
-/** A container flag as a pile: `true` is a plain container with Item Piles' defaults, `false` or unsaid none. */
-function pileOf(container: boolean | StampPile | undefined): StampPile | null {
-    if (container === false || container === undefined) {
+/** A container flag as a pile: `true` is a plain container with Item Piles' defaults, `false` none. */
+function pileOf(container: boolean | StampPile): StampPile | null {
+    if (container === false) {
         return null;
     }
     return container === true ? { type: 'container' } : container;

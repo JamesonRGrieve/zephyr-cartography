@@ -27,16 +27,6 @@ describe('physicsOf', () => {
         }
     });
 
-    it('makes a chest, a footlocker, a locker or a crate a container; barrels, sacks and furniture stay scenery', () => {
-        expect(physicsOf('chest', ['treasure']).container).toBe(true);
-        expect(physicsOf('storage', ['standing', 'locker']).container).toBe(true);
-        expect(physicsOf('storage', ['ammo', 'crate']).container).toBe(true);
-        expect(physicsOf('fitting', ['wall', 'cabinet']).container).toBe(true);
-        expect(physicsOf('storage', ['barrels']).container).toBeUndefined();
-        expect(physicsOf('storage', ['sack', 'pile']).container).toBeUndefined();
-        expect(physicsOf('table', ['oak']).container).toBeUndefined();
-    });
-
     it('bars the way at a defence or a railing but hides nothing behind it', () => {
         const sandbags = physicsOf('barricade', ['sandbag']);
         expect(sandbags.occlusion).toMatchObject({ sight: false, movement: true });

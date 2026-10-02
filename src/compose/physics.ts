@@ -20,20 +20,7 @@ export interface DerivedPhysics {
     readonly hazard?: StampHazard;
     /** How its tile gives way to a token beneath it: a roof fades, a tree's crown cuts away round it. */
     readonly tile?: StampTile;
-    /** Holds things, as an Item Piles container: a chest, a footlocker, a locker. */
-    readonly container?: true;
 }
-
-/**
- * Tags of storage or a fitting that holds things to be found (a crate, a
- * locker, a cabinet); a chest's every piece does. Barrels and sacks hold
- * goods in bulk, not loot, and stay scenery.
- */
-const CONTAINER_TAGS: readonly string[] = ['chest', 'trunk', 'footlocker', 'strongbox', 'coffer', 'crate', 'crates', 'locker', 'cabinet', 'reliquary'];
-
-/** Whether a stamp of `role` tagged `tags` holds things. */
-const holds = (role: StampRole, tags: readonly string[]): boolean =>
-    role === 'chest' || ((role === 'storage' || role === 'fitting') && tags.some((tag) => CONTAINER_TAGS.includes(tag)));
 
 /** Grid squares an overhead piece hangs above its base: over a standing figure, so a token beneath is under it. */
 const OVERHEAD = 3;
@@ -167,11 +154,7 @@ export function physicsOf(role: StampRole | undefined, tags: readonly string[]):
     const over = overheadOf(role, tags);
     // An overhead piece is its own body: a roof or a crown hangs over the floor, hiding and barring nothing below it.
     const body = over.tile === undefined ? bodyOf(role, tags) : over;
-    return {
-        ...body,
-        ...(hazard === undefined ? {} : { hazard }),
-        ...(holds(role, tags) ? { container: true as const } : {}),
-    };
+    return hazard === undefined ? body : { ...body, hazard };
 }
 
 /** What a stamp of `role` tagged `tags` hides, bars and slows. */

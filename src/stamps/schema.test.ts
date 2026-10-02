@@ -20,8 +20,7 @@ describe('parseStampPack', () => {
         expect(parsed?.stamps[0]?.tags).toEqual([]);
         expect(parsed?.stamps[0]?.defaultVariant).toBe(0);
         expect(parsed?.stamps[0]?.enterable).toBe(false);
-        // Unsaid, so its role and tags decide (a chest holds things); an explicit false still says none.
-        expect(parsed?.stamps[0]?.container).toBeUndefined();
+        expect(parsed?.stamps[0]?.container).toBe(false);
     });
 
     it('takes a role and placement for the map composer, keeping only what the pack says, and refuses an unknown role', () => {

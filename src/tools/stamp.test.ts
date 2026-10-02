@@ -116,29 +116,6 @@ describe('behaviourOf physics', () => {
         expect(walledOff ? behaviourOf(walledOff, 0).occlusion : undefined).toMatchObject({ shape: 'none' });
         expect(cleared ? behaviourOf(cleared, 0).terrain : undefined).toBeNull();
     });
-
-    it('makes a chest or a locker an Item Piles container where its pack never says; its pack’s false wins', () => {
-        const piece = (id: string, tags: readonly string[], container?: boolean): Record<string, unknown> => ({
-            id,
-            name: id,
-            category: 'Furniture',
-            scale: 'interior',
-            perspective: 'top-down',
-            tags,
-            ...(container === undefined ? {} : { container }),
-            variants: [{ state: 'shut', image: `${id}.png`, width: 100, height: 60 }],
-        });
-        const [footlocker, locker, sealed, barrel] = catalogStamps([
-            piece('footlocker', ['footlocker']),
-            piece('locker', ['standing', 'locker']),
-            piece('sealed', ['footlocker'], false),
-            piece('barrel', ['barrel']),
-        ]);
-        expect(footlocker ? behaviourOf(footlocker, 0) : null).toMatchObject({ container: true, pile: { type: 'container' } });
-        expect(locker ? behaviourOf(locker, 0).container : null).toBe(true);
-        expect(sealed ? behaviourOf(sealed, 0) : null).toMatchObject({ container: false, pile: null });
-        expect(barrel ? behaviourOf(barrel, 0).container : null).toBe(false);
-    });
 });
 
 describe('variants and frames', () => {
