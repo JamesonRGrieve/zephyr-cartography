@@ -69,6 +69,8 @@ describe('roleFromTags', () => {
 
     it('never strews a mark that says something, a thing laid flat, or a run’s strip as grime: each is a fitting', () => {
         expect(roleFromTags(['cult', 'graffito', 'decal', 'sigil', 'six-limbed'])).toBe('fitting');
+        // A ritual circle filed as a decal is a story mark too: placed by name, never strewn over a floor as grime.
+        expect(roleFromTags(['sorcerous', 'ritual', 'circle', 'decal', 'setting-grimdark-chaotic'])).toBe('fitting');
         expect(roleFromTags(['hung', 'bedsheet', 'decal'])).toBe('fitting');
         expect(roleFromTags(['cart', 'route', 'wear', 'decal', 'segment'])).toBe('fitting');
         expect(roleFromTags(['violet', 'scorch'])).toBe('fitting');

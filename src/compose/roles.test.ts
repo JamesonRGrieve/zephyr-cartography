@@ -222,6 +222,7 @@ describe('roleIndex purposes', () => {
                 stampDef('relic', { role: 'clutter', tags: ['reliquary'] }),
                 stampDef('bunk', { role: 'bed', tags: ['cell'] }),
                 stampDef('satchel', { role: 'clutter', tags: ['adventuring'] }),
+                stampDef('fish-rack', { role: 'clutter', tags: ['fish', 'drying', 'rack'] }),
             ]),
             [],
         );
@@ -230,6 +231,8 @@ describe('roleIndex purposes', () => {
         expect(purposes.get('pack:relic')).toEqual(['shrine', 'chapel']);
         expect(purposes.get('pack:chamber-pot')).toEqual(['bedroom']);
         expect(purposes.get('pack:satchel')).toEqual(['bedroom', 'barracks']);
+        // Fish hung to dry is a kitchen's, never a wizard's laboratory shelf.
+        expect(purposes.get('pack:fish-rack')).toEqual(['kitchen']);
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
 

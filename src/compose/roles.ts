@@ -106,6 +106,8 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // nor a lobby's seats (a hall is a reception or a corridor as often as a lord's; a great hall names its throne).
     map: ['command'],
     throne: ['command', 'chapel'],
+    // Fish hung to dry is a kitchen's, never strewn as a shelf through a wizard's laboratory.
+    fish: ['kitchen'],
 };
 
 /** The kinds of room `tags` name, or say a piece belongs in. */

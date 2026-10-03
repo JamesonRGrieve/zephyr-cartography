@@ -139,9 +139,10 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
         ],
     ],
     ['rug', ['rug', 'carpet']],
-    // A mark that says something (a cult's graffito, a scratched sigil, a violet sorcerous burn, brood resin), a thing laid
-    // flat (a hung bedsheet), or a strip made to run along a route: never strewn as grime, only where a map names it.
-    ['fitting', ['graffito', 'graffiti', 'sigil', 'bedsheet', 'segment', 'violet', 'brood', 'resin']],
+    // A mark that says something (a cult's graffito, a scratched sigil, a violet sorcerous burn, a ritual circle, brood
+    // resin), a thing laid flat (a hung bedsheet), or a strip made to run along a route: never strewn as grime, only where a
+    // map names it (a sorcerous ritual circle, filed as a decal, was strewn over a tower's observatory floor).
+    ['fitting', ['graffito', 'graffiti', 'sigil', 'bedsheet', 'segment', 'violet', 'sorcerous', 'ritual', 'brood', 'resin']],
     // A crystal ball on its stand is a seer's, set on a fortune-teller's table: no crystal outcrop growing from the ground.
     ['fitting', [['crystal', 'ball']]],
     // Fallen leaves lie under trees: ground cover outdoors, never a megacity chapel's grime.
