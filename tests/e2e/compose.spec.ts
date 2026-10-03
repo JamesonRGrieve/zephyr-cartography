@@ -429,7 +429,7 @@ const INN = {
 
 test('a curtain wall with its moat, a walled city district and hewn tunnels compose into native walls, water and rooms', async ({ world }) => {
     const grid = 50;
-    await freshScene(world, 'Walled town', { width: 40 * grid, height: 30 * grid, gridSize: grid });
+    await freshScene(world, 'Walled town', { width: 60 * grid, height: 30 * grid, gridSize: grid });
     const wall = [
         { x: 4, y: 4 },
         { x: 16, y: 4 },
@@ -474,7 +474,7 @@ test('a curtain wall with its moat, a walled city district and hewn tunnels comp
         {
             schemaVersion: 1,
             seed: 3,
-            width: 40,
+            width: 60,
             height: 30,
             ground: 'grassland',
             // Square towers, one along the east side; a gate in the south wall and a breach in the north.
@@ -526,18 +526,22 @@ test('a curtain wall with its moat, a walled city district and hewn tunnels comp
                     ],
                 },
             ],
-            // A road down through the district, and a square kept open in it with a chest standing there: the blocks keep
-            // clear of both.
-            paths: [{ kind: 'road', from: { x: 33, y: -1 }, to: { x: 33, y: 19 }, meander: 0 }],
-            props: [{ role: 'storage', at: { x: 26, y: 9 } }],
+            // A second quarter beside the first: a road down its east side, a square kept open in it with a chest on it, and
+            // a chest out among its houses. Its blocks keep clear of the road, the square and the loose chest, and of the
+            // first quarter.
+            paths: [{ kind: 'road', from: { x: 57, y: -1 }, to: { x: 57, y: 29 }, meander: 0 }],
+            props: [
+                { role: 'storage', at: { x: 44, y: 6 } },
+                { role: 'storage', at: { x: 46, y: 22 } },
+            ],
             districts: [
                 {
                     area: { x: 20, y: 2, w: 18, h: 16 },
-                    keepOpen: [{ x: 24, y: 7, w: 4, h: 4 }],
                     frontage: 1,
                     streetPieces: [{ name: 'street chest', role: 'storage', tags: ['loot'], width: 1, height: 0.8 }],
                     roofPieces: [{ name: 'roof vent', width: 1.2, height: 1.2 }],
                 },
+                { area: { x: 40, y: 2, w: 18, h: 26 }, keepOpen: [{ x: 42, y: 4, w: 4, h: 4 }] },
             ],
             hewn: [{ passages: [{ points: tunnel, width: 2 }], chambers: [{ centre: { x: 20, y: 26 }, width: 6, height: 5 }] }],
         },
@@ -545,11 +549,15 @@ test('a curtain wall with its moat, a walled city district and hewn tunnels comp
     expect(outcome?.built).toEqual([]);
     // Four runs of wall broken by the gate, four towers and the gate's passage; the district's blocks; the tunnels.
     expect(outcome?.rooms).toBeGreaterThan(12);
-    // No room stands across the road or on the open square with its chest (both in grid squares).
+    // No room stands across the road, on the open square or over the loose chest (all in grid squares).
     const { x: ox, y: oy } = outcome?.origin ?? { x: 0, y: 0 };
     const squares = (outcome?.extents ?? []).map((e) => ({ x0: (e.x0 - ox) / grid, x1: (e.x1 - ox) / grid, y0: (e.y0 - oy) / grid, y1: (e.y1 - oy) / grid }));
-    expect(squares.filter((e) => e.x0 < 33 && e.x1 > 33 && e.y0 < 18 && e.y1 > 2)).toEqual([]);
-    expect(squares.filter((e) => e.x0 < 26 && e.x1 > 26 && e.y0 < 9 && e.y1 > 9)).toEqual([]);
+    expect(squares.filter((e) => e.x0 < 57 && e.x1 > 57)).toEqual([]);
+    expect(squares.filter((e) => e.x0 < 46 && e.x1 > 46 && e.y0 < 22 && e.y1 > 22)).toEqual([]);
+    expect(squares.filter((e) => e.x0 < 46 && e.x1 > 42 && e.y0 < 8 && e.y1 > 4)).toEqual([]);
+    // The second quarter is built, beside the first and never reaching into it.
+    expect(squares.filter((e) => e.x0 >= 40).length).toBeGreaterThan(0);
+    expect(squares.filter((e) => e.x0 < 38 && e.x1 > 40)).toEqual([]);
     expect(outcome?.water).toBe(1);
     expect(outcome?.walls).toBeGreaterThan(40);
     // The tally board's words are a Note players read on hover.
