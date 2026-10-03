@@ -278,8 +278,9 @@ function stampDoorWall(stamp: StampFeature, floor: Floor): WallDoc | null {
 
 /**
  * A transition stamp's way between floors: one native `changeLevel` region
- * over its footprint, on its own level and each level it reaches (the one
- * above for `up`, below for `down`, both for `both`), spanning their
+ * over its footprint, on its own level and each level it reaches (those
+ * above for `up`, below for `down`, both for `both`, as many each way as its
+ * `reach`), spanning their
  * elevation bands. A token entering it on any of those levels is offered the
  * others. With no level to reach (none above/below, or the stamp is on no
  * level), nothing is planned.
@@ -290,9 +291,10 @@ function transitionRegions(stamp: StampFeature, levels: readonly Level[]): Regio
     if (!transition || !here) {
         return [];
     }
+    const steps = Array.from({ length: stamp.reach }, (_, n) => n + 1);
     const ends = [
-        transition.direction === 'down' ? null : adjacentLevel(levels, here.id, 1),
-        transition.direction === 'up' ? null : adjacentLevel(levels, here.id, -1),
+        ...(transition.direction === 'down' ? [] : steps.map((n) => adjacentLevel(levels, here.id, n))),
+        ...(transition.direction === 'up' ? [] : steps.map((n) => adjacentLevel(levels, here.id, -n))),
     ].filter((level): level is Level => level !== null);
     return joiningRegions(stamp, transition.kind, here, ends, transition.movement ?? []);
 }

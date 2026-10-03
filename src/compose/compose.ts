@@ -86,11 +86,20 @@ const stampFeature = (s: ComposedStamp): FeatureInput => ({
 });
 
 /**
- * Lanes in a stairwell: one flight for a building of two floors; for more, a
- * switchback of two side by side, each floor's flight beside the one that
- * arrives from below, so no two flights' ways between floors overlap.
+ * Lanes in a stairwell: one flight for a building of two floors, or a spiral
+ * stair through any number (it winds on up from where it arrives); for more
+ * floors of straight flights, a switchback of two side by side, each floor's
+ * flight beside the one that arrives from below, so no two flights' ways
+ * between floors overlap.
  */
-const stairLanes = (floorsAbove: number): number => (floorsAbove > 1 ? 2 : 1);
+const stairLanes = (stair: RoleStamp, floorsAbove: number): number => (floorsAbove > 1 && !winds(stair) ? 2 : 1);
+
+/**
+ * A spiral stair: seen the same from above as from below and turned like a
+ * plan, so its steps on every floor are one stair climbing on from one spot
+ * (operator 2026-10-03: a tower's middle floors drew two spirals side by side).
+ */
+const winds = (stair: RoleStamp): boolean => stair.tags.includes('spiral') && !stair.upright && footOf(stair) === null;
 
 /** A building's name in problems, room keys and places: its key, else its place in the intent. */
 export const buildingName = (building: BuildingIntent, index: number): string => building.key ?? `building-${index + 1}`;
@@ -392,7 +401,10 @@ function flights(
 ): FeatureInput[] {
     const { stair, wayDown } = way;
     const { count, lowest } = run;
-    const lanes = stairLanes(count);
+    if (winds(stair) && count > 1) {
+        return spiral(stair, well, run, levelOf);
+    }
+    const lanes = stairLanes(stair, count);
     return Array.from({ length: count }, (_, n): FeatureInput[] => {
         const lane = (n % lanes) * stair.width + stair.width / 2;
         const [x, y] = well.turned ? [well.x + well.w / 2, well.y + lane] : [well.x + lane, well.y + well.h / 2];
@@ -424,6 +436,26 @@ function flights(
             : { type: 'shape', kind: 'rectangle', x, y, width, height, stroke: OPENING.stroke, fill: OPENING.fill, ...above };
         return [{ type: 'stamp', ...drawnAs(stair), x, y, rotation, ...levelOf(lowest + n) }, opening];
     }).flat();
+}
+
+/**
+ * A spiral stair through `run.count` floors from one spot: the one way
+ * between them all stands on the lowest, reaching every floor above it, and
+ * each floor above shows its steps winding on (`inert`).
+ */
+function spiral(stair: RoleStamp, well: Well, run: { readonly count: number; readonly lowest: number }, levelOf: LevelOf): FeatureInput[] {
+    const [x, y] = well.turned ? [well.x + well.w / 2, well.y + stair.width / 2] : [well.x + stair.width / 2, well.y + well.h / 2];
+    const rotation = (stair.turn + (well.turned ? QUARTER_TURN : 0)) % FULL_TURN;
+    const steps = (n: number, way: { readonly reach: number } | { readonly inert: true }): FeatureInput => ({
+        type: 'stamp',
+        ...drawnAs(stair),
+        x,
+        y,
+        rotation,
+        ...way,
+        ...levelOf(run.lowest + n),
+    });
+    return [steps(0, { reach: run.count }), ...Array.from({ length: run.count }, (_, n) => steps(n + 1, { inert: true }))];
 }
 
 /** Squares kept clear before each end of a stairwell: room to step off the flight at its foot, and onto it at its head. */
@@ -516,7 +548,7 @@ const UNWELLED_FLAWS = 1000;
 
 /** The size of the well a way of `count` flights of `stair` needs, or null without one. */
 const wellFor = (stair: RoleStamp | undefined, count: number): Wells['up'] =>
-    stair && count > 0 ? { w: stair.width * stairLanes(count), h: stair.height } : null;
+    stair && count > 0 ? { w: stair.width * stairLanes(stair, count), h: stair.height } : null;
 
 /** The top cellar with the storm door's own door through its wall. */
 function withStormDoor(layout: BuildingLayout, doorway: StormDoorway): BuildingLayout {

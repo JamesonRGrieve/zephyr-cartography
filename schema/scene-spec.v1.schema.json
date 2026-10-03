@@ -2421,6 +2421,12 @@
                                 "description": "Drawn only, with none of its behaviour (walls, lights, doors, a way between levels): another placement carries that (a flight's steps seen again from the floor above).",
                                 "type": "boolean"
                             },
+                            "reach": {
+                                "description": "How many levels a way between levels reaches each way it goes from its own: a spiral stair climbing a tower's every floor from one spot, one way between them all. 1 (the next level) by default.",
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                            },
                             "level": {
                                 "description": "Key of an entry in `levels`. Omitted: the feature shows on every level.",
                                 "type": "string",

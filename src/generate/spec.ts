@@ -317,6 +317,14 @@ const stampSpec = z
             .describe(
                 "Drawn only, with none of its behaviour (walls, lights, doors, a way between levels): another placement carries that (a flight's steps seen again from the floor above).",
             ),
+        reach: z
+            .number()
+            .int()
+            .min(1)
+            .optional()
+            .describe(
+                "How many levels a way between levels reaches each way it goes from its own: a spiral stair climbing a tower's every floor from one spot, one way between them all. 1 (the next level) by default.",
+            ),
         level,
     })
     .strict()

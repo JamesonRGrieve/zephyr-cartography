@@ -183,6 +183,7 @@ function placement(spec: Extract<FeatureSpec, { type: 'stamp' }>, scale: Scale):
         ...(spec.reads === undefined ? {} : { reads: spec.reads }),
         ...(spec.mirror === true ? { mirror: true } : {}),
         ...(spec.inert === true ? { inert: true } : {}),
+        ...(spec.reach === undefined ? {} : { reach: spec.reach }),
     };
 }
 

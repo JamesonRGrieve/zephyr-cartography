@@ -337,6 +337,45 @@ describe('composeMap', () => {
         expect(inWell).toEqual([]);
     });
 
+    it('climbs a tower of three floors by one spiral stair from one spot, one way between every floor', () => {
+        const stairs = TEST_ROLES.get('stairs') ?? [];
+        const flight = stairs.find((s) => s.key === 'test:stairs');
+        if (!flight) {
+            throw new Error('the test roles have no stairs');
+        }
+        const spiral = { ...flight, key: 'test:spiral', tags: [...flight.tags, 'spiral'] };
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['stairs', [spiral, ...stairs.filter((s) => s !== flight)]]]);
+        const { spec, problems } = composeMap(
+            intentOf({
+                width: 16,
+                height: 16,
+                buildings: [
+                    {
+                        key: 'tower',
+                        at: { x: 4, y: 4 },
+                        width: 8,
+                        height: 8,
+                        stairTags: ['spiral'],
+                        rooms: [{ key: 'parlour', purpose: 'hall', entrance: true }],
+                        floors: [{ rooms: [{ key: 'study', purpose: 'office' }] }, { rooms: [{ key: 'top', purpose: 'storage' }] }],
+                    },
+                ],
+            }),
+            roles,
+        );
+        expect(problems).toEqual([]);
+        const steps = spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp === spiral.key ? [f] : []));
+        // Its steps on every floor, at one spot: never a second spiral beside the first on a middle floor.
+        expect(steps.map((s) => s.level)).toEqual(['ground', 'floor-2', 'floor-3']);
+        expect(new Set(steps.map((s) => `${String(s.x)},${String(s.y)}`)).size).toBe(1);
+        // The lowest is the one way between them all, reaching both floors above; the rest are its steps winding on.
+        expect(steps.map((s) => [s.inert === true, s.reach])).toEqual([
+            [false, 2],
+            [true, undefined],
+            [true, undefined],
+        ]);
+    });
+
     it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {
         const { spec } = compose({ ...INN_IN_THE_WOODS, lighting: 'night' });
         // Out of doors: dark past the day's darkness, the global light waiting on the day.

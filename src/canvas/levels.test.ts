@@ -258,6 +258,27 @@ describe('CartographyController levels', () => {
         expect(c.getFeature('p1')?.docs.regions).toEqual(['r0']);
     });
 
+    it('joins a spiral stair to every level its reach climbs to with one region, and keeps its reach through a variant switch', async () => {
+        const { c, d } = makeHarness(stairs);
+        c.grid = { size: 100, originX: 0, originY: 0 };
+        await c.addLevel('above', 'Ground');
+        await c.addLevel('above', 'Upper');
+        await c.addLevel('above', 'Top');
+        c.setActiveLevel('lv1');
+        await c.placeStamp({ stamp: 'pack:stairs', x: 50, y: 50, reach: 2 });
+        expect(d.regions[0]).toEqual([
+            expect.objectContaining({
+                level: 'lv1',
+                bottom: 0,
+                top: 30,
+                spans: ['lv2', 'lv3'],
+                label: { kind: 'stairs', from: 'Ground', to: ['Upper', 'Top'] },
+            }),
+        ]);
+        const placed = c.getFeature('p1');
+        expect(placed?.type === 'stamp' ? placed.reach : null).toBe(2);
+    });
+
     it('plans no region for a stair with nowhere to go, and adds it when a level appears', async () => {
         const { c, d } = makeHarness(stairs);
         await c.addLevel('above', 'Ground');

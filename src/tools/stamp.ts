@@ -40,6 +40,8 @@ export interface StampPlacement {
     readonly mirror?: boolean;
     /** Drawn only, with none of its behaviour (walls, lights, doors, a way between levels): another placement of it carries that. */
     readonly inert?: boolean;
+    /** How many levels a way between levels reaches each way it goes; 1 (the next) by default. */
+    readonly reach?: number;
 }
 
 /** A placed stamp; its one point is the footprint centre. */
@@ -76,6 +78,8 @@ export interface StampFeature extends FeatureCommon {
     readonly reads: string | null;
     /** Drawn flipped left to right, before its turn: everything placed on its art (lights, outline) flips with it. */
     readonly mirror: boolean;
+    /** How many levels its way between levels (a transition) reaches each way it goes: a spiral stair through a tower's every floor. */
+    readonly reach: number;
 }
 
 /** Grid size assumed for a persisted stamp that predates the field. */
@@ -185,6 +189,7 @@ export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlace
         floors: [],
         reads: readsOf(placement.reads),
         mirror,
+        reach: placement.reach ?? 1,
         ...NEW_FEATURE,
     };
 }
@@ -209,7 +214,7 @@ export function withStampVariant(feature: StampFeature, stamp: CatalogStamp, ind
     const placed = makeStamp(
         feature.id,
         stamp,
-        { stamp: stamp.key, variant: index, x: at.x, y: at.y, scale: feature.scale, rotation: feature.rotation, mirror: feature.mirror },
+        { stamp: stamp.key, variant: index, x: at.x, y: at.y, scale: feature.scale, rotation: feature.rotation, mirror: feature.mirror, reach: feature.reach },
         gridSize,
     );
     // Only what the variant decides changes; everything else the stamp carries (its links, pile, documents, level…) stays.
@@ -310,6 +315,8 @@ export function parseStamp(v: unknown): StampFeature | null {
         floors: stringArray(v['floors']),
         reads: readsOf(v['reads']),
         mirror: v['mirror'] === true,
+        // A stamp saved before reaches were kept reaches the next level.
+        reach: Math.max(1, Math.trunc(numberOr(v['reach'], 1))),
         ...parseFeatureCommon(v),
     };
 }
