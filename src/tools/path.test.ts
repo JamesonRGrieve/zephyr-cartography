@@ -83,6 +83,17 @@ describe('makePath', () => {
     it('returns null for fewer than two points', () => {
         expect(makePath('id', 'road', [{ x: 0, y: 0 }], 8, null, LIQUID_LOOKS.water)).toBeNull();
     });
+
+    it('takes a width for each point, and a road its own surface, which a river never has', () => {
+        const road = makePath('id', 'road', LINE, [6, 9], null, LIQUID_LOOKS.water, 'dirt');
+        expect(road?.halfWidths).toEqual([6, 9]);
+        expect(road?.surface).toBe('dirt');
+        expect(makePath('id', 'river', LINE, 8, null, LIQUID_LOOKS.water, 'dirt')?.surface).toBeNull();
+        // A road's surface survives being saved and read back; one saved before surfaces is the set's road.
+        const { surface, ...older } = road ?? { surface: null };
+        expect(parsePath(road)?.surface).toBe(surface);
+        expect(parsePath(older)?.surface).toBeNull();
+    });
 });
 
 describe('path walls', () => {

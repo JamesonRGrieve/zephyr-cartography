@@ -622,6 +622,11 @@
                         "description": "A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.",
                         "type": "string",
                         "minLength": 1
+                    },
+                    "texture": {
+                        "description": "A road only: its texture role (a pale `dirt` track on a chart); omitted, the texture set’s road.",
+                        "type": "string",
+                        "minLength": 1
                     }
                 },
                 "required": [

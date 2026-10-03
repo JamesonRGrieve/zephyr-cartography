@@ -110,7 +110,9 @@ function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string,
             bed: spec.bed === undefined ? base.bed : spec.bed,
         };
         const walls = spec.walls === true ? DEFAULT_WALL_PRESET : spec.walls === false ? null : spec.walls;
-        feature = makePath(id, spec.kind, points, spec.halfWidth === undefined ? DEFAULT_HALF_WIDTH : scale.length(spec.halfWidth), walls, river);
+        const width = spec.halfWidth === undefined ? DEFAULT_HALF_WIDTH : scale.length(spec.halfWidth);
+        const widths = spec.halfWidths?.map((w) => scale.length(w)) ?? width;
+        feature = makePath(id, spec.kind, points, widths, walls, river, spec.texture ?? null);
     } else {
         const room = makeRoom(id, spec.floor ?? DEFAULT_FLOOR, points, spec.wall, spec.wallKind, spec.ceiling);
         const doored =

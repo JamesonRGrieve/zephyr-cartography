@@ -5,7 +5,7 @@ import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { StampRole } from '../stamps/schema';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { composeMap } from './compose';
-import { composeExterior, zoneOutline } from './exterior';
+import { composeExterior, riverWidths, zoneOutline } from './exterior';
 import { type MapIntent, parseMapIntent, type ZoneIntent } from './intent';
 import { noiseField } from './noise';
 import { NO_PREFERENCES } from './preferences';
@@ -16,6 +16,21 @@ const MAP = { width: 20, height: 12 };
 const noise = noiseField(seededRandom(1), 4);
 
 const zone = (area: ZoneIntent['area']): ZoneIntent => ({ kind: 'woodland', area, density: 'normal', texture: null, soft: false });
+
+describe('riverWidths', () => {
+    it('broadens and narrows a chart river smoothly along its run, never past a third of its width either way', () => {
+        const run = Array.from({ length: 60 }, (_, i) => ({ x: i * 0.5, y: 10 + Math.sin(i / 8) * 4 }));
+        const widths = riverWidths(run, 2, noiseField(seededRandom(3), 6));
+        expect(widths).toHaveLength(run.length);
+        expect(Math.min(...widths)).toBeGreaterThanOrEqual(2 * 0.65);
+        expect(Math.max(...widths)).toBeLessThanOrEqual(2 * 1.35);
+        // It varies along the run, and smoothly: half a square on, the width moves by little.
+        expect(Math.max(...widths) - Math.min(...widths)).toBeGreaterThan(0.2);
+        widths.slice(1).forEach((w, i) => {
+            expect(Math.abs(w - (widths[i] ?? w))).toBeLessThan(0.25);
+        });
+    });
+});
 
 describe('zoneOutline', () => {
     it('covers the whole map and past its edges for everywhere', () => {

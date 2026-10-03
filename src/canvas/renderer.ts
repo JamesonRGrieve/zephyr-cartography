@@ -187,7 +187,8 @@ function pathOutline(path: CartographyPath, halfWidths: readonly number[]): numb
 function pathFilled(path: CartographyPath, resolve: TextureResolver): Filled {
     const outline = pathOutline(path, path.halfWidths);
     if (path.river === null) {
-        const road = texturing(resolve, [ROAD_TEXTURE], NO_TINT, 'grain', ROAD_STYLE.fill);
+        // Its own surface where the set has it (a chart's dirt track), else the set's road.
+        const road = texturing(resolve, path.surface === null ? [ROAD_TEXTURE] : [path.surface, ROAD_TEXTURE], NO_TINT, 'grain', ROAD_STYLE.fill);
         return { outline, fill: ROAD_STYLE.fill, alpha: TEXTURE_ALPHA, ...road, feather: false };
     }
     const { liquid, shade } = path.river;

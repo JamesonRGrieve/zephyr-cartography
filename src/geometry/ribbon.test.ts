@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { brushOutline, buildRibbon } from './ribbon';
-import type { Point } from './spline';
+import { catmullRom, type Point } from './spline';
 
 describe('buildRibbon', () => {
     it('is empty for fewer than two points', () => {
@@ -20,6 +20,34 @@ describe('buildRibbon', () => {
         // uv v alternates 0 (left) / 1 (right)
         expect(g.uvs[1]).toBe(0);
         expect(g.uvs[3]).toBe(1);
+    });
+
+    it('never folds its inner rail back on a bend tighter than it is wide, so the bank keeps no notch', () => {
+        // A hairpin a quarter as tight as the ribbon is wide.
+        const hairpin: Point[] = [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 11, y: 1 },
+            { x: 10, y: 2 },
+            { x: 0, y: 2 },
+        ];
+        const g = buildRibbon(hairpin, [4, 4, 4, 4, 4], 8);
+        // The path's way at each sample: the smoothed spine's next point less its previous one.
+        const spine = catmullRom(hairpin, 8);
+        // Each rail point is where the last stood, or on along the path: never back against it.
+        const backwards = (['left', 'right'] as const).flatMap((side) =>
+            g.rails.flatMap((rail, j) => {
+                const before = g.rails[j - 1]?.[side];
+                const ahead = spine[j + 1] ?? spine[j];
+                const behind = spine[j - 1];
+                if (!before || !ahead || !behind) {
+                    return [];
+                }
+                const step = (rail[side].x - before.x) * (ahead.x - behind.x) + (rail[side].y - before.y) * (ahead.y - behind.y);
+                return step < -1e-9 ? [`${side} ${String(j)}`] : [];
+            }),
+        );
+        expect(backwards).toEqual([]);
     });
 
     it('emits six indices per quad', () => {

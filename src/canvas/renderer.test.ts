@@ -55,6 +55,7 @@ const road: CartographyPath = {
     halfWidths: [5, 5],
     walls: null,
     river: null,
+    surface: null,
     ...NEW_FEATURE,
 };
 const river: Feature = { ...road, id: 'r', kind: 'river', river: { ...LIQUID_LOOKS.water, bed: null } };

@@ -1583,6 +1583,19 @@
                                 "type": "number",
                                 "exclusiveMinimum": 0
                             },
+                            "halfWidths": {
+                                "description": "Half-width at each point, one per point (a river broadening and narrowing along its run); over `halfWidth`.",
+                                "type": "array",
+                                "items": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                }
+                            },
+                            "texture": {
+                                "description": "A road's texture role (a pale `dirt` track on a chart); omitted, the texture set's road. Ignored for a river.",
+                                "type": "string",
+                                "minLength": 1
+                            },
                             "walls": {
                                 "default": false,
                                 "description": "Walls along the centerline: a wall kind as Foundry's Walls palette names them (solid, terrain, invisible, ethereal, window), true for solid, or false for none.",

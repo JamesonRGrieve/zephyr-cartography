@@ -214,6 +214,11 @@ const pathSpec = z
         kind: z.enum(PATH_KINDS),
         points: z.array(point).min(2).describe('Centerline control points.'),
         halfWidth: positive.optional().describe('Half-width at every point (default: the path default).'),
+        halfWidths: z
+            .array(positive)
+            .optional()
+            .describe('Half-width at each point, one per point (a river broadening and narrowing along its run); over `halfWidth`.'),
+        texture: text.optional().describe("A road's texture role (a pale `dirt` track on a chart); omitted, the texture set's road. Ignored for a river."),
         walls: z
             .union([z.boolean(), z.enum(WALL_PRESETS)])
             .default(false)

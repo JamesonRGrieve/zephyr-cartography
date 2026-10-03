@@ -47,6 +47,8 @@ export interface CartographyPath extends FeatureCommon {
     readonly walls: WallPreset | null;
     /** A river's look; null for a road. */
     readonly river: RiverLook | null;
+    /** A road's texture role (a chart's pale dirt track); null: the texture set's own road. Null for a river. */
+    readonly surface: string | null;
 }
 
 // eslint-disable-next-line no-restricted-syntax -- boundary: a persisted liquid arrives as untyped scene-flag JSON; this guard narrows it to Liquid
@@ -94,7 +96,8 @@ export function parsePath(v: unknown): CartographyPath | null {
     const rawWidths = numberArray(v['halfWidths']);
     const halfWidths = points.map((_, i) => rawWidths[i] ?? rawWidths[0] ?? DEFAULT_HALF_WIDTH);
     const river = v['kind'] === 'river' ? parseRiverLook(v['river']) : null;
-    return { type: 'path', id: v['id'], kind: v['kind'], points, halfWidths, walls: parsePathWalls(v['walls']), river, ...parseFeatureCommon(v) };
+    const surface = v['kind'] === 'road' && typeof v['surface'] === 'string' ? v['surface'] : null;
+    return { type: 'path', id: v['id'], kind: v['kind'], points, halfWidths, walls: parsePathWalls(v['walls']), river, surface, ...parseFeatureCommon(v) };
 }
 
 /** A path's persisted walls: a wall kind, or `true` (the original format) for solid walls; anything else, none. */
@@ -110,17 +113,19 @@ function parsePathWalls(v: unknown): WallPreset | null {
 export const DEFAULT_HALF_WIDTH = 20;
 
 /**
- * Build a committed path from a point stream + uniform half-width, or null
- * if too short. A river takes `river` as its look; a road has none, whatever
- * is passed.
+ * Build a committed path from a point stream and a half-width (one for every
+ * point, or one each), or null if too short. A river takes `river` as its
+ * look; a road has none, whatever is passed, and takes `surface` as its
+ * texture role (null: the set's own road).
  */
 export function makePath(
     id: string,
     kind: PathKind,
     points: readonly Point[],
-    halfWidth: number,
+    halfWidth: number | readonly number[],
     walls: WallPreset | null,
     river: RiverLook,
+    surface: string | null = null,
 ): CartographyPath | null {
     if (points.length < 2) {
         return null;
@@ -130,9 +135,10 @@ export function makePath(
         id,
         kind,
         points: points.map((p) => ({ x: p.x, y: p.y })),
-        halfWidths: points.map(() => halfWidth),
+        halfWidths: points.map((_, i) => (typeof halfWidth === 'number' ? halfWidth : halfWidth[i] ?? halfWidth[0] ?? DEFAULT_HALF_WIDTH)),
         walls,
         river: kind === 'river' ? river : null,
+        surface: kind === 'road' ? surface : null,
         ...NEW_FEATURE,
     };
 }

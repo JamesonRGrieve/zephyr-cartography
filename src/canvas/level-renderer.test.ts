@@ -36,6 +36,7 @@ const road = (id: string, level: string | null): Feature => ({
     halfWidths: [10, 10],
     walls: null,
     river: null,
+    surface: null,
     docs: NO_DOCS,
     level,
 });

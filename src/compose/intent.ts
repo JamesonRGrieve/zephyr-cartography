@@ -691,6 +691,7 @@ const path = z
         bed: text
             .optional()
             .describe('A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.'),
+        texture: text.optional().describe('A road only: its texture role (a pale `dirt` track on a chart); omitted, the texture set’s road.'),
     })
     .strict();
 

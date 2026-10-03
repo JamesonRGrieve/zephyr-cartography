@@ -12,7 +12,7 @@
  * Pure and unit-tested; positions are in grid squares.
  */
 import type { Rect, Side } from '../generate/floor-plan';
-import { pick, shuffled, type Random } from '../generate/random';
+import { pick, seededRandom, shuffled, type Random } from '../generate/random';
 import type { SceneSpecInput } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { catmullRom, type Point } from '../geometry/spline';
@@ -31,6 +31,16 @@ import { drawnAs, type RoleIndex, type RoleStamp, soundFirst } from './roles';
 import { poissonDisc } from './scatter';
 
 type FeatureInput = SceneSpecInput['features'][number];
+
+/** A chart river's own random stream, how far its width wanders either way (a fraction of it), and over how many squares. */
+const RIVER_WIDTH_STREAM = 7919;
+const RIVER_WIDTH_WANDER = 0.35;
+const RIVER_WIDTH_SCALE = 6;
+
+/** A river's half-width at each of its `points`: `halfWidth`, broadened and narrowed smoothly along its run by `noise`. */
+export function riverWidths(points: readonly Point[], halfWidth: number, noise: NoiseField): number[] {
+    return points.map((p) => halfWidth * (1 + RIVER_WIDTH_WANDER * (2 * noise(p.x, p.y) - 1)));
+}
 
 /** A building as the outdoors sees it: where it stands, its front door, and what it has outside its walls (a storm door's areaway). */
 export interface Site {
@@ -1141,16 +1151,22 @@ export function composeExterior(
     for (const { zone, outline } of charted ? [] : outlines) {
         features.push(...wornEarth(zone, outline, keepout, random));
     }
+    // On a chart a river broadens and narrows along its run, as a painted one does; on a battlemap it keeps the one width
+    // its bridges are built across. Its own stream from the seed, so nothing else on the map moves.
+    const widthNoise = noiseField(seededRandom(intent.seed + RIVER_WIDTH_STREAM), RIVER_WIDTH_SCALE);
     intent.paths.forEach((path, i) => {
         const laid = paths[i];
         if (laid) {
+            const wanders = charted && path.kind === 'river';
             features.push({
                 type: 'path',
                 kind: path.kind,
                 points: [...laid.points],
                 halfWidth: laid.halfWidth,
+                ...(wanders ? { halfWidths: riverWidths(laid.points, laid.halfWidth, widthNoise) } : {}),
                 ...(path.liquid === undefined ? {} : { liquid: path.liquid }),
                 ...(path.kind === 'river' && path.bed !== undefined ? { bed: path.bed } : {}),
+                ...(path.kind === 'road' && path.texture !== undefined ? { texture: path.texture } : {}),
             });
         }
     });

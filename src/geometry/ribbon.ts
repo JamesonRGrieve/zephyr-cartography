@@ -76,6 +76,7 @@ export function buildRibbon(centerline: readonly Point[], halfWidths: readonly n
     const none: Point = { x: 0, y: 0 };
 
     const rails: Rail[] = [];
+    const along: Point[] = [];
     let arc = 0;
     spine.forEach((cur, j) => {
         // The segments either side (none past an end): together, the next point less the previous one.
@@ -87,12 +88,15 @@ export function buildRibbon(centerline: readonly Point[], halfWidths: readonly n
         const len = Math.hypot(dx, dy) || 1;
         const hw = widthAt(halfWidths, j, n);
         const normal = { x: -dy / len, y: dx / len };
+        along.push({ x: dx / len, y: dy / len });
         rails.push({
             left: { x: cur.x + normal.x * hw, y: cur.y + normal.y * hw },
             right: { x: cur.x - normal.x * hw, y: cur.y - normal.y * hw },
             u: arc * invTotal,
         });
     });
+
+    unfold(rails, along);
 
     const indices: number[] = [];
     for (let q = 0; q < rails.length - 1; q++) {
@@ -109,6 +113,26 @@ export function buildRibbon(centerline: readonly Point[], halfWidths: readonly n
         indices,
         rails,
     };
+}
+
+/**
+ * Rails that never fold back: where a bend is tighter than the ribbon is wide, its inner rail would step backwards
+ * against the way the path runs (`along`, the path's direction at each sample) and cross itself, drawn as a sharp notch
+ * in the bank; such a rail point holds where the rail last reached instead.
+ */
+function unfold(rails: Rail[], along: readonly Point[]): void {
+    for (const side of ['left', 'right'] as const) {
+        let reached: Point | undefined;
+        rails.forEach((rail, j) => {
+            const at = rail[side];
+            const way = along[j];
+            if (reached && way && (at.x - reached.x) * way.x + (at.y - reached.y) * way.y < 0) {
+                rails[j] = { ...rail, [side]: reached };
+                return;
+            }
+            reached = at;
+        });
+    }
 }
 
 const flat = (points: readonly Point[]): number[] => points.flatMap((p) => [p.x, p.y]);
