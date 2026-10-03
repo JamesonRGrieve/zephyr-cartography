@@ -286,6 +286,28 @@ describe('named pieces', () => {
         expect(row === undefined ? [] : standsAs(row, { x: 5, y: 5 }, 0).map((p) => p.variant)).toEqual([2, 2, 2, 2]);
     });
 
+    it('draws a piece in the art that has the picture its state names, before other art of the same tags', () => {
+        const farmhouse = (key: string, states: string[]): RoleStamp => ({
+            ...desk(key, ['farmhouse']),
+            role: 'fitting',
+            width: 5,
+            height: 3,
+            states,
+            sizes: states.map(() => ({ width: 5, height: 3 })),
+        });
+        const flat = farmhouse('test:city-farmhouse', ['plain roof', 'long roof']);
+        const painted = farmhouse('test:farmhouse', ['long farmhouse barn', 'large farmhouse outbuildings']);
+        const pool: RoleIndex = new Map([['fitting', [flat, painted]]]);
+        // Whatever the name hashes to, the state picks the art that draws it.
+        for (const called of ['farmstead', 'the old farm', 'farm 3']) {
+            const art = namedArt({ name: called, role: 'fitting', tags: ['farmhouse'], width: 5, height: 3, state: 'large farmhouse outbuildings' }, pool);
+            expect(art).toMatchObject({ key: 'test:farmhouse', variant: 1 });
+        }
+        // A state no art draws leaves the choice to the name, as before.
+        const either = namedArt({ name: 'farmstead', role: 'fitting', tags: ['farmhouse'], width: 5, height: 3, state: 'burning' }, pool);
+        expect(['test:city-farmhouse', 'test:farmhouse']).toContain(either?.key);
+    });
+
     it('draws the sharpest of the variants in the state asked: one picture at 128 pixels and again at 512 is drawn from the 512', () => {
         const lighter = {
             ...desk('lighter', ['lighter']),

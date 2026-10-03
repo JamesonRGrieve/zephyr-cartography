@@ -39,6 +39,13 @@ export function runEnds(facing: Side, sides: readonly Side[]): RunEnd[] {
 /** `stamp` carrying what `piece` reads, if anything. */
 const reading = (stamp: RoleStamp, piece: NamedPiece): RoleStamp => (piece.reads === undefined ? stamp : { ...stamp, reads: piece.reads });
 
+/** Whether `art` (or, for a run, its modules) has a variant whose state holds `words`, drawn as its own is. */
+function hasState(art: RoleStamp, words: string): boolean {
+    const unit = art.run?.module ?? art;
+    const lower = words.toLowerCase();
+    return (unit.states ?? []).some((state, i) => unit.sizes?.[i] !== null && state.toLowerCase().includes(lower));
+}
+
 /**
  * `art` drawn in the variant whose state holds `words` (a locker `ajar`), the
  * sharpest of several (one picture drawn at 128 pixels and again at 512), the
@@ -137,9 +144,13 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
               )
             : (pool.get(role) ?? []).filter((s) => !isPlaceholder(s.key) && (tags.length === 0 || tags.some((tag) => s.tags.includes(tag))))
     ).map((s) => inState(s, piece.state));
+    // A state names a picture (a "large farmhouse with outbuildings"): the art that has one in that state is the art meant,
+    // before art of the same tags that draws no such thing (another set's farmhouse, drawn another way).
+    const stated = piece.state === undefined ? [] : asked.filter((s) => hasState(s, piece.state));
+    const meant = stated.length > 0 ? stated : asked;
     // A named piece stands exactly where asked, facing the way asked: art seen from above, which turns, before isometric art.
-    const turnable = asked.filter((s) => !s.upright);
-    const tagged = turnable.length > 0 ? turnable : asked;
+    const turnable = meant.filter((s) => !s.upright);
+    const tagged = turnable.length > 0 ? turnable : meant;
     // Chosen by its name: of the art whose tags share most words with it (a rooftop access hatch is the roof's hatch, not its
     // vent stack), one picked by the name's hash, the same wherever a piece of that name stands.
     const words = nameWords(piece.name);
