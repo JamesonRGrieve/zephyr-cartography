@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import type { Side } from '../generate/floor-plan';
-import { fittedTo, inState, namedArt, namedBox, runEnds, runOf, standsAs } from './named';
+import { fittedTo, inState, namedArt, namedBox, runEnds, runOf, standingAt, standsAs } from './named';
 import type { RoleIndex, RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
@@ -98,6 +98,14 @@ describe('runs between end pieces', () => {
         const slab = { ...desk('stone-slab', ['undead', 'stone', 'section']), role: 'table' as const, width: 2, height: 0.9 };
         const pool: RoleIndex = new Map([['table', [capped, slab]]]);
         expect(namedArt({ name: 'stone bench', role: 'table', tags: ['undead', 'stone', 'section'], width: 7, height: 1 }, pool)?.key).toBe('stone-slab');
+    });
+
+    it('draws a mirrored piece as the other hand of its art: each stamp flipped, a run reversed about its centre', () => {
+        const pool: RoleIndex = new Map([['table', [capped]]]);
+        const asked = { name: 'long table', role: 'table' as const, tags: [], width: 3, height: 1, at: { x: 10, y: 5 }, facing: 'bottom' as const };
+        const plain = standingAt(asked, pool).placed;
+        const flipped = standingAt({ ...asked, mirror: true }, pool).placed;
+        expect(flipped.map((p) => [p.stamp, p.x, p.mirror === true])).toEqual(plain.map((p) => [p.stamp, 20 - p.x, p.mirror !== true]));
     });
 });
 

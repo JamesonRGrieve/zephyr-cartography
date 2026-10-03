@@ -204,6 +204,10 @@ const namedPieceSize = {
 const namedPiece = {
     ...namedPieceSize,
     facing: z.enum(WALL_SIDES).default('bottom').describe('Which way its front faces, standing free (centre, a point, a grid).'),
+    mirror: z
+        .boolean()
+        .default(false)
+        .describe('Drawn flipped left to right: the other hand of art drawn one way (a cliff band ending on its left, not its right).'),
     fixed: z
         .boolean()
         .default(false)

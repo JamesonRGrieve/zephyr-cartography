@@ -21,6 +21,8 @@ export interface NamedPiece {
     readonly reads?: string | undefined;
     /** The words of the variant state its art is drawn in (a locker `ajar`); omitted, as drawn. */
     readonly state?: string | undefined;
+    /** Drawn flipped left to right, the other hand of its art; omitted, as drawn. */
+    readonly mirror?: boolean | undefined;
     /** Which way its front faces; omitted, down. */
     readonly facing?: Side;
     /** The ends of its run (map sides) left without their end pieces, butting against another run. */
@@ -390,5 +392,13 @@ export function standingAt(
     const art = namedArt(fixture, stamps);
     const piece = art ?? namedBox(fixture);
     const turn = piece.upright ? 0 : FACING_TURN[fixture.facing];
-    return { placed: standsAs(piece, fixture.at, turn), piece, boxed: art === undefined };
+    const placed = standsAs(piece, fixture.at, turn);
+    return { placed: fixture.mirror === true ? placed.map((p) => mirrored(p, fixture.at.x)) : placed, piece, boxed: art === undefined };
+}
+
+/** `p` as the other hand of its art: flipped left to right about `axis` (a run's modules reverse along it). */
+function mirrored(p: PlacedPiece, axis: number): PlacedPiece {
+    const { mirror, ...rest } = p;
+    const moved = { ...rest, x: 2 * axis - p.x };
+    return mirror === true ? moved : { ...moved, mirror: true };
 }

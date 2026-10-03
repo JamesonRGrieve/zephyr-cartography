@@ -770,7 +770,7 @@ describe('the grim far future’s rooms', () => {
 
 /** A named fixture with the intent's defaults, `over` what it asks. */
 function fixture(over: Partial<FixtureIntent> & Pick<FixtureIntent, 'name' | 'place'>): FixtureIntent {
-    return { tags: [], width: 1, height: 1, count: 1, facing: 'bottom', fixed: false, open: [], ...over };
+    return { tags: [], width: 1, height: 1, count: 1, facing: 'bottom', fixed: false, open: [], mirror: false, ...over };
 }
 
 /** A room of fixtures alone, 10 × 8 inside its walls, its one door in the middle of its bottom wall. */

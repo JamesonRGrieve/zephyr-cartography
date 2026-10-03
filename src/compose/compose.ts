@@ -703,6 +703,7 @@ const PORCH_LAMP = (wall: Side): FixtureIntent => ({
     facing: 'bottom',
     fixed: false,
     open: [],
+    mirror: false,
     count: 1,
     place: { wall, along: 'start', standoff: 0 },
 });
@@ -735,6 +736,7 @@ function porchPosts(rect: Rect, wall: Side): FixtureIntent[] {
             facing: 'bottom',
             fixed: false,
             open: [],
+            mirror: false,
             count: 1,
             place: { at: across ? { x: along, y: out } : { x: out, y: along } },
         };

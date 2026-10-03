@@ -1074,6 +1074,11 @@
                                                     "left"
                                                 ]
                                             },
+                                            "mirror": {
+                                                "default": false,
+                                                "description": "Drawn flipped left to right: the other hand of art drawn one way (a cliff band ending on its left, not its right).",
+                                                "type": "boolean"
+                                            },
                                             "fixed": {
                                                 "default": false,
                                                 "description": "Exactly where asked, whatever is there: hung overhead or laid flush (a sign over a door, a floor inlay), or meant to block the way (rubble spilling from a collapsed doorway, a rockfall choking a tunnel). It keeps no floor from other pieces.",
@@ -1803,6 +1808,11 @@
                                                                 "bottom",
                                                                 "left"
                                                             ]
+                                                        },
+                                                        "mirror": {
+                                                            "default": false,
+                                                            "description": "Drawn flipped left to right: the other hand of art drawn one way (a cliff band ending on its left, not its right).",
+                                                            "type": "boolean"
                                                         },
                                                         "fixed": {
                                                             "default": false,
@@ -2548,6 +2558,11 @@
                                                                 "bottom",
                                                                 "left"
                                                             ]
+                                                        },
+                                                        "mirror": {
+                                                            "default": false,
+                                                            "description": "Drawn flipped left to right: the other hand of art drawn one way (a cliff band ending on its left, not its right).",
+                                                            "type": "boolean"
                                                         },
                                                         "fixed": {
                                                             "default": false,
@@ -3361,6 +3376,11 @@
                             "bottom",
                             "left"
                         ]
+                    },
+                    "mirror": {
+                        "default": false,
+                        "description": "Drawn flipped left to right: the other hand of art drawn one way (a cliff band ending on its left, not its right).",
+                        "type": "boolean"
                     },
                     "fixed": {
                         "default": false,
@@ -4208,6 +4228,11 @@
                                         "bottom",
                                         "left"
                                     ]
+                                },
+                                "mirror": {
+                                    "default": false,
+                                    "description": "Drawn flipped left to right: the other hand of art drawn one way (a cliff band ending on its left, not its right).",
+                                    "type": "boolean"
                                 },
                                 "fixed": {
                                     "default": false,
