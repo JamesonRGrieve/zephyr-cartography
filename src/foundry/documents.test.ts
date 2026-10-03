@@ -54,7 +54,8 @@ function scene(present: readonly string[], id: string | null = 'sc'): FoundrySce
         sounds: collection,
         notes: collection,
         drawings: collection,
-        tiles: collection,
+        // One tile already there, at draw-order place 4: new tiles stack above it.
+        tiles: { ...collection, contents: [{ sort: 4 }] },
         // Each token present stands 1×1 at the origin.
         tokens: { ...collection, get: (tokenId) => (present.includes(tokenId) ? { x: 0, y: 0, width: 1, height: 1, shape: 0 } : undefined) },
         // Each live region holds one teleport behaviour, `b-<region id>`.
@@ -108,7 +109,10 @@ describe('FoundryDocumentSink', () => {
             ...NOTHING,
             deletes: { ...NO_DOCS, walls: ['w1', 'w-missing'], tiles: ['t1'] },
             walls: [{ id: 'w2', doc: WALL }],
-            tiles: [{ id: 't2', doc: TILE }],
+            tiles: [
+                { id: 't2', doc: TILE },
+                { id: 't4', doc: TILE },
+            ],
             tileUpdates: [
                 { id: 't3', doc: TILE },
                 { id: 't-deleted-by-hand', doc: TILE },
@@ -125,6 +129,16 @@ describe('FoundryDocumentSink', () => {
         ]);
         expect(batch?.[0]).toEqual({ action: 'delete', documentName: 'Wall', parent: target, ids: ['w1'] });
         expect(batch?.[2]).toMatchObject({ action: 'create', parent: target, keepId: true, data: [{ _id: 'w2', c: [0, 0, 100, 0] }] });
+        // New tiles stack above the scene's top one (place 4), in the order made: a rug laid first stays under its table.
+        expect(batch?.[3]).toMatchObject({
+            action: 'create',
+            data: [
+                { _id: 't2', sort: 5 },
+                { _id: 't4', sort: 6 },
+            ],
+        });
+        // A tile updated in place keeps its own place.
+        expect(batch?.[4]).not.toHaveProperty('updates.0.sort');
         expect(batch?.[4]).toMatchObject({ action: 'update', updates: [{ _id: 't3', name: 'Crate' }] });
         expect(batch?.[4]).toHaveProperty('updates.length', 1);
     });

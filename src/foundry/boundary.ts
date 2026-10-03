@@ -95,6 +95,8 @@ export interface TileCreateData extends OnLevels {
     readonly height: number;
     readonly rotation: number;
     readonly elevation: number;
+    /** Its place in the draw order among tiles at its elevation: higher draws above. */
+    readonly sort?: number;
     readonly flags: Readonly<Record<string, { readonly featureId: string }>>;
     // The pack's tile behaviour. Undefined keys are dropped on the way to Foundry, which then applies its defaults.
     readonly alpha?: number | undefined;
@@ -485,7 +487,8 @@ export interface FoundryScene {
     readonly sounds: EmbeddedCollection;
     readonly notes: EmbeddedCollection;
     readonly drawings: EmbeddedCollection;
-    readonly tiles: EmbeddedCollection;
+    /** Its tiles, and each one's place in the draw order (`sort`), for new tiles to stack above in the order made. */
+    readonly tiles: EmbeddedCollection & { readonly contents: readonly { readonly sort: number }[] };
     /** Read only: the tokens a zone can attach to, and their footprints for an emanation round one. */
     readonly tokens: EmbeddedCollection & { readonly get: (id: string) => TokenFootprint | undefined };
     readonly regions: RegionCollection;

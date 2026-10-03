@@ -108,7 +108,9 @@ export class FoundryDocumentSink implements DocumentSink {
             ['Wall', write.walls.map(({ id, doc }) => ({ _id: id, ...wallCreateData(doc, grid) }))],
             ['AmbientLight', write.lights.map(({ id, doc }) => ({ _id: id, ...lightCreateData(doc, grid, this.options.lightName(doc.source)) }))],
             ['AmbientSound', write.sounds.map(({ id, doc }) => ({ _id: id, ...soundCreateData(doc, grid, this.options.soundName(doc.name)) }))],
-            ['Tile', write.tiles.map(({ id, doc }) => ({ _id: id, ...tileCreateData(doc) }))],
+            // Stacked above every tile already there, in the order made: a room's rug first, then the table and what is set on
+            // it, never left to Foundry's own tie-break (which drew a rug over its table).
+            ['Tile', write.tiles.map(({ id, doc }, i) => ({ _id: id, ...tileCreateData(doc), sort: topSort(scene) + 1 + i }))],
             ['Note', write.notes.map(({ id, doc }) => ({ _id: id, ...noteCreateData(doc) }))],
             ['Drawing', write.drawings.map(({ id, doc }) => ({ _id: id, ...drawingCreateData(doc) }))],
             ['Region', regions.map((region) => attachable(scene, region))],
@@ -118,6 +120,9 @@ export class FoundryDocumentSink implements DocumentSink {
             .map(([documentName, data]) => ({ action: 'create', documentName, parent: scene, data, keepId: true }));
     }
 }
+
+/** The highest draw-order place among the scene's tiles; 0 with none. */
+const topSort = (scene: FoundryScene): number => scene.tiles.contents.reduce((highest, tile) => Math.max(highest, tile.sort), 0);
 
 /** Settings updates for the live behaviours of regions redrawn in place, matched to the plan's by type. */
 function behaviourUpdates(scene: FoundryScene, regions: readonly RegionCreateData[]): BatchOperation[] {
