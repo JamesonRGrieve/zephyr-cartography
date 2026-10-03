@@ -73,7 +73,7 @@ function blocksIn(area: Rect, district: DistrictIntent, random: Random, depth = 
  * them ever share a wall (operator, 2026-10-02: buildings physically
  * touching). Strips thinner than `least` are left as open ground.
  */
-export function carve(area: Rect, kept: readonly Rect[], gap: number, least: number): Rect[] {
+function carve(area: Rect, kept: readonly Rect[], gap: number, least: number): Rect[] {
     const [first, ...rest] = kept;
     if (first === undefined) {
         return [area];
@@ -109,6 +109,9 @@ const PATH_SAMPLE = 0.5;
 
 /** Squares of verge kept between a path's edge and a block. */
 const PATH_VERGE = 0.5;
+
+/** Whether `a` lies wholly within `b`. */
+const within = (a: Rect, b: Rect): boolean => a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
 
 /** Whether any point along `path` lies within its half-width and a verge of `block`: a block across or against a road. */
 function nearPath(block: Rect, path: DistrictClearance['paths'][number]): boolean {
@@ -344,12 +347,18 @@ export function districtFeatures(
         onRoofs.push(...roofed.features);
         boxed.push(...roofed.boxed);
     };
-    // The open ground carved out first, a street round it (and round the map's own buildings and named pieces: never a
-    // well inside a house, operator 2026-10-02), the rest cut into blocks; none standing across or against a road.
-    const kept = [...district.keepOpen, ...clear.boxes.filter((box) => overlaps(grown(box, district.street), district.area))];
-    const buildings = carve(district.area, kept, district.street, district.block[0])
+    // What else stands on the map, less what already lies in its own open ground (a square's stalls and lamps). The large
+    // (a building, an earlier district) are carved out like open ground, a street round them; the small (a well, a
+    // shrine) only take the house they would stand in, an alley clear, leaving it a yard: carving every lamp post out
+    // with a street round it shredded the ground beside a square into slivers no house fits (operator, 2026-10-02: a
+    // well in a house; then an empty strip down a town).
+    const standing = clear.boxes.filter((box) => overlaps(grown(box, district.street), district.area) && !district.keepOpen.some((kept) => within(box, kept)));
+    const large = standing.filter((box) => Math.min(box.w, box.h) >= district.block[0]);
+    const small = standing.filter((box) => Math.min(box.w, box.h) < district.block[0]);
+    const buildings = carve(district.area, [...district.keepOpen, ...large], district.street, district.block[0])
         .flatMap((part) => blocksIn(part, district, random))
-        .filter((block) => !clear.paths.some((path) => nearPath(block, path)))
+        // House-sized blocks: a road takes only those it runs across or against, a small piece the one it stands in.
+        .filter((block) => !clear.paths.some((path) => nearPath(block, path)) && !small.some((box) => overlaps(block, grown(box, district.alley))))
         .flatMap((block): FeatureInput[] => {
             // A large block keeps a courtyard in its middle; a smaller one may lose a corner to a yard instead.
             const courtyard = block.w >= COURTYARD.min && block.h >= COURTYARD.min && random() < COURTYARD.chance;

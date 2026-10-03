@@ -60,11 +60,32 @@ describe('district clearances (operator, 2026-10-02: a well in a house, building
         }
     });
 
-    it('keeps a street clear round the map’s own pieces and buildings: never a well inside a house', () => {
+    it('never stands a house on the map’s own pieces: a well takes only the house it would stand in, an alley clear', () => {
         const well = { x: 29, y: 19, w: 1.5, h: 1.5 };
         for (const seed of [1, 2, 3, 4]) {
+            const bare = blocksOf(districtFeatures(district({}), TEST_ROLES, seededRandom(seed), {}).features);
             const blocks = blocksOf(districtFeatures(district({}), TEST_ROLES, seededRandom(seed), {}, { boxes: [well], paths: [] }).features);
-            expect(blocks.filter((b) => overlaps(b, grownBox(well, 1.99)))).toEqual([]);
+            expect(blocks.filter((b) => overlaps(b, grownBox(well, 0.99)))).toEqual([]);
+            // One house or two give way, never a swathe.
+            expect(bare.length - blocks.length).toBeLessThanOrEqual(2);
+        }
+    });
+
+    it('carves a street round a building on the map, and ignores pieces standing in its own open ground', () => {
+        const hall = { x: 20, y: 10, w: 12, h: 10 };
+        const plaza = { x: 36, y: 22, w: 12, h: 9 };
+        const lamps = [
+            { x: 37, y: 23, w: 0.6, h: 0.6 },
+            { x: 46, y: 29, w: 0.6, h: 0.6 },
+        ];
+        for (const seed of [1, 2, 3]) {
+            const blocks = blocksOf(districtFeatures(district({}), TEST_ROLES, seededRandom(seed), {}, { boxes: [hall], paths: [] }).features);
+            expect(blocks.filter((b) => overlaps(b, grownBox(hall, 1.99)))).toEqual([]);
+            // A plaza's own lamps change nothing: the same blocks with them as without.
+            const square = district({ keepOpen: [plaza] });
+            const without = blocksOf(districtFeatures(square, TEST_ROLES, seededRandom(seed), {}).features);
+            const withLamps = blocksOf(districtFeatures(square, TEST_ROLES, seededRandom(seed), {}, { boxes: lamps, paths: [] }).features);
+            expect(withLamps).toEqual(without);
         }
     });
 
