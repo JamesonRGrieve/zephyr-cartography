@@ -148,10 +148,19 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     // before art of the same tags that draws no such thing (another set's farmhouse, drawn another way).
     const { state } = piece;
     const stated = state === undefined ? [] : asked.filter((s) => hasState(s, state));
-    const meant = stated.length > 0 ? stated : asked;
-    // A named piece stands exactly where asked, facing the way asked: art seen from above, which turns, before isometric art.
-    const turnable = meant.filter((s) => !s.upright);
-    const tagged = turnable.length > 0 ? turnable : meant;
+    const statedOrAsked = stated.length > 0 ? stated : asked;
+    // Of that, the art carrying the most of the tags asked that fills the piece: a "grimdark undead stone bench" is the tomb's
+    // stone bench, before an oak bench that shares only "bench" (and would otherwise win by running further along the
+    // piece). Where none of the closest fills it, the next closest, and so on: a rug asked for as "runner" still lies.
+    const sharedTags = (s: RoleStamp): number => tags.filter((tag) => s.tags.includes(tag)).length;
+    // A named piece stands exactly where asked, facing the way asked: art seen from above, which turns, before isometric art
+    // (a chest against a side wall cannot be drawn in art that will not turn to face out from it).
+    const turnable = statedOrAsked.filter((s) => !s.upright);
+    const facingFree = turnable.length > 0 ? turnable : statedOrAsked;
+    const tiers = [...new Set(facingFree.map(sharedTags))].sort((a, b) => b - a);
+    const tierOf = (n: number): readonly RoleStamp[] => facingFree.filter((s) => sharedTags(s) === n);
+    const fillingTier = tiers.find((n) => tierOf(n).some((s) => cover(s) >= NAMED_FILL));
+    const tagged = fillingTier === undefined ? facingFree : tierOf(fillingTier);
     // Chosen by its name: of the art whose tags share most words with it (a rooftop access hatch is the roof's hatch, not its
     // vent stack), one picked by the name's hash, the same wherever a piece of that name stands.
     const words = nameWords(piece.name);

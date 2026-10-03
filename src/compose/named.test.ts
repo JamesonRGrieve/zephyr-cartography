@@ -92,6 +92,13 @@ describe('runs between end pieces', () => {
             expect(namedArt({ name: called, role: 'table', tags: [], width: 7, height: 1 }, pool)?.run?.cap?.key).toBe('oak-end');
         }
     });
+
+    it('draws the art carrying the most of the tags asked, before a run that shares only one', () => {
+        // A tomb's stone bench: the oak run shares only "section" with what is asked, the stone slab all three.
+        const slab = { ...desk('stone-slab', ['undead', 'stone', 'section']), role: 'table' as const, width: 2, height: 0.9 };
+        const pool: RoleIndex = new Map([['table', [capped, slab]]]);
+        expect(namedArt({ name: 'stone bench', role: 'table', tags: ['undead', 'stone', 'section'], width: 7, height: 1 }, pool)?.key).toBe('stone-slab');
+    });
 });
 
 describe('a run part asked for by name', () => {
