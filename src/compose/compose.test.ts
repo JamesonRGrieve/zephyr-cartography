@@ -1101,8 +1101,8 @@ describe('maps drawn to a brief', () => {
                 },
             ],
         });
-        const stateOf = (spec: SceneSpec): (string | undefined)[] =>
-            spec.features.flatMap((f) => (f.type === 'room' && f.key?.endsWith(':b') === true ? f.doors.map((d) => d.state) : []));
+        const stateOf = (spec: ReturnType<typeof composeMap>['spec']): (string | undefined)[] =>
+            spec.features.flatMap((f) => (f.type === 'room' && f.key?.endsWith(':b') === true ? (f.doors ?? []).map((d) => d.state) : []));
         // No door art: the room draws its door, locked.
         expect(stateOf(composeMap(intent, TEST_ROLES).spec)).toEqual(['locked']);
         // Art with a locked picture hangs in it, in that picture.
@@ -1297,6 +1297,10 @@ describe('maps drawn to a brief', () => {
         const { spec, problems } = composeMap(intentOf({ ground: null, buildings: [building({})] }), noBenches);
         expect(spec.features.some((f) => f.type === 'stamp' && f.reads === 'OPEN')).toBe(true);
         expect(problems.some((p) => 'wantedIn' in p && p.wantedIn === 'shop/porch')).toBe(true);
+        // With no post art loaded, its posts stand as labelled boxes, and each is reported once.
+        const noPosts = new Map([...TEST_ROLES].filter(([role]) => role !== 'fitting'));
+        const boxed = composeMap(intentOf({ ground: null, buildings: [building({})] }), noPosts).problems;
+        expect(boxed).toContainEqual({ kind: 'placeholder', piece: 'porch post', wantedIn: 'shop/porch' });
         // With no way in at ground level there is no front door to stand a porch at.
         const shut = composeMap(intentOf({ ground: null, buildings: [building({ frontDoor: false })] }), noBenches);
         expect(shut.problems.some((p) => 'wantedIn' in p && p.wantedIn === 'shop/porch')).toBe(false);

@@ -704,7 +704,7 @@ const PORCH_LAMP = (wall: Side): FixtureIntent => ({
     fixed: false,
     open: [],
     count: 1,
-    place: { wall, along: 'start' },
+    place: { wall, along: 'start', standoff: 0 },
 });
 
 /** Squares between a porch's posts along its open front, at most; how far in from its edges they stand; how thick each is. */
