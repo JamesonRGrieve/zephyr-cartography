@@ -1024,7 +1024,7 @@ describe('maps drawn to a brief', () => {
         expect(hinged.every((d) => typeof d === 'object' && d.animation === 'slide')).toBe(true);
     });
 
-    it('hangs door art in each doorway as wide as it, in the state it stands in, the room keeping its wall there; an archway stays bare', () => {
+    it('hangs door art in each doorway as wide as it, in the state it stands in, the walls gapping for it; an archway stays bare', () => {
         const seat = TEST_ROLES.get('seat')?.[0];
         if (!seat) {
             throw new Error('test seat');
@@ -1064,9 +1064,12 @@ describe('maps drawn to a brief', () => {
         expect(doors).toContainEqual(expect.objectContaining({ x: 2.5, y: 6, rotation: 180, variant: 0, scale: 1 }));
         expect(doors).toContainEqual(expect.objectContaining({ x: 6, y: 0.5, variant: 1 }));
         expect(doors).toHaveLength(2);
-        // The hung doorways are wall in the rooms' own outlines; the arch opens both rooms' sides of the wall.
+        // Every doorway is a gap in the rooms' walls, never wall running on behind its door art: a's own front door (hung),
+        // b's door into it (hung, a's side of the wall) and c's arch are each an opening in a's outline.
         const roomA = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(':a') === true);
-        expect(roomA?.type === 'room' && (roomA.doors ?? []).map((d) => d.type)).toEqual(['opening']);
+        expect(roomA?.type === 'room' && (roomA.doors ?? []).map((d) => d.type)).toEqual(['opening', 'opening', 'opening']);
+        const roomB = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(':b') === true);
+        expect(roomB?.type === 'room' && (roomB.doors ?? []).map((d) => d.type)).toEqual(['opening']);
         const roomC = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(':c') === true);
         expect(roomC?.type === 'room' && (roomC.doors ?? []).map((d) => d.type)).toEqual(['opening']);
         // On a map with no ground (indoors) no day comes in at all.

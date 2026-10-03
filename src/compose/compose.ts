@@ -20,6 +20,7 @@ import { DAYLIGHT_MAX_DARKNESS } from '../tools/daylight';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { type Flight, flightFor, narrowestFlight, type StormDoorway, stormDoorway, wayDownOver, withStairTags } from './access';
 import { curtainFeatures, moatOutlines } from './curtain';
+import { grown } from './detour';
 import { districtFeatures } from './district';
 import { composeExterior, type LaidPath } from './exterior';
 import { type Box, type ComposedStamp, furnishRoom, type RoomFloor } from './furnish';
@@ -138,7 +139,9 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
     const problems: ComposeProblem[] = layout.unmet.map(([room, other]) => ({ kind: 'not-beside', building: called, room, other }));
     const rooms: FeatureInput[] = [];
     const furniture: FeatureInput[] = [];
-    // Doorways hung with door art: the art is the door (it cuts the wall and is the native door), so the room keeps its wall there.
+    // Doorways hung with door art: the art is the door (it is the native door in the gap), so each room's wall gaps there for
+    // it, never runs on behind it (operator 2026-10-03: "The doors are fucking embedded in walls. The walls should gap
+    // for the doors").
     const hung = new Map(
         layout.doors.flatMap((d) => {
             const rect = layout.rooms.find((r) => r.key === d.room)?.rect;
@@ -177,9 +180,10 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
         const glows = furnished.stamps.some((s) => LIGHT_SOURCES.some((role) => roleOf.get(s.stamp) === role));
         // Its own doorways, and each neighbour's into it as an opening in its side of the wall: the door is the neighbour's to draw.
         const slots = layout.doors.flatMap((d) => {
-            if (hung.has(d)) {
-                // Its art is the door, the room's wall standing behind it; a door to the outside still lets the day in.
-                return d.room === room.key && indoors && d.to === null ? [{ ...d.slot, hung: true, daylight: true }] : [];
+            if (hung.has(d) && d.room === room.key) {
+                // Its art is the door: the wall gaps for it, an opening the art fills; a door to the outside still lets the day in.
+                const gap = { ...d.slot, open: true, arch: true };
+                return [indoors && d.to === null ? { ...gap, daylight: true } : gap];
             }
             if (d.room === room.key) {
                 const animated = building.doorAnimation === null ? d.slot : { ...d.slot, animation: building.doorAnimation };
@@ -544,7 +548,7 @@ function composeBuilding(
     called: string,
     footprint: Rect,
     map: MapContext,
-): { features: FeatureInput[]; problems: ComposeProblem[]; ground: BuildingLayout | null; annexes: Rect[] } {
+): { features: FeatureInput[]; problems: ComposeProblem[]; ground: BuildingLayout | null; annexes: Rect[]; clear: Rect[] } {
     const { stamps, random, levelOf, night, preferences, depth, outdoor } = map;
     // Windows in a building's outer walls out of doors, where it has them; cellars are below ground, with none.
     const windowedOn = (storey: number): boolean => outdoor && building.windows && storey >= 0;
@@ -564,6 +568,7 @@ function composeBuilding(
             problems: [{ kind: 'rooms-do-not-fit', building: called, width: building.width, height: building.height }],
             ground: null,
             annexes: [],
+            clear: [],
         };
     }
     const { stairwell, cellarWell } = storeys;
@@ -650,6 +655,9 @@ function composeBuilding(
         problems,
         ground: storeys.ground,
         annexes: [...(doorway ? [doorway.areaway] : []), ...(porch ? [porch.floor.rect] : [])],
+        // A square round the areaway: its storm doors stand flung open over its edges, and a yard's stores keep off where one
+        // steps onto the way down (a firewood stack, a barrel row on the doors' leaves), with no part of the building there.
+        clear: doorway ? [grown(doorway.areaway, STAIR_APPROACH)] : [],
     };
 }
 
@@ -966,14 +974,15 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     const exterior = composeExterior(
         { ...intent, zones: [...intent.zones, ...moats] },
         [
-            ...composed.map(({ building, footprint, ground, annexes }) => ({
+            ...composed.map(({ building, footprint, ground, annexes, clear }) => ({
                 key: building.key,
                 footprint,
                 front: ground?.doors.find((d) => d.to === null) ?? null,
                 annexes,
+                clear,
                 yard: building.yard,
             })),
-            ...masonry.map((footprint) => ({ key: undefined, footprint, front: null, annexes: [], yard: false })),
+            ...masonry.map((footprint) => ({ key: undefined, footprint, front: null, annexes: [], clear: [], yard: false })),
         ],
         stamps,
         // Its own stream from the seed: rearranging a room never replants the woods outside.
@@ -998,7 +1007,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     // Each keeps clear of what else stands on the map: its buildings and their annexes, its named pieces and props outside
     // (a town's well), its roads and rivers, and the districts laid before it (two quarters never meet wall to wall).
     const standing: Rect[] = [
-        ...composed.flatMap(({ footprint, annexes }) => [footprint, ...annexes]),
+        ...composed.flatMap(({ footprint, annexes, clear }) => [footprint, ...annexes, ...clear]),
         ...intent.fixtures.map((f) => squareAround(f.at, Math.max(f.width, f.height))),
         ...intent.props.flatMap((p) => ('at' in p ? [squareAround(p.at, PROP_CLEARANCE)] : [])),
     ];

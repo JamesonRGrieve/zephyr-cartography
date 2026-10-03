@@ -38,6 +38,8 @@ export interface Site {
     readonly footprint: Rect;
     readonly front: PlacedDoor | null;
     readonly annexes: readonly Rect[];
+    /** Ground outside kept clear for it with no part of it there (a storm door's leaves and the step before them): nothing stands on it. */
+    readonly clear: readonly Rect[];
     /** A working yard round it: stores against its walls, a cart standing by. */
     readonly yard: boolean;
 }
@@ -448,7 +450,7 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
     // A tree's canopy must not spread over a building, which the map shows open to the sky, however far off its trunk.
     const m = BUILDING_MARGIN + reach;
     const near = (f: Rect): boolean => p.x > f.x - m && p.x < f.x + f.w + m && p.y > f.y - m && p.y < f.y + f.h + m;
-    if (keepout.sites.some((site) => siteRects(site).some(near))) {
+    if (keepout.sites.some((site) => [...siteRects(site), ...site.clear].some(near))) {
         return true;
     }
     // A canopy reaches over a road or a river only as far as over a lake: the way is seen running through, never roofed over.
@@ -1004,7 +1006,7 @@ function storesAlong(site: Site, side: Side, stores: readonly RoleStamp[], keepo
         p.y - r >= keepout.map.y &&
         p.x + r <= keepout.map.x + keepout.map.w &&
         p.y + r <= keepout.map.y + keepout.map.h &&
-        !site.annexes.some((a) => p.x + r > a.x && p.x - r < a.x + a.w && p.y + r > a.y && p.y - r < a.y + a.h) &&
+        ![...site.annexes, ...site.clear].some((a) => p.x + r > a.x && p.x - r < a.x + a.w && p.y + r > a.y && p.y - r < a.y + a.h) &&
         !keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + r) &&
         !keepout.waters.some((w) => pointInPolygon(p, flat(w))) &&
         ![...standing, ...keepout.props].some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r);
