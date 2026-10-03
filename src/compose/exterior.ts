@@ -1165,6 +1165,7 @@ export function composeExterior(
                 halfWidth: laid.halfWidth,
                 ...(wanders ? { halfWidths: riverWidths(laid.points, laid.halfWidth, widthNoise) } : {}),
                 ...(path.liquid === undefined ? {} : { liquid: path.liquid }),
+                ...(path.kind === 'river' && path.shade !== undefined ? { shade: path.shade } : {}),
                 ...(path.kind === 'river' && path.bed !== undefined ? { bed: path.bed } : {}),
                 ...(path.kind === 'road' && path.texture !== undefined ? { texture: path.texture } : {}),
             });

@@ -676,6 +676,9 @@ const zone = z
     })
     .strict();
 
+/** A colour, `#rrggbb`. */
+const hexColour = z.string().regex(/^#[0-9a-f]{6}$/iu, 'a #rrggbb colour');
+
 const path = z
     .object({
         kind: z.enum(['road', 'river']),
@@ -688,6 +691,9 @@ const path = z
             .default([])
             .describe('Points it passes through on its way, in order (a river swinging round a hill); it winds between them by its meander.'),
         liquid: z.enum(INTENT_LIQUIDS).optional().describe('A river’s liquid (default water).'),
+        shade: hexColour
+            .optional()
+            .describe('A river only: its liquid’s colour, to match the lakes it runs into (a chart’s lake art); omitted, its liquid’s usual shade.'),
         bed: text
             .optional()
             .describe('A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.'),
@@ -806,9 +812,7 @@ export const mapIntentSchema = z
                 'Day leaves the scene lit. Dim (an interior, the underhive) is half dark, each room lit by its own light and its lamps, the walls cutting the light. By night the scene is dark and rooms are lit by what is in them (a hearth, lamps), not a flat light; a room with nothing to light it keeps its own.',
             ),
         groundTexture: groundTexture,
-        backdrop: z
-            .string()
-            .regex(/^#[0-9a-f]{6}$/iu, 'a #rrggbb colour')
+        backdrop: hexColour
             .nullable()
             .default(null)
             .describe(

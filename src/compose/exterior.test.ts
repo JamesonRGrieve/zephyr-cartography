@@ -275,7 +275,7 @@ describe('bridges and yard pieces', () => {
     it('winds a river through the points it is asked to pass, and lays the bed it is asked for along its banks', () => {
         const { spec } = composeMap(
             crossing({
-                paths: [{ kind: 'river', from: { x: -1, y: 5 }, to: { x: 31, y: 5 }, via: [{ x: 15, y: 16 }], meander: 0, bed: 'sand' }],
+                paths: [{ kind: 'river', from: { x: -1, y: 5 }, to: { x: 31, y: 5 }, via: [{ x: 15, y: 16 }], meander: 0, bed: 'sand', shade: '#4a8db5' }],
                 buildings: [],
             }),
             TEST_ROLES,
@@ -290,13 +290,19 @@ describe('bridges and yard pieces', () => {
         const at = river.points.findIndex((p) => p.x === 15 && p.y === 16);
         const [before, after] = [river.points[at - 1], river.points[at + 1]];
         expect(before && after && Math.abs(before.y - after.y)).toBeLessThan(0.5);
-        expect(river).toMatchObject({ bed: 'sand' });
-        // A road takes no bed.
+        expect(river).toMatchObject({ bed: 'sand', shade: '#4a8db5' });
+        // A road takes no bed and no shade, but its own texture; a river takes no road's texture.
         const road = composeMap(
-            crossing({ paths: [{ kind: 'road', from: { x: -1, y: 5 }, to: { x: 31, y: 5 }, meander: 0, bed: 'sand' }], buildings: [] }),
+            crossing({
+                paths: [{ kind: 'road', from: { x: -1, y: 5 }, to: { x: 31, y: 5 }, meander: 0, bed: 'sand', shade: '#4a8db5', texture: 'dirt' }],
+                buildings: [],
+            }),
             TEST_ROLES,
         ).spec.features.find((f) => f.type === 'path');
         expect(road).not.toHaveProperty('bed');
+        expect(road).not.toHaveProperty('shade');
+        expect(road).toMatchObject({ texture: 'dirt' });
+        expect(river).not.toHaveProperty('texture');
     });
 
     it('keeps a wood’s canopies mostly off a road through it too: the way is seen, never roofed over by a tree', () => {

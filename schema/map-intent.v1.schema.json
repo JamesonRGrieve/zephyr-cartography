@@ -618,6 +618,11 @@
                             "acid"
                         ]
                     },
+                    "shade": {
+                        "description": "A river only: its liquid’s colour, to match the lakes it runs into (a chart’s lake art); omitted, its liquid’s usual shade.",
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
                     "bed": {
                         "description": "A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.",
                         "type": "string",
