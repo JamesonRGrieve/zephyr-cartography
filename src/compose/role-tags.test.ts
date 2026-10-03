@@ -16,6 +16,9 @@ describe('roleFromTags', () => {
         // A barrel of acid is an alchemist's, set where a map names it: never a yard's stores.
         expect(roleFromTags(['acid', 'barrel', 'setting-fantasy'])).toBe('fitting');
         expect(roleFromTags(['wine', 'barrel'])).toBe('storage');
+        // A crystal ball is a seer's fitting, a crystal cluster the ground's rock.
+        expect(roleFromTags(['top', 'down', 'crystal', 'ball', 'stand'])).toBe('fitting');
+        expect(roleFromTags(['crystal', 'cluster'])).toBe('rock');
         expect(roleFromTags(['tree', 'roots'])).toBe('tree');
         expect(roleFromTags(['gnarled', 'roots'])).toBe('flora');
         // Votive candles and censers are a shrine's, a candle cluster a room's lamp.
