@@ -284,8 +284,12 @@ const LAND_HABITATS: Partial<Readonly<Record<StampRole, readonly StampHabitat[]>
     debris: ['urban', 'ruin'],
 };
 
-/** Tags of what is only ever set where it is meant, never scattered: a trap lies where it is meant to catch someone. */
-const NAMED_ONLY = ['trap'];
+/**
+ * Tags of what is only ever set where it is meant, never scattered: a trap lies where it is meant to catch someone, and a
+ * hillside's pieces (a cliff band, the steps cut through it) lie along the edge a map draws, never furnishing a room: a
+ * cliff's stone steps are no tower's stair between its floors.
+ */
+const NAMED_ONLY = ['trap', 'hillside', 'escarpment'];
 
 /**
  * The role `tags` make a stamp: a fitting, drawn only where a map names it,
