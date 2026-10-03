@@ -685,10 +685,27 @@ function porchOf(ground: BuildingLayout, footprint: Rect, depth: number): { floo
             doors: [{ side: wall, at: front.slot.at }],
             outer: unwalled,
             entrance: wall,
-            fixtures: porchPosts(rect, wall),
+            fixtures: [...porchPosts(rect, wall), PORCH_LAMP(wall)],
         },
     };
 }
+
+/**
+ * A porch's lamp: a sconce on the building's wall by the door (operator,
+ * 2026-10-02: any light art stood there, an open brazier on the boards).
+ */
+const PORCH_LAMP = (wall: Side): FixtureIntent => ({
+    name: 'porch lamp',
+    role: 'light',
+    tags: ['wall', 'sconce'],
+    width: 0.3,
+    height: 0.4,
+    facing: 'bottom',
+    fixed: false,
+    open: [],
+    count: 1,
+    place: { wall, along: 'start' },
+});
 
 /** Squares between a porch's posts along its open front, at most; how far in from its edges they stand; how thick each is. */
 const PORCH_POST_SPAN = 3;

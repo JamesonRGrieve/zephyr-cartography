@@ -274,9 +274,9 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
         { kind: 'scatter', role: 'clutter', count: [0, 2] },
     ],
     // Open on three sides, kept clear to walk (operator, 2026-10-02: a porch heaped with sacks, crates and firewood read as a
-    // junk pile): a lamp by the door, a bench or two against the building, a barrel at an end.
+    // junk pile): a bench or two against the building, a barrel at an end. Its posts and its lamp by the door are its own
+    // named pieces (compose's porchOf), so the lamp is a sconce on the wall, never any light art standing on the boards.
     'porch': [
-        { kind: 'wall', role: 'light', count: { per: LIGHT_SPACING * 2 }, prefer: 'inner' },
         { kind: 'wall', role: 'bench', count: [1, 2], prefer: 'inner' },
         { kind: 'corner', role: 'storage', count: [1, 2] },
     ],

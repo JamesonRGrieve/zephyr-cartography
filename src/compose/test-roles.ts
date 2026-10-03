@@ -58,7 +58,8 @@ export const TEST_ROLES: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([
     ['rug', [stamp('rug', 2.4, 1.6)]],
     ['desk', [stamp('desk', 1.4, 0.8, 'wall')]],
     ['workbench', [stamp('workbench', 2, 0.8, 'wall')]],
-    ['light', [stamp('light', 0.5, 0.5, 'wall')]],
+    // A lamp hung on a wall, as the packs' sconces are tagged: a porch asks for one by those tags.
+    ['light', [{ ...stamp('light', 0.5, 0.5, 'wall'), tags: ['wall', 'sconce'] }]],
     ['machine', [stamp('machine', 2, 1.7)]],
     ['console', [stamp('console', 1, 1, 'wall', 1)]],
     ['altar', [stamp('altar', 1, 1.2, 'wall', 1.5)]],

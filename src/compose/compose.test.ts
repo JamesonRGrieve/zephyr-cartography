@@ -789,6 +789,10 @@ describe('a roadside inn', () => {
         const standing = onDeck.filter((f) => f.type === 'stamp' && pointInPolygon(f, deckOutline));
         expect(standing.filter((f) => f.type === 'stamp' && !['test:storage', 'test:light', 'test:bench', 'test:post'].includes(f.stamp))).toEqual([]);
         expect(standing.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage').length).toBeLessThanOrEqual(2);
+        // Its lamp is a sconce on the inn's wall (east of the deck), never light art out on the boards.
+        const lamps = standing.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:light' ? [f.x] : []));
+        expect(lamps).toHaveLength(1);
+        expect(lamps[0]).toBeGreaterThan(inn.x - 1);
         // Posts hold up its roof along its open front (west, the side away from the inn): one at each corner, none further apart
         // than three squares.
         const posts = standing.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:post' ? [{ x: f.x, y: f.y }] : []));
