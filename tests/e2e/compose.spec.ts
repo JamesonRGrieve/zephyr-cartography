@@ -591,6 +591,52 @@ test('a building with a room of every purpose furnishes each in Foundry, into na
     expect(outcome?.walls).toBeGreaterThan(ROOM_PURPOSES.length * 4);
 });
 
+test('door art hangs open in a doorway left open, and a locked room keeps its own locked door where the art draws no lock', async ({ world }) => {
+    const grid = 50;
+    await freshScene(world, 'Doors', { width: 24 * grid, height: 20 * grid, gridSize: grid });
+    const outcome = await world.evaluate(
+        async (intent) => {
+            const api = game.modules?.get('zephyr-cartography').api;
+            const composed = await api?.compose(intent);
+            if (composed?.ok !== true) {
+                return null;
+            }
+            const doors = (canvas?.scene?.walls.contents ?? []).filter((w) => (w.door ?? 0) > 0).map((w) => w.ds);
+            const art = composed.report.features.flatMap((id) => {
+                const feature = api?.controller()?.getFeature(id);
+                return feature?.type === 'stamp' && feature.stamp.endsWith(':door') ? [feature.variant] : [];
+            });
+            return { built: composed.report.problems, doors, art };
+        },
+        {
+            schemaVersion: 1,
+            seed: 7,
+            width: 24,
+            height: 20,
+            ground: null,
+            buildings: [
+                {
+                    key: 'house',
+                    width: 16,
+                    height: 12,
+                    rooms: [
+                        { key: 'hall', purpose: 'hall', entrance: true },
+                        { key: 'store', purpose: 'storage', opensTo: ['hall'], doorOpen: true },
+                        { key: 'bedroom', purpose: 'bedroom', opensTo: ['hall'], doorLocked: true },
+                    ],
+                },
+            ],
+        },
+    );
+    expect(outcome?.built).toEqual([]);
+    // Foundry's door states: 0 closed, 1 open, 2 locked. The store's door stands open; the bedroom's is locked.
+    expect(outcome?.doors).toContain(1);
+    expect(outcome?.doors).toContain(2);
+    // The pack's door art draws open and closed but no lock: it hangs, open, in the store's doorway, and never in the
+    // bedroom's, whose own door is drawn locked instead.
+    expect(outcome?.art).toContain(1);
+});
+
 test('the Map builder composes an intent from a preset or pasted text, reporting what the packs lack', async ({ world }) => {
     await activate(world, MODULE_ID, 'road');
     await world.click('button[data-tool="generator"]');

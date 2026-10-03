@@ -85,6 +85,11 @@ export interface DoorSlot {
     readonly window?: boolean;
     /** The day comes in through it (a window, a door to the outside): a light outside shines in by day. */
     readonly daylight?: boolean;
+    /**
+     * Drawn by door art standing over the room's wall: the wall stands across it and the art is the door, but it is
+     * still the doorway the day comes in through.
+     */
+    readonly hung?: boolean;
 }
 
 interface Split {
@@ -245,7 +250,7 @@ export function roomSpec(room: Rect, slots: readonly DoorSlot[], o: RoomBuild, c
     const gaps = doorStarts
         .map(({ at, slot }) => ({ segment: points.findIndex((p) => p.x === at.x && p.y === at.y), slot }))
         .filter(({ segment }) => segment >= 0);
-    const doors = gaps.filter(({ slot }) => slot?.window !== true).map(({ segment, slot }) => ({ segment, ...doorOf(slot) }));
+    const doors = gaps.filter(({ slot }) => slot?.window !== true && slot?.hung !== true).map(({ segment, slot }) => ({ segment, ...doorOf(slot) }));
     const windows = gaps.filter(({ slot }) => slot?.window === true).map(({ segment }) => segment);
     const daylight = gaps.filter(({ slot }) => slot?.daylight === true).map(({ segment }) => segment);
     return outlineRoomSpec(points, o, doors, { windows, daylight });

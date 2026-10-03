@@ -178,7 +178,8 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
         // Its own doorways, and each neighbour's into it as an opening in its side of the wall: the door is the neighbour's to draw.
         const slots = layout.doors.flatMap((d) => {
             if (hung.has(d)) {
-                return [];
+                // Its art is the door, the room's wall standing behind it; a door to the outside still lets the day in.
+                return d.room === room.key && indoors && d.to === null ? [{ ...d.slot, hung: true, daylight: true }] : [];
             }
             if (d.room === room.key) {
                 const animated = building.doorAnimation === null ? d.slot : { ...d.slot, animation: building.doorAnimation };

@@ -102,6 +102,9 @@
                     "height": 20,
                     "doorState": "open"
                 }
+            ],
+            "tags": [
+                "door"
             ]
         },
         {

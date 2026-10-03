@@ -1069,6 +1069,28 @@ describe('maps drawn to a brief', () => {
         expect(roomA?.type === 'room' && (roomA.doors ?? []).map((d) => d.type)).toEqual(['opening']);
         const roomC = spec.features.find((f) => f.type === 'room' && f.key?.endsWith(':c') === true);
         expect(roomC?.type === 'room' && (roomC.doors ?? []).map((d) => d.type)).toEqual(['opening']);
+        // On a map with no ground (indoors) no day comes in at all.
+        expect(roomA?.type === 'room' && (roomA.daylight ?? []).length).toBe(0);
+        // Out of doors, the hung front door still lets the day in: its doorway is one of the room's daylight openings.
+        const outdoors = composeMap(
+            {
+                ...intentOf({
+                    buildings: [
+                        {
+                            at: { x: 2, y: 2 },
+                            width: 6,
+                            height: 6,
+                            frontDoorAt: 2,
+                            rooms: [{ key: 'a', purpose: 'hall', entrance: true, furnish: 'fixtures', grime: 0 }],
+                        },
+                    ],
+                }),
+            },
+            roles,
+        ).spec;
+        const lit = outdoors.features.find((f) => f.type === 'room' && f.key?.endsWith(':a') === true);
+        expect(lit?.type === 'room' && (lit.daylight ?? []).length).toBeGreaterThan(0);
+        expect(outdoors.features.some((f) => f.type === 'stamp' && f.stamp === 'test:door')).toBe(true);
     });
 
     it('starts a locked room’s doors locked: in its door art’s locked picture, else the room’s own door, which locks', () => {
