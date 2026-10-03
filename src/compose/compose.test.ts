@@ -787,8 +787,18 @@ describe('a roadside inn', () => {
         // Kept clear to walk: a lamp, a bench or two, a barrel; no heap of stores and clutter.
         const deckOutline = deck.points.flatMap((p) => [p.x, p.y]);
         const standing = onDeck.filter((f) => f.type === 'stamp' && pointInPolygon(f, deckOutline));
-        expect(standing.filter((f) => f.type === 'stamp' && !['test:storage', 'test:light', 'test:bench'].includes(f.stamp))).toEqual([]);
+        expect(standing.filter((f) => f.type === 'stamp' && !['test:storage', 'test:light', 'test:bench', 'test:post'].includes(f.stamp))).toEqual([]);
         expect(standing.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage').length).toBeLessThanOrEqual(2);
+        // Posts hold up its roof along its open front (west, the side away from the inn): one at each corner, none further apart
+        // than three squares.
+        const posts = standing.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:post' ? [{ x: f.x, y: f.y }] : []));
+        expect(posts.length).toBeGreaterThanOrEqual(2);
+        expect(posts.every((p) => p.x < inn.x - 1.5)).toBe(true);
+        const ys = posts.map((p) => p.y).sort((a, b) => a - b);
+        const deckYs = deck.points.map((p) => p.y);
+        expect(ys[0]).toBeLessThan(Math.min(...deckYs) + 0.5);
+        expect(ys.at(-1)).toBeGreaterThan(Math.max(...deckYs) - 0.5);
+        expect(ys.slice(1).every((y, i) => y - (ys[i] ?? y) <= 3 + 1e-9)).toBe(true);
         // Stores stacked just outside the walls, and a cart.
         const stores = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage' && f.level === 'ground' && !inside(f));
         expect(stores.length).toBeGreaterThanOrEqual(4);

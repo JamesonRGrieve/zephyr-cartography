@@ -24,7 +24,7 @@ import { districtFeatures } from './district';
 import { composeExterior, type LaidPath } from './exterior';
 import { type Box, type ComposedStamp, furnishRoom, type RoomFloor } from './furnish';
 import { hewnFeatures } from './hewn';
-import { type BuildingIntent, type MapIntent, WALL_SIDES, type ZoneIntent } from './intent';
+import { type BuildingIntent, type FixtureIntent, type MapIntent, WALL_SIDES, type ZoneIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
 import { type LinkPlaces, linkFeatures } from './links';
 import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders } from './placeholders';
@@ -642,6 +642,7 @@ function composeBuilding(
         const furnished = furnishRoom(porch.floor, narrowedIndex(stamps, preferences.get(roomPlace(called, PORCH))), random);
         features.push(boardsOver(porch.floor.rect, levelOf(0)), ...furnished.stamps.map((s) => ({ ...stampFeature(s), ...levelOf(0) })));
         problems.push(...furnished.missing.flatMap((role) => missing(role, `${called}/${PORCH}`, stamps.get(role)?.[0]) ?? []));
+        problems.push(...furnished.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: `${called}/${PORCH}` })));
     }
     return {
         features,
@@ -675,7 +676,52 @@ function porchOf(ground: BuildingLayout, footprint: Rect, depth: number): { floo
     };
     const wall = OPPOSITE_SIDE[side];
     const unwalled = (['top', 'right', 'bottom', 'left'] as const).filter((s) => s !== wall);
-    return { floor: { key: PORCH, purpose: 'porch', rect: rects[side], doors: [{ side: wall, at: front.slot.at }], outer: unwalled, entrance: wall } };
+    const rect = rects[side];
+    return {
+        floor: {
+            key: PORCH,
+            purpose: 'porch',
+            rect,
+            doors: [{ side: wall, at: front.slot.at }],
+            outer: unwalled,
+            entrance: wall,
+            fixtures: porchPosts(rect, wall),
+        },
+    };
+}
+
+/** Squares between a porch's posts along its open front, at most; how far in from its edges they stand; how thick each is. */
+const PORCH_POST_SPAN = 3;
+const PORCH_POST_INSET = 0.2;
+const PORCH_POST_SIZE = 0.3;
+
+/**
+ * The posts holding up a porch's roof (operator, 2026-10-02: a porch with no
+ * posts): one at each outer corner of `rect` and along its open front between
+ * them, no more than a span apart; `wall` is the building's side of it.
+ */
+function porchPosts(rect: Rect, wall: Side): FixtureIntent[] {
+    const front = OPPOSITE_SIDE[wall];
+    const across = front === 'top' || front === 'bottom';
+    const [span, depth] = across ? [rect.w, rect.h] : [rect.h, rect.w];
+    const run = span - 2 * PORCH_POST_INSET;
+    const count = Math.max(2, Math.ceil(run / PORCH_POST_SPAN) + 1);
+    const out = (front === 'bottom' || front === 'right' ? depth - PORCH_POST_INSET : PORCH_POST_INSET) / depth;
+    return Array.from({ length: count }, (_, i) => {
+        const along = (PORCH_POST_INSET + (run * i) / (count - 1)) / span;
+        return {
+            name: 'porch post',
+            role: 'fitting',
+            tags: ['post'],
+            width: PORCH_POST_SIZE,
+            height: PORCH_POST_SIZE,
+            facing: 'bottom',
+            fixed: false,
+            open: [],
+            count: 1,
+            place: { at: across ? { x: along, y: out } : { x: out, y: along } },
+        };
+    });
 }
 
 /** Boards laid over `rect` on the ground, crisp-edged: a porch's deck, storm doors without their art. */

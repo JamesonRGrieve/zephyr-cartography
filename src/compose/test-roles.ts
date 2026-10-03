@@ -86,4 +86,6 @@ export const TEST_ROLES: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([
     ['waymark', [stamp('waymark', 0.3, 0.4, 'free', 0, 'waymark', 0, true)]],
     ['enclosure', [stamp('enclosure', 4, 3.75)]],
     ['fodder', [stamp('fodder', 2, 1.7, 'free', 0, 'fodder', 0, true)]],
+    // A post seen from above, holding up a porch's roof: a fitting, drawn only where a map (or a porch) names it.
+    ['fitting', [{ ...stamp('fitting', 0.3, 0.3, 'free', 0, 'post'), tags: ['post'] }]],
 ]);
