@@ -1451,8 +1451,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
     corridor two squares wide down the long axis, its rooms along both
     sides, each sized for what it holds (an inn's guest rooms).
   - **Porch and yard.** A building's `porch` is a board deck that many
-    squares deep along the front wall at its door, furnished (lamp,
-    benches, barrels). A `yard` lays trodden earth round the building. Its
+    squares deep along the front wall at its door, its roof on posts (a
+    fitting tagged `post`) at its outer corners and along its open front no
+    more than three squares apart, and kept clear to walk: a lamp, a bench or
+    two, a barrel. A `yard` lays trodden earth round the building. Its
     side is wherever its pen (`enclosure`, with fodder beside it) has
     ground, a flank before the back, never the front, so a map edge or a
     river on one side sends it to another. The smallest vehicle (a cart)
