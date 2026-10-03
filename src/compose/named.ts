@@ -146,7 +146,8 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
     ).map((s) => inState(s, piece.state));
     // A state names a picture (a "large farmhouse with outbuildings"): the art that has one in that state is the art meant,
     // before art of the same tags that draws no such thing (another set's farmhouse, drawn another way).
-    const stated = piece.state === undefined ? [] : asked.filter((s) => hasState(s, piece.state));
+    const { state } = piece;
+    const stated = state === undefined ? [] : asked.filter((s) => hasState(s, state));
     const meant = stated.length > 0 ? stated : asked;
     // A named piece stands exactly where asked, facing the way asked: art seen from above, which turns, before isometric art.
     const turnable = meant.filter((s) => !s.upright);

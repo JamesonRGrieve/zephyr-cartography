@@ -102,7 +102,7 @@ export interface DistrictClearance {
 }
 
 /** Nothing to keep clear of but the district's own open ground. */
-export const NO_CLEARANCE: DistrictClearance = { boxes: [], paths: [] };
+const NO_CLEARANCE: DistrictClearance = { boxes: [], paths: [] };
 
 /** Squares between points sampled along a path when testing what stands near it. */
 const PATH_SAMPLE = 0.5;

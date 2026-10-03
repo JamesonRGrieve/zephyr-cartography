@@ -1276,6 +1276,32 @@ describe('maps drawn to a brief', () => {
         expect(kinds({ hewn: [tunnel] })).toMatchObject({ 'room:floor.rubble': 1 });
     });
 
+    it('keeps a second district clear of the first, and every block clear of a prop standing in its quarter', () => {
+        const blocks = composeMap(
+            intentOf({
+                width: 60,
+                height: 40,
+                districts: [{ area: { x: 4, y: 4, w: 26, h: 20 } }, { area: { x: 20, y: 10, w: 30, h: 24 } }],
+                props: [{ role: 'well', at: { x: 16, y: 14 } }],
+            }),
+            TEST_ROLES,
+        ).spec.features.flatMap((f) => (f.type === 'room' && f.floor === 'floor.deck-plating' ? [f.points] : []));
+        const bounds = (points: readonly { x: number; y: number }[]) => ({
+            x0: Math.min(...points.map((p) => p.x)),
+            y0: Math.min(...points.map((p) => p.y)),
+            x1: Math.max(...points.map((p) => p.x)),
+            y1: Math.max(...points.map((p) => p.y)),
+        });
+        const boxes = blocks.map(bounds);
+        expect(boxes.length).toBeGreaterThan(2);
+        // No block stands over the well.
+        expect(boxes.filter((b) => b.x0 < 16 && b.x1 > 16 && b.y0 < 14 && b.y1 > 14)).toEqual([]);
+        // The second quarter's blocks (any reaching past the first's area) never reach back into it.
+        const second = boxes.filter((b) => b.x1 > 30 || b.y1 > 24);
+        expect(second.length).toBeGreaterThan(0);
+        expect(second.filter((b) => b.x0 < 30 && b.y0 < 24)).toEqual([]);
+    });
+
     it('carries a named piece’s words onto its art, reports a porch’s missing art, and builds no porch with no front door', () => {
         const building = (over: object): object => ({
             key: 'shop',
