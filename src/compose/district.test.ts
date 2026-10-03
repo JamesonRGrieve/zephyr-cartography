@@ -38,6 +38,56 @@ function rooms(features: ReturnType<typeof districtFeatures>['features']): (Box 
 
 const overlaps = (a: Box, b: Box): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
+/** `b` grown by `by` on every side. */
+const grownBox = (b: Box, by: number): Box => ({ x: b.x - by, y: b.y - by, w: b.w + 2 * by, h: b.h + 2 * by });
+
+/** Every pair of `blocks` that stands closer than `gap` squares apart: sharing a wall, or with too narrow a lane. */
+function crowded(blocks: readonly Box[], gap: number): [Box, Box][] {
+    const half = gap / 2 - 1e-6;
+    return blocks.flatMap((a, i) => blocks.slice(i + 1).flatMap((b): [Box, Box][] => (overlaps(grownBox(a, half), grownBox(b, half)) ? [[a, b]] : [])));
+}
+
+describe('district clearances (operator, 2026-10-02: a well in a house, buildings physically touching)', () => {
+    const blocksOf = (features: ReturnType<typeof districtFeatures>['features']): Box[] => rooms(features).filter((r) => r.floor === 'floor.deck-plating');
+
+    it('leaves at least an alley between every two blocks, round open ground too, whatever the seed', () => {
+        // A plaza in the middle: the strips cut round it once ran flush against each other.
+        const plaza = district({ keepOpen: [{ x: 22, y: 14, w: 12, h: 9 }] });
+        for (const seed of [1, 2, 3, 4, 5, 6]) {
+            const blocks = blocksOf(districtFeatures(plaza, TEST_ROLES, seededRandom(seed), {}).features);
+            expect(blocks.length).toBeGreaterThan(4);
+            expect(crowded(blocks, 1)).toEqual([]);
+        }
+    });
+
+    it('keeps a street clear round the map’s own pieces and buildings: never a well inside a house', () => {
+        const well = { x: 29, y: 19, w: 1.5, h: 1.5 };
+        for (const seed of [1, 2, 3, 4]) {
+            const blocks = blocksOf(districtFeatures(district({}), TEST_ROLES, seededRandom(seed), {}, { boxes: [well], paths: [] }).features);
+            expect(blocks.filter((b) => overlaps(b, grownBox(well, 1.99)))).toEqual([]);
+        }
+    });
+
+    it('stands no block across or against a road running through it', () => {
+        const road = {
+            points: [
+                { x: -1, y: 21 },
+                { x: 61, y: 19 },
+            ],
+            halfWidth: 1,
+        };
+        for (const seed of [1, 2, 3, 4]) {
+            const blocks = blocksOf(districtFeatures(district({}), TEST_ROLES, seededRandom(seed), {}, { boxes: [], paths: [road] }).features);
+            expect(blocks.length).toBeGreaterThan(4);
+            // The road's line at each block's middle, never within its half-width of the block.
+            for (const b of blocks) {
+                const y = 21 - ((b.x + b.w / 2 + 1) / 62) * 2;
+                expect(b.y > y + 1 || b.y + b.h < y - 1).toBe(true);
+            }
+        }
+    });
+});
+
 describe('districts', () => {
     it('cuts an area into walled blocks with streets between them, each within the area, no two touching', () => {
         const { features } = districtFeatures(district({}), TEST_ROLES, seededRandom(4), {});

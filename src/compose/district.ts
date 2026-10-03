@@ -69,9 +69,11 @@ function blocksIn(area: Rect, district: DistrictIntent, random: Random, depth = 
 /**
  * `area` less every box in `kept`: what is left of it round them, as boxes
  * (the strips beside, above and below each), a street's width `gap` kept
- * round each. Strips thinner than `least` are left as open ground.
+ * round each and between the strips themselves, so no two blocks cut from
+ * them ever share a wall (operator, 2026-10-02: buildings physically
+ * touching). Strips thinner than `least` are left as open ground.
  */
-function carve(area: Rect, kept: readonly Rect[], gap: number, least: number): Rect[] {
+export function carve(area: Rect, kept: readonly Rect[], gap: number, least: number): Rect[] {
     const [first, ...rest] = kept;
     if (first === undefined) {
         return [area];
@@ -82,13 +84,44 @@ function carve(area: Rect, kept: readonly Rect[], gap: number, least: number): R
     }
     const x0 = Math.max(area.x, hole.x);
     const x1 = Math.min(area.x + area.w, hole.x + hole.w);
+    // The strips above and below the hole stand a street's width clear of those beside it, where there are any.
+    const [mid0, mid1] = [x0 > area.x ? x0 + gap : x0, x1 < area.x + area.w ? x1 - gap : x1];
     const strips: Rect[] = [
         { x: area.x, y: area.y, w: x0 - area.x, h: area.h },
         { x: x1, y: area.y, w: area.x + area.w - x1, h: area.h },
-        { x: x0, y: area.y, w: x1 - x0, h: hole.y - area.y },
-        { x: x0, y: hole.y + hole.h, w: x1 - x0, h: area.y + area.h - hole.y - hole.h },
+        { x: mid0, y: area.y, w: mid1 - mid0, h: hole.y - area.y },
+        { x: mid0, y: hole.y + hole.h, w: mid1 - mid0, h: area.y + area.h - hole.y - hole.h },
     ];
     return strips.filter((s) => s.w >= least && s.h >= least).flatMap((s) => carve(s, rest, gap, least));
+}
+
+/** What a district keeps clear of besides its own open ground: the map's buildings and named pieces (boxes), its roads and rivers. */
+export interface DistrictClearance {
+    readonly boxes: readonly Rect[];
+    readonly paths: readonly { readonly points: readonly Point[]; readonly halfWidth: number }[];
+}
+
+/** Nothing to keep clear of but the district's own open ground. */
+export const NO_CLEARANCE: DistrictClearance = { boxes: [], paths: [] };
+
+/** Squares between points sampled along a path when testing what stands near it. */
+const PATH_SAMPLE = 0.5;
+
+/** Squares of verge kept between a path's edge and a block. */
+const PATH_VERGE = 0.5;
+
+/** Whether any point along `path` lies within its half-width and a verge of `block`: a block across or against a road. */
+function nearPath(block: Rect, path: DistrictClearance['paths'][number]): boolean {
+    const reach = grown(block, path.halfWidth + PATH_VERGE);
+    const inReach = (p: Point): boolean => p.x >= reach.x && p.x <= reach.x + reach.w && p.y >= reach.y && p.y <= reach.y + reach.h;
+    return path.points.some((p, i) => {
+        const next = path.points[i + 1];
+        if (next === undefined) {
+            return inReach(p);
+        }
+        const steps = Math.max(1, Math.ceil(Math.hypot(next.x - p.x, next.y - p.y) / PATH_SAMPLE));
+        return Array.from({ length: steps + 1 }, (_, s) => ({ x: p.x + ((next.x - p.x) * s) / steps, y: p.y + ((next.y - p.y) * s) / steps })).some(inReach);
+    });
 }
 
 /** A block's outline: its box, standing back from its streets, perhaps (where `notchable`) with a corner cut away to a yard. */
@@ -299,6 +332,7 @@ export function districtFeatures(
     stamps: RoleIndex,
     random: Random,
     level: { level?: string },
+    clear: DistrictClearance = NO_CLEARANCE,
 ): { features: FeatureInput[]; boxed: string[] } {
     const build = (floor: string): RoomBuild => ({ floor, wall: district.wall, wallKind: 'solid', ceiling: true });
     const outlines: Point[][] = [];
@@ -310,9 +344,12 @@ export function districtFeatures(
         onRoofs.push(...roofed.features);
         boxed.push(...roofed.boxed);
     };
-    // The open ground carved out first, a street round it, the rest cut into blocks.
-    const buildings = carve(district.area, district.keepOpen, district.street, district.block[0])
+    // The open ground carved out first, a street round it (and round the map's own buildings and named pieces: never a
+    // well inside a house, operator 2026-10-02), the rest cut into blocks; none standing across or against a road.
+    const kept = [...district.keepOpen, ...clear.boxes.filter((box) => overlaps(grown(box, district.street), district.area))];
+    const buildings = carve(district.area, kept, district.street, district.block[0])
         .flatMap((part) => blocksIn(part, district, random))
+        .filter((block) => !clear.paths.some((path) => nearPath(block, path)))
         .flatMap((block): FeatureInput[] => {
             // A large block keeps a courtyard in its middle; a smaller one may lose a corner to a yard instead.
             const courtyard = block.w >= COURTYARD.min && block.h >= COURTYARD.min && random() < COURTYARD.chance;

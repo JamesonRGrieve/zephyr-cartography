@@ -876,6 +876,12 @@ const OUTDOOR_STREAM = 0x9e3779b9;
 /** Offset from the map's seed of the moats' own random stream: their banks never move with anything else. */
 const MOAT_STREAM = 0x85ebca6b;
 
+/** Squares a prop stood at a point keeps clear round it from a district's blocks: a well with room to draw from it. */
+const PROP_CLEARANCE = 1.5;
+
+/** The square `side` squares across centred on `at`: a piece's footprint whichever way it is turned. */
+const squareAround = (at: Point, side: number): Rect => ({ x: at.x - side / 2, y: at.y - side / 2, w: side, h: side });
+
 /**
  * How dark each lighting leaves the scene, never with Foundry's global
  * light: by night lit by its lights alone; dim (an interior, the underhive)
@@ -986,7 +992,19 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     );
     // Passages hewn through the rock, walled along their ragged edges.
     // And the city's blocks, walled so none is walked into, their streets dressed against the frontages.
-    const districts = intent.districts.map((d) => districtFeatures(d, stamps, random, levelOf(0)));
+    // Each keeps clear of what else stands on the map: its buildings and their annexes, its named pieces and props outside
+    // (a town's well), its roads and rivers, and the districts laid before it (two quarters never meet wall to wall).
+    const standing: Rect[] = [
+        ...composed.flatMap(({ footprint, annexes }) => [footprint, ...annexes]),
+        ...intent.fixtures.map((f) => squareAround(f.at, Math.max(f.width, f.height))),
+        ...intent.props.flatMap((p) => ('at' in p ? [squareAround(p.at, PROP_CLEARANCE)] : [])),
+    ];
+    const districts = intent.districts.map((d, i) =>
+        districtFeatures(d, stamps, random, levelOf(0), {
+            boxes: [...standing, ...intent.districts.slice(0, i).map((earlier) => earlier.area)],
+            paths: exterior.paths,
+        }),
+    );
     const hewn = [...intent.hewn.flatMap((network) => hewnFeatures(network, intent, random, levelOf(0))), ...districts.flatMap((d) => d.features)];
     const streetBoxes = districts.flatMap((d) => d.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: 'street' })));
     // Ways to other maps: over an edge a road runs off, over a place, or just inside a building's front door. The
