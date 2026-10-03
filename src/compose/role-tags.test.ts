@@ -7,6 +7,10 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['terminal', 'console', 'setting-grimdark-human'])).toBe('console');
         expect(roleFromTags(['terminal', 'desk'])).toBe('desk');
         expect(roleFromTags(['desk', 'lamp'])).toBe('light');
+        // Benches no one sits on: a cobbler's is worked at, armour laid on one is an armoury's display.
+        expect(roleFromTags(['cobbler', 'bench'])).toBe('workbench');
+        expect(roleFromTags(['armour', 'bench'])).toBe('rack');
+        expect(roleFromTags(['long', 'bench'])).toBe('bench');
         // Votive candles and censers are a shrine's, a candle cluster a room's lamp.
         expect(roleFromTags(['candle', 'bank', 'setting-fantasy'])).toBe('icon');
         expect(roleFromTags(['censer', 'stand'])).toBe('icon');

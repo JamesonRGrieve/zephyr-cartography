@@ -46,6 +46,10 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     // An upholstered chair is an armchair before it is a seat.
     ['armchair', ['armchair', 'wingback', ['padded', 'chair'], ['easy', 'chair']]],
     ['seat', ['chair', 'stool']],
+    // A cobbler's bench is worked at and armour laid on a bench is an armoury's display: neither is sat on (operator,
+    // 2026-10-02: a porch's bench came out a helm and breastplate on a stand).
+    ['workbench', ['cobbler']],
+    ['rack', [['armour', 'bench']]],
     ['bench', ['bench', 'settle']],
     ['pew', ['pew']],
     // A kitchen's prep table and chopping block are worked at, not eaten at.
