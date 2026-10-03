@@ -452,7 +452,21 @@ test('a curtain wall with its moat, a walled city district and hewn tunnels comp
             return {
                 built: composed.report.problems,
                 rooms: features.filter((f) => f.type === 'room').length,
+                // Each room's extent, to hold the district's blocks clear of the road and the square kept open.
+                extents: features.flatMap((f) =>
+                    f.type === 'room'
+                        ? [
+                              {
+                                  x0: Math.min(...f.points.map((p) => p.x)),
+                                  x1: Math.max(...f.points.map((p) => p.x)),
+                                  y0: Math.min(...f.points.map((p) => p.y)),
+                                  y1: Math.max(...f.points.map((p) => p.y)),
+                              },
+                          ]
+                        : [],
+                ),
                 water: features.filter((f) => f.type === 'region' && f.biome === 'water').length,
+                origin: { x: canvas?.dimensions?.sceneX ?? 0, y: canvas?.dimensions?.sceneY ?? 0 },
                 walls: canvas?.scene?.walls.size ?? 0,
                 signs: (canvas?.scene?.notes.contents ?? []).map((note) => note.text),
             };
@@ -512,9 +526,14 @@ test('a curtain wall with its moat, a walled city district and hewn tunnels comp
                     ],
                 },
             ],
+            // A road down through the district, and a square kept open in it with a chest standing there: the blocks keep
+            // clear of both.
+            paths: [{ kind: 'road', from: { x: 33, y: -1 }, to: { x: 33, y: 19 }, meander: 0 }],
+            props: [{ role: 'storage', at: { x: 26, y: 9 } }],
             districts: [
                 {
                     area: { x: 20, y: 2, w: 18, h: 16 },
+                    keepOpen: [{ x: 24, y: 7, w: 4, h: 4 }],
                     frontage: 1,
                     streetPieces: [{ name: 'street chest', role: 'storage', tags: ['loot'], width: 1, height: 0.8 }],
                     roofPieces: [{ name: 'roof vent', width: 1.2, height: 1.2 }],
@@ -526,6 +545,11 @@ test('a curtain wall with its moat, a walled city district and hewn tunnels comp
     expect(outcome?.built).toEqual([]);
     // Four runs of wall broken by the gate, four towers and the gate's passage; the district's blocks; the tunnels.
     expect(outcome?.rooms).toBeGreaterThan(12);
+    // No room stands across the road or on the open square with its chest (both in grid squares).
+    const { x: ox, y: oy } = outcome?.origin ?? { x: 0, y: 0 };
+    const squares = (outcome?.extents ?? []).map((e) => ({ x0: (e.x0 - ox) / grid, x1: (e.x1 - ox) / grid, y0: (e.y0 - oy) / grid, y1: (e.y1 - oy) / grid }));
+    expect(squares.filter((e) => e.x0 < 33 && e.x1 > 33 && e.y0 < 18 && e.y1 > 2)).toEqual([]);
+    expect(squares.filter((e) => e.x0 < 26 && e.x1 > 26 && e.y0 < 9 && e.y1 > 9)).toEqual([]);
     expect(outcome?.water).toBe(1);
     expect(outcome?.walls).toBeGreaterThan(40);
     // The tally board's words are a Note players read on hover.
