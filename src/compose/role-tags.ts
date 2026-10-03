@@ -117,6 +117,10 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
             'case',
             'luggage',
             'munitions',
+            // Produce in its basket or sack (a basket of carrots) is stores, never ground cover: its 'root' is no tree's.
+            'vegetables',
+            'vegetable',
+            'produce',
         ],
     ],
     ['rug', ['rug', 'carpet']],
@@ -252,7 +256,7 @@ const HABITAT_RULES: readonly (readonly [StampHabitat, readonly string[]])[] = [
     // Fungus grows in the dark and the damp under trees: a wood or a cave, never spread across an open marsh or a meadow.
     ['cave', ['cave', 'stalagmites', 'stalactites', 'crystal', 'mineral', 'mushroom']],
     ['arctic', ['ice', 'frost', 'snow']],
-    ['forest', ['forest', 'woodland', 'jungle', 'mushroom']],
+    ['forest', ['forest', 'woodland', 'mushroom']],
     ['marsh', ['mire', 'marsh', 'swamp', 'bog']],
     ['desert', ['desert', 'sand', 'dune']],
     ['ruin', ['bone', 'cairn', 'crypt', 'dungeon', 'ruin', 'ruined']],
@@ -261,6 +265,9 @@ const HABITAT_RULES: readonly (readonly [StampHabitat, readonly string[]])[] = [
 
 /** Tags of land that is planted and tended (a flower bed, a planter, a potted shrub): it grows in no wild ground. */
 const CULTIVATED_TAGS: readonly string[] = ['bed', 'planter', 'garden', 'pot', 'potted', 'trellis'];
+
+/** Tags of growth from a climate no zone here has (a jungle's vine tangle): never strewn in a temperate wood. */
+const FOREIGN_CLIMATE_TAGS: readonly string[] = ['jungle', 'tropical'];
 
 /** Where each kind of land belongs when its tags say nothing of ground: a plain boulder lies on any open ground. */
 const LAND_HABITATS: Partial<Readonly<Record<StampRole, readonly StampHabitat[]>>> = {
@@ -381,6 +388,10 @@ export function habitatsOf(role: StampRole, tags: readonly string[], own: readon
     }
     // Planted by someone (a flower bed, a potted shrub): never growing wild in a marsh or a wood.
     if (tags.some((tag) => CULTIVATED_TAGS.includes(tag))) {
+        return [];
+    }
+    // Jungle growth: no ground here is a jungle, so it is never strewn, only set where a map names it.
+    if (tags.some((tag) => FOREIGN_CLIMATE_TAGS.includes(tag))) {
         return [];
     }
     const tagged = HABITAT_RULES.filter(([, any]) => any.some((tag) => tags.includes(tag))).map(([habitat]) => habitat);

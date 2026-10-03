@@ -11,6 +11,10 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['cobbler', 'bench'])).toBe('workbench');
         expect(roleFromTags(['armour', 'bench'])).toBe('rack');
         expect(roleFromTags(['long', 'bench'])).toBe('bench');
+        // A basket of carrots is stores: its 'root' names a vegetable, not a tree's roots on the forest floor.
+        expect(roleFromTags(['root', 'vegetables', 'setting-fantasy'])).toBe('storage');
+        expect(roleFromTags(['tree', 'roots'])).toBe('tree');
+        expect(roleFromTags(['gnarled', 'roots'])).toBe('flora');
         // Votive candles and censers are a shrine's, a candle cluster a room's lamp.
         expect(roleFromTags(['candle', 'bank', 'setting-fantasy'])).toBe('icon');
         expect(roleFromTags(['censer', 'stand'])).toBe('icon');
@@ -133,6 +137,9 @@ describe('habitatsOf', () => {
         expect(habitatsOf('debris', ['metal', 'debris'], [])).toEqual(['urban']);
         // A bog log lies in a marsh, not the woods a log usually does.
         expect(habitatsOf('log', ['bog', 'log'], [])).toEqual(['marsh']);
+        // A jungle's vine tangle is no temperate wood's undergrowth: it is strewn nowhere, set only where a map names it.
+        expect(habitatsOf('shrub', ['jungle', 'overgrowth'], [])).toEqual([]);
+        expect(habitatsOf('shrub', ['bush', 'overgrowth'], [])).toEqual(['forest', 'grassland', 'marsh']);
     });
 
     it('knows wild ground cover by its tags, and leaves lily pads, which float on open water, to be placed by hand', () => {
