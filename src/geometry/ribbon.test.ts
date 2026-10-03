@@ -50,6 +50,42 @@ describe('buildRibbon', () => {
         expect(backwards).toEqual([]);
     });
 
+    it('lays banks wider on the outside of a bend than its inside, and wavering, never parallel, along a straight reach', () => {
+        const banks = { width: (): number => 10 };
+        // A quarter turn toward the left rail (+y on screen, the left normal of a run along +x): its outside is the right.
+        const bend = Array.from({ length: 13 }, (_, i) => ({ x: 100 * Math.sin((i / 12) * (Math.PI / 2)), y: 100 - 100 * Math.cos((i / 12) * (Math.PI / 2)) }));
+        const g = buildRibbon(
+            bend,
+            bend.map(() => 20),
+            4,
+            banks,
+        );
+        const spine = catmullRom(bend, 4);
+        const middle = Math.floor(g.rails.length / 2);
+        const rail = g.rails[middle];
+        const centre = spine[middle];
+        if (!rail || !centre) {
+            throw new Error('no middle sample');
+        }
+        const left = Math.hypot(rail.left.x - centre.x, rail.left.y - centre.y) - 20;
+        const right = Math.hypot(rail.right.x - centre.x, rail.right.y - centre.y) - 20;
+        expect(right).toBeGreaterThan(left * 1.5);
+        // Down a straight reach the banks keep about their width, but waver: no two samples alike.
+        const reach = buildRibbon(
+            [
+                { x: 0, y: 0 },
+                { x: 400, y: 0 },
+            ],
+            [20, 20],
+            40,
+            banks,
+        );
+        const widths = reach.rails.map((r) => r.left.y - 20);
+        expect(Math.min(...widths)).toBeGreaterThan(10 * 0.6);
+        expect(Math.max(...widths)).toBeLessThan(10 * 1.4);
+        expect(Math.max(...widths) - Math.min(...widths)).toBeGreaterThan(1);
+    });
+
     it('emits six indices per quad', () => {
         const g = buildRibbon(
             [

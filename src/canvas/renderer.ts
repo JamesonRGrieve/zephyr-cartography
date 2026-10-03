@@ -5,7 +5,7 @@
  * Style is derived from the feature, so the controller just hands over features;
  * the concrete PIXI surface lives at the Foundry boundary, keeping this pure.
  */
-import { brushOutline, buildRibbon, RIBBON_SAMPLES, ribbonOutline } from '../geometry/ribbon';
+import { type Banks, brushOutline, buildRibbon, RIBBON_SAMPLES, ribbonOutline } from '../geometry/ribbon';
 import { perimeterSegments, type Segment, segmentBand, wallRuns } from '../geometry/wall';
 import { BIOME_STYLES, isBiomeKind, type BiomeKind } from '../tools/biome';
 import { tintToward } from '../tools/colour';
@@ -86,9 +86,14 @@ function texturing(resolve: TextureResolver, roles: readonly string[], packTint:
     return { texture: resolve(proceduralRole(pattern)), tint: colour };
 }
 
-/** A river's bed runs this much wider than the river, plus a fixed bank either side, so even a stream shows its banks. */
-const BED_SCALE = 1.5;
+/**
+ * A river's banks: half its half-width beyond its water, plus a fixed strip so even a stream shows them; wider on a
+ * bend's outside and narrower on its inside, wavering along the run (operator 2026-10-03: banks are not "perfectly
+ * parallel to the river ... thicker on the outside of bends and thinner on the inside like real river banks").
+ */
+const BED_SCALE = 0.5;
 const BED_BANK_PX = 16;
+const RIVER_BANKS: Banks = { width: (halfWidth) => halfWidth * BED_SCALE + BED_BANK_PX };
 
 /** Flat colour of a pack floor material, or a bed, the active texture set does not have. */
 const ROLE_FALLBACK = 0x6e6457;
@@ -202,10 +207,7 @@ function underlays(feature: Feature, resolve: TextureResolver): Filled[] {
     if (feature.type !== 'path' || bed === null) {
         return [];
     }
-    const outline = pathOutline(
-        feature,
-        feature.halfWidths.map((w) => w * BED_SCALE + BED_BANK_PX),
-    );
+    const outline = ribbonOutline(buildRibbon(feature.points, feature.halfWidths, RIBBON_SAMPLES, RIVER_BANKS));
     return [roleFilled(bed, outline, true, resolve)];
 }
 

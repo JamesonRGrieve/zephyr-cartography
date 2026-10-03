@@ -50,12 +50,68 @@ function widthAt(halfWidths: readonly number[], j: number, samples: number): num
 }
 
 /**
+ * The banks either side of a ribbon (a river's bed along its water): how wide
+ * a bank is beside a ribbon `halfWidth` across, as on a straight reach. On a
+ * bend the outside bank widens and the inside one narrows, as water cuts the
+ * outside and silts the inside, and along the run both waver a little.
+ */
+export interface Banks {
+    readonly width: (halfWidth: number) => number;
+}
+
+/** How strongly a bend widens its outside bank and narrows its inside one, per unit of the bend's turn over its width. */
+const BEND_GAIN = 2.5;
+/** A bank never narrows below, nor widens past, these shares of its straight-reach width. */
+const BANK_RANGE = { min: 0.3, max: 2.4 } as const;
+/** How far a bank wavers along its run, as a share of its width, and over how many half-widths each wave runs. */
+const BANK_WAVER = 0.22;
+const BANK_WAVES = [
+    { length: 7.3, weight: 0.6, phase: 0 },
+    { length: 2.9, weight: 0.4, phase: 1.7 },
+] as const;
+/** Samples either side over which a bend's turn is averaged, so a bank swells round a whole bend, not one sample. */
+const BEND_WINDOW = 6;
+
+/** A bank's wavering at `arc` along the run, for a ribbon `halfWidth` across: 1 ± BANK_WAVER, the two sides out of step. */
+function waver(arc: number, halfWidth: number, side: 1 | -1): number {
+    const scale = Math.max(halfWidth, 1);
+    const wave = BANK_WAVES.reduce((sum, w) => sum + w.weight * Math.sin(arc / (w.length * scale) + w.phase + (side === 1 ? 0 : 2.1)), 0);
+    return 1 + BANK_WAVER * wave;
+}
+
+/**
+ * Each sample's turn over the spine (positive toward the left rail), as radians per unit of length, averaged over
+ * the samples round it so a bend reads as a whole.
+ */
+function bends(segments: readonly Point[], samples: number): number[] {
+    const turns = Array.from({ length: samples }, (_, j) => {
+        const before = segments[j - 1];
+        const after = segments[j];
+        if (!before || !after) {
+            return 0;
+        }
+        const lb = Math.hypot(before.x, before.y);
+        const la = Math.hypot(after.x, after.y);
+        if (lb === 0 || la === 0) {
+            return 0;
+        }
+        const angle = Math.atan2(before.x * after.y - before.y * after.x, before.x * after.x + before.y * after.y);
+        return angle / ((lb + la) / 2);
+    });
+    return turns.map((_, j) => {
+        const around = turns.slice(Math.max(0, j - BEND_WINDOW), j + BEND_WINDOW + 1);
+        return around.reduce((sum, t) => sum + t, 0) / around.length;
+    });
+}
+
+/**
  * Build the ribbon for `centerline` control points with `halfWidths` (parallel
  * array), smoothing with `samplesPerSegment` samples per span. Degenerate input
  * (< 2 points) yields empty arrays. The ends are cut square across the path,
- * at full width.
+ * at full width. With `banks`, each rail lies its bank's width beyond the
+ * half-width: wider on a bend's outside, narrower on its inside, wavering.
  */
-export function buildRibbon(centerline: readonly Point[], halfWidths: readonly number[], samplesPerSegment: number): RibbonGeometry {
+export function buildRibbon(centerline: readonly Point[], halfWidths: readonly number[], samplesPerSegment: number, banks?: Banks): RibbonGeometry {
     if (centerline.length < 2) {
         return EMPTY;
     }
@@ -75,6 +131,7 @@ export function buildRibbon(centerline: readonly Point[], halfWidths: readonly n
     const invTotal = total > 0 ? 1 / total : 0;
     const none: Point = { x: 0, y: 0 };
 
+    const bend = banks ? bends(segments, n) : [];
     const rails: Rail[] = [];
     const along: Point[] = [];
     let arc = 0;
@@ -89,9 +146,19 @@ export function buildRibbon(centerline: readonly Point[], halfWidths: readonly n
         const hw = widthAt(halfWidths, j, n);
         const normal = { x: -dy / len, y: dx / len };
         along.push({ x: dx / len, y: dy / len });
+        // A bend toward the left rail has its outside on the right: the right bank widens, the left narrows.
+        const bank = (side: 1 | -1): number => {
+            if (!banks) {
+                return 0;
+            }
+            const outward = 1 - side * BEND_GAIN * (bend[j] ?? 0) * hw;
+            return banks.width(hw) * Math.min(BANK_RANGE.max, Math.max(BANK_RANGE.min, outward)) * waver(arc, hw, side);
+        };
+        const left = hw + bank(1);
+        const right = hw + bank(-1);
         rails.push({
-            left: { x: cur.x + normal.x * hw, y: cur.y + normal.y * hw },
-            right: { x: cur.x - normal.x * hw, y: cur.y - normal.y * hw },
+            left: { x: cur.x + normal.x * left, y: cur.y + normal.y * left },
+            right: { x: cur.x - normal.x * right, y: cur.y - normal.y * right },
             u: arc * invTotal,
         });
     });
