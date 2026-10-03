@@ -1654,15 +1654,17 @@ or a tavern is. Composition is the layer above them (operator decisions,
     uneven steps and distances, never in a row. Painted areas can be
     `sharp`: their exact outline with a crisp edge (a deck, storm doors
     drawn as boards where no storm door art exists).
-- **Charts** (intent `scale`: `battlemap`, the default, or `regional`,
-  `planet`, `system`). A chart of a region, a world or a star system is
-  drawn from art of its own scale (the pack's `regional`, `planet` and
-  `system` stamps; a region's towns and keeps also from `city` art), and
-  only where it names a piece (`suitsScale`): its
-  towns, ruins and worlds are named fixtures. It is its ground, its zones'
-  ground, its paths and those places; nothing is scattered, worn, banked,
-  bridged or waymarked. A place with no art of its scale stands as its
-  labelled box, as on any map.
+- **Charts** (intent `scale`: `battlemap`, the default, or `city`,
+  `regional`, `planet`, `system`). A chart of a town, a region, a world or
+  a star system is drawn only from art of its own scale (the pack's `city`,
+  `regional`, `planet` and `system` stamps), and only where it names a
+  piece (`suitsScale`). What one stamp stands for sets its scale (operator,
+  2026-10-02: "Region scale should be 1-4 stamps per town. Typically 1"):
+  on a town map (`city`) each cottage, barn, field strip and tree clump is
+  a stamp; on a region a whole town, castle or wizard's tower is one. It
+  is its ground, its zones' ground, its paths and those places; nothing is
+  scattered, worn, banked, bridged or waymarked. A place with no art of its
+  scale stands as its labelled box, as on any map.
 - **Presets** (`compose/presets.ts`): fantasy (a woodland inn, a tavern, a
   roadside inn with guest rooms, a cellar and a bridged river, a forest
   road, a marsh crossing), grimdark (a megacity outpost, a megacity chapel,

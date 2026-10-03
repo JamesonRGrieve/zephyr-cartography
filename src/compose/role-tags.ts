@@ -334,7 +334,9 @@ const CHART_SCALES: readonly string[] = ['city', 'regional', 'planet', 'system']
 export function suitsScale(role: StampRole, scale: string, mapScale: MapScale = 'battlemap'): boolean {
     if (mapScale !== 'battlemap') {
         // A region's towns and keeps are drawn as a city's blocks seen from far above.
-        return role === 'fitting' && (scale === mapScale || (mapScale === 'regional' && scale === 'city'));
+        // Only its own scale (operator, 2026-10-02: a region's town is one stamp, typically; its cottages and barns are a
+        // town map's art, never a region's).
+        return role === 'fitting' && scale === mapScale;
     }
     // A fitting stands in a room or a yard, never a city block or a world drawn to look like one from far above.
     if (role === 'fitting') {

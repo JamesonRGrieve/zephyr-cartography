@@ -23,7 +23,7 @@ import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
  * The scale a map is drawn at: a battlemap of rooms and yards, or a chart of
  * a region, a world or a star system, drawn from art of that scale.
  */
-const MAP_SCALES = ['battlemap', 'regional', 'planet', 'system'] as const;
+const MAP_SCALES = ['battlemap', 'city', 'regional', 'planet', 'system'] as const;
 export type MapScale = (typeof MAP_SCALES)[number];
 
 const MAP_INTENT_SCHEMA_VERSION = 1;
@@ -784,7 +784,7 @@ export const mapIntentSchema = z
             .enum(MAP_SCALES)
             .default('battlemap')
             .describe(
-                'What the map is: a battlemap of rooms and yards, or a chart of a region, a world or a star system. A chart is drawn from art of its own scale, and only where it names a piece (its towns, ruins, worlds); its zones paint their ground, scattering nothing.',
+                'What the map is: a battlemap of rooms and yards, or a chart of a town (`city`: each building, field and tree clump one stamp), a region (a whole town, castle or tower one stamp), a world or a star system. A chart is drawn from art of its own scale, and only where it names a piece; its zones paint their ground, scattering nothing.',
             ),
         ground: z.enum(BIOMES).nullable().default('grassland').describe('The ground under everything; null for none (an interior on a bare scene).'),
         lighting: z

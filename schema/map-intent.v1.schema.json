@@ -194,10 +194,11 @@
         },
         "scale": {
             "default": "battlemap",
-            "description": "What the map is: a battlemap of rooms and yards, or a chart of a region, a world or a star system. A chart is drawn from art of its own scale, and only where it names a piece (its towns, ruins, worlds); its zones paint their ground, scattering nothing.",
+            "description": "What the map is: a battlemap of rooms and yards, or a chart of a town (`city`: each building, field and tree clump one stamp), a region (a whole town, castle or tower one stamp), a world or a star system. A chart is drawn from art of its own scale, and only where it names a piece; its zones paint their ground, scattering nothing.",
             "type": "string",
             "enum": [
                 "battlemap",
+                "city",
                 "regional",
                 "planet",
                 "system"

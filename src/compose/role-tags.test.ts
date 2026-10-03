@@ -92,11 +92,13 @@ describe('suitsScale', () => {
         }
     });
 
-    it('draws a chart (a region, a world, a system) only from named art of its own scale', () => {
+    it('draws a chart (a town, a region, a world, a system) only from named art of its own scale', () => {
         expect(suitsScale('fitting', 'regional', 'regional')).toBe(true);
         expect(suitsScale('fitting', 'system', 'system')).toBe(true);
-        // A region's towns and keeps are a city's blocks seen from far above; a system takes no city.
-        expect(suitsScale('fitting', 'city', 'regional')).toBe(true);
+        // A town map draws its cottages and barns from city art; a region draws a whole town as one stamp of its own scale.
+        expect(suitsScale('fitting', 'city', 'city')).toBe(true);
+        expect(suitsScale('fitting', 'city', 'regional')).toBe(false);
+        expect(suitsScale('fitting', 'regional', 'city')).toBe(false);
         expect(suitsScale('fitting', 'city', 'system')).toBe(false);
         // Nothing of another scale, and nothing scattered or furnished: a chart's trees are not a yard's.
         expect(suitsScale('fitting', 'exterior', 'regional')).toBe(false);
