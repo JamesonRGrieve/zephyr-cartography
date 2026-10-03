@@ -269,9 +269,12 @@ describe('bridges and yard pieces', () => {
         if (river?.type !== 'path') {
             throw new Error('no river');
         }
-        // Straight between its stops: down to the point asked, and back up.
+        // Through the point asked, in a smooth curve: down to it and back up, never turning a corner there.
         expect(river.points).toContainEqual({ x: 15, y: 16 });
-        expect(Math.max(...river.points.map((p) => p.y))).toBe(16);
+        expect(Math.max(...river.points.map((p) => p.y))).toBeCloseTo(16, 0);
+        const at = river.points.findIndex((p) => p.x === 15 && p.y === 16);
+        const [before, after] = [river.points[at - 1], river.points[at + 1]];
+        expect(before && after && Math.abs(before.y - after.y)).toBeLessThan(0.5);
         expect(river).toMatchObject({ bed: 'sand' });
         // A road takes no bed.
         const road = composeMap(

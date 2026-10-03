@@ -15,7 +15,7 @@ import type { Rect, Side } from '../generate/floor-plan';
 import { pick, shuffled, type Random } from '../generate/random';
 import type { SceneSpecInput } from '../generate/spec';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
-import type { Point } from '../geometry/spline';
+import { catmullRom, type Point } from '../geometry/spline';
 import type { StampHabitat, StampRole } from '../stamps/schema';
 import type { BiomeKind } from '../tools/biome';
 import { WALL_BAND_SQUARES } from '../tools/materials';
@@ -370,6 +370,9 @@ function toDoors(line: readonly Point[], path: PathIntent, sites: readonly Site[
     };
     return [...doorway(path.from), ...line, ...doorway(path.to)];
 }
+
+/** Samples to each span of a path's curve through the points it is asked to pass. */
+const VIA_SAMPLES = 6;
 
 /** A meandering centerline from `a` to `b`: bends of about `BEND_LENGTH` squares, each swung aside by up to `meander`. */
 function meanderLine(a: Point, b: Point, meander: number, random: Random): Point[] {
@@ -1105,9 +1108,10 @@ export function composeExterior(
     const paths: LaidPath[] = intent.paths.map((path) => {
         const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
         const [from, to] = pathEnds(path, intent, sites, keyed, random);
-        // Through each point it is asked to pass, winding between them.
+        // Through each point it is asked to pass, in a smooth curve, winding between them: never turning at a corner.
         const stops = [from, ...path.via, to];
-        const line = stops.slice(1).flatMap((next, i) => meanderLine(stops[i] ?? from, next, path.meander, random).slice(i === 0 ? 0 : 1));
+        const bends = stops.slice(1).flatMap((next, i) => meanderLine(stops[i] ?? from, next, path.meander, random).slice(i === 0 ? 0 : 1));
+        const line = path.via.length === 0 ? bends : catmullRom(bends, VIA_SAMPLES);
         return {
             kind: path.kind,
             halfWidth,
