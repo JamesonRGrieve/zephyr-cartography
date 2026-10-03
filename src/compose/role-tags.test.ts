@@ -21,6 +21,10 @@ describe('roleFromTags', () => {
         // A crystal ball is a seer's fitting, a crystal cluster the ground's rock.
         expect(roleFromTags(['top', 'down', 'crystal', 'ball', 'stand'])).toBe('fitting');
         expect(roleFromTags(['crystal', 'cluster'])).toBe('rock');
+        // A vegetable patch grows in a garden: never stores in a cellar, as a basket of vegetables is.
+        expect(roleFromTags(['vegetable', 'patch', 'setting-fantasy'])).toBe('fitting');
+        expect(roleFromTags(['vegetable', 'rows', 'setting-fantasy'])).toBe('fitting');
+        expect(roleFromTags(['green', 'vegetables'])).toBe('storage');
         expect(roleFromTags(['tree', 'roots'])).toBe('tree');
         expect(roleFromTags(['gnarled', 'roots'])).toBe('flora');
         // Votive candles and censers are a shrine's, a candle cluster a room's lamp.

@@ -96,6 +96,18 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
             'slag',
         ],
     ],
+    // A vegetable patch, a hen run, a mud wallow: a smallholding's ground and pens, set where a map lays them out. A
+    // patch of growing cabbages is no basket of produce in a cellar.
+    [
+        'fitting',
+        [
+            ['vegetable', 'patch'],
+            ['vegetable', 'rows'],
+            ['hen', 'run'],
+            ['mud', 'wallow'],
+            ['compost', 'heap'],
+        ],
+    ],
     // An alchemist's reagents in bulk (a barrel of acid): set where a map names them, never stacked as a yard's or a
     // storeroom's stores (green acid barrels outside a country inn).
     ['fitting', ['acid', 'toxic', 'caustic']],
