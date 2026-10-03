@@ -13,6 +13,9 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['long', 'bench'])).toBe('bench');
         // A basket of carrots is stores: its 'root' names a vegetable, not a tree's roots on the forest floor.
         expect(roleFromTags(['root', 'vegetables', 'setting-fantasy'])).toBe('storage');
+        // A barrel of acid is an alchemist's, set where a map names it: never a yard's stores.
+        expect(roleFromTags(['acid', 'barrel', 'setting-fantasy'])).toBe('fitting');
+        expect(roleFromTags(['wine', 'barrel'])).toBe('storage');
         expect(roleFromTags(['tree', 'roots'])).toBe('tree');
         expect(roleFromTags(['gnarled', 'roots'])).toBe('flora');
         // Votive candles and censers are a shrine's, a candle cluster a room's lamp.

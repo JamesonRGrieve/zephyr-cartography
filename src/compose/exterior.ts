@@ -18,6 +18,7 @@ import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { Point } from '../geometry/spline';
 import type { StampHabitat, StampRole } from '../stamps/schema';
 import type { BiomeKind } from '../tools/biome';
+import { WALL_BAND_SQUARES } from '../tools/materials';
 import { detour, grown } from './detour';
 import type { Anchor, Density, Edge, MapIntent, PathIntent, PropIntent, ZoneIntent, ZoneKind } from './intent';
 import type { PlacedDoor } from './layout';
@@ -1023,7 +1024,8 @@ function storesAlong(site: Site, side: Side, stores: readonly RoleStamp[], keepo
             // After the first, a piece may stand before the last, a rank out from the wall, rather than beside it.
             const ranked = n > 0 && random() < YARD.ranked;
             const start = ranked ? along - 2 * r : along;
-            const p = OUTSIDE[side](f, start + r - 0.5, r + YARD.gap + (ranked ? 2 * r : 0));
+            // Out past the wall's drawn band (half of it lies outside the footprint's edge), never on it.
+            const p = OUTSIDE[side](f, start + r - 0.5, WALL_BAND_SQUARES / 2 + r + YARD.gap + (ranked ? 2 * r : 0));
             // Within its own wall's run: never round the corner, into the next side's clumps.
             if (start >= lo && start + 2 * r <= hi && clear(p, r * 0.9)) {
                 standing.push({ x: p.x, y: p.y, r });

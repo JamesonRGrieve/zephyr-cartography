@@ -96,6 +96,9 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
             'slag',
         ],
     ],
+    // An alchemist's reagents in bulk (a barrel of acid): set where a map names them, never stacked as a yard's or a
+    // storeroom's stores (green acid barrels outside a country inn).
+    ['fitting', ['acid', 'toxic', 'caustic']],
     [
         'storage',
         // Not coffins or sarcophagi: they are a crypt's, never a storeroom's.

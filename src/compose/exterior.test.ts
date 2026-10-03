@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { StampRole } from '../stamps/schema';
+import { WALL_BAND_SQUARES } from '../tools/materials';
 import { composeMap } from './compose';
 import { composeExterior, zoneOutline } from './exterior';
 import { type MapIntent, parseMapIntent, type ZoneIntent } from './intent';
@@ -371,6 +372,16 @@ describe('bridges and yard pieces', () => {
             const stores = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:storage' && outside(f));
             expect(stores.length).toBeGreaterThanOrEqual(2);
             expect(stampsOf(spec, 'test:vehicle') + stampsOf(spec, 'test:hauler')).toBeGreaterThanOrEqual(1);
+            // Each stands wholly clear of the wall's drawn band, half of which lies outside the footprint: never on the wall.
+            const store = TEST_ROLES.get('storage')?.[0];
+            const reach = Math.max(store?.width ?? 0, store?.height ?? 0) / 2;
+            for (const f of stores) {
+                if (f.type !== 'stamp') {
+                    continue;
+                }
+                const off = Math.max(barn.x - f.x, f.x - (barn.x + barn.w), barn.y - f.y, f.y - (barn.y + barn.h));
+                expect(off - reach).toBeGreaterThanOrEqual(WALL_BAND_SQUARES / 2 - 1e-6);
+            }
             for (const side of ['top', 'bottom', 'left', 'right'] as const) {
                 const along = stores
                     .flatMap((f) => {
