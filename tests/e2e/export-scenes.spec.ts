@@ -35,8 +35,8 @@ const GRID = 100;
 /** The longest side an exported image may have, in px; a larger scene is drawn smaller. */
 const MAX_SIDE = 4096;
 
-/** How long one scene's export may take, in ms. */
-const EXPORT_TIMEOUT_MS = 10 * 60_000;
+/** How long one scene's export may take, in ms: a tower's five levels, drawn in software GL on the build runner, ran past ten minutes. */
+const EXPORT_TIMEOUT_MS = 30 * 60_000;
 
 /** How long a composed map's images may take to load, in ms. */
 const IMAGES_LOAD_MS = 120_000;
@@ -156,10 +156,14 @@ for (const { key, intent: source } of listed) {
                 { x: size.width / 2, y: size.height / 2, zoom: scale },
             );
             await drawn(world);
-            // Viewing a level redraws the canvas, the token layer with it: hidden again for each picture.
+            // Viewing a level redraws the canvas, the token layer with it: hidden again for each picture, and the door
+            // controls with it (Foundry's door icon, drawn over every door's art; the GM's, not the map's).
             await world.evaluate(() => {
                 if (canvas?.tokens) {
                     canvas.tokens.visible = false;
+                }
+                if (canvas?.controls?.doors) {
+                    canvas.controls.doors.visible = false;
                 }
             });
             await world.locator('#board').screenshot({ path: join(out, `${key}.${n}.png`) });
