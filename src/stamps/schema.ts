@@ -390,6 +390,9 @@ const variantSchema = z
         width: z.number().int().positive().describe('Pixel width at the pack referenceGridSize.'),
         height: z.number().int().positive().describe('Pixel height at the pack referenceGridSize.'),
         perspective: perspective.optional().describe('Overrides the stamp perspective.'),
+        provenance: provenanceSchema
+            .optional()
+            .describe('Overrides the stamp provenance for this image: a version from another source (a colourway sold separately) keeps its own credit.'),
         resolution: resolution.optional().describe("The variant image's long side, rounded to the nearest step (32 to 8K)."),
         anchor: z
             .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
@@ -544,7 +547,7 @@ const stampSchema = z
         tags: z.array(text).default([]),
         scale: z.enum(STAMP_SCALES),
         perspective,
-        provenance: provenanceSchema.optional().describe('Where every variant’s image came from: one origin per stamp.'),
+        provenance: provenanceSchema.optional().describe('Where its variants’ images came from, unless a variant gives its own.'),
         style: artStyle.optional(),
         role: z
             .enum(STAMP_ROLES)

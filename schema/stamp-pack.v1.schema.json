@@ -80,7 +80,7 @@
                         ]
                     },
                     "provenance": {
-                        "description": "Where every variant’s image came from: one origin per stamp.",
+                        "description": "Where its variants’ images came from, unless a variant gives its own.",
                         "type": "object",
                         "properties": {
                             "source": {
@@ -339,6 +339,41 @@
                                         "central",
                                         "top-down"
                                     ]
+                                },
+                                "provenance": {
+                                    "description": "Overrides the stamp provenance for this image: a version from another source (a colourway sold separately) keeps its own credit.",
+                                    "type": "object",
+                                    "properties": {
+                                        "source": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Where it came from: the pack’s own repository for art made for it, or the provider (\"Poly Haven\", \"ambientCG\", \"Kenney\", \"Freesound\")."
+                                        },
+                                        "license": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Its licence, as an SPDX id (\"CC0-1.0\")."
+                                        },
+                                        "author": {
+                                            "description": "Its author, or who made AI-generated art available.",
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "url": {
+                                            "description": "Its source page: the pack’s own repository for art made for it.",
+                                            "type": "string",
+                                            "format": "uri"
+                                        },
+                                        "ai": {
+                                            "description": "Whether it is AI-generated, whatever its source: art made for the pack, or brought in from elsewhere.",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "source",
+                                        "license"
+                                    ],
+                                    "additionalProperties": false
                                 },
                                 "resolution": {
                                     "description": "The variant image's long side, rounded to the nearest step (32 to 8K).",

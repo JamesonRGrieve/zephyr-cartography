@@ -124,6 +124,25 @@ describe('parseStampPack', () => {
         expect(parseStampPack(pack([{ ...crate, provenance: { ...photo, ai: 'yes' } }])).ok).toBe(false);
     });
 
+    it('lets a variant from another source keep its own credit', () => {
+        const black = { source: 'itch.io', license: 'CC0-1.0', author: 'Mark Gosbell', url: 'https://markgosbell.itch.io/classic-dungeon-map-symbols' };
+        const blue = { ...black, url: 'https://markgosbell.itch.io/old-school-blue-dungeon-map-symbols' };
+        const altar = {
+            ...crate,
+            provenance: black,
+            variants: [
+                { ...crate.variants[0], state: 'default' },
+                { ...crate.variants[0], state: 'blue', provenance: blue },
+            ],
+        };
+        const result = parseStampPack(pack([altar]));
+        expect(result.ok).toBe(true);
+        const variants = result.ok ? result.pack.stamps[0]?.variants : [];
+        expect(variants?.[0]?.provenance).toBeUndefined();
+        expect(variants?.[1]?.provenance).toEqual(blue);
+        expect(parseStampPack(pack([{ ...altar, variants: [{ ...crate.variants[0], provenance: { ...blue, url: 'not a link' } }] }])).ok).toBe(false);
+    });
+
     it('reads modular tiles, square or hex, whose edges name each of their sides once', () => {
         const square = {
             id: 'corridor',
