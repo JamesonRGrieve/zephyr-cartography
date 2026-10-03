@@ -1105,7 +1105,9 @@ export function composeExterior(
     const paths: LaidPath[] = intent.paths.map((path) => {
         const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
         const [from, to] = pathEnds(path, intent, sites, keyed, random);
-        const line = meanderLine(from, to, path.meander, random);
+        // Through each point it is asked to pass, winding between them.
+        const stops = [from, ...path.via, to];
+        const line = stops.slice(1).flatMap((next, i) => meanderLine(stops[i] ?? from, next, path.meander, random).slice(i === 0 ? 0 : 1));
         return {
             kind: path.kind,
             halfWidth,
@@ -1142,6 +1144,7 @@ export function composeExterior(
                 points: [...laid.points],
                 halfWidth: laid.halfWidth,
                 ...(path.liquid === undefined ? {} : { liquid: path.liquid }),
+                ...(path.kind === 'river' && path.bed !== undefined ? { bed: path.bed } : {}),
             });
         }
     });

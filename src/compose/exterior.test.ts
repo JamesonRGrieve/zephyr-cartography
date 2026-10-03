@@ -257,6 +257,30 @@ describe('bridges and yard pieces', () => {
         expect(neighboured.length / flowers.length).toBeGreaterThan(0.6);
     });
 
+    it('winds a river through the points it is asked to pass, and lays the bed it is asked for along its banks', () => {
+        const { spec } = composeMap(
+            crossing({
+                paths: [{ kind: 'river', from: { x: -1, y: 5 }, to: { x: 31, y: 5 }, via: [{ x: 15, y: 16 }], meander: 0, bed: 'sand' }],
+                buildings: [],
+            }),
+            TEST_ROLES,
+        );
+        const river = spec.features.find((f) => f.type === 'path' && f.kind === 'river');
+        if (river?.type !== 'path') {
+            throw new Error('no river');
+        }
+        // Straight between its stops: down to the point asked, and back up.
+        expect(river.points).toContainEqual({ x: 15, y: 16 });
+        expect(Math.max(...river.points.map((p) => p.y))).toBe(16);
+        expect(river).toMatchObject({ bed: 'sand' });
+        // A road takes no bed.
+        const road = composeMap(
+            crossing({ paths: [{ kind: 'road', from: { x: -1, y: 5 }, to: { x: 31, y: 5 }, meander: 0, bed: 'sand' }], buildings: [] }),
+            TEST_ROLES,
+        ).spec.features.find((f) => f.type === 'path');
+        expect(road).not.toHaveProperty('bed');
+    });
+
     it('keeps a wood’s canopies mostly off a road through it too: the way is seen, never roofed over by a tree', () => {
         const wooded = crossing({
             zones: [{ kind: 'woodland', area: { shape: 'everywhere' }, density: 'dense' }],

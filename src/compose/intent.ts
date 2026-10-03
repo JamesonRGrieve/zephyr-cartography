@@ -683,7 +683,14 @@ const path = z
         to: anchor,
         width: squares.optional().describe('Squares across; omitted: a road 1.5, a river 2.'),
         meander: z.number().min(0).max(1).default(0.3).describe('How much it winds: 0 straight, 1 a lot.'),
+        via: z
+            .array(point)
+            .default([])
+            .describe('Points it passes through on its way, in order (a river swinging round a hill); it winds between them by its meander.'),
         liquid: z.enum(INTENT_LIQUIDS).optional().describe('A river’s liquid (default water).'),
+        bed: text
+            .optional()
+            .describe('A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.'),
     })
     .strict();
 

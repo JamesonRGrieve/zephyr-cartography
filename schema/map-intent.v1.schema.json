@@ -586,6 +586,28 @@
                         "minimum": 0,
                         "maximum": 1
                     },
+                    "via": {
+                        "default": [],
+                        "description": "Points it passes through on its way, in order (a river swinging round a hill); it winds between them by its meander.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "x": {
+                                    "type": "number"
+                                },
+                                "y": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "x",
+                                "y"
+                            ],
+                            "additionalProperties": false,
+                            "description": "In grid squares from the map’s top-left corner."
+                        }
+                    },
                     "liquid": {
                         "description": "A river’s liquid (default water).",
                         "type": "string",
@@ -595,6 +617,11 @@
                             "poison",
                             "acid"
                         ]
+                    },
+                    "bed": {
+                        "description": "A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.",
+                        "type": "string",
+                        "minLength": 1
                     }
                 },
                 "required": [

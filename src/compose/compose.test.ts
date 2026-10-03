@@ -166,7 +166,7 @@ describe('composeMap', () => {
     it('takes a river laid through the inn round it, its water clear of the walls', () => {
         const { spec } = compose({
             ...INN_IN_THE_WOODS,
-            paths: [{ kind: 'river', from: { x: 16, y: -1 }, to: { x: 16, y: 25 }, meander: 0 }],
+            paths: [{ kind: 'river', from: { x: 16, y: -1 }, to: { x: 16, y: 25 }, meander: 0, via: [] }],
         });
         const river = spec.features.find((f) => f.type === 'path');
         const points = river?.type === 'path' ? river.points : [];
