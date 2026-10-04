@@ -25,9 +25,11 @@ export interface PinSettings {
     readonly readable: boolean;
     /** Scene px across the spot that shows its text on hover (its icon's size); null for Foundry's own. */
     readonly size: number | null;
+    /** Hidden from players until the GM reveals it (the Note sheet's own checkbox); followed back from play. */
+    readonly hidden: boolean;
 }
 
-export const NEW_PIN: PinSettings = { text: '', entry: null, page: null, icon: null, global: false, readable: false, size: null };
+export const NEW_PIN: PinSettings = { text: '', entry: null, page: null, icon: null, global: false, readable: false, size: null, hidden: false };
 
 /** Scene px across Foundry's smallest Note, below which it refuses one (14.368 `NoteDocument.iconSize` min). */
 export const MIN_NOTE_SIZE = 32;
@@ -51,7 +53,7 @@ export function pinPoint(pin: PinFeature): Point {
 
 /** What `pin` shows and opens. */
 export function pinSettingsOf(pin: PinFeature): PinSettings {
-    return { text: pin.text, entry: pin.entry, page: pin.page, icon: pin.icon, global: pin.global, readable: pin.readable, size: pin.size };
+    return { text: pin.text, entry: pin.entry, page: pin.page, icon: pin.icon, global: pin.global, readable: pin.readable, size: pin.size, hidden: pin.hidden };
 }
 
 /** The same pin showing and opening something else; a page only stands with its entry, and a size is never below Foundry's least. */
@@ -77,6 +79,7 @@ export function parsePin(v: unknown): PinFeature | null {
         global: v['global'] === true,
         readable: v['readable'] === true,
         size: typeof v['size'] === 'number' && Number.isFinite(v['size']) ? v['size'] : null,
+        hidden: v['hidden'] === true,
     });
     return { ...pin, ...parseFeatureCommon(v) };
 }

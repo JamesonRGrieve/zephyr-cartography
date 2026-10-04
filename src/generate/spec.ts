@@ -315,6 +315,7 @@ const stampSpec = z
             .describe("A light switch's targets: the keys of the lamp stamps (with lit and unlit variants) and rooms it turns on and off."),
         lights: z.array(text).default([]).describe("A light switch's other targets: ids of AmbientLights already on the scene, shown and hidden."),
         reads: text.optional().describe("What players read on it by hovering over it: a sign's words, a plaque's inscription."),
+        readsHidden: z.boolean().optional().describe('Its reading starts hidden from players, for the GM to reveal from the Note sheet.'),
         mirror: z.boolean().optional().describe('Drawn flipped left to right, before its rotation (the far end of a counter).'),
         inert: z
             .boolean()
@@ -404,6 +405,7 @@ const pinSpec = z
             .default(false)
             .describe('Text for players to read on hover (a sign, a plaque), with no journal for them to see and no icon over the art beneath.'),
         size: positive.nullable().default(null).describe("Across the spot that shows its text on hover, in the spec's units; null: Foundry's own."),
+        hidden: z.boolean().default(false).describe('Hidden from players until the GM reveals it from the Note sheet.'),
         level,
     })
     .strict()

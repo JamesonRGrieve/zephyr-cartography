@@ -293,6 +293,8 @@ export interface NoteDoc {
     readonly readable: boolean;
     /** Scene px across its icon (Foundry's `iconSize`); null for Foundry's own. */
     readonly size: number | null;
+    /** Hidden from players until the GM reveals it: the module's `hidden` flag, which its Note class honours. */
+    readonly hidden: boolean;
 }
 
 /** A native Drawing: a map label's text, or a drawn shape. */

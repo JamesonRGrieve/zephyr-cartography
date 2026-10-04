@@ -590,7 +590,7 @@ function stampReading(stamp: StampFeature, floor: Floor): NoteDoc[] {
         return [];
     }
     const size = Math.max(MIN_NOTE_SIZE, Math.round(Math.max(stamp.width, stamp.height)));
-    const reading = { ...NEW_PIN, text: stamp.reads, readable: true, size };
+    const reading = { ...NEW_PIN, text: stamp.reads, readable: true, size, hidden: stamp.readsHidden };
     return [{ ...stampCentre(stamp), elevation: floor.elevation + stamp.elevation, level: floor.level, ...reading }];
 }
 

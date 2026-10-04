@@ -78,7 +78,7 @@ import {
     stackChannelFor,
 } from '../tools/splat';
 import { stackedElevation } from '../tools/stacking';
-import { makeStamp, stampCentre, withStampFrame, withStampVariant, type StampFeature, type StampPlacement } from '../tools/stamp';
+import { makeStamp, stampCentre, withReadsHidden, withStampFrame, withStampVariant, type StampFeature, type StampPlacement } from '../tools/stamp';
 import { DEFAULT_BRUSH_RADIUS, makeStroke } from '../tools/stroke';
 import { DEFAULT_TRAVEL, exitRegion, exitSquare, type SceneFrame, type SubmapLink } from '../tools/submap';
 import { sameTarget, type SwitchTarget, toggleTarget } from '../tools/switch-targets';
@@ -838,6 +838,25 @@ export class CartographyController {
         this.features = this.features.map((f) => (f.id === zone.id ? next : f));
         await this.persist();
         this.redraw();
+        return true;
+    }
+
+    /**
+     * Follow a Note revealed or hidden in play (the Note sheet's box): record it
+     * on the pin or stamp whose Note it is, without recreating the Note (Foundry
+     * already holds the change), so a later re-sync keeps it as left. False when
+     * the Note is no feature's, or it already stands so.
+     */
+    async followNoteHidden(noteId: string, hidden: boolean): Promise<boolean> {
+        const feature = this.features.find((f) => f.docs.notes.includes(noteId));
+        if (feature?.type === 'pin' && feature.hidden !== hidden) {
+            this.features = this.features.map((f) => (f.id === feature.id ? { ...feature, hidden } : f));
+        } else if (feature?.type === 'stamp' && feature.readsHidden !== hidden) {
+            this.features = this.features.map((f) => (f.id === feature.id ? withReadsHidden(feature, hidden) : f));
+        } else {
+            return false;
+        }
+        await this.persist();
         return true;
     }
 

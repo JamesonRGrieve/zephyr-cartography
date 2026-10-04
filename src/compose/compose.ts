@@ -82,6 +82,7 @@ const stampFeature = (s: ComposedStamp): FeatureInput => ({
     rotation: s.rotation,
     ...(s.scale === undefined ? {} : { scale: s.scale }),
     ...(s.reads === undefined ? {} : { reads: s.reads }),
+    ...(s.readsHidden === true ? { readsHidden: true } : {}),
     ...(s.mirror === true ? { mirror: true } : {}),
     ...(s.variant === undefined ? {} : { variant: s.variant }),
 });

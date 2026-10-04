@@ -318,6 +318,7 @@ describe('noteCreateData', () => {
         global: true,
         readable: false,
         size: null,
+        hidden: false,
     };
 
     it('writes a Note at whole pixels, opening its journal page, with Foundry’s icon when it has none', () => {
@@ -349,6 +350,7 @@ describe('noteCreateData for a sign', () => {
             global: false,
             readable: true,
             size: 48,
+            hidden: false,
         };
         expect(noteCreateData(sign)).toEqual({
             x: 50,
@@ -362,6 +364,16 @@ describe('noteCreateData for a sign', () => {
             author: null,
             flags: { 'zephyr-cartography': { readable: true } },
         });
+    });
+
+    it('flags a hidden Note so players never see it until the GM reveals it, readable or not', () => {
+        const innName = { x: 0, y: 0, elevation: 0, level: null, text: 'The Antler Inn', entry: null, page: null, icon: null, global: false, size: 96 };
+        expect(noteCreateData({ ...innName, readable: true, hidden: true })).toMatchObject({
+            author: null,
+            flags: { 'zephyr-cartography': { readable: true, hidden: true } },
+        });
+        expect(noteCreateData({ ...innName, readable: false, hidden: true })).toMatchObject({ flags: { 'zephyr-cartography': { hidden: true } } });
+        expect(noteCreateData({ ...innName, readable: false, hidden: true })).not.toHaveProperty('author');
     });
 });
 

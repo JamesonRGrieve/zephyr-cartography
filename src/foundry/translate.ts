@@ -182,7 +182,10 @@ export function noteCreateData(note: NoteDoc): NoteCreateData {
         global: note.global,
         ...(note.icon === null ? {} : { texture: { src: note.icon } }),
         ...(note.size === null ? {} : { iconSize: note.size }),
-        ...(note.readable ? { author: null, flags: { [MODULE_ID]: { readable: true } } } : {}),
+        ...(note.readable || note.hidden
+            ? { flags: { [MODULE_ID]: { ...(note.readable ? { readable: true } : {}), ...(note.hidden ? { hidden: true } : {}) } } }
+            : {}),
+        ...(note.readable ? { author: null } : {}),
         ...levelsField(note.level),
     };
 }

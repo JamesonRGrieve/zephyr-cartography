@@ -19,6 +19,8 @@ export interface NamedPiece {
     readonly height: number;
     /** What players read on it by hovering over it (a sign's words). */
     readonly reads?: string | undefined;
+    /** Its reading starts hidden from players, for the GM to reveal. */
+    readonly readsHidden?: boolean | undefined;
     /** The words of the variant state its art is drawn in (a locker `ajar`); omitted, as drawn. */
     readonly state?: string | undefined;
     /** Drawn flipped left to right, the other hand of its art; omitted, as drawn. */
@@ -39,7 +41,8 @@ export function runEnds(facing: Side, sides: readonly Side[]): RunEnd[] {
 }
 
 /** `stamp` carrying what `piece` reads, if anything. */
-const reading = (stamp: RoleStamp, piece: NamedPiece): RoleStamp => (piece.reads === undefined ? stamp : { ...stamp, reads: piece.reads });
+const reading = (stamp: RoleStamp, piece: NamedPiece): RoleStamp =>
+    piece.reads === undefined ? stamp : { ...stamp, reads: piece.reads, ...(piece.readsHidden === true ? { readsHidden: true as const } : {}) };
 
 /** Whether `art` (or, for a run, its modules) has a variant whose state holds `words`, drawn as its own is. */
 function hasState(art: RoleStamp, words: string): boolean {
@@ -309,6 +312,8 @@ export interface PlacedPiece {
     readonly scale?: number;
     /** What players read on it by hovering over it; omitted, nothing. */
     readonly reads?: string;
+    /** Its reading starts hidden from players, for the GM to reveal; omitted, shown. */
+    readonly readsHidden?: true;
     /** Drawn flipped left to right (a run's far end cap); omitted, as drawn. */
     readonly mirror?: true;
     /** The variant of its art it is drawn in; omitted, its default. */
@@ -324,13 +329,14 @@ const FULL_TURN = 360;
  * along its width, however it is turned.
  */
 export function standsAs(piece: RoleStamp, at: { readonly x: number; readonly y: number }, rotation: number): PlacedPiece[] {
+    const hidden = piece.readsHidden === true ? { readsHidden: true as const } : {};
     const one = (art: RoleStamp, x: number, y: number, reads: string | undefined, mirror = false): PlacedPiece => ({
         ...drawnAs(art),
         x,
         y,
         rotation: (rotation + art.turn) % FULL_TURN,
         ...(art.scale === undefined ? {} : { scale: art.scale }),
-        ...(reads === undefined ? {} : { reads }),
+        ...(reads === undefined ? {} : { reads, ...hidden }),
         ...(mirror ? { mirror: true as const } : {}),
     });
     if (piece.run === undefined) {

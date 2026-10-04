@@ -739,3 +739,44 @@ test('a sign’s words are a readable Note: authorless, so players see it with n
         });
     await expect.poll(onNotes).toEqual([true, true]);
 });
+
+test('a building’s name is hidden from players until the GM reveals it on the Note sheet, and the reveal is kept', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [{ type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 6, y: 6, reads: 'The Antler Inn', readsHidden: true }],
+        });
+    });
+    const state = async (): Promise<unknown> =>
+        world.evaluate(() => {
+            const note = canvas?.scene?.notes.contents[0];
+            const stamp = (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).find((f) => f.type === 'stamp');
+            return {
+                hidden: note ? foundry.utils.getProperty(note.flags, 'zephyr-cartography.hidden') : null,
+                // The GM always sees it, to find it and reveal it.
+                gmSees: note?.object?.isVisible,
+                recorded: stamp?.type === 'stamp' ? stamp.readsHidden : null,
+            };
+        });
+    await expect.poll(state).toEqual({ hidden: true, gmSees: true, recorded: true });
+    // The Note sheet carries the box, checked, and submits it with the sheet.
+    const box = async (): Promise<boolean | null> =>
+        world.evaluate(async () => {
+            const note = canvas?.scene?.notes.contents[0];
+            if (note === undefined) {
+                return null;
+            }
+            const sheet = new foundry.applications.sheets.NoteConfig({ document: note });
+            await sheet.render({ force: true });
+            const input = sheet.element.querySelector('input[name="flags.zephyr-cartography.hidden"]');
+            const checked = input instanceof HTMLInputElement ? input.checked : null;
+            await sheet.close();
+            return checked;
+        });
+    await expect.poll(box).toBe(true);
+    // Revealed: the flag clears and the stamp records it, so a re-sync keeps it shown.
+    await world.evaluate(async () => {
+        await canvas?.scene?.notes.contents[0]?.setFlag('zephyr-cartography', 'hidden', false);
+    });
+    await expect.poll(state).toEqual({ hidden: false, gmSees: true, recorded: false });
+});

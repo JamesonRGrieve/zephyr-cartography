@@ -7,7 +7,7 @@ import { NO_LEVEL_ART } from './levels';
 import { makePin, MIN_NOTE_SIZE, NEW_PIN, parsePin, PIN_HIT_RADIUS, pinPoint, pinSettingsOf, withPinSettings } from './pin';
 import { NO_PLAN, planDocuments } from './plan';
 
-const settings = { text: 'The Sump', entry: 'je1', page: 'pg1', icon: 'icons/svg/tankard.svg', global: true, readable: false, size: 60 };
+const settings = { text: 'The Sump', entry: 'je1', page: 'pg1', icon: 'icons/svg/tankard.svg', global: true, readable: false, size: 60, hidden: false };
 
 describe('pins', () => {
     it('stand at one point and start as Foundry makes a note: no text, journal or icon', () => {
@@ -33,6 +33,13 @@ describe('pins', () => {
     it('can be words for players to read on hover, with no journal: a sign', () => {
         const sign = withPinSettings(makePin('p', { x: 0, y: 0 }), { ...NEW_PIN, text: 'OPEN LATE', readable: true, size: 50 });
         expect(planDocuments(sign).notes).toEqual([expect.objectContaining({ text: 'OPEN LATE', readable: true, size: 50, entry: null })]);
+    });
+
+    it('can start hidden from players, for the GM to reveal: a name not yet learnt', () => {
+        const secret = withPinSettings(makePin('p', { x: 0, y: 0 }), { ...settings, readable: true, hidden: true });
+        expect(planDocuments(secret).notes).toEqual([expect.objectContaining({ readable: true, hidden: true })]);
+        expect(parsePin(JSON.parse(JSON.stringify(secret)))?.hidden).toBe(true);
+        expect(parsePin({ type: 'pin', id: 'q', points: [{ x: 1, y: 1 }], hidden: 'yes' })?.hidden).toBe(false);
     });
 
     it('plan one Note on their level, and nothing else', () => {

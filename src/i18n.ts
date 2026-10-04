@@ -191,6 +191,7 @@ export const I18N = {
         none: key('Pins.None'),
         browse: key('Pins.Browse'),
         readable: key('Pins.Readable'),
+        hidden: key('Pins.Hidden'),
     },
     zones: {
         title: key('Zones.Title'),

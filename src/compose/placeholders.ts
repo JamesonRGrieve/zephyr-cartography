@@ -204,7 +204,9 @@ export function drawPlaceholders(features: readonly FeatureInput[]): FeatureInpu
         const { text, fontSize } = fitLabel(label, Math.max(width, height) * LABEL_GRID_PX, Math.min(width, height) * LABEL_GRID_PX);
         // What the piece reads (a sign's words) is read on hover over its box as it would be over its art.
         const reading: FeatureInput[] =
-            feature.reads === undefined ? [] : [{ type: 'pin', x, y, text: feature.reads, readable: true, size: Math.max(width, height), ...level }];
+            feature.reads === undefined
+                ? []
+                : [{ type: 'pin', x, y, text: feature.reads, readable: true, hidden: feature.readsHidden === true, size: Math.max(width, height), ...level }];
         return [
             { type: 'shape', kind: 'rectangle', x, y, width, height, rotation, stroke: look.stroke, fill: look.fill, ...level },
             { type: 'label', x, y, text, fontSize, colour: look.text, ...(upright ? { rotation: READ_UPWARD } : {}), ...level },

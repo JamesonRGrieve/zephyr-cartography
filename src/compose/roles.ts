@@ -59,6 +59,8 @@ export interface RoleStamp {
     readonly run?: { readonly count: number; readonly module: RoleStamp; readonly cap?: RoleStamp; readonly open?: readonly RunEnd[] };
     /** What players read on this piece by hovering over it: a named fixture's words (a sign's). */
     readonly reads?: string;
+    /** Its reading starts hidden from players, for the GM to reveal. */
+    readonly readsHidden?: true;
     /** Each of its art's variants' state, in the words of its pack (`ajar`, `lit`), by variant; omitted where none says. */
     readonly states?: readonly string[];
     /** Each variant's image resolution (its long side in pixels), by variant; omitted where none says. */

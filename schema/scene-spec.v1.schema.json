@@ -2426,6 +2426,10 @@
                                 "type": "string",
                                 "minLength": 1
                             },
+                            "readsHidden": {
+                                "description": "Its reading starts hidden from players, for the GM to reveal from the Note sheet.",
+                                "type": "boolean"
+                            },
                             "mirror": {
                                 "description": "Drawn flipped left to right, before its rotation (the far end of a counter).",
                                 "type": "boolean"
@@ -2539,6 +2543,11 @@
                                         "type": "null"
                                     }
                                 ]
+                            },
+                            "hidden": {
+                                "default": false,
+                                "description": "Hidden from players until the GM reveals it from the Note sheet.",
+                                "type": "boolean"
                             },
                             "level": {
                                 "description": "Key of an entry in `levels`. Omitted: the feature shows on every level.",

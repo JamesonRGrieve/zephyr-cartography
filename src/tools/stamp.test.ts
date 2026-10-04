@@ -6,7 +6,7 @@ import { NO_DOCS } from './generated-docs';
 import { featureHit } from './hit';
 import { type Level, NO_LEVEL_ART } from './levels';
 import { nthEntranceId, planDocuments, wayGaps, withoutGaps } from './plan';
-import { behaviourOf, makeStamp, parseStamp, stampCorners, stampPoint, withStampFrame, withStampReads, withStampVariant } from './stamp';
+import { behaviourOf, makeStamp, parseStamp, stampCorners, stampPoint, withReadsHidden, withStampFrame, withStampReads, withStampVariant } from './stamp';
 import { DEFAULT_TRAVEL } from './submap';
 
 const [lamp, crate] = catalogStamps([
@@ -401,8 +401,29 @@ describe('a stamp players read', () => {
     it('plans a readable Note at its centre on its floor, its hover spot as wide as it is long', () => {
         const plan = planDocuments({ ...stampOf(lamp, { reads: 'OPEN LATE' }), elevation: 2 });
         expect(plan.notes).toEqual([
-            { x: 500, y: 500, elevation: 2, level: null, text: 'OPEN LATE', entry: null, page: null, icon: null, global: false, readable: true, size: 100 },
+            {
+                x: 500,
+                y: 500,
+                elevation: 2,
+                level: null,
+                text: 'OPEN LATE',
+                entry: null,
+                page: null,
+                icon: null,
+                global: false,
+                readable: true,
+                size: 100,
+                hidden: false,
+            },
         ]);
+    });
+
+    it('hides its reading from players until the GM reveals it, when placed so', () => {
+        const named = stampOf(lamp, { reads: 'The Antler Inn', readsHidden: true });
+        expect(named.readsHidden).toBe(true);
+        expect(planDocuments(named).notes).toEqual([expect.objectContaining({ text: 'The Antler Inn', readable: true, hidden: true })]);
+        expect(planDocuments(withReadsHidden(named, false)).notes[0]?.hidden).toBe(false);
+        expect(stampOf(lamp, { reads: 'OPEN' }).readsHidden).toBe(false);
     });
 
     it('keeps its hover spot at least as large as Foundry takes', () => {
@@ -465,6 +486,13 @@ describe('parseStamp', () => {
         const { reads: _omitted, ...legacy } = stampOf(lamp);
         expect(parseStamp(legacy)?.reads).toBeNull();
         expect(parseStamp({ ...legacy, reads: 7 })?.reads).toBeNull();
+    });
+
+    it('keeps a hidden reading through the scene flag, and a stamp saved before shows its reading', () => {
+        const named = stampOf(lamp, { reads: 'The Antler Inn', readsHidden: true });
+        expect(parseStamp(JSON.parse(JSON.stringify(named)))?.readsHidden).toBe(true);
+        const { readsHidden: _omitted, ...legacy } = named;
+        expect(parseStamp(legacy)?.readsHidden).toBe(false);
     });
 
     it('keeps a stamp with an unreadable behaviour, but inert', () => {

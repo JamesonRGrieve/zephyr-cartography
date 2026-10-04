@@ -1084,6 +1084,17 @@ These make everything after them cheaper and safer, so they come first.
       for readable). A sign placed by hand is read through a readable pin
       over it. Proven in `tests/e2e/structures.spec.ts`, as the GM (the
       suite has no player user to prove the player's view).
+    - **[done] Hidden until revealed** (a building's name the party has not
+      learnt; operator 2026-10-04). A pin's `hidden`, or a stamp's
+      `readsHidden` (scene spec; a named piece's in the intent), flags its
+      Note `hidden` under the module's id. Foundry's Note has no hidden
+      field, so the module's Note class answers `isVisible` false to every
+      player while the flag stands; the GM always sees it. The GM reveals it
+      with a "Hidden from players" box the module adds to Foundry's own Note
+      sheet (`renderNoteConfig`), submitted with the sheet as the flag. Every
+      client redraws a Note whose flag changed, and the active GM records it
+      on the pin or stamp (`followNoteHidden`), so a re-sync keeps it as
+      left. Proven in `tests/e2e/structures.spec.ts`.
 - **[done] Drawings: map labels.** A `label` feature (`tools/label.ts`) is
   text on the map, realised as a native text Drawing on its level: a
   rectangle with no fill and no line, centred on the label's point and

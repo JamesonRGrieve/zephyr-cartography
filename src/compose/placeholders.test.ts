@@ -51,8 +51,13 @@ describe('placeholders', () => {
 
     it('lets players read a box’s words on hover as they would its art’s, anywhere along it', () => {
         const drawn = drawPlaceholders([{ type: 'stamp', stamp: 'placeholder:3x1:shop sign', x: 5, y: 2, reads: 'OPEN LATE', level: 'lv' }]);
-        expect(drawn).toContainEqual({ type: 'pin', x: 5, y: 2, text: 'OPEN LATE', readable: true, size: 3, level: 'lv' });
+        expect(drawn).toContainEqual({ type: 'pin', x: 5, y: 2, text: 'OPEN LATE', readable: true, hidden: false, size: 3, level: 'lv' });
         expect(drawPlaceholders([{ type: 'stamp', stamp: 'placeholder:3x1:crate', x: 5, y: 2 }]).some((f) => f.type === 'pin')).toBe(false);
+    });
+
+    it('keeps a box’s words hidden from players until the GM reveals them, as its art’s would be', () => {
+        const drawn = drawPlaceholders([{ type: 'stamp', stamp: 'placeholder:3x3:inn', x: 5, y: 2, reads: 'The Antler Inn', readsHidden: true }]);
+        expect(drawn).toContainEqual(expect.objectContaining({ type: 'pin', text: 'The Antler Inn', readable: true, hidden: true }));
     });
 
     it('draws a flat piece’s box (a stain, a rug) as a faint mark on the floor, not a thing standing on it', () => {

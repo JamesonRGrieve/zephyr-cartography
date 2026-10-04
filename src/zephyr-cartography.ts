@@ -33,7 +33,7 @@ import { withParticles } from './foundry/particles';
 import { type PathSettings, registerPathRuntime } from './foundry/path-runtime';
 import { registerPinRuntime } from './foundry/pin-runtime';
 import { createPixiSurface } from './foundry/pixi-surface';
-import { registerReadableNote } from './foundry/readable-note';
+import { followNoteReveals, registerReadableNote } from './foundry/readable-note';
 import { activeScene, modifyBatch } from './foundry/scene-bridge';
 import { FoundrySceneStore } from './foundry/scene-store';
 import { createWorldScenes } from './foundry/scenes';
@@ -96,6 +96,7 @@ const labels = registerLabelRuntime(() => state?.controller ?? null);
 const zones = registerZoneRuntime(() => state?.controller ?? null);
 
 followPileStates(() => state?.controller ?? null);
+followNoteReveals(() => state?.controller ?? null);
 
 registerAdvisorSettings();
 const generator = registerGeneratorRuntime(() => state?.controller ?? null, materials.forNewRooms, packs.stamps, packs.settled);

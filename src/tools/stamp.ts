@@ -36,6 +36,8 @@ export interface StampPlacement {
     readonly snap?: boolean;
     /** What players read on it by hovering over it (a sign's words); none by default. */
     readonly reads?: string;
+    /** Its reading starts hidden from players, for the GM to reveal; shown by default. */
+    readonly readsHidden?: boolean;
     /** Drawn flipped left to right (the far end of a counter, capped by its end piece); as drawn by default. */
     readonly mirror?: boolean;
     /** Drawn only, with none of its behaviour (walls, lights, doors, a way between levels): another placement of it carries that. */
@@ -76,6 +78,8 @@ export interface StampFeature extends FeatureCommon {
     readonly floors: readonly string[];
     /** What players read on it by hovering over it (a sign's words, a plaque's), or null. */
     readonly reads: string | null;
+    /** Its reading is hidden from players until the GM reveals it (Note sheet); followed back from play. */
+    readonly readsHidden: boolean;
     /** Drawn flipped left to right, before its turn: everything placed on its art (lights, outline) flips with it. */
     readonly mirror: boolean;
     /** How many levels its way between levels (a transition) reaches each way it goes: a spiral stair through a tower's every floor. */
@@ -149,6 +153,11 @@ export function withStampReads(stamp: StampFeature, reads: string | null): Stamp
     return { ...stamp, reads: readsOf(reads) };
 }
 
+/** The same stamp with its reading hidden from players, or revealed. */
+export function withReadsHidden(stamp: StampFeature, hidden: boolean): StampFeature {
+    return { ...stamp, readsHidden: hidden };
+}
+
 /** Place a catalog stamp. The footprint scales from the pack's reference grid to `gridSize`. */
 export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlacement, gridSize: number): StampFeature {
     const variant = clampVariantIndex(stamp, placement.variant ?? stamp.defaultVariant);
@@ -188,6 +197,7 @@ export function makeStamp(id: string, stamp: CatalogStamp, placement: StampPlace
         switchTargets: [],
         floors: [],
         reads: readsOf(placement.reads),
+        readsHidden: placement.readsHidden === true,
         mirror,
         reach: placement.reach ?? 1,
         ...NEW_FEATURE,
@@ -314,6 +324,7 @@ export function parseStamp(v: unknown): StampFeature | null {
         switchTargets: parseSwitchTargets(v['switchTargets']),
         floors: stringArray(v['floors']),
         reads: readsOf(v['reads']),
+        readsHidden: v['readsHidden'] === true,
         mirror: v['mirror'] === true,
         // A stamp saved before reaches were kept reaches the next level.
         reach: Math.max(1, Math.trunc(numberOr(v['reach'], 1))),

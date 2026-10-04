@@ -195,6 +195,7 @@ const namedPieceSize = {
     width: squares.describe('Its size in squares, its back along the width: its art is fitted to it, and it is the box it stands as where no stamp draws it.'),
     height: squares,
     reads: text.optional().describe("What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board."),
+    readsHidden: z.boolean().optional().describe("Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known)."),
     state: text
         .optional()
         .describe(

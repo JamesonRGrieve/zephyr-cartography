@@ -1095,6 +1095,10 @@
                                                 "type": "string",
                                                 "minLength": 1
                                             },
+                                            "readsHidden": {
+                                                "description": "Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known).",
+                                                "type": "boolean"
+                                            },
                                             "state": {
                                                 "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
                                                 "type": "string",
@@ -1829,6 +1833,10 @@
                                                             "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
                                                             "type": "string",
                                                             "minLength": 1
+                                                        },
+                                                        "readsHidden": {
+                                                            "description": "Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known).",
+                                                            "type": "boolean"
                                                         },
                                                         "state": {
                                                             "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
@@ -2579,6 +2587,10 @@
                                                             "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
                                                             "type": "string",
                                                             "minLength": 1
+                                                        },
+                                                        "readsHidden": {
+                                                            "description": "Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known).",
+                                                            "type": "boolean"
                                                         },
                                                         "state": {
                                                             "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
@@ -3398,6 +3410,10 @@
                         "type": "string",
                         "minLength": 1
                     },
+                    "readsHidden": {
+                        "description": "Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known).",
+                        "type": "boolean"
+                    },
                     "state": {
                         "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
                         "type": "string",
@@ -3787,6 +3803,10 @@
                                     "type": "string",
                                     "minLength": 1
                                 },
+                                "readsHidden": {
+                                    "description": "Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known).",
+                                    "type": "boolean"
+                                },
                                 "state": {
                                     "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
                                     "type": "string",
@@ -3895,6 +3915,10 @@
                                     "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
                                     "type": "string",
                                     "minLength": 1
+                                },
+                                "readsHidden": {
+                                    "description": "Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known).",
+                                    "type": "boolean"
                                 },
                                 "state": {
                                     "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",
@@ -4249,6 +4273,10 @@
                                     "description": "What players read on it by hovering over it: a sign's words, a plaque's inscription, a notice pinned to a board.",
                                     "type": "string",
                                     "minLength": 1
+                                },
+                                "readsHidden": {
+                                    "description": "Its reading starts hidden from players, for the GM to reveal (a building's name, a place not yet known).",
+                                    "type": "boolean"
                                 },
                                 "state": {
                                     "description": "The state its art is drawn in, by the words of a variant's state (a locker `ajar`, a lamp `lit`): the first variant whose state holds them; else as drawn.",

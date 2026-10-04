@@ -326,7 +326,8 @@ export interface NoteCreateData extends OnLevels {
     readonly iconSize?: number;
     /** No author: a Note with no journal is shown to players only when its author is none or a player (14.368 `Note#isVisible`). */
     readonly author?: null;
-    readonly flags?: Readonly<Record<string, { readonly readable: true }>>;
+    /** The module's marks: `readable` (no icon over the art), `hidden` (players never see it until the GM reveals it). */
+    readonly flags?: Readonly<Record<string, { readonly readable?: true; readonly hidden?: true }>>;
 }
 
 /**

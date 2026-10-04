@@ -278,6 +278,16 @@ describe('named pieces', () => {
         expect(standsAs(board, { x: 10, y: 10 }, 0).map((p) => p.reads)).toEqual([undefined, 'Curfew at the ninth bell', undefined, undefined]);
     });
 
+    it('carries a reading hidden from players with it, on its art, its box and the module a run is read at', () => {
+        const pool: RoleIndex = new Map([['desk', [desk('plain', ['desk'])]]]);
+        const inn = { name: 'the inn', role: 'desk', tags: [], width: 3, height: 3, reads: 'The Antler Inn', readsHidden: true } as const;
+        expect(namedArt(inn, pool)).toMatchObject({ reads: 'The Antler Inn', readsHidden: true });
+        expect(namedBox({ ...inn, role: undefined })).toMatchObject({ readsHidden: true });
+        expect(namedArt({ ...inn, readsHidden: false }, pool)).not.toHaveProperty('readsHidden');
+        const placed = standsAs({ ...desk('plain', []), reads: 'The Antler Inn', readsHidden: true }, { x: 1, y: 1 }, 0);
+        expect(placed).toEqual([expect.objectContaining({ reads: 'The Antler Inn', readsHidden: true })]);
+    });
+
     it('draws a piece in the variant whose state holds the words asked, a run’s modules with it; as drawn where none does', () => {
         const locker = {
             ...desk('locker', ['locker']),

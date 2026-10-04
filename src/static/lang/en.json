@@ -141,7 +141,8 @@
             "Title": "Map pin",
             "None": "None",
             "Browse": "Browse for the icon",
-            "Readable": "Players read it on hover (a sign; no icon drawn)"
+            "Readable": "Players read it on hover (a sign; no icon drawn)",
+            "Hidden": "Hidden from players"
         },
         "Zones": {
             "Title": "Zone",
