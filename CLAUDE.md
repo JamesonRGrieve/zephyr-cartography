@@ -364,7 +364,16 @@ that type's own control group, after Foundry's tools
   feathered (or none). A river is drawn in the first of its liquid's
   texture roles the active set has (`water`, `floor.shallow-water`, …),
   tinted by the shade, and the scene spec's paths take `liquid`, `shade`
-  and `bed`.
+  and `bed`. Its bed lies as **banks** either side of the water, never
+  parallel to it (operator, 2026-10-03): wider on the outside of a bend
+  and narrower on its inside (the bend's turn averaged round it), wavering
+  a little along the run, the two sides out of step (`geometry/ribbon.ts`
+  `Banks`). A ribbon's rails never fold back on a bend tighter than it is
+  wide: a rail point that would step back against the path holds where the
+  rail last reached, so no bank shows a notch. A spec path's `halfWidths`
+  (one per point) broaden and narrow it, and a road's `texture` is its own
+  surface role (a chart's pale `floor.chart-track`), falling back to the
+  set's `road`.
 - **No flat fills.** Anything the active set has no texture for (a biome,
   a material, a bed, a liquid) is drawn in a seamless procedural pattern
   (`tools/procedural.ts`: ripples for liquids, grain for the rest) tinted in
@@ -1378,7 +1387,13 @@ or a tavern is. Composition is the layer above them (operator decisions,
   never takes a piece's spot; spots a storey whose rooms the intent places
   could never hold (behind secret doors) are never tried. A flight on each floor but the
   top joins it to the next; three floors or more make a switchback, each
-  flight beside the one below, so no two level changes overlap. On a scene
+  flight beside the one below, so no two level changes overlap. A spiral
+  stair (a flight tagged `spiral`, seen from above) instead climbs from one
+  spot through every floor (operator, 2026-10-03: a tower's middle floors
+  drew two spirals side by side): its lowest steps carry the one
+  `changeLevel` region, reaching every floor above through the stamp's
+  `reach` (scene spec and feature; 1, the next level, by default), and each
+  floor above shows its steps winding on, `inert`. On a scene
   of several levels the map drawn and edited is the viewed level's.
   - **Cellars** (`cellars`) lie below the ground floor on levels added
     beneath the scene's own (spec levels before the `existing` one go
@@ -1431,7 +1446,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
     the cellar's level, a ladder (else a flight) climbing up to them is
     drawn, `inert`, the doors' own region being the way. Without
     such art a ladder stands in the areaway. The areaway is the building's
-    annex: paths and dressing keep off it.
+    annex: paths and dressing keep off it. A square round it (where the
+    storm doors' leaves lie open and one steps onto the way down) is ground
+    kept clear (a site's `clear`): nothing stands on it, but it is no part
+    of the building, so a yard still measures its cart's spot from the walls.
   - **Borrowing.** A way between levels, or a guest room's bed, is never
     left out for want of art: with none in the map's settings, another
     setting's is used and reported (`borrowed`, `borrowed-art`). A flight
@@ -1589,9 +1607,11 @@ or a tavern is. Composition is the layer above them (operator decisions,
   a pack `door` and variants carrying `doorState`, carrying one of the
   building's `doorTags`, as wide as the doorway within a quarter square):
   the door stamp lies along the wall across it, scaled to its width, in the
-  variant for its state (open where the doorway stands open), and the room
-  keeps its wall there for the stamp to cut, so the stamp is the native
-  door and its art follows the door's state in play. An archway is never
+  variant for its state (open where the doorway stands open), and each
+  room's wall gaps there (an opening the art fills; operator, 2026-10-03:
+  "The walls should gap for the doors"), so the stamp is the native door in
+  the gap and its art follows the door's state in play; a door to the
+  outside still lets the day in. An archway is never
   hung. Without door art the room draws the door itself: its leaf across the
   gap when shut, swung into the room from its hinge when open (double doors,
   a leaf from each end, in a doorway wider than a square and a half).
@@ -1654,6 +1674,12 @@ or a tavern is. Composition is the layer above them (operator decisions,
     uneven steps and distances, never in a row. Painted areas can be
     `sharp`: their exact outline with a crisp edge (a deck, storm doors
     drawn as boards where no storm door art exists).
+- **Rivers on charts.** On a chart (any scale but `battlemap`) a river
+  broadens and narrows along its run (`riverWidths`, seeded noise on its
+  own random stream, a third of its width either way); on a battlemap it
+  keeps the one width its bridges are built across. An intent's river
+  takes a `shade` to match the lake art it runs into, and an intent's road
+  a `texture`.
 - **Charts** (intent `scale`: `battlemap`, the default, or `city`,
   `regional`, `planet`, `system`). A chart of a town, a region, a world or
   a star system is drawn only from art of its own scale (the pack's `city`,
