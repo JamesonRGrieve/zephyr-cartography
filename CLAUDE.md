@@ -1495,7 +1495,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     stands out from an inner wall with shelves behind and stools before,
     and the floor it leaves is a common room's (hearth, long and round
     tables, lamps). A guest room's bed lies along it, head to a short
-    wall, with its nightstand; a dresser or wardrobe (`dresser`) stands on
+    wall, with its nightstand: a double bed or a four-poster where the room
+    has floor to walk beside one, a single where it has not; a dresser or wardrobe (`dresser`) stands on
     another wall and an easy chair (`armchair`) across a corner, facing
     out, else against a wall; a table too big for the floor left stands
     against a wall, its chair before it; a guest's chest against a wall,

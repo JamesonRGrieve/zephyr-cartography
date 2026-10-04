@@ -1130,6 +1130,26 @@ function required(step: Step): boolean {
  */
 const MATCHED_ROLES: readonly StampRole[] = ['table', 'seat', 'bench', 'bed', 'pew', 'rug'];
 
+/** Tags naming a bed for two: a double bed, a four-poster. */
+const DOUBLE_BED_TAGS: readonly (readonly string[])[] = [['double'], ['four', 'poster']];
+/** Squares of floor a bedroom keeps clear beside a double bed, along its long side, to walk round it. */
+const DOUBLE_BED_ROOM = 1.5;
+
+/**
+ * The beds of `beds` for two (a double, a four-poster) that fit a bedroom of `rect` with room to walk beside them,
+ * whichever way they lie: an inn's guest room or a chaplain's chamber sleeps in a double where it has the floor
+ * (operator, 2026-10-04: "Do we not have any double bed stamps?"), a narrow one in a single. Empty where none fits.
+ */
+export function doubleBeds(beds: readonly RoleStamp[], rect: Rect): RoleStamp[] {
+    const short = Math.min(rect.w, rect.h);
+    const long = Math.max(rect.w, rect.h);
+    return beds.filter((b) => {
+        const isDouble = DOUBLE_BED_TAGS.some((words) => words.every((w) => b.tags.includes(w)));
+        const [across, along] = [Math.min(b.width, b.height), Math.max(b.width, b.height)];
+        return isDouble && across + DOUBLE_BED_ROOM <= short && along <= long;
+    });
+}
+
 /**
  * Pieces that serve for another's role when no stamp fills it: a kitchen's
  * work surface is a table, a desk a table to write at, a guest's chest a
@@ -1215,7 +1235,9 @@ export function furnishRoom(
     const chosen = new Map<StampRole, RoleStamp | undefined>();
     const choose = (role: StampRole): RoleStamp | undefined => {
         if (!chosen.has(role)) {
-            chosen.set(role, pick(random, stamps.get(role) ?? []));
+            const all = stamps.get(role) ?? [];
+            const fitted = role === 'bed' && room.purpose === 'bedroom' ? doubleBeds(all, room.rect) : [];
+            chosen.set(role, pick(random, fitted.length > 0 ? fitted : all));
         }
         return chosen.get(role);
     };

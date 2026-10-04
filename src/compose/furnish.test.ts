@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import { type ComposedStamp, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
+import { type ComposedStamp, doubleBeds, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
 import { type FixtureIntent, ROOM_PURPOSES } from './intent';
 import { withPlaceholders } from './placeholders';
 import type { RoleIndex, RoleStamp } from './roles';
@@ -313,6 +313,25 @@ describe('furnishRoom', () => {
         // Tables still stand, unseated.
         expect(result.stamps.length).toBeGreaterThan(0);
         expect(Object.keys(ROOM_TEMPLATES).sort()).toEqual([...ROOM_PURPOSES].sort());
+    });
+});
+
+describe('a bedroom’s bed', () => {
+    const base = TEST_ROLES.get('bed')?.[0];
+    if (base === undefined) {
+        throw new Error('no test bed');
+    }
+    const bed = (id: string, width: number, height: number, tags: string[]): RoleStamp => ({ ...base, key: `test:${id}`, width, height, tags });
+    const single = bed('single', 1.2, 2, ['bed']);
+    const double = bed('double', 2, 2.2, ['double', 'bed']);
+    const fourPoster = bed('four-poster', 2.4, 2.6, ['four', 'poster', 'bed']);
+
+    it('is a double or a four-poster where the room has floor to walk beside it, else none of them', () => {
+        expect(doubleBeds([single, double, fourPoster], { x: 0, y: 0, w: 4, h: 5 }).map((b) => b.key)).toEqual(['test:double', 'test:four-poster']);
+        // Three squares across leaves no room to walk beside a two-square bed: the single stays.
+        expect(doubleBeds([single, double, fourPoster], { x: 0, y: 0, w: 3, h: 5 })).toEqual([]);
+        // Whichever way the room lies.
+        expect(doubleBeds([double], { x: 0, y: 0, w: 6, h: 3.6 }).map((b) => b.key)).toEqual(['test:double']);
     });
 });
 
