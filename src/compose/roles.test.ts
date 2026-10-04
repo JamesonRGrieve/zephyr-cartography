@@ -226,6 +226,7 @@ describe('roleIndex purposes', () => {
                 stampDef('baker', { role: 'clutter', tags: ['baker', 'table'] }),
                 stampDef('drafting', { role: 'clutter', tags: ['drafting', 'table'] }),
                 stampDef('brazier', { role: 'clutter', tags: ['burning', 'brazier'] }),
+                stampDef('firewood', { role: 'clutter', tags: ['firewood', 'pile'] }),
             ]),
             [],
         );
@@ -241,6 +242,7 @@ describe('roleIndex purposes', () => {
         expect(purposes.get('pack:drafting')).toEqual(['office', 'workshop']);
         // An open brazier never lights a bedroom.
         expect(purposes.get('pack:brazier')).not.toContain('bedroom');
+        expect(purposes.get('pack:firewood')).not.toContain('bedroom');
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
 
