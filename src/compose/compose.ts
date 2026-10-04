@@ -19,6 +19,7 @@ import type { BiomeKind } from '../tools/biome';
 import { DAYLIGHT_MAX_DARKNESS } from '../tools/daylight';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { type Flight, flightFor, narrowestFlight, type StormDoorway, stormDoorway, wayDownOver, withStairTags } from './access';
+import { chartMarks } from './chart-marks';
 import { curtainFeatures, moatOutlines } from './curtain';
 import { grown } from './detour';
 import { districtFeatures } from './district';
@@ -1056,7 +1057,17 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     // its rooms not fitting) goes without its zone.
     const ways = intent.key === undefined ? [] : linkFeatures(intent.key, intent.links, linkPlaces(intent, composed, exterior.paths), levelOf(0));
     // Ground first, then roads and rivers, then vegetation, then the buildings standing on it all.
-    const features = drawPlaceholders([...outside, ...hewn, ...curtains, ...bands, ...composed.flatMap((c) => c.features), ...platforms.features, ...ways]);
+    const features = drawPlaceholders([
+        ...outside,
+        ...hewn,
+        ...curtains,
+        ...bands,
+        ...composed.flatMap((c) => c.features),
+        ...platforms.features,
+        ...ways,
+        // Its names and orbits over it all.
+        ...chartMarks(intent, levelOf(0)),
+    ]);
     return {
         spec: { schemaVersion: SCENE_SPEC_SCHEMA_VERSION, units: 'grid', levels, features, ...(scene === null ? {} : { scene }) },
         problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems), ...platforms.problems]),

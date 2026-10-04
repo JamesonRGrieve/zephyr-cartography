@@ -4359,6 +4359,95 @@
                 "additionalProperties": false,
                 "description": "A raised platform: its floor on the level above the ground, railed round but where its stair from the ground arrives."
             }
+        },
+        "labels": {
+            "default": [],
+            "description": "Names written on the map, over its art.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "at": {
+                        "type": "object",
+                        "properties": {
+                            "x": {
+                                "type": "number"
+                            },
+                            "y": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "x",
+                            "y"
+                        ],
+                        "additionalProperties": false,
+                        "description": "The middle of the words."
+                    },
+                    "size": {
+                        "default": 36,
+                        "description": "Px.",
+                        "type": "integer",
+                        "minimum": 8,
+                        "maximum": 256
+                    },
+                    "colour": {
+                        "default": "#2b2118",
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "font": {
+                        "default": "",
+                        "description": "A font Foundry knows (CONFIG.fontDefinitions); \"\" for its default.",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "text",
+                    "at"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "orbits": {
+            "default": [],
+            "description": "Rings drawn round a star through the worlds that circle it.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "centre": {
+                        "type": "object",
+                        "properties": {
+                            "x": {
+                                "type": "number"
+                            },
+                            "y": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "x",
+                            "y"
+                        ],
+                        "additionalProperties": false,
+                        "description": "What it circles (the star)."
+                    },
+                    "radius": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    }
+                },
+                "required": [
+                    "centre",
+                    "radius"
+                ],
+                "additionalProperties": false
+            }
         }
     },
     "required": [

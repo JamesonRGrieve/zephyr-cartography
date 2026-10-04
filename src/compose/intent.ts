@@ -16,6 +16,7 @@ import type { SpecIssue } from '../generate/spec';
 import { STAMP_ROLES } from '../stamps/schema';
 import { BIOMES } from '../tools/biome';
 import { DOOR_ANIMATIONS } from '../tools/documents';
+import { MAX_FONT_SIZE, MIN_FONT_SIZE } from '../tools/label';
 import type { Liquid } from '../tools/path';
 import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
 
@@ -679,6 +680,20 @@ const zone = z
 /** A colour, `#rrggbb`. */
 const hexColour = z.string().regex(/^#[0-9a-f]{6}$/iu, 'a #rrggbb colour');
 
+/** A place's name written on a chart, as the operator's reference regions label every town, keep and ruin. */
+const mapLabel = z
+    .object({
+        text,
+        at: point.describe('The middle of the words.'),
+        size: z.number().int().min(MIN_FONT_SIZE).max(MAX_FONT_SIZE).default(36).describe('Px.'),
+        colour: hexColour.default('#2b2118'),
+        font: z.string().default('').describe('A font Foundry knows (CONFIG.fontDefinitions); "" for its default.'),
+    })
+    .strict();
+
+/** A world's orbit round its star on a system chart: a faint ring through it. */
+const orbit = z.object({ centre: point.describe('What it circles (the star).'), radius: squares }).strict();
+
 const path = z
     .object({
         kind: z.enum(['road', 'river']),
@@ -827,6 +842,8 @@ export const mapIntentSchema = z
         districts: z.array(district).default([]),
         curtains: z.array(curtain).default([]),
         platforms: z.array(platform).default([]),
+        labels: z.array(mapLabel).default([]).describe('Names written on the map, over its art.'),
+        orbits: z.array(orbit).default([]).describe('Rings drawn round a star through the worlds that circle it.'),
     })
     .strict()
     .superRefine((intent, ctx) => {
