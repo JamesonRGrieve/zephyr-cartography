@@ -8,7 +8,7 @@
 import { OPPOSITE_SIDE, type Side } from '../generate/floor-plan';
 import type { StampRole } from '../stamps/schema';
 import { isPlaceholder, placeholder } from './placeholders';
-import { drawnAs, partsOf, type RoleIndex, type RoleStamp, type RunEnd } from './roles';
+import { drawnAs, NO_GROUND, partsOf, type RoleIndex, type RoleStamp, type RunEnd } from './roles';
 
 /** What a named piece asks for. */
 export interface NamedPiece {
@@ -52,8 +52,8 @@ function hasState(art: RoleStamp, words: string): boolean {
 }
 
 /**
- * `art` drawn in the variant whose state holds `words` (a locker `ajar`), the
- * sharpest of several (one picture drawn at 128 pixels and again at 512), the
+ * `art` drawn in the variant whose state holds `words` (a locker `ajar`): its redraw
+ * with no ground painted round it first (`NO_GROUND`), then the sharpest of several (one picture drawn at 128 pixels and again at 512), the
  * first of equals, of those drawn as its own is (never a side-on picture
  * among plans), sized as that picture is at the art's scale; a run's modules
  * with it and its ends refitted to their depth; as it is where none does.
@@ -69,9 +69,12 @@ export function inState(art: RoleStamp, words: string | undefined): RoleStamp {
         return { ...art, width: runLength(run), height: unit.height, run };
     }
     const sharpness = (i: number): number => art.sharpness?.[i] ?? 0;
+    // A redraw with no ground painted round it before one with, then the sharpest.
+    const groundless = (i: number): number => ((art.states?.[i] ?? '').endsWith(NO_GROUND) ? 1 : 0);
+    const better = (i: number, best: number): boolean =>
+        best < 0 || groundless(i) > groundless(best) || (groundless(i) === groundless(best) && sharpness(i) > sharpness(best));
     const variant = (art.states ?? []).reduce(
-        (best, state, i) =>
-            art.sizes?.[i] !== null && state.toLowerCase().includes(words.toLowerCase()) && (best < 0 || sharpness(i) > sharpness(best)) ? i : best,
+        (best, state, i) => (art.sizes?.[i] !== null && state.toLowerCase().includes(words.toLowerCase()) && better(i, best) ? i : best),
         -1,
     );
     const size = art.sizes?.[variant];

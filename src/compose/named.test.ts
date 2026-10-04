@@ -349,6 +349,22 @@ describe('named pieces', () => {
         expect(namedArt({ ...asked, state: 'intact' }, new Map([['vehicle', [unknown]]]))?.variant).toBe(0);
     });
 
+    it('draws the redraw with no ground painted round it before a sharper picture with ground, in the state asked', () => {
+        const cottage = {
+            ...desk('cottage', ['cottage']),
+            role: 'fitting' as const,
+            width: 3,
+            height: 3,
+            states: ['stone cottage', 'stone cottage', 'stone cottage, no ground'],
+            sharpness: [512, 1024, 512],
+        };
+        const asked = { name: 'cottage', role: 'fitting', tags: [], width: 3, height: 3, state: 'stone cottage' } as const;
+        expect(namedArt(asked, new Map([['fitting', [cottage]]]))?.variant).toBe(2);
+        // With no redraw, the sharpest as before.
+        const painted = { ...cottage, states: ['stone cottage', 'stone cottage', 'thatched'] };
+        expect(namedArt(asked, new Map([['fitting', [painted]]]))?.variant).toBe(1);
+    });
+
     it('sizes art in a state as that picture is, never takes a side-on picture among plans, and fits a run’s ends to its modules', () => {
         const well = {
             ...desk('well', ['well']),

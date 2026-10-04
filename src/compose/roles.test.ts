@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { type CatalogStamp, loadPacks } from '../stamps/catalog';
-import { drawnAs, partsOf, roleIndex, soundFirst } from './roles';
+import { drawnAs, groundFree, partsOf, roleIndex, soundFirst } from './roles';
 
 function stamps(defs: readonly object[], referenceGridSize = 100): readonly CatalogStamp[] {
     const packs = loadPacks([{ moduleId: 'pack', manifest: { schemaVersion: 1, id: 'pack', name: 'Pack', referenceGridSize, stamps: defs } }]);
@@ -33,6 +33,31 @@ describe('roleIndex for a chart', () => {
         const battlemap = roleIndex(pack, []);
         expect((battlemap.get('tree') ?? []).map((s) => s.key)).toEqual(['pack:oak']);
         expect([...battlemap.values()].flat().some((s) => s.key !== 'pack:oak')).toBe(false);
+    });
+});
+
+describe('ground painted round art', () => {
+    it('is left out where the pack has a redraw without it: a variant gives way to its `, no ground` twin', () => {
+        const variants = [{ state: 'stone cottage' }, { state: 'thatched' }, { state: 'stone cottage, no ground' }];
+        expect(groundFree(variants, 0)).toBe(2);
+        expect(groundFree(variants, 1)).toBe(1);
+        expect(groundFree(variants, 2)).toBe(2);
+        expect(groundFree(variants, 9)).toBe(9);
+    });
+
+    it('draws a stamp placed by its role in its default variant’s ground-free redraw', () => {
+        const pack = stamps([
+            stampDef('cottage', {
+                scale: 'city',
+                tags: ['cottage'],
+                variants: [
+                    { state: 'stone cottage', image: 'stamps/c.png', width: 200, height: 200 },
+                    { state: 'stone cottage, no ground', image: 'stamps/c-ng.png', width: 200, height: 200 },
+                ],
+            }),
+        ]);
+        const art = roleIndex(pack, [], 'city').get('fitting')?.[0];
+        expect(art && drawnAs(art)).toEqual({ stamp: 'pack:cottage', variant: 1 });
     });
 });
 

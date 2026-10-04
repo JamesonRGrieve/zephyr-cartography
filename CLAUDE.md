@@ -1541,8 +1541,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
     point is centred there even into the wall (a firing port set in a hull),
     never drawn in to stand wholly inside. A piece's `state`
     (`ajar`, `lit`) draws its art in the variant whose state holds
-    those words (the sharpest of several, by their `resolution`, of those
-    drawn as its own is: never a side-on picture among plans), sized as
+    those words (a redraw with no ground painted round it first, its
+    state ending `, no ground`; then the sharpest of several, by their
+    `resolution`, of those drawn as its own is: never a side-on picture
+    among plans), sized as
     that picture is before it is fitted, a run's modules with it and its
     end pieces refitted to their depth; as drawn where none does. A
     room's `doorOpen` leaves its doors standing open; its `doorLocked`
@@ -1674,6 +1676,11 @@ or a tavern is. Composition is the layer above them (operator decisions,
     building's yard (its front first, or the side asked for), clear of
     paths, walls and what the building has outside (a porch), before
     anything is scattered round it.
+  - **No painted ground.** A stamp placed by its role is drawn in its
+    default variant's redraw with no ground painted round it (`groundFree`:
+    the same state with `, no ground` appended) where the pack has one: a
+    lawn or yard painted into a building's art clashes with the map's own
+    ground (operator, 2026-10-04).
   - **Variants.** Every placement names its art with `drawnAs`: its key
     and the variant it is drawn in where that is not its default (the
     picture seen from above where the default is side-on, a named

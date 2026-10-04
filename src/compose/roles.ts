@@ -300,6 +300,23 @@ export function composedRole(stamp: CatalogStamp, mapScale: MapScale = 'battlema
  * one-point perspective) turns like a plan, and a role with any such art
  * uses only that.
  */
+/** What a pack appends to a variant's state for its redraw with no ground painted round the piece. */
+export const NO_GROUND = ', no ground';
+
+/**
+ * The variant to draw for variant `i`: its redraw with no ground painted round it (its state with `NO_GROUND`
+ * appended) where the pack has one, else itself. Ground painted into a building's art clashes with the map's own
+ * textures (operator, 2026-10-04: "We can't have random lawn textures as part of the stamps").
+ */
+export function groundFree(variants: readonly { readonly state: string }[], i: number): number {
+    const own = variants[i]?.state;
+    if (own === undefined || own.endsWith(NO_GROUND)) {
+        return i;
+    }
+    const twin = variants.findIndex((v) => v.state === `${own}${NO_GROUND}`);
+    return twin >= 0 ? twin : i;
+}
+
 export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly string[], mapScale: MapScale = 'battlemap'): RoleIndex {
     const index = new Map<StampRole, RoleStamp[]>();
     const borrowed = new Map<StampRole, RoleStamp[]>();
@@ -312,7 +329,8 @@ export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly st
         // Its default variant, unless that one is drawn side-on and another looks down on the piece: then that one, which turns.
         const plan = stamp.variants.findIndex((v) => seenFromAbove(stamp, v));
         const defaultSeen = stamp.variants[stamp.defaultVariant];
-        const drawn = defaultSeen !== undefined && !seenFromAbove(stamp, defaultSeen) && plan >= 0 ? plan : stamp.defaultVariant;
+        const chosen = defaultSeen !== undefined && !seenFromAbove(stamp, defaultSeen) && plan >= 0 ? plan : stamp.defaultVariant;
+        const drawn = groundFree(stamp.variants, chosen);
         const variant = stamp.variants[drawn];
         const role = composedRole(stamp, mapScale);
         // A faction's own art (communist, chaotic, orcish...) is in a map only where the map names that faction, whatever broader
