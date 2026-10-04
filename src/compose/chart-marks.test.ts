@@ -10,6 +10,7 @@ describe('chartMarks', () => {
             {
                 orbits: [{ centre: { x: 7, y: 15 }, radius: 12 }],
                 labels: [{ text: 'Dunmarch', at: { x: 20, y: 13 }, size: 40, colour: '#f0e8d0', font: 'Signika' }],
+                fixtures: [],
             },
             { level: 'ground' },
         );
@@ -19,6 +20,34 @@ describe('chartMarks', () => {
         ]);
         // Faint: a guide, never a ring competing with the worlds on it.
         expect(ORBIT_STROKE.alpha).toBeLessThan(0.5);
+    });
+
+    it('breaks an orbit round each world standing on it, never across it, and keeps the star at its centre off it', () => {
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            seed: 1,
+            width: 30,
+            height: 30,
+            fixtures: [
+                { name: 'world', role: 'fitting', tags: ['world'], width: 2, height: 2, at: { x: 17, y: 15 } },
+                { name: 'star', role: 'fitting', tags: ['star'], width: 6, height: 6, at: { x: 7, y: 15 } },
+            ],
+            orbits: [{ centre: { x: 7, y: 15 }, radius: 10 }],
+        });
+        if (!parsed.ok) {
+            throw new Error('the intent does not parse');
+        }
+        const marks = chartMarks(parsed.intent, {});
+        // One arc round the rest of the ring, open where the world stands.
+        expect(marks).toHaveLength(1);
+        const [arc] = marks;
+        if (arc?.type !== 'shape' || arc.kind !== 'line' || !arc.points) {
+            throw new Error('no arc');
+        }
+        const clear = Math.min(...arc.points.map((p) => Math.hypot(p.x - 17, p.y - 15)));
+        expect(clear).toBeGreaterThanOrEqual(1 + 0.35 - 0.01);
+        // Its ends lie either side of the world: the arc runs nearly all the way round.
+        expect(arc.points.length).toBeGreaterThan(200);
     });
 
     it('draws a map’s labels and orbits over everything it composes, its labels in their defaults where none are given', () => {
