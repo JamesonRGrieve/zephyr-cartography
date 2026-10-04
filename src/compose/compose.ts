@@ -26,7 +26,7 @@ import { districtFeatures } from './district';
 import { composeExterior, type LaidPath } from './exterior';
 import { type Box, type ComposedStamp, furnishRoom, type RoomFloor } from './furnish';
 import { hewnFeatures } from './hewn';
-import { type BuildingIntent, type FixtureIntent, type MapIntent, WALL_SIDES, type ZoneIntent } from './intent';
+import { type BuildingIntent, type FixtureIntent, type MapIntent, mapDepth, WALL_SIDES, type ZoneIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
 import { type LinkPlaces, linkFeatures } from './links';
 import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders } from './placeholders';
@@ -900,7 +900,9 @@ const UNDERGROUND = '#0c0c0e';
 function levelsFor(intent: MapIntent, depth: number, height: number): { key: string; name: string; existing?: boolean; visibleLevels?: string[] }[] {
     const cellars = Array.from({ length: depth }, (_, i) => {
         const n = depth - i;
-        const named = intent.buildings.find((b) => b.cellars[n - 1]?.name !== undefined)?.cellars[n - 1]?.name;
+        const named =
+            intent.buildings.find((b) => b.cellars[n - 1]?.name !== undefined)?.cellars[n - 1]?.name ??
+            intent.hewn.find((h) => h.storey === -n && h.name !== undefined)?.name;
         return { key: levelKey(-n), name: named ?? (n === 1 ? CELLAR_NAME : `${CELLAR_NAME} ${n}`) };
     });
     const floors = Array.from({ length: height }, (_, i) => {
@@ -909,7 +911,12 @@ function levelsFor(intent: MapIntent, depth: number, height: number): { key: str
         const below = Array.from({ length: i + 1 }, (_unused, storey) => levelKey(storey));
         return { key: levelKey(i + 1), name: named ?? `Floor ${i + 2}`, visibleLevels: below };
     });
-    return [...cellars, { key: GROUND_LEVEL, name: GROUND_LEVEL_NAME, existing: true }, ...floors];
+    return [...cellars, { key: GROUND_LEVEL, name: groundName(intent), existing: true }, ...floors];
+}
+
+/** The scene's own level's name: a cave network's cut on it (“Upper caves”), else the ground floor. */
+function groundName(intent: MapIntent): string {
+    return intent.hewn.find((h) => h.storey === 0 && h.name !== undefined)?.name ?? GROUND_LEVEL_NAME;
 }
 
 /** A cellar level's name when the intent gives none. */
@@ -968,14 +975,15 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     const random = seededRandom(intent.seed);
     // A role no loaded stamp fills still stands where it is wanted, as a labelled box its size.
     const stamps = withPlaceholders(loaded);
-    const depth = Math.max(0, ...intent.buildings.map((b) => b.cellars.length));
+    // Levels below the ground: a building's cellars, or a cave cut on storeys below it.
+    const depth = mapDepth(intent);
     // A raised platform stands on the level above the ground.
     const height = Math.max(intent.platforms.length > 0 ? 1 : 0, ...intent.buildings.map((b) => b.floors.length));
     // A map with a building of more than one storey puts everything on levels: outside and the ground floors on the ground level.
     const layered = depth + height > 0;
     // A backdrop is each level's colour; a map of one storey then names the scene's own floor to carry it.
     const { backdrop } = intent;
-    const bare = layered ? levelsFor(intent, depth, height) : backdrop === null ? [] : [{ key: GROUND_LEVEL, name: GROUND_LEVEL_NAME, existing: true }];
+    const bare = layered ? levelsFor(intent, depth, height) : backdrop === null ? [] : [{ key: GROUND_LEVEL, name: groundName(intent), existing: true }];
     // A cellar lies in the earth: round its walls is nothing to see, never the scene's grey, whatever the map's backdrop is.
     const levels = bare.map((l) => {
         const colour = backdrop ?? (l.key.startsWith(CELLAR_KEY) ? UNDERGROUND : null);
@@ -1022,8 +1030,12 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
         // Its own stream from the seed: rearranging a room never replants the woods outside.
         seededRandom(intent.seed + OUTDOOR_STREAM),
         preferences,
+        levelOf,
     );
-    const outside = layered ? exterior.features.map((f) => ({ ...f, level: GROUND_LEVEL })) : exterior.features;
+    // Out of doors is the ground level's, but for a piece set on a level below it (a cave's lower galleries).
+    const outside = layered
+        ? exterior.features.map((f) => ({ ...f, level: 'level' in f && f.level !== undefined ? f.level : GROUND_LEVEL }))
+        : exterior.features;
     // Heavy masonry round a building's footprint, over the ground outside and broken at its doorways out.
     const bands = composed.flatMap(({ building, footprint, ground }) =>
         building.wallBand === null
@@ -1051,7 +1063,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
             paths: exterior.paths,
         }),
     );
-    const hewn = [...intent.hewn.flatMap((network) => hewnFeatures(network, intent, random, levelOf(0))), ...districts.flatMap((d) => d.features)];
+    const hewn = [...intent.hewn.flatMap((network) => hewnFeatures(network, intent, random, levelOf(network.storey))), ...districts.flatMap((d) => d.features)];
     const streetBoxes = districts.flatMap((d) => d.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: 'street' })));
     // Ways to other maps: over an edge a road runs off, over a place, or just inside a building's front door. The
     // intent's own check holds every place to one on the map, so only a way into a building left unbuilt (reported as

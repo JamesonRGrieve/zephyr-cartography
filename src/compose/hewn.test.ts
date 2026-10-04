@@ -7,7 +7,15 @@ import type { HewnIntent } from './intent';
 
 const MAP = { width: 30, height: 20 };
 
-const network = (over: Partial<HewnIntent>): HewnIntent => ({ floor: 'floor.rubble', wall: 'wall.rock', roughness: 0.4, passages: [], chambers: [], ...over });
+const network = (over: Partial<HewnIntent>): HewnIntent => ({
+    storey: 0,
+    floor: 'floor.rubble',
+    wall: 'wall.rock',
+    roughness: 0.4,
+    passages: [],
+    chambers: [],
+    ...over,
+});
 
 /** The rooms of hewn features, their outlines as flat coordinate lists. */
 function rooms(features: ReturnType<typeof hewnFeatures>): { floor: string; outline: number[] }[] {

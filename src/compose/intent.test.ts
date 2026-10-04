@@ -155,7 +155,16 @@ describe('parseMapIntent', () => {
                 },
             ],
         });
-        expect(hewn.ok && hewn.intent.hewn[0]).toMatchObject({ floor: 'floor.rubble', wall: 'wall.rock', roughness: 0.35, chambers: [] });
+        expect(hewn.ok && hewn.intent.hewn[0]).toMatchObject({ storey: 0, floor: 'floor.rubble', wall: 'wall.rock', roughness: 0.35, chambers: [] });
+        // A piece or a way below the ground needs a level a cave network or a cellar makes there.
+        const deep = (storey: number): boolean =>
+            parseMapIntent({
+                schemaVersion: 1,
+                hewn: [{ storey: -1, chambers: [{ centre: { x: 5, y: 5 }, width: 4, height: 4 }] }],
+                fixtures: [{ name: 'boulder', role: 'rock', width: 1, height: 1, at: { x: 5, y: 5 }, storey }],
+            }).ok;
+        expect(deep(-1)).toBe(true);
+        expect(deep(-2)).toBe(false);
         expect(refused({ hewn: [{ passages: [{ points: [{ x: 0, y: 0 }], width: 2 }] }] })).toHaveLength(1);
     });
 });

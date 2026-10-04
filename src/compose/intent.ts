@@ -255,6 +255,13 @@ const fixture = z
 
 const hewn = z
     .object({
+        storey: z
+            .number()
+            .int()
+            .max(0)
+            .default(0)
+            .describe('The level it is cut on: 0 the ground, -1 the level below it, and so on (a cave system of several levels).'),
+        name: text.optional().describe('The name of its level, where it is the first network on a level below the ground (“Lower galleries”).'),
         floor: text.default('floor.rubble').describe('Floor texture role of its passages and chambers.'),
         wall: text
             .default('wall.rock')
@@ -377,7 +384,16 @@ const district = z
     .describe('A stretch of city: blocks of buildings seen from above, walled so none is walked into, cut by streets and alleys, never ruled.');
 
 const outdoorFixture = z
-    .object({ ...namedPiece, at: point.describe('Its centre, in grid squares from the map’s top-left corner.') })
+    .object({
+        ...namedPiece,
+        at: point.describe('Its centre, in grid squares from the map’s top-left corner.'),
+        storey: z
+            .number()
+            .int()
+            .max(0)
+            .default(0)
+            .describe('The level it stands on: 0 the ground, -1 the level below (a cave’s lower galleries, reached by `hewn` at that storey).'),
+    })
     .strict()
     .superRefine(checkOpenEnds)
     .describe('A named piece standing outside (a flight of steps, a plinth, a drain grate), placed before anything is scattered.');
@@ -875,6 +891,8 @@ export const mapIntentSchema = z
             ctx.addIssue({ code: 'custom', path: ['key'], message: 'a map with ways to others needs its own key' });
         }
         const fixtures = intent.fixtures.map((f) => f.name);
+        // The deepest level below the ground a cave network or a building's cellars make.
+        const deepest = mapDepth(intent);
         const seen = new Set<string>();
         intent.links.forEach((l, i) => {
             if (seen.has(l.key)) {
@@ -884,6 +902,15 @@ export const mapIntentSchema = z
             const problem = linkPlaceProblem(l.at, { buildings, fixtures, width: intent.width, height: intent.height });
             if (problem !== null) {
                 ctx.addIssue({ code: 'custom', path: ['links', i, 'at', problem.field], message: problem.message });
+            }
+            if ('area' in l.at && l.at.storey < -deepest) {
+                ctx.addIssue({ code: 'custom', path: ['links', i, 'at', 'storey'], message: `no level at storey ${String(l.at.storey)}` });
+            }
+        });
+        // A piece below the ground stands on a level a cave or a cellar makes; none is made for it alone.
+        intent.fixtures.forEach((f, i) => {
+            if (f.storey < -deepest) {
+                ctx.addIssue({ code: 'custom', path: ['fixtures', i, 'storey'], message: `no level at storey ${String(f.storey)}` });
             }
         });
     });
@@ -910,6 +937,11 @@ export type BuildingIntent = MapIntent['buildings'][number];
 export type RoomIntent = BuildingIntent['rooms'][number];
 export type FixtureIntent = RoomIntent['fixtures'][number];
 export type HewnIntent = MapIntent['hewn'][number];
+
+/** How many levels lie below the ground: the deepest of a building's cellars and a cave network's storey. */
+export function mapDepth(intent: Pick<MapIntent, 'buildings' | 'hewn'>): number {
+    return Math.max(0, ...intent.buildings.map((b) => b.cellars.length), ...intent.hewn.map((h) => -h.storey));
+}
 export type DistrictIntent = MapIntent['districts'][number];
 export type CurtainIntent = MapIntent['curtains'][number];
 export type PlatformIntent = MapIntent['platforms'][number];

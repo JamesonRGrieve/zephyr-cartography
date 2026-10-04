@@ -3477,6 +3477,13 @@
                         ],
                         "additionalProperties": false,
                         "description": "Its centre, in grid squares from the map’s top-left corner."
+                    },
+                    "storey": {
+                        "default": 0,
+                        "description": "The level it stands on: 0 the ground, -1 the level below (a cave’s lower galleries, reached by `hewn` at that storey).",
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 0
                     }
                 },
                 "required": [
@@ -3495,6 +3502,18 @@
             "items": {
                 "type": "object",
                 "properties": {
+                    "storey": {
+                        "default": 0,
+                        "description": "The level it is cut on: 0 the ground, -1 the level below it, and so on (a cave system of several levels).",
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 0
+                    },
+                    "name": {
+                        "description": "The name of its level, where it is the first network on a level below the ground (“Lower galleries”).",
+                        "type": "string",
+                        "minLength": 1
+                    },
                     "floor": {
                         "default": "floor.rubble",
                         "description": "Floor texture role of its passages and chambers.",
@@ -4341,6 +4360,13 @@
                                     ],
                                     "additionalProperties": false,
                                     "description": "Its centre, in grid squares from the map’s top-left corner."
+                                },
+                                "storey": {
+                                    "default": 0,
+                                    "description": "The level it stands on: 0 the ground, -1 the level below (a cave’s lower galleries, reached by `hewn` at that storey).",
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 0
                                 }
                             },
                             "required": [

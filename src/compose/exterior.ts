@@ -1097,6 +1097,7 @@ export function composeExterior(
     stamps: RoleIndex,
     random: Random,
     preferences: Preferences,
+    levelOf: (storey: number) => { readonly level?: string } = () => ({}),
 ): { features: FeatureInput[]; problems: ComposeProblem[]; paths: readonly LaidPath[] } {
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
@@ -1192,8 +1193,12 @@ export function composeExterior(
         if (boxed) {
             problems.push({ kind: 'placeholder', piece: fixture.name, wantedIn: OUTSIDE_PLACE });
         }
-        props.push({ ...fixture.at, r: footprintRadius(piece) });
-        features.push(...placed.map((s) => ({ type: 'stamp' as const, ...s })));
+        // A piece on a level below the ground (a cave's lower galleries) stands there, and keeps nothing clear up here.
+        if (fixture.storey === 0) {
+            props.push({ ...fixture.at, r: footprintRadius(piece) });
+        }
+        const level = fixture.storey === 0 ? {} : levelOf(fixture.storey);
+        features.push(...placed.map((s) => ({ type: 'stamp' as const, ...s, ...level })));
     }
     if (charted) {
         return { features, problems, paths };

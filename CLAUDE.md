@@ -1577,6 +1577,14 @@ or a tavern is. Composition is the layer above them (operator decisions,
     through rock, their union rasterised, traced by marching squares and
     simplified into ragged walled rooms; rock left inside a loop stands as
     a walled pillar, and a passage running off the map opens off it.
+    A network is cut on its `storey` (operator, 2026-10-04: caves of 2–3
+    levels): 0 the scene's own level, -1 and below levels added beneath it
+    as cellars are, each named by its network's `name` ("Lower
+    galleries"; storey 0's names the scene's own level). The map's outdoor
+    `fixtures` take a `storey` too, standing on that level, and the intent
+    refuses one deeper than any network or cellar makes. A climb between
+    levels is a stairs piece (a rope ladder, a worn flight) on the lower
+    level, whose `changeLevel` region reaches the level above.
   - **Districts** (`districts`, `compose/district.ts`): a stretch of city
     cut into blocks by streets and, deeper, alleys; each block a walled roof
     (so no one walks into it) standing back from its streets by differing

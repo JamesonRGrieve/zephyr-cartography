@@ -1340,6 +1340,40 @@ describe('maps drawn to a brief', () => {
         expect(kinds({ hewn: [tunnel] })).toMatchObject({ 'room:floor.rubble': 1 });
     });
 
+    it('cuts a cave of several levels, each network on its storey’s level, named, its pieces standing on their own', () => {
+        const line = (y: number): object => ({
+            points: [
+                { x: 4, y },
+                { x: 26, y },
+            ],
+            width: 2,
+        });
+        const { spec } = composeMap(
+            intentOf({
+                width: 30,
+                height: 20,
+                ground: null,
+                hewn: [
+                    { name: 'Upper caves', passages: [line(5)] },
+                    { storey: -1, name: 'Lower galleries', passages: [line(10)] },
+                    { storey: -2, passages: [line(15)] },
+                ],
+                fixtures: [
+                    { name: 'boulder', role: 'rock', width: 1, height: 1, at: { x: 10, y: 10 }, storey: -1 },
+                    { name: 'boulder', role: 'rock', width: 1, height: 1, at: { x: 10, y: 5 } },
+                ],
+            }),
+            TEST_ROLES,
+        );
+        // Two levels below the scene's own, each named by its network where it names one; the scene's own the upper caves.
+        expect(spec.levels?.map((l) => l.name)).toEqual(['Cellar 2', 'Lower galleries', 'Upper caves']);
+        const roomLevels = spec.features.flatMap((f) => (f.type === 'room' ? [f.level] : []));
+        expect(roomLevels.sort((a, b) => String(a).localeCompare(String(b)))).toEqual(['cellar-1', 'cellar-2', 'ground']);
+        const boulders = spec.features.flatMap((f) => (f.type === 'stamp' && f.x === 10 ? [[f.y, f.level]] : []));
+        expect(boulders).toContainEqual([10, 'cellar-1']);
+        expect(boulders).toContainEqual([5, 'ground']);
+    });
+
     it('keeps a second district clear of the first, and every block clear of a prop standing in its quarter', () => {
         const blocks = composeMap(
             intentOf({
