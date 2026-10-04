@@ -14,6 +14,7 @@
 import type { CartographyController } from '../canvas/controller';
 import { I18N } from '../i18n';
 import { MODULE_ID } from '../module-id';
+import { changesHidden, noteMarked } from '../tools/note-marks';
 import { localize } from './localize';
 
 declare global {
@@ -23,26 +24,19 @@ declare global {
     }
 }
 
-/** The module's own mark `key` on `flags` (a Note's): true only when set so. */
-// eslint-disable-next-line no-restricted-syntax -- boundary: a document's flags are arbitrary serialised JSON
-function marked(flags: Readonly<Record<string, unknown>>, key: 'readable' | 'hidden'): boolean {
-    const own = flags[MODULE_ID];
-    return typeof own === 'object' && own !== null && key in own && (own as Record<string, unknown>)[key] === true;
-}
-
 /** Install the readable Note over the configured Note class; call once, at setup, after other modules' init. */
 export function registerReadableNote(): void {
     const Base = CONFIG.Note.objectClass;
     class ReadableNote extends Base {
         override get isVisible(): boolean {
             // Hidden until the GM reveals it: no player sees it, however near their tokens stand.
-            return marked(this.document.flags, 'hidden') && game.user?.isGM !== true ? false : super.isVisible;
+            return noteMarked(this.document.flags, 'hidden') && game.user?.isGM !== true ? false : super.isVisible;
         }
 
         protected override _refreshState(): void {
             super._refreshState();
             const control = this.controlIcon;
-            if (control === null || !marked(this.document.flags, 'readable')) {
+            if (control === null || !noteMarked(this.document.flags, 'readable')) {
                 return;
             }
             const shown = game.user?.isGM === true && this.layer.active;
@@ -79,22 +73,19 @@ export function followNoteReveals(controller: () => CartographyController | null
         box.type = 'checkbox';
         box.id = id;
         box.name = `flags.${MODULE_ID}.hidden`;
-        box.checked = marked(note.flags, 'hidden');
+        box.checked = noteMarked(note.flags, 'hidden');
         fields.append(box);
         group.append(label, fields);
         globalField.after(group);
     });
     Hooks.on('updateNote', (note, changed) => {
-        const flags = changed.flags;
-        // eslint-disable-next-line no-restricted-syntax -- boundary: the changed flags are arbitrary serialised JSON
-        const own: unknown = typeof flags === 'object' && flags !== null ? (flags as Record<string, unknown>)[MODULE_ID] : undefined;
-        if (typeof own !== 'object' || own === null || !('hidden' in own)) {
+        if (!changesHidden(changed.flags)) {
             return;
         }
         note.object?.renderFlags.set({ refreshVisibility: true, refreshState: true });
         const active = controller();
         if (active && note.id !== null && game.users?.activeGM?.isSelf === true) {
-            void active.followNoteHidden(note.id, marked(note.flags, 'hidden'));
+            void active.followNoteHidden(note.id, noteMarked(note.flags, 'hidden'));
         }
     });
 }

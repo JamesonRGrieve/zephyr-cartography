@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { NEW_PIN } from '../tools/pin';
-import { makeHarness } from './test-fakes';
+import { catalogStamps, makeHarness } from './test-fakes';
 
 const tavern = { ...NEW_PIN, text: 'The Sump', entry: 'je1', page: 'pg2' };
 
@@ -28,6 +28,34 @@ describe('map pins', () => {
         expect(d.deletedIds()).toEqual(['n0']);
         await c.undo();
         expect(c.getFeature(id)?.docs.notes).toEqual(['n1']);
+    });
+
+    it('record a reveal made in play on their pin or stamp, without rewriting the Note', async () => {
+        const inn = catalogStamps([
+            {
+                id: 'inn',
+                name: 'Inn',
+                category: 'Buildings',
+                scale: 'exterior',
+                perspective: 'top-down',
+                variants: [{ state: 'stone', image: 'inn.png', width: 100, height: 100 }],
+            },
+        ]);
+        const { c, d } = makeHarness(inn);
+        const pin = await c.placePin({ x: 1, y: 1 }, { ...tavern, readable: true, hidden: true });
+        const stamp = (await c.placeStamp({ stamp: 'pack:inn', x: 50, y: 50, reads: 'The Antler Inn', readsHidden: true })) ?? '';
+        const writes = d.writes.length;
+        expect(await c.followNoteHidden('n0', false)).toBe(true);
+        expect(c.pinSettings(pin)?.hidden).toBe(false);
+        const named = c.getFeature(stamp);
+        const note = named?.docs.notes[0] ?? '';
+        expect(await c.followNoteHidden(note, false)).toBe(true);
+        expect(c.getFeature(stamp)).toMatchObject({ readsHidden: false });
+        expect(d.writes.length).toBe(writes);
+        // Already so, or no feature's Note.
+        expect(await c.followNoteHidden('n0', false)).toBe(false);
+        expect(await c.followNoteHidden(note, false)).toBe(false);
+        expect(await c.followNoteHidden('nope', true)).toBe(false);
     });
 
     it('have no settings, and refuse them, for anything but a pin', async () => {
