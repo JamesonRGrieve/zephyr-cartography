@@ -223,6 +223,8 @@ describe('roleIndex purposes', () => {
                 stampDef('bunk', { role: 'bed', tags: ['cell'] }),
                 stampDef('satchel', { role: 'clutter', tags: ['adventuring'] }),
                 stampDef('fish-rack', { role: 'clutter', tags: ['fish', 'drying', 'rack'] }),
+                stampDef('baker', { role: 'clutter', tags: ['baker', 'table'] }),
+                stampDef('drafting', { role: 'clutter', tags: ['drafting', 'table'] }),
             ]),
             [],
         );
@@ -233,6 +235,9 @@ describe('roleIndex purposes', () => {
         expect(purposes.get('pack:satchel')).toEqual(['bedroom', 'barracks']);
         // Fish hung to dry is a kitchen's, never a wizard's laboratory shelf.
         expect(purposes.get('pack:fish-rack')).toEqual(['kitchen']);
+        // Never a guest's writing table: a baker's is a kitchen's, a drafting table an office's or a workshop's.
+        expect(purposes.get('pack:baker')).toEqual(['kitchen']);
+        expect(purposes.get('pack:drafting')).toEqual(['office', 'workshop']);
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
 

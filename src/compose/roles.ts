@@ -108,6 +108,10 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     throne: ['command', 'chapel'],
     // Fish hung to dry is a kitchen's, never strewn as a shelf through a wizard's laboratory.
     fish: ['kitchen'],
+    // A baker's table, dough on it, is a kitchen's; an architect's drafting table an office's or a workshop's: neither is
+    // a guest's writing table (both stood in an inn's guest rooms).
+    baker: ['kitchen'],
+    drafting: ['office', 'workshop'],
 };
 
 /** The kinds of room `tags` name, or say a piece belongs in. */
