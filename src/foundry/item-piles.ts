@@ -81,8 +81,13 @@ function tokenUuidOf(result: unknown): string | null {
     return isRecord(result) && typeof result['tokenUuid'] === 'string' ? result['tokenUuid'] : null;
 }
 
+/**
+ * A pile token's own fields: its stamp's size, turn, elevation and picture, on its stamp's level. Foundry puts a token
+ * given no level on the scene's first, so a guest room's chest stood on the taproom floor below it.
+ */
 function tokenData(spec: PileSpec): object {
-    return { width: spec.width, height: spec.height, rotation: spec.rotation, elevation: spec.elevation, texture: { src: spec.src } };
+    const base = { width: spec.width, height: spec.height, rotation: spec.rotation, elevation: spec.elevation, texture: { src: spec.src } };
+    return spec.level === null ? base : { ...base, level: spec.level };
 }
 
 /** Item Piles' record of a pile's state (`flags['item-piles'].data`, its FLAGS.PILE in 3.3): closed and locked. */

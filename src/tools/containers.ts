@@ -19,6 +19,8 @@ export interface PileSpec {
     readonly height: number;
     readonly rotation: number;
     readonly elevation: number;
+    /** The level its stamp stands on, which the token belongs to (null: the scene's own, a stamp on every level). */
+    readonly level: string | null;
     readonly src: string;
     /** The pack's pile options (type, starting state, sounds). */
     readonly pile: StampPile;
@@ -66,6 +68,7 @@ export function pileSpec(stamp: StampFeature, floorElevation: number): PileSpec 
         height: stamp.height / square,
         rotation: stamp.rotation,
         elevation: floorElevation + stamp.elevation,
+        level: stamp.level,
         src: stamp.src,
         pile: stamp.behaviour.pile ?? PLAIN_CONTAINER,
     };

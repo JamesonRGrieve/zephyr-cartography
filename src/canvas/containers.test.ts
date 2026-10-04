@@ -54,7 +54,17 @@ describe('CartographyController containers', () => {
         await c.placeStamp({ stamp: 'pack:chest', x: 250, y: 125, rotation: 90 });
         expect(k.created).toEqual([
             {
-                spec: { x: 200, y: 100, width: 1, height: 0.5, rotation: 90, elevation: 0, src: 'modules/pack/chest.png', pile: { type: 'container' } },
+                spec: {
+                    x: 200,
+                    y: 100,
+                    width: 1,
+                    height: 0.5,
+                    rotation: 90,
+                    elevation: 0,
+                    level: null,
+                    src: 'modules/pack/chest.png',
+                    pile: { type: 'container' },
+                },
                 name: 'Iron Chest',
             },
         ]);

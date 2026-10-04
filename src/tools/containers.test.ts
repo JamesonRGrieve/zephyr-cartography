@@ -49,9 +49,14 @@ describe('pileSpec', () => {
             height: 1,
             rotation: 90,
             elevation: 10,
+            level: null,
             src: 'modules/pack/chest.png',
             pile: { type: 'container' },
         });
+    });
+
+    it("puts the pile on its stamp's level, so a guest room's chest never stands on the floor below", () => {
+        expect(pileSpec({ ...placed(100), level: 'upper' }, 20).level).toBe('upper');
     });
 
     it("carries the pack's pile options, and a plain container when a stamp predates them", () => {
