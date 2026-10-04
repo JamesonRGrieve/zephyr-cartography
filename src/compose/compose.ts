@@ -1056,7 +1056,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     // Ways to other maps: over an edge a road runs off, over a place, or just inside a building's front door. The
     // intent's own check holds every place to one on the map, so only a way into a building left unbuilt (reported as
     // its rooms not fitting) goes without its zone.
-    const ways = intent.key === undefined ? [] : linkFeatures(intent.key, intent.links, linkPlaces(intent, composed, exterior.paths), levelOf(0));
+    const ways = intent.key === undefined ? [] : linkFeatures(intent.key, intent.links, linkPlaces(intent, composed, exterior.paths), levelOf);
     // Ground first, then roads and rivers, then vegetation, then the buildings standing on it all.
     const features = drawPlaceholders([
         ...outside,

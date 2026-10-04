@@ -1591,7 +1591,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     middle; or `along` it), over a named piece outside (a town on a
     chart), just inside a building's front door, or over an `area` of
     squares (a way down inside a building: a trapdoor in a shrine's
-    floor, the foot of a tomb's stair), and leads to another
+    floor, the foot of a tomb's stair), standing on its `storey` (0 the
+    ground, -1 the top cellar: a trapdoor in a cellar floor), and leads to another
     map's way (`to: { map, link }`), or nowhere yet (`to: null`). It is a
     rectangle zone with a link. Every id comes from keys: a map's scene is
     made under `sceneIdOf(key)` and a way's region under

@@ -16,6 +16,9 @@ function intentOf(given: object): MapIntent {
 
 const NO_PLACES: LinkPlaces = { width: 30, height: 20, fronts: new Map(), paths: [], fixtures: new Map() };
 
+/** Every way on a map of one level. */
+const onGround = (): { level?: string } => ({});
+
 describe('map ids', () => {
     it('keep a scene and its ways apart', () => {
         expect(sceneIdOf('tavern')).toBe(stableId('scene:tavern'));
@@ -38,7 +41,7 @@ describe('linkFeatures', () => {
                 },
             ],
         };
-        const [way] = linkFeatures('tavern', [{ key: 'road-east', at: { edge: 'east' }, to: { map: 'region', link: 'tavern' } }], places, {});
+        const [way] = linkFeatures('tavern', [{ key: 'road-east', at: { edge: 'east' }, to: { map: 'region', link: 'tavern' } }], places, onGround);
         expect(way).toMatchObject({
             type: 'zone',
             x: 29,
@@ -62,7 +65,7 @@ describe('linkFeatures', () => {
                 { key: 'inn-door', at: { building: 'inn' }, to: null },
             ],
             places,
-            {},
+            onGround,
         );
         expect(ways.map((w) => (w.type === 'zone' ? [w.x, w.y, w.shape] : null))).toEqual([
             [15, 1, { kind: 'rectangle', width: 3, height: 2 }],
@@ -72,7 +75,7 @@ describe('linkFeatures', () => {
         // A way still to be linked takes no one anywhere, and is named for what it is.
         expect(ways[2]).toMatchObject({ name: 'inn-door', link: { targets: [] } });
         // A building left unbuilt has no door, and its way no zone.
-        expect(linkFeatures('region', [{ key: 'gone', at: { building: 'keep' }, to: null }], places, {})).toEqual([]);
+        expect(linkFeatures('region', [{ key: 'gone', at: { building: 'keep' }, to: null }], places, onGround)).toEqual([]);
     });
 
     it('finds the road off the edge asked among paths that stay on the map, stands where `along` says, and skips a place not on it', () => {
@@ -102,10 +105,10 @@ describe('linkFeatures', () => {
                 { key: 'west', at: { edge: 'west', along: 6 }, to: null },
                 { key: 'east', at: { edge: 'east' }, to: null },
                 { key: 'lost', at: { fixture: 'nowhere' }, to: null },
-                { key: 'trapdoor', at: { area: { x: 21.9, y: 13.3, w: 1.2, h: 1.2 } }, to: { map: 'tomb', link: 'stair' } },
+                { key: 'trapdoor', at: { area: { x: 21.9, y: 13.3, w: 1.2, h: 1.2 }, storey: 0 }, to: { map: 'tomb', link: 'stair' } },
             ],
             places,
-            {},
+            onGround,
         );
         expect(ways.map((w) => (w.type === 'zone' ? [w.name, w.x, w.y, w.shape] : null))).toEqual([
             ['north', 14, 1, { kind: 'rectangle', width: 3, height: 2 }],
@@ -114,6 +117,20 @@ describe('linkFeatures', () => {
             // A way down inside a building, over the area asked.
             ['To tomb', 22.5, 13.9, { kind: 'rectangle', width: 1.2, height: 1.2 }],
         ]);
+    });
+
+    it('stands a way over an area on its storey’s level (a trapdoor in a cellar floor), every other on the ground', () => {
+        const levelOf = (storey: number): { level: string } => ({ level: storey === 0 ? 'ground' : `storey ${String(storey)}` });
+        const ways = linkFeatures(
+            'tower',
+            [
+                { key: 'road', at: { edge: 'south' }, to: null },
+                { key: 'caves', at: { area: { x: 2, y: 5, w: 1, h: 1 }, storey: -1 }, to: { map: 'caves', link: 'up' } },
+            ],
+            NO_PLACES,
+            levelOf,
+        );
+        expect(ways.map((w) => (w.type === 'zone' ? w.level : null))).toEqual(['ground', 'storey -1']);
     });
 });
 

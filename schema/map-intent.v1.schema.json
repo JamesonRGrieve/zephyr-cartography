@@ -115,6 +115,13 @@
                                         ],
                                         "additionalProperties": false,
                                         "description": "Squares on the map: a way down or up inside a building (a trapdoor, the foot of a stair)."
+                                    },
+                                    "storey": {
+                                        "default": 0,
+                                        "description": "The storey it stands on: 0 the ground, 1 the floor above it, -1 the top cellar (a trapdoor in a cellar floor).",
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
                                     }
                                 },
                                 "required": [

@@ -787,6 +787,11 @@ const mapLink = z
                 z
                     .object({
                         area: mapRect.describe('Squares on the map: a way down or up inside a building (a trapdoor, the foot of a stair).'),
+                        storey: z
+                            .number()
+                            .int()
+                            .default(0)
+                            .describe('The storey it stands on: 0 the ground, 1 the floor above it, -1 the top cellar (a trapdoor in a cellar floor).'),
                     })
                     .strict(),
             ])

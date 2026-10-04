@@ -45,8 +45,16 @@ export interface LinkPlaces {
     readonly fixtures: ReadonlyMap<string, Rect>;
 }
 
-/** The ways of the map keyed `mapKey`, as zones on its ground level; a way whose place is not on the map (a building left unbuilt) has none. */
-export function linkFeatures(mapKey: string, links: readonly MapLinkIntent[], places: LinkPlaces, onLevel: { readonly level?: string }): FeatureInput[] {
+/**
+ * The ways of the map keyed `mapKey`, as zones: over an area on its storey's level, every other on the ground level.
+ * A way whose place is not on the map (a building left unbuilt) has none.
+ */
+export function linkFeatures(
+    mapKey: string,
+    links: readonly MapLinkIntent[],
+    places: LinkPlaces,
+    levelOf: (storey: number) => { readonly level?: string },
+): FeatureInput[] {
     return links.flatMap((link): FeatureInput[] => {
         const rect = placeOf(link.at, places);
         if (rect === null) {
@@ -62,7 +70,8 @@ export function linkFeatures(mapKey: string, links: readonly MapLinkIntent[], pl
                 shape: { kind: 'rectangle', width: rect.w, height: rect.h },
                 name: link.name ?? (link.to === null ? link.key : `To ${link.to.map}`),
                 link: { region: linkRegionIdOf(mapKey, link.key), targets, placement: 'center' },
-                ...onLevel,
+                // A way over an area stands on its storey (a trapdoor in a cellar floor); every other way on the ground.
+                ...levelOf('area' in link.at ? link.at.storey : 0),
             },
         ];
     });
