@@ -32,6 +32,10 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['waymark', ['milestone', 'wayside', 'signpost']],
     // A bedroom's chest of drawers, wardrobe and washstand: before chest, as drawers are no trunk.
     ['dresser', ['dresser', 'wardrobe', 'drawers', 'washstand']],
+    // A bank's wall of deposit boxes stands against a wall as shelving does: never a mineral deposit strewn on the
+    // ground (it was scattered through woods and scree as rock); goods under a tarp are a store's.
+    ['shelf', [['deposit', 'box']]],
+    ['storage', [['tarp', 'covered']]],
     ['chest', ['chest', 'trunk', 'footlocker', 'strongbox']],
     ['enclosure', ['pen', 'corral', 'paddock', 'stable']],
     ['fodder', ['hay', 'straw', 'fodder']],

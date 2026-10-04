@@ -16,6 +16,10 @@ describe('roleFromTags', () => {
         // A barrel of acid is an alchemist's, set where a map names it: never a yard's stores.
         expect(roleFromTags(['acid', 'barrel', 'setting-fantasy'])).toBe('fitting');
         expect(roleFromTags(['wine', 'barrel'])).toBe('storage');
+        // A bank's wall of deposit boxes is shelving, never a mineral deposit strewn as rock; goods under a tarp are stores.
+        expect(roleFromTags(['deposit', 'box', 'wall', 'setting-fantasy'])).toBe('shelf');
+        expect(roleFromTags(['crystal', 'deposit'])).toBe('rock');
+        expect(roleFromTags(['tarp', 'covered', 'goods'])).toBe('storage');
         // Steps cut through a cliff are the hillside's, set where a map draws its edge: never a building's stair.
         expect(roleFromTags(['cliff', 'stair', 'hillside', 'escarpment', 'stairs'])).toBe('fitting');
         // A crystal ball is a seer's fitting, a crystal cluster the ground's rock.
