@@ -33,20 +33,28 @@ test('a container stamp is an Item Piles pile with its pack options, and a smash
     expect(afterSmash).toEqual({ pile: null, tokens: 0 });
 });
 
-test("a container stamp's pile token stands on its stamp's level, never the scene's first", async ({ world }) => {
+test("a container stamp's pile token stands on its stamp's level, never the scene's first, and goes with it from there", async ({ world }) => {
     test.skip(!(await moduleActive(world, 'item-piles')), 'Item Piles is not installed in the e2e world (FOUNDRY_TEST_MODULES)');
     const placed = await world.evaluate(async () => {
         const controller = game.modules?.get('zephyr-cartography').api.controller();
-        await controller?.addLevel('above', 'Ground');
+        const ground = await controller?.addLevel('above', 'Ground');
         const upper = await controller?.addLevel('above', 'Guest rooms');
         controller?.setActiveLevel(upper ?? null);
-        const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:chest', x: 300, y: 300 });
+        const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:crate', x: 300, y: 300 });
         const feature = id === undefined || id === null ? null : controller?.getFeature(id);
         const token = feature?.type === 'stamp' && feature.pile !== null ? foundry.utils.fromUuidSync(feature.pile) : null;
-        return { upper, level: token instanceof TokenDocument ? token.level : null };
+        return { id: id ?? '', ground: ground ?? '', upper, level: token instanceof TokenDocument ? token.level : null };
     });
-    // Upstairs, as its chest is: on the floor below it would be drawn over that floor's own room.
+    // Upstairs, as its crate is: on the floor below it would be drawn over that floor's own room.
     expect(placed.level).toBe(placed.upper);
+    // Smashed while the floor below is viewed (its token not drawn there), the crate's pile still goes with it.
+    const tokens = await world.evaluate(async ({ id, ground }) => {
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
+        await canvas?.scene?.view({ level: ground });
+        await controller?.setStampVariant(id, 1);
+        return canvas?.scene?.tokens.size;
+    }, placed);
+    expect(tokens).toBe(0);
 });
 
 test('a plain container stamp is a container pile with Item Piles defaults', async ({ world }) => {

@@ -169,9 +169,17 @@ export function createItemPilesContainers(sceneId: () => string | null): Contain
         remove: async (pile) => {
             const api = itemPiles();
             const token = foundry.utils.fromUuidSync(pile);
-            if (api && token instanceof TokenDocument) {
-                await api.deleteItemPile(token);
+            if (!api || !(token instanceof TokenDocument)) {
+                return;
             }
+            // Foundry draws a token only on the level being viewed. Item Piles 3.3's deleteItemPile reaches for the drawn
+            // token's `.document` and throws on a pile upstairs while the ground is viewed; all it does is delete the
+            // token's document, so a token not drawn is deleted directly.
+            if (token.object === null) {
+                await token.delete();
+                return;
+            }
+            await api.deleteItemPile(token);
         },
     };
 }
