@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import { type ComposedStamp, doubleBeds, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
+import { type ComposedStamp, carrying, doubleBeds, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
 import { type FixtureIntent, ROOM_PURPOSES } from './intent';
 import { withPlaceholders } from './placeholders';
 import type { RoleIndex, RoleStamp } from './roles';
@@ -332,6 +332,41 @@ describe('a bedroom’s bed', () => {
         expect(doubleBeds([single, double, fourPoster], { x: 0, y: 0, w: 3, h: 5 })).toEqual([]);
         // Whichever way the room lies.
         expect(doubleBeds([double], { x: 0, y: 0, w: 6, h: 3.6 }).map((b) => b.key)).toEqual(['test:double']);
+    });
+});
+
+describe('a bedroom’s chamber pot', () => {
+    const base = TEST_ROLES.get('clutter')?.[0];
+    if (base === undefined) {
+        throw new Error('no test clutter');
+    }
+    const pot: RoleStamp = { ...base, key: 'test:chamber-pot', tags: ['chamber', 'pot'] };
+    const cup: RoleStamp = { ...base, key: 'test:cup', tags: ['cup'] };
+    const BEDROOM: RoomFloor = {
+        key: 'room',
+        purpose: 'bedroom',
+        rect: { x: 0, y: 0, w: 5, h: 4 },
+        doors: [{ side: 'bottom', at: 1 }],
+        outer: ['top'],
+        entrance: null,
+    };
+    const keysWith = (clutter: readonly RoleStamp[]): string[] => {
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['clutter', clutter] as const]);
+        return furnishRoom(BEDROOM, roles, seededRandom(4)).stamps.map((s) => s.stamp);
+    };
+
+    it('takes only art carrying every word of one of the tags asked', () => {
+        expect(carrying([pot, cup], [['chamber', 'pot']]).map((s) => s.key)).toEqual(['test:chamber-pot']);
+        expect(carrying([pot, cup], [['chamber', 'cup']])).toEqual([]);
+        expect(carrying([pot, cup], [['cup'], ['pot']]).map((s) => s.key)).toEqual(['test:chamber-pot', 'test:cup']);
+    });
+
+    it('stands in every bedroom where the map’s setting has one, its toilet (operator, 2026-10-05)', () => {
+        expect(keysWith([cup, pot])).toContain('test:chamber-pot');
+    });
+
+    it('is no other clutter where the setting has none', () => {
+        expect(keysWith([cup]).filter((k) => k === 'test:chamber-pot')).toEqual([]);
     });
 });
 

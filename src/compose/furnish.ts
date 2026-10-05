@@ -107,6 +107,8 @@ type Step =
           readonly count: Count;
           /** Where no corner is free, against a wall instead (a guest room's armchair). */
           readonly orWall?: true;
+          /** Only art carrying every word of one of these (a chamber pot among clutter); none such loaded: nothing. */
+          readonly tags?: readonly (readonly string[])[];
       }
     | {
           readonly kind: 'cluster';
@@ -123,6 +125,14 @@ type Step =
     | { readonly kind: 'underlay'; readonly role: StampRole }
     | { readonly kind: 'rows'; readonly role: StampRole; readonly facing: StampRole }
     | { readonly kind: 'dress'; readonly role: StampRole; readonly count: Count };
+
+/** Tags naming a bedroom's toilet: a chamber pot. */
+const CHAMBER_POT_TAGS: readonly (readonly string[])[] = [['chamber', 'pot']];
+
+/** The stamps of `stamps` carrying every word of one of `tags`. */
+export function carrying(stamps: readonly RoleStamp[], tags: readonly (readonly string[])[]): RoleStamp[] {
+    return stamps.filter((s) => tags.some((words) => words.every((w) => s.tags.includes(w))));
+}
 
 /** A few long tables with benches, round ones seated all round in the floor they leave: a mix, not a grid of one kind. */
 const COMMON_ROOM: readonly Step[] = [
@@ -176,6 +186,8 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
         { kind: 'wall', role: 'dresser', count: [0, 1] },
         { kind: 'dress', role: 'tabletop', count: [1, 3] },
         { kind: 'wall', role: 'light', count: 1 },
+        // Where people sleep, a toilet (operator, 2026-10-05): a chamber pot tucked in a corner, where the map's setting has one.
+        { kind: 'corner', role: 'clutter', count: 1, orWall: true, tags: CHAMBER_POT_TAGS },
         // A guest's belongings, not a store: a little clutter.
         { kind: 'scatter', role: 'clutter', count: [1, 2] },
     ],
@@ -1143,10 +1155,9 @@ const DOUBLE_BED_ROOM = 1.5;
 export function doubleBeds(beds: readonly RoleStamp[], rect: Rect): RoleStamp[] {
     const short = Math.min(rect.w, rect.h);
     const long = Math.max(rect.w, rect.h);
-    return beds.filter((b) => {
-        const isDouble = DOUBLE_BED_TAGS.some((words) => words.every((w) => b.tags.includes(w)));
+    return carrying(beds, DOUBLE_BED_TAGS).filter((b) => {
         const [across, along] = [Math.min(b.width, b.height), Math.max(b.width, b.height)];
-        return isDouble && across + DOUBLE_BED_ROOM <= short && along <= long;
+        return across + DOUBLE_BED_ROOM <= short && along <= long;
     });
 }
 
@@ -1560,6 +1571,20 @@ const leastOf = (count: Count): number => (typeof count === 'number' ? count : c
 const smallestOf = (stamps: readonly RoleStamp[]): RoleStamp | undefined =>
     [...stamps].sort((a, b) => Number(a.upright) - Number(b.upright) || a.width * a.height - b.width * b.height)[0];
 
+/** Pieces of a corner step in the room's corners, against a wall where none is free if asked; only art of its tags if it names any. */
+function runCorner(floor: Floor, step: Extract<Step, { kind: 'corner' }>, pieces: Pieces, random: Random): void {
+    const only = step.tags === undefined ? undefined : carrying(pieces.all(step.role), step.tags);
+    const first = only?.[0];
+    const draw: Draw | undefined = only === undefined ? pieces.drawOf(step.role) : first === undefined ? undefined : () => pick(random, only) ?? first;
+    if (draw) {
+        const left = placeInCorners(floor, draw, step.count, random);
+        // An easy chair with no corner free sits against a wall, facing into the room.
+        if (left > 0 && step.orWall === true) {
+            placeOnWalls(floor, { kind: 'wall', role: step.role, count: left }, draw, NO_COMPANIONS, random);
+        }
+    }
+}
+
 function runStep(floor: Floor, step: Step, pieces: Pieces, random: Random): void {
     const { choose, drawOf } = pieces;
     switch (step.kind) {
@@ -1582,14 +1607,7 @@ function runStep(floor: Floor, step: Step, pieces: Pieces, random: Random): void
             return;
         }
         case 'corner': {
-            const draw = drawOf(step.role);
-            if (draw) {
-                const left = placeInCorners(floor, draw, step.count, random);
-                // An easy chair with no corner free sits against a wall, facing into the room.
-                if (left > 0 && step.orWall === true) {
-                    placeOnWalls(floor, { kind: 'wall', role: step.role, count: left }, draw, NO_COMPANIONS, random);
-                }
-            }
+            runCorner(floor, step, pieces, random);
             return;
         }
         case 'cluster': {

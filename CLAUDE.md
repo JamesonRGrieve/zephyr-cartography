@@ -1500,7 +1500,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
     another wall and an easy chair (`armchair`) across a corner, facing
     out, else against a wall; a table too big for the floor left stands
     against a wall, its chair before it; a guest's chest against a wall,
-    never out in the floor. A wall piece whose art fits no wall gives way to
+    never out in the floor; and, where people sleep, a toilet: a chamber
+    pot in a corner wherever the map's setting has one (operator,
+    2026-10-05; a corner step's `tags` take only art carrying them). A wall piece whose art fits no wall gives way to
     the smallest of its role (a dresser where a wardrobe will not go).
     Clutter keeps to the rooms its tags imply: a cooking pot to a kitchen, a
     reliquary to a shrine or chapel, a chamber pot to a bedroom, a
