@@ -200,6 +200,8 @@ describe('tileCreateData', () => {
         // Shown on the levels that see its own as well.
         const seen = { name: 'Lamp', src: 'a.png', x: 10, y: 20, width: 30, height: 40, rotation: 0, elevation: 0, level: 'L1', featureId: 'f1' };
         expect(tileCreateData({ ...seen, seenFrom: ['L2'] }).levels).toEqual(['L1', 'L2']);
+        // A piece that stands carries how tall in its flag, for its drop shadow.
+        expect(tileCreateData({ ...seen, shadow: 0.6 }).flags).toEqual({ 'zephyr-cartography': { featureId: 'f1', shadow: 0.6 } });
     });
 });
 

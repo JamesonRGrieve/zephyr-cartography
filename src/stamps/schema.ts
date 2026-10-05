@@ -595,6 +595,15 @@ const stampSchema = z
             .describe(
                 'An armed trap: placed hidden from players, over a region that pauses the game the first time a token moves in, for the GM to spring it. Tagged `trap`, a stamp is one unless it says otherwise.',
             ),
+        shadow: z
+            .number()
+            .min(0)
+            .max(2)
+            .nullable()
+            .optional()
+            .describe(
+                'How tall it stands for its drop shadow, as a share of its footprint’s shorter side (a tree about 0.9, a table 0.3); 0 or null: it lies flat and casts none. Omitted: as its role and tags say.',
+            ),
     })
     .strict();
 
@@ -840,6 +849,8 @@ export const placedBehaviourSchema = z.object({
     hazard: hazardSchema.nullable().optional(),
     trap: z.boolean().optional(),
     ways: z.array(waySchema).optional(),
+    /** How tall it stands for its drop shadow, a share of its footprint's shorter side; 0 or omitted: none. */
+    shadow: z.number().min(0).optional(),
 });
 
 export type PlacedBehaviour = z.infer<typeof placedBehaviourSchema>;

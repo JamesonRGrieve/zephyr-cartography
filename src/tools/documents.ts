@@ -177,6 +177,8 @@ export interface TileDoc {
     readonly look?: StampTile;
     /** Its image flipped left to right. */
     readonly mirror?: true;
+    /** How tall it stands for its drop shadow, a share of its shorter side; omitted: it casts none. */
+    readonly shadow?: number;
 }
 
 /**

@@ -342,6 +342,10 @@
                 "Name": "Terrain as Scene Regions",
                 "Hint": "Mirror each painted biome area and brush stroke as a Scene Region named after its biome, so region behaviours (difficult terrain, weather and so on) can be attached to it."
             },
+            "DropShadows": {
+                "Name": "Drop shadows",
+                "Hint": "Draw a soft shadow beneath every standing stamp, falling away from the scene's sun (set by a game system's calendar through the module API, else a high north-western sun). None falls while the sun is down."
+            },
             "StampScale": {
                 "Name": "Stamp scale",
                 "Hint": "Multiplier over a stamp's authored grid footprint when it is placed (1 = authored size)."

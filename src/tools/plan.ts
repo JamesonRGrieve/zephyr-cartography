@@ -126,6 +126,7 @@ function stampTile(stamp: StampFeature, floor: Floor, context: { readonly levels
         featureId: stamp.id,
         ...(stamp.behaviour.tile === null || stamp.behaviour.tile === undefined ? {} : { look: stamp.behaviour.tile }),
         ...(stamp.mirror ? { mirror: true } : {}),
+        ...(stamp.behaviour.shadow === undefined ? {} : { shadow: stamp.behaviour.shadow }),
     };
 }
 

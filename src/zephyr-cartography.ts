@@ -37,6 +37,7 @@ import { followNoteReveals, registerReadableNote } from './foundry/readable-note
 import { activeScene, modifyBatch } from './foundry/scene-bridge';
 import { FoundrySceneStore } from './foundry/scene-store';
 import { createWorldScenes } from './foundry/scenes';
+import { DROP_SHADOWS_SETTING, followShadows, redrawShadows } from './foundry/shadow-layer';
 import { createSilhouetteSource } from './foundry/silhouette';
 import { createSplatRenderer } from './foundry/splat-renderer';
 import { createSplatStore } from './foundry/splat-store';
@@ -97,6 +98,7 @@ const zones = registerZoneRuntime(() => state?.controller ?? null);
 
 followPileStates(() => state?.controller ?? null);
 followNoteReveals(() => state?.controller ?? null);
+followShadows();
 
 registerAdvisorSettings();
 const generator = registerGeneratorRuntime(() => state?.controller ?? null, materials.forNewRooms, packs.stamps, packs.settled);
@@ -555,6 +557,7 @@ const TERRAIN_REGIONS_SETTING = 'terrainRegions';
 declare global {
     interface SettingConfig {
         'zephyr-cartography.terrainRegions': boolean;
+        'zephyr-cartography.dropShadows': boolean;
     }
 }
 
@@ -575,6 +578,15 @@ Hooks.once('init', () => {
                 void state.controller.setTerrainRegions(on);
             }
         },
+    });
+    game.settings?.register(MODULE_ID, DROP_SHADOWS_SETTING, {
+        name: I18N.settings.dropShadowsName,
+        hint: I18N.settings.dropShadowsHint,
+        scope: 'world',
+        config: true,
+        type: Boolean,
+        default: true,
+        onChange: redrawShadows,
     });
 });
 

@@ -13,8 +13,10 @@ import { parseSceneSpec, type SceneSpec, type SpecIssue } from '../generate/spec
 import type { Uvtt } from '../generate/uvtt';
 import { MODULE_ID } from '../module-id';
 import type { CatalogStamp } from '../stamps/catalog';
+import { parseSun } from '../tools/sun';
 import { buildOnScene, type ComposeOutcome, composeOnScene } from './build-spec';
 import { terrainImagesLoading } from './pixi-surface';
+import { SUN_FLAG } from './shadow-layer';
 import { spawnInto, type SpawnResult } from './spawner';
 import { exportViewedLevel, type UvttExportOptions } from './uvtt-export';
 
@@ -54,6 +56,16 @@ interface CartographyApi {
      * to give it.
      */
     readonly exportUvtt: (options?: UvttExportOptions) => Promise<Uvtt | null>;
+    /**
+     * Stand a scene's sun (the viewed scene's, else `sceneId`'s), which its
+     * drop shadows fall away from: `{ azimuth, elevation }` in degrees, the
+     * azimuth a compass bearing, the elevation above the horizon (below it,
+     * no shadows); null for the default. A game system's calendar drives it.
+     * False, and nothing written, for anything that is no sun or a scene
+     * the user may not change.
+     */
+    // eslint-disable-next-line no-restricted-syntax -- boundary: a macro, module or system passes any value; it is validated as a sun
+    readonly setSun: (sun: unknown, sceneId?: string) => Promise<boolean>;
 }
 
 declare global {
@@ -109,6 +121,23 @@ export function registerApi(controller: () => CartographyController | null, stam
         },
         terrainImagesLoading,
         exportUvtt: async (options = {}) => exportViewedLevel(options),
+        setSun: async (sun, sceneId) => {
+            const scene = sceneId === undefined ? canvas?.scene : game.scenes?.get(sceneId);
+            const user = game.user;
+            if (!user || scene?.canUserModify(user, 'update') !== true) {
+                return false;
+            }
+            if (sun === null) {
+                await scene.unsetFlag(MODULE_ID, SUN_FLAG);
+                return true;
+            }
+            const parsed = parseSun(sun);
+            if (parsed === null) {
+                return false;
+            }
+            await scene.setFlag(MODULE_ID, SUN_FLAG, parsed);
+            return true;
+        },
     };
     Hooks.once('init', () => {
         const cartography = game.modules?.get(MODULE_ID);

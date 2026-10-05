@@ -10,6 +10,7 @@
  */
 import { physicsOf } from '../compose/physics';
 import { composedRole } from '../compose/roles';
+import { shadowStandOf } from '../compose/shadow-cast';
 import { boxCorners, boxPoint, type OrientedRectangle } from '../geometry/rectangle';
 import type { Point } from '../geometry/spline';
 import { type CatalogStamp, clampVariantIndex, computeTilePlacement, effectiveProperties, resolveVariant } from '../stamps/catalog';
@@ -108,7 +109,9 @@ const NO_BEHAVIOUR: PlacedBehaviour = {
  */
 export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour {
     const props = effectiveProperties(stamp, index);
-    const derived = physicsOf(composedRole(stamp), stamp.tags);
+    const role = composedRole(stamp);
+    const derived = physicsOf(role, stamp.tags);
+    const shadow = shadowOf(stamp, role);
     const variant = resolveVariant(stamp, index);
     // A pack's null (no terrain, no hazard in this variant) is its word too: only a field it never sets is the role's.
     const terrainUnsaid = stamp.terrain === undefined && variant.terrain === undefined;
@@ -136,7 +139,13 @@ export function behaviourOf(stamp: CatalogStamp, index: number): PlacedBehaviour
         hazard: hazardUnsaid ? derived.hazard ?? null : props.hazard,
         trap,
         ways: [...props.ways],
+        ...(shadow > 0 ? { shadow } : {}),
     };
+}
+
+/** How tall a stamp stands for its drop shadow: its pack's own word (null: flat), else as its role and tags say. */
+function shadowOf(stamp: CatalogStamp, role: ReturnType<typeof composedRole>): number {
+    return stamp.shadow === undefined ? shadowStandOf(role, stamp.tags) : stamp.shadow ?? 0;
 }
 
 /** The tag that names a stamp a trap (a pressure plate, a spike pit, a tripwire). */

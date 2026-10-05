@@ -97,7 +97,8 @@ export interface TileCreateData extends OnLevels {
     readonly elevation: number;
     /** Its place in the draw order among tiles at its elevation: higher draws above. */
     readonly sort?: number;
-    readonly flags: Readonly<Record<string, { readonly featureId: string }>>;
+    /** The module's marks: the feature it belongs to, and how tall it stands for its drop shadow where it casts one. */
+    readonly flags: Readonly<Record<string, { readonly featureId: string; readonly shadow?: number }>>;
     // The pack's tile behaviour. Undefined keys are dropped on the way to Foundry, which then applies its defaults.
     readonly alpha?: number | undefined;
     readonly hidden?: boolean | undefined;

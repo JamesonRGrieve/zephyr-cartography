@@ -330,6 +330,8 @@ export const I18N = {
         stampScaleHint: key('Settings.StampScale.Hint'),
         terrainRegionsName: key('Settings.TerrainRegions.Name'),
         terrainRegionsHint: key('Settings.TerrainRegions.Hint'),
+        dropShadowsName: key('Settings.DropShadows.Name'),
+        dropShadowsHint: key('Settings.DropShadows.Hint'),
     },
     browser: {
         title: key('Browser.Title'),

@@ -226,6 +226,37 @@ describe('behaviourOf physics', () => {
         expect(cleared ? behaviourOf(cleared, 0).terrain : undefined).toBeNull();
     });
 
+    it('stands a piece for its drop shadow by its role, a shelf above a table, unless its pack says (null: flat)', () => {
+        const shelfStands = shelf ? behaviourOf(shelf, 0).shadow : undefined;
+        const tableStands = table ? behaviourOf(table, 0).shadow : undefined;
+        expect(shelfStands).toBeGreaterThan(tableStands ?? 0);
+        expect(tableStands).toBeGreaterThan(0);
+        const [said, flat] = catalogStamps([
+            {
+                id: 'tall-table',
+                name: 'Tall',
+                category: 'Furniture',
+                scale: 'interior',
+                perspective: 'top-down',
+                tags: ['table'],
+                shadow: 1.2,
+                variants: [{ state: 'set', image: 't.png', width: 150, height: 100 }],
+            },
+            {
+                id: 'flat-table',
+                name: 'Flat',
+                category: 'Furniture',
+                scale: 'interior',
+                perspective: 'top-down',
+                tags: ['table'],
+                shadow: null,
+                variants: [{ state: 'set', image: 't.png', width: 150, height: 100 }],
+            },
+        ]);
+        expect(said ? behaviourOf(said, 0).shadow : undefined).toBe(1.2);
+        expect(flat ? behaviourOf(flat, 0).shadow : 0).toBeUndefined();
+    });
+
     it('makes a chest or a locker an Item Piles container where its pack never says; its pack’s false wins', () => {
         const piece = (id: string, tags: readonly string[], container?: boolean): Record<string, unknown> => ({
             id,
@@ -341,6 +372,8 @@ describe('planDocuments for a stamp', () => {
                 elevation: 2,
                 level: null,
                 featureId: 's1',
+                // A lamp stands middling tall for its drop shadow.
+                shadow: 0.4,
             },
         ]);
     });

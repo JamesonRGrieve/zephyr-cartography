@@ -390,7 +390,7 @@ export function tileCreateData(tile: TileDoc): TileCreateData {
         height: tile.height,
         rotation: tile.rotation,
         elevation: tile.elevation,
-        flags: { [MODULE_ID]: { featureId: tile.featureId } },
+        flags: { [MODULE_ID]: { featureId: tile.featureId, ...(tile.shadow === undefined ? {} : { shadow: tile.shadow }) } },
         ...levelsField(tile.level, tile.seenFrom),
     };
 }

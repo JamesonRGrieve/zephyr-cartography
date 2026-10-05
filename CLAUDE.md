@@ -237,9 +237,15 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   `map-prompts/briefs/`, rendered and reviewed like the prompts. An unmarked
   front door opens into the first room reaching the side the building faces
   (a vehicle's rear ramp into its troop bay, never the cab listed first).
-- **Use Foundry, never imitate it.** Shade and shadow come from Foundry's
-  lighting engine (native lights, cut by native walls, darkness), never from
-  painted shadow bands; doors, walls and levels are native documents.
+- **Use Foundry, never imitate it.** Shade comes from Foundry's lighting
+  engine (native lights, cut by native walls, darkness), never from painted
+  shadow bands; doors, walls and levels are native documents. The one
+  exception is a piece's **drop shadow** (operator, 2026-10-05, choosing
+  drawn shadows over a native sun light: "Option A looks like ass. So
+  option B it is"): Foundry's 2D lighting has no height, so a light cut by
+  walls throws endless fanning shadows and none from trees; a standing
+  piece instead casts its own silhouette, falling away from the scene's sun
+  (see Priority 6, Drop shadows).
 - **Rough-hewn passages.** Tunnels, caves and dug passages are organic,
   ragged outlines (`hewn`), never rectangles.
 - **Doors are drawn in their walls** in art that has closed and open states
@@ -1043,6 +1049,30 @@ These make everything after them cheaper and safer, so they come first.
     viewed level run; viewing another level redraws the canvas.
   - `tests/e2e/stamps.spec.ts` proves them in Foundry. The VFX module
     [14.356] is not used.
+- **[done] Drop shadows** (operator, 2026-10-05). Every standing stamp casts
+  a silhouette of its own picture, darkened, blurred and offset straight
+  away from the scene's sun, beneath the tiles in Foundry's primary group
+  (sort layer 499, at the tile's elevation), so lighting and fog fall over
+  it (`foundry/shadow-layer.ts`). One container per elevation is blurred
+  and faded once: overlapping shadows never darken twice, and a town of
+  hundreds of trees is one blur. Per client; nothing is written.
+  - **How tall a piece stands** (`compose/shadow-cast.ts`): a share of its
+    footprint's shorter side by role and tags (a tree or a building about
+    0.9, a shelf 0.6, a table 0.3, clutter 0.1; a chart's buildings,
+    fittings tagged as buildings, as tall as trees); what lies on the
+    ground casts none (rugs, decals, stairs, bridges, doors, holes, fields,
+    water, conduits). A pack's `shadow` (0–2, null: flat) wins. It is part
+    of the placed behaviour and rides to the tile as its `shadow` flag.
+  - **The sun** (`tools/sun.ts`): a compass azimuth and an elevation in
+    degrees, the scene's `sun` flag. A shadow is as long as the piece
+    stands over the tangent of the elevation (taken no lower than 8°),
+    fades in through 6° of twilight, and is gone while the sun is down.
+    Unset, the cartographer's sun stands high in the north-west (315°,
+    45°). The module API's `setSun(sun, sceneId?)` stands it (null clears
+    it); a game system's calendar drives it from latitude, season and
+    hour. The world setting `dropShadows` turns them off.
+  - Proven in `tests/e2e/shadows.spec.ts` (the shadow beneath the tiles,
+    following the sun, gone at night and with the setting off).
 - **Canvas shake** (`CanvasShakeEffect` [14.355]) is for scripted moments
   such as explosions, not authored scene content. It is last: a region
   behaviour or macro could trigger it if a use appears.

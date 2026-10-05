@@ -308,6 +308,8 @@ describe('CartographyController stamps', () => {
                     elevation: 0,
                     level: null,
                     featureId: 'p1',
+                    // Art its tags name nothing is a fitting, which stands middling tall for its drop shadow.
+                    shadow: 0.4,
                 },
             ],
         ]);

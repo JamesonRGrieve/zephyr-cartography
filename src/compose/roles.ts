@@ -293,13 +293,6 @@ export function composedRole(stamp: CatalogStamp, mapScale: MapScale = 'battlema
     return tagged !== undefined && !suitsScale(tagged, stamp.scale, mapScale) && suitsScale('fitting', stamp.scale, mapScale) ? 'fitting' : tagged;
 }
 
-/**
- * Index `stamps` by role, keeping only those carrying one of `settings` when
- * any are given. Isometric and front art stands as drawn, never turned:
- * turned half round it is upside down. Art seen from above (orthographic, or central
- * one-point perspective) turns like a plan, and a role with any such art
- * uses only that.
- */
 /** What a pack appends to a variant's state for its redraw with no ground painted round the piece. */
 export const NO_GROUND = ', no ground';
 
@@ -322,6 +315,13 @@ export function groundFree(variants: readonly { readonly state: string }[], i: n
     return twin >= 0 ? twin : i;
 }
 
+/**
+ * Index `stamps` by role, keeping only those carrying one of `settings` when
+ * any are given. Isometric and front art stands as drawn, never turned:
+ * turned half round it is upside down. Art seen from above (orthographic, or central
+ * one-point perspective) turns like a plan, and a role with any such art
+ * uses only that.
+ */
 export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly string[], mapScale: MapScale = 'battlemap'): RoleIndex {
     const index = new Map<StampRole, RoleStamp[]>();
     const borrowed = new Map<StampRole, RoleStamp[]>();

@@ -4,12 +4,16 @@ import type { SceneStore } from '../canvas/controller';
 import { MODULE_ID } from '../module-id';
 import { parseFeatures, type Feature } from '../tools/feature';
 import { FLAG_KEY } from '../tools/path';
+import type { Sun } from '../tools/sun';
 import type { FoundryScene } from './boundary';
 
 declare global {
     interface FlagConfig {
-        /** The scene's features, as saved: read back through `parseFeatures`, which drops whatever is malformed. */
-        Scene: { 'zephyr-cartography': { features: readonly Feature[] } };
+        /**
+         * The scene's features, as saved: read back through `parseFeatures`, which drops whatever is malformed; and the sun
+         * its drop shadows fall from, read back through `parseSun`.
+         */
+        Scene: { 'zephyr-cartography': { features: readonly Feature[]; sun?: Sun } };
     }
 }
 
