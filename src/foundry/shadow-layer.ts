@@ -136,11 +136,31 @@ function follow(tile: foundry.canvas.placeables.Tile): void {
         state.sprites.set(id, sprite);
     }
     sprite.texture = texture;
-    sprite.anchor.set(mesh.anchor.x, mesh.anchor.y);
-    sprite.scale.set(mesh.scale.x, mesh.scale.y);
-    sprite.rotation = mesh.rotation;
-    sprite.position.set(mesh.x + shift.x, mesh.y + shift.y);
+    copyPlacement(mesh, sprite, shift);
     sprite.tint = 0x000000;
+}
+
+/** A point PIXI observes, as a shadow reads and sets it. */
+interface SettablePoint {
+    readonly x: number;
+    readonly y: number;
+    readonly set: (x: number, y: number) => void;
+}
+
+/** What a shadow copies of its tile's mesh: PIXI types these members loosely, so they are named here as they are used. */
+interface Placement {
+    readonly anchor: SettablePoint;
+    readonly scale: SettablePoint;
+    readonly position: SettablePoint;
+    rotation: number;
+}
+
+/** Stand `to` where `from` stands, its anchor, scale and turn alike, shifted by `shift`. */
+function copyPlacement(from: Placement, to: Placement, shift: { readonly x: number; readonly y: number }): void {
+    to.anchor.set(from.anchor.x, from.anchor.y);
+    to.scale.set(from.scale.x, from.scale.y);
+    to.rotation = from.rotation;
+    to.position.set(from.position.x + shift.x, from.position.y + shift.y);
 }
 
 /** Every tile's shadow drawn again (the sun moved, the setting changed, the canvas was redrawn). */
