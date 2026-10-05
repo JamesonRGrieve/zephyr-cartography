@@ -15,7 +15,7 @@ import type { StampTransitionKind } from '../stamps/schema';
 import type { AccessKind, Edge } from './intent';
 import { inState } from './named';
 import type { ComposeProblem } from './problems';
-import type { RoleIndex, RoleStamp } from './roles';
+import { carrying, type RoleIndex, type RoleStamp } from './roles';
 
 /** The stamp a way between levels takes, and what choosing it had to report. */
 export interface Flight {
@@ -23,13 +23,21 @@ export interface Flight {
     readonly problems: readonly ComposeProblem[];
 }
 
+/** Tags naming a climb cut in the raw rock (rock-cut steps, a worn ramp, a cave's): never a building's flight while a built one climbs. */
+const NATURAL_CLIMB_TAGS: readonly (readonly string[])[] = [['rock', 'cut'], ['rock', 'ramp'], ['cave']];
+
 /**
- * Every stamp that climbs from the level it stands on. Over a level below
+ * Every stamp that climbs from the level it stands on, built flights before
+ * ones cut in the raw rock. Over a level below
  * (`below`), those that only climb: a way both up and down would open onto
  * the level beneath too; one is taken there only when nothing else climbs.
  */
 function climbers(stamps: RoleIndex, below: boolean): RoleStamp[] {
-    const climbing = (stamps.get('stairs') ?? []).filter((s) => s.climb !== null && s.climb.direction !== 'down');
+    const all = (stamps.get('stairs') ?? []).filter((s) => s.climb !== null && s.climb.direction !== 'down');
+    // A building climbs a built flight; steps cut in the raw rock only where nothing built climbs (a cave names its own).
+    const natural = new Set(carrying(all, NATURAL_CLIMB_TAGS));
+    const built = all.filter((s) => !natural.has(s));
+    const climbing = built.length > 0 ? built : all;
     const onlyUp = climbing.filter((s) => s.climb?.direction === 'up');
     return below && onlyUp.length > 0 ? onlyUp : climbing;
 }

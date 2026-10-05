@@ -303,6 +303,11 @@ export function composedRole(stamp: CatalogStamp, mapScale: MapScale = 'battlema
 /** What a pack appends to a variant's state for its redraw with no ground painted round the piece. */
 export const NO_GROUND = ', no ground';
 
+/** The stamps of `stamps` carrying every word of one of `tags`. */
+export function carrying(stamps: readonly RoleStamp[], tags: readonly (readonly string[])[]): RoleStamp[] {
+    return stamps.filter((s) => tags.some((words) => words.every((w) => s.tags.includes(w))));
+}
+
 /**
  * The variant to draw for variant `i`: its redraw with no ground painted round it (its state with `NO_GROUND`
  * appended) where the pack has one, else itself. Ground painted into a building's art clashes with the map's own

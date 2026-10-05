@@ -54,6 +54,22 @@ describe('flightFor', () => {
         const onlyTwoWay = withAccess(['test:stairs'], () => ({ climb: { kind: 'stairs', direction: 'both' } }));
         expect(flightFor('stairs', onlyTwoWay, seededRandom(1), at('inn', true)).stair?.key).toBe('test:stairs');
     });
+
+    it('climbs a built flight before steps cut in the raw rock, which a building takes only where nothing built climbs (round 50)', () => {
+        const stairs = (TEST_ROLES.get('stairs') ?? []).find((s) => s.key === 'test:stairs');
+        if (!stairs) {
+            throw new Error('the test roles have no stairs');
+        }
+        const rockCut: RoleStamp = { ...stairs, key: 'test:rock-cut-steps', tags: ['rock', 'cut', 'steps', 'stairs'] };
+        const withRock = (keys: readonly string[]): RoleIndex =>
+            new Map([...TEST_ROLES, ['stairs', [rockCut, ...(TEST_ROLES.get('stairs') ?? []).filter((s) => keys.includes(s.key))]]]);
+        // Every seed takes the built staircase while one is loaded.
+        for (const seed of [1, 2, 3, 4, 5]) {
+            expect(flightFor('stairs', withRock(['test:stairs']), seededRandom(seed), at('inn')).stair?.key).toBe('test:stairs');
+        }
+        // With nothing built that climbs, the rock-cut steps serve.
+        expect(flightFor('stairs', withRock([]), seededRandom(1), at('inn')).stair?.key).toBe('test:rock-cut-steps');
+    });
 });
 
 describe('wayDownOver', () => {

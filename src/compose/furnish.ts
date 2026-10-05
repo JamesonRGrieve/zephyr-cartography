@@ -27,7 +27,7 @@ import { DEFAULT_GRIME, WALL_SIDES, type FixtureIntent, type RoomPurpose } from 
 import { FACING_TURN, fittedTo, namedArt, namedBox, type PlacedPiece, runOf, standsAs } from './named';
 import { isPlaceholder } from './placeholders';
 import { isSurfaceRole } from './role-tags';
-import { drawnAs, type RoleIndex, type RoleStamp } from './roles';
+import { carrying, drawnAs, type RoleIndex, type RoleStamp } from './roles';
 
 /** A stamp placed by the composer: its catalog key, footprint centre in squares, and rotation in degrees. */
 export type ComposedStamp = PlacedPiece;
@@ -128,11 +128,6 @@ type Step =
 
 /** Tags naming a bedroom's toilet: a chamber pot. */
 const CHAMBER_POT_TAGS: readonly (readonly string[])[] = [['chamber', 'pot']];
-
-/** The stamps of `stamps` carrying every word of one of `tags`. */
-export function carrying(stamps: readonly RoleStamp[], tags: readonly (readonly string[])[]): RoleStamp[] {
-    return stamps.filter((s) => tags.some((words) => words.every((w) => s.tags.includes(w))));
-}
 
 /** A few long tables with benches, round ones seated all round in the floor they leave: a mix, not a grid of one kind. */
 const COMMON_ROOM: readonly Step[] = [

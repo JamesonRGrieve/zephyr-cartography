@@ -2,10 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import { type ComposedStamp, carrying, doubleBeds, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
+import { type ComposedStamp, doubleBeds, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
 import { type FixtureIntent, ROOM_PURPOSES } from './intent';
 import { withPlaceholders } from './placeholders';
-import type { RoleIndex, RoleStamp } from './roles';
+import { carrying, type RoleIndex, type RoleStamp } from './roles';
 import { TEST_ROLES } from './test-roles';
 
 const byKey = new Map([...TEST_ROLES.values()].flat().map((s) => [s.key, s]));
