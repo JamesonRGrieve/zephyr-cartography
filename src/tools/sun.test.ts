@@ -18,10 +18,11 @@ describe('shadowShift', () => {
         const reach = (elevation: number): number =>
             Math.hypot(shadowShift({ azimuth: 315, elevation }, 10)?.x ?? 0, shadowShift({ azimuth: 315, elevation }, 10)?.y ?? 0);
         expect(reach(45)).toBeCloseTo(10);
-        expect(reach(20)).toBeGreaterThan(reach(45));
+        expect(reach(35)).toBeGreaterThan(reach(45));
         expect(reach(80)).toBeLessThan(2);
-        // A sun barely risen is taken at the lowest elevation, so no shadow runs off the map.
-        expect(reach(1)).toBeCloseTo(reach(8));
+        // A low sun runs no further than twice as far as the piece stands, so the shadow never parts from it.
+        expect(reach(1)).toBeCloseTo(20);
+        expect(reach(20)).toBeCloseTo(20);
     });
 
     it('is none once the sun is down, or for a piece that stands no height', () => {

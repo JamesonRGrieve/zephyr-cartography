@@ -23,8 +23,11 @@ export interface Sun {
  */
 export const DEFAULT_SUN: Sun = { azimuth: 315, elevation: 45 };
 
-/** The lowest elevation a shadow's length is taken at: below it the shadow would run off the map. */
-const LOWEST_ELEVATION = 8;
+/**
+ * The longest a shadow runs, as a multiple of how tall the piece stands: a low sun lengthens it, but a silhouette
+ * shifted further than this parts from the piece that casts it (round 51: shadows floated as dark copies).
+ */
+const LONGEST = 2;
 
 /** How dark a shadow is under a sun well up: the art beneath still reads through it. */
 export const SHADOW_OPACITY = 0.38;
@@ -39,7 +42,7 @@ export function shadowShift(sun: Sun, stands: number): { readonly x: number; rea
     if (sun.elevation <= 0 || stands <= 0) {
         return null;
     }
-    const reach = stands / Math.tan(Math.max(sun.elevation, LOWEST_ELEVATION) * RADIANS);
+    const reach = Math.min(stands / Math.tan(sun.elevation * RADIANS), stands * LONGEST);
     // Toward the sun on the map is (sin az, -cos az) (y grows south); the shadow falls the other way.
     const azimuth = sun.azimuth * RADIANS;
     return { x: -Math.sin(azimuth) * reach, y: Math.cos(azimuth) * reach };

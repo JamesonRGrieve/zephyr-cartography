@@ -1065,7 +1065,9 @@ These make everything after them cheaper and safer, so they come first.
     of the placed behaviour and rides to the tile as its `shadow` flag.
   - **The sun** (`tools/sun.ts`): a compass azimuth and an elevation in
     degrees, the scene's `sun` flag. A shadow is as long as the piece
-    stands over the tangent of the elevation (taken no lower than 8°),
+    stands (0.28 of its standing share, so the silhouette never parts from
+    the piece) over the tangent of the elevation, never more than twice
+    that,
     fades in through 6° of twilight, and is gone while the sun is down.
     Unset, the cartographer's sun stands high in the north-west (315°,
     45°). The module API's `setSun(sun, sceneId?)` stands it (null clears

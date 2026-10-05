@@ -34,6 +34,12 @@ const DEFAULT_GRID = 100;
 /** The blur of a shadow's edge, as a share of a grid square. */
 const SOFTNESS = 0.08;
 
+/**
+ * How far a drawn silhouette is shifted for each unit a piece stands, as a share of its footprint's shorter side:
+ * enough to show the light's side, never so far the shadow parts from the piece (round 51: a full height floated).
+ */
+const DROP = 0.28;
+
 /** The scene flag holding its sun. */
 export const SUN_FLAG = 'sun';
 
@@ -114,7 +120,7 @@ function follow(tile: foundry.canvas.placeables.Tile): void {
     const mesh = tile.mesh;
     const texture = mesh?.texture ?? null;
     const stands = standsOf(tile);
-    const shift = stands === 0 ? null : shadowShift(sceneSun(), stands * Math.min(tile.document.width, tile.document.height));
+    const shift = stands === 0 ? null : shadowShift(sceneSun(), stands * DROP * Math.min(tile.document.width, tile.document.height));
     if (!enabled() || !mesh || !texture || !shift || tile.document.hidden || !tile.visible) {
         forget(state, id);
         return;
