@@ -1097,7 +1097,7 @@ export function composeExterior(
     stamps: RoleIndex,
     random: Random,
     preferences: Preferences,
-    levelOf: (storey: number) => { readonly level?: string } = () => ({}),
+    levelOf: (storey: number) => { readonly level?: string },
 ): { features: FeatureInput[]; problems: ComposeProblem[]; paths: readonly LaidPath[] } {
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];

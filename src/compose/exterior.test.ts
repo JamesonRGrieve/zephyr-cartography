@@ -369,7 +369,7 @@ describe('bridges and yard pieces', () => {
         const site = { key: 'barn', footprint: { x: 8, y: 5, w: 12, h: 8 }, front: null, annexes: [], clear: [], yard: true };
         // No placeholders here: the roles are simply absent.
         const bare: RoleIndex = new Map([...TEST_ROLES].filter(([role]) => !['storage', 'vehicle', 'enclosure', 'fodder'].includes(role)));
-        const { features } = composeExterior(intent, [site], bare, seededRandom(1), NO_PREFERENCES);
+        const { features } = composeExterior(intent, [site], bare, seededRandom(1), NO_PREFERENCES, () => ({}));
         const standing = features.flatMap((f) => (f.type === 'stamp' ? [f.stamp] : []));
         expect(standing.some((s) => ['test:storage', 'test:vehicle', 'test:enclosure'].includes(s))).toBe(false);
         // Its trodden earth still lies round the building.
