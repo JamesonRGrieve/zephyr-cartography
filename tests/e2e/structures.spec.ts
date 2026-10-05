@@ -744,13 +744,17 @@ test('a building’s name is hidden from players until the GM reveals it on the 
     await world.evaluate(async () => {
         await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
-            features: [{ type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 6, y: 6, reads: 'The Antler Inn', readsHidden: true }],
+            features: [
+                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 6, y: 6, reads: 'The Antler Inn', readsHidden: true },
+                // Another building beside it, its name never hidden: a reveal records only its own stamp.
+                { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 10, y: 6, reads: 'The Mill' },
+            ],
         });
     });
     const state = async (): Promise<unknown> =>
         world.evaluate(() => {
-            const note = canvas?.scene?.notes.contents[0];
-            const stamp = (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).find((f) => f.type === 'stamp');
+            const note = canvas?.scene?.notes.contents.find((n) => n.text === 'The Antler Inn');
+            const stamp = (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).find((f) => f.type === 'stamp' && f.reads === 'The Antler Inn');
             return {
                 hidden: note ? foundry.utils.getProperty(note.flags, 'zephyr-cartography.hidden') : null,
                 // The GM always sees it, to find it and reveal it.
@@ -762,7 +766,7 @@ test('a building’s name is hidden from players until the GM reveals it on the 
     // The Note sheet carries the box, checked, and submits it with the sheet.
     const box = async (): Promise<boolean | null> =>
         world.evaluate(async () => {
-            const note = canvas?.scene?.notes.contents[0];
+            const note = canvas?.scene?.notes.contents.find((n) => n.text === 'The Antler Inn');
             if (note === undefined) {
                 return null;
             }
@@ -776,7 +780,80 @@ test('a building’s name is hidden from players until the GM reveals it on the 
     await expect.poll(box).toBe(true);
     // Revealed: the flag clears and the stamp records it, so a re-sync keeps it shown.
     await world.evaluate(async () => {
-        await canvas?.scene?.notes.contents[0]?.setFlag('zephyr-cartography', 'hidden', false);
+        await canvas?.scene?.notes.contents.find((n) => n.text === 'The Antler Inn')?.setFlag('zephyr-cartography', 'hidden', false);
     });
     await expect.poll(state).toEqual({ hidden: false, gmSees: true, recorded: false });
+});
+
+test('a pin hidden from players is revealed and hidden again from its Note, a cleared mark kept, a plain Note’s sheet unticked', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [
+                { type: 'pin', x: 4, y: 4, text: 'The smugglers’ cache', size: 2, hidden: true },
+                // A plain pin beside it: no mark, Foundry's own spot, left alone by the reveal.
+                { type: 'pin', x: 8, y: 4, text: 'Old well' },
+            ],
+        });
+    });
+    const state = async (): Promise<unknown> =>
+        world.evaluate(() => {
+            const note = canvas?.scene?.notes.contents.find((n) => n.text === 'The smugglers’ cache');
+            const pin = (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).find((f) => f.type === 'pin');
+            return {
+                hidden: note ? foundry.utils.getProperty(note.flags, 'zephyr-cartography.hidden') ?? null : 'no note',
+                // A hidden pin that is no sign keeps its icon: only its mark is set, and its spot is sized as asked.
+                readable: note ? foundry.utils.getProperty(note.flags, 'zephyr-cartography.readable') ?? null : 'no note',
+                sized: (note?.iconSize ?? 0) > 0,
+                recorded: pin?.type === 'pin' ? pin.hidden : null,
+            };
+        });
+    await expect.poll(state).toEqual({ hidden: true, readable: null, sized: true, recorded: true });
+    const pinNote = async (act: 'reveal' | 'hide' | 'clear' | 'retext' | 'other-mark'): Promise<void> =>
+        world.evaluate(async (how) => {
+            const note = canvas?.scene?.notes.contents.find((n) => n.text === 'The smugglers’ cache');
+            if (how === 'clear') {
+                await note?.unsetFlag('zephyr-cartography', 'hidden');
+            } else if (how === 'retext') {
+                // A change that touches no flag: the mark stands.
+                await note?.update({ fontSize: 30 });
+            } else if (how === 'other-mark') {
+                // Another of the module's marks changed, not this one: the mark stands.
+                await note?.setFlag('zephyr-cartography', 'readable', true);
+            } else {
+                await note?.setFlag('zephyr-cartography', 'hidden', how === 'hide');
+            }
+        }, act);
+    await pinNote('reveal');
+    await expect.poll(state).toEqual({ hidden: false, readable: null, sized: true, recorded: false });
+    await pinNote('hide');
+    await expect.poll(state).toEqual({ hidden: true, readable: null, sized: true, recorded: true });
+    await pinNote('retext');
+    await pinNote('other-mark');
+    await expect.poll(state).toEqual({ hidden: true, readable: true, sized: true, recorded: true });
+    await world.evaluate(async () => {
+        await canvas?.scene?.notes.contents.find((n) => n.text === 'The smugglers’ cache')?.unsetFlag('zephyr-cartography', 'readable');
+    });
+    // Cleared outright (the mark removed, not set false): shown, and the pin records it.
+    await pinNote('clear');
+    await expect.poll(state).toEqual({ hidden: null, readable: null, sized: true, recorded: false });
+    const plain = await world.evaluate(() => {
+        const note = canvas?.scene?.notes.contents.find((n) => n.text === 'Old well');
+        return note === undefined ? 'no note' : foundry.utils.getProperty(note.flags, 'zephyr-cartography') ?? null;
+    });
+    expect(plain).toBeNull();
+    // A Note the module never made: its sheet carries the box, unticked.
+    const plainBox = await world.evaluate(async () => {
+        const [note] = (await canvas?.scene?.createEmbeddedDocuments('Note', [{ x: 400, y: 400, text: 'A GM’s own note' }])) ?? [];
+        if (note === undefined) {
+            return null;
+        }
+        const sheet = new foundry.applications.sheets.NoteConfig({ document: note });
+        await sheet.render({ force: true });
+        const input = sheet.element.querySelector('input[name="flags.zephyr-cartography.hidden"]');
+        const checked = input instanceof HTMLInputElement ? input.checked : null;
+        await sheet.close();
+        return checked;
+    });
+    expect(plainBox).toBe(false);
 });

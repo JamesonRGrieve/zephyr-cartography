@@ -704,6 +704,12 @@
                     "image": "stamps/crate.svg",
                     "width": 110,
                     "height": 120
+                },
+                {
+                    "state": "default, no ground",
+                    "image": "stamps/crate.svg",
+                    "width": 110,
+                    "height": 120
                 }
             ]
         },
