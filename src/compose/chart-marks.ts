@@ -82,6 +82,7 @@ export function chartMarks(intent: Pick<MapIntent, 'labels' | 'orbits' | 'fixtur
                 fontSize: label.size,
                 colour: label.colour,
                 fontFamily: label.font,
+                ...(label.hidden ? { hidden: true } : {}),
                 ...onLevel,
             }),
         ),

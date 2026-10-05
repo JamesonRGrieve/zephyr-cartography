@@ -9,7 +9,7 @@ describe('chartMarks', () => {
         const marks = chartMarks(
             {
                 orbits: [{ centre: { x: 7, y: 15 }, radius: 12 }],
-                labels: [{ text: 'Dunmarch', at: { x: 20, y: 13 }, size: 40, colour: '#f0e8d0', font: 'Signika' }],
+                labels: [{ text: 'Dunmarch', at: { x: 20, y: 13 }, size: 40, colour: '#f0e8d0', font: 'Signika', hidden: false }],
                 fixtures: [],
             },
             { level: 'ground' },
@@ -20,6 +20,12 @@ describe('chartMarks', () => {
         ]);
         // Faint: a guide, never a ring competing with the worlds on it.
         expect(ORBIT_STROKE.alpha).toBeLessThan(0.5);
+        // A name the party has not learnt is the GM's alone until revealed.
+        const secret = chartMarks(
+            { orbits: [], labels: [{ text: 'The Kingsbarrow', at: { x: 5, y: 5 }, size: 40, colour: '#f0e8d0', font: '', hidden: true }], fixtures: [] },
+            {},
+        );
+        expect(secret).toEqual([expect.objectContaining({ type: 'label', text: 'The Kingsbarrow', hidden: true })]);
     });
 
     it('breaks an orbit round each world standing on it, never across it, and keeps the star at its centre off it', () => {

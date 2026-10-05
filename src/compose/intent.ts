@@ -705,6 +705,10 @@ const mapLabel = z
         size: z.number().int().min(MIN_FONT_SIZE).max(MAX_FONT_SIZE).default(36).describe('Px.'),
         colour: hexColour.default('#2b2118'),
         font: z.string().default('').describe('A font Foundry knows (CONFIG.fontDefinitions); "" for its default.'),
+        hidden: z
+            .boolean()
+            .default(false)
+            .describe('Seen by the GM alone until revealed with the Drawing’s own toggle: a place whose name the party has not learnt.'),
     })
     .strict();
 

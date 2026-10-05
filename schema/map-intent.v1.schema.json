@@ -4465,6 +4465,11 @@
                         "default": "",
                         "description": "A font Foundry knows (CONFIG.fontDefinitions); \"\" for its default.",
                         "type": "string"
+                    },
+                    "hidden": {
+                        "default": false,
+                        "description": "Seen by the GM alone until revealed with the Drawing’s own toggle: a place whose name the party has not learnt.",
+                        "type": "boolean"
                     }
                 },
                 "required": [
