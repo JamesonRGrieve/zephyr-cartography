@@ -182,6 +182,7 @@ test('a two-storey building: native levels, outer walls stacked on the same peri
 test('a roadside inn: its cellar a native level below the scene’s own floor, its guest rooms one above, each joined to the ground, and its storm doors’ way down', async ({
     world,
 }) => {
+    test.setTimeout(ROADSIDE_INN_MS);
     await freshScene(world, 'Roadside inn', { width: 4800, height: 3600, gridSize: 100 });
     // In any setting: the fixture pack's stamps are test art, which belongs to none.
     const outcome = await world.evaluate(
@@ -698,9 +699,17 @@ test('every Map builder preset composes in Foundry into native documents, with n
     }
 });
 
-/** Px per grid square of the preset scenes, and how long composing every preset may take, in ms. */
+/**
+ * Px per grid square of the preset scenes, and how long composing every preset may take, in ms: some 1.7 min until
+ * 2026-10-07, 6 to 10+ min since the build runner's NFS share went synchronous, so 30 min of headroom.
+ */
 const GRID = 100;
-const PRESETS_MS = 600_000;
+const PRESETS_MS = 1_800_000;
+/**
+ * How long composing the roadside inn may take, in ms: three levels written into the world's database, which on the
+ * build runner lives on its NFS share (synchronous since 2026-10-07: some 2.2 min, past the 2 min default).
+ */
+const ROADSIDE_INN_MS = 300_000;
 
 /** The model's endpoint in the assisted test: never a real host, answered where the browser sends to it. */
 const ADVISOR = 'https://advisor.invalid/v1';

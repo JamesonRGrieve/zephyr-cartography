@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Shared "auto-flip" keyed-ratchet state machine.
 //
 // Five ratchets (ts, strict, knip, depcruise, lint) all implement the same

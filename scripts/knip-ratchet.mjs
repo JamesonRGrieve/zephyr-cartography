@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * knip ratchet. Runs `knip --reporter json` and tallies issue counts across:
  *   files, dependencies, devDependencies, unlisted, unresolved, exports, types,

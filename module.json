@@ -36,5 +36,7 @@
     },
     "license": "AGPL-3.0-or-later",
     "url": "https://github.com/JamesonRGrieve/zephyr-cartography",
+    "readme": "https://github.com/JamesonRGrieve/zephyr-cartography#readme",
+    "bugs": "https://github.com/JamesonRGrieve/zephyr-cartography/issues",
     "flags": {}
 }

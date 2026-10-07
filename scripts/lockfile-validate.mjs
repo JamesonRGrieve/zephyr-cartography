@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Supply-chain validator for pnpm-lock.yaml. lockfile-lint upstream doesn't
  * yet handle pnpm locks reliably, so we walk the YAML manually.

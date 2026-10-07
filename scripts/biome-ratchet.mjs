@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Biome diagnostics ratchet. Runs `biome lint src/module/` and compares the
  * total (errors + warnings) count to .biome-warning-baseline. Fails when the
@@ -22,7 +23,7 @@ const args = process.argv.slice(2);
 const updateMode = args.includes('--update');
 
 let biomeOutput;
-const biomeOutputPath = resolve(tmpdir(), `wh40k-biome-${process.pid}.json`);
+const biomeOutputPath = resolve(tmpdir(), `zephyr-cartography-biome-${process.pid}.json`);
 try {
     execSync(`/bin/bash -lc './node_modules/.bin/biome lint src/module/ --reporter=json > "${biomeOutputPath}"'`, {
         encoding: 'utf8',

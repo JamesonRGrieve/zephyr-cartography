@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * TS-error coverage for an arbitrary tsconfig (default: tsconfig.strict.json).
  *

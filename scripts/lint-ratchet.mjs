@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * ESLint warning ratchet with per-rule auto-flip to hard gate.
  *
@@ -50,7 +51,7 @@ function computeCounts() {
     /*  1. Run ESLint over the full app + story + test surface.            */
     /* ------------------------------------------------------------------ */
     let lintOutput;
-    const lintOutputPath = resolve(tmpdir(), `wh40k-eslint-${process.pid}.json`);
+    const lintOutputPath = resolve(tmpdir(), `zephyr-cartography-eslint-${process.pid}.json`);
     try {
         execSync(`/bin/bash -lc './node_modules/.bin/eslint src/ .storybook/ tests/ *.config.ts --ext .ts --format json > "${lintOutputPath}"'`, {
             encoding: 'utf8',

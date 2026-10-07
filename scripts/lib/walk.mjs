@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Shared recursive file enumerator for the build/coverage/ratchet scripts.
 //
 // A single depth-first `readdirSync` walk replaces the ~16 hand-rolled copies

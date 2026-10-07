@@ -230,7 +230,7 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   rendered (`showcase.spec.ts` "review render") and compared with its
   reference, the roadside inn preset included. Only once every map passes
   does the full test suite run. Ship and vehicle interiors (a voidship, the
-  secret-order hell shuttle, a Chimera's cab and troop bay, drawn a third
+  secret-order hell shuttle, an armoured transport's cab and troop bay, drawn a third
   over true size so each trooper has a square) and fantasy layouts (castles
   with `curtains`, forest clearings, dungeons with `secretTo` doors and hewn
   caves) are held to the same bar: their briefs live in the campaign's
@@ -313,7 +313,7 @@ Gemini renders beside each prompt in the campaign's `map-prompts/` and
   (operator, 2026-10-02). A map out of doors (a battlemap with ground) is
   lit by the day: Foundry's global light, shining only while the scene's
   darkness is a day's (`globalLightDarkness` up to `DAYLIGHT_MAX_DARKNESS`,
-  0.6, the wh40k-rpg system's own threshold), so whatever drives the
+  0.6, the companion game system's own threshold), so whatever drives the
   darkness (that system's clock, binding the scene to a celestial body)
   brings day and night. Under a roof the day never shines but through the
   openings: every roofed room keeps the global light out (an Adjust Darkness
@@ -1353,7 +1353,7 @@ or a tavern is. Composition is the layer above them (operator decisions,
     cover; railings, fences and grilles bar movement only; rubble and logs
     are hard going. A piece giving cover but barring nothing is ringed with
     walls restricting nothing, flagged `cover` (0 to 1) under the module's
-    id, which the wh40k-rpg system's auto-cover (#406) counts near the
+    id, which a game system's auto-cover can count near the
     target alongside move-blocking walls.
   - **Hazards** (`hazard`: fire, acid, toxic, radiation, electric, fall;
     tags `burning`, `acid`, `sludge`, `reactor`, `pit` and the like, never

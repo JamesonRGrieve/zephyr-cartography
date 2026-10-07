@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Per-TS-code ratchet over a tsc run. Defaults to tsconfig.strict.json (the
  * "next-tier" strictness flags) — also reusable for tsconfig.test.json (test

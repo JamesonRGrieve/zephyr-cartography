@@ -18,8 +18,8 @@ import type { RoomFeature } from './room';
 
 /**
  * Scene darkness up to which it is day: daylight shines in, and an outdoor
- * scene's global light is on. The wh40k-rpg system's clock turns global light
- * off above the same darkness, so the two agree.
+ * scene's global light is on. A game system whose clock turns global light off
+ * at night uses the same darkness, so the two agree.
  */
 export const DAYLIGHT_MAX_DARKNESS = 0.6;
 
