@@ -1,0 +1,69 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Stamps" />
+
+# Stamps
+
+Stamps are pieces of art from asset packs (see [Asset Packs](?path=/docs/guide-asset-packs--docs)). Each one is placed as a Foundry tile, and the pack can give it behaviour: walls, a light, a door, stairs, a container and more.
+
+## The stamp browser
+
+Choose **Stamps** in Foundry's **Tiles** group. The *Stamps* window opens.
+
+- **Search stamps** filters by name.
+- **Scale** shows only stamps drawn for one scale of map: system, planet, regional, city, exterior or interior.
+- **Perspective** shows only one drawing style: orthographic (seen from straight above), isometric, front or central.
+- The **⟳** button rotates placed stamps by 90° steps.
+- **Settings** ticks narrow the list to one or more settings, such as a genre.
+- **Categories**, on the left, narrow the list to one category, and then to its tags. Active tags show above the grid; click one to remove it, or **Clear tags**.
+
+Click a stamp to see its **variants** (open, lit, broken and so on) on the right.
+
+## Placing stamps
+
+- With the **Stamps** tool active, select a stamp or variant, then **click** the canvas to place it.
+- **Drag** a stamp from the browser onto the canvas.
+- **Double-click** a stamp, or click **Place at view centre**.
+
+Stamps snap to the grid and are placed at full size unless you change the client settings **Snap placed stamps to the grid** and **Stamp scale**. A stamp placed wholly on a table, bar or desk stamp stands on top of it.
+
+A placed stamp keeps a copy of its behaviour, so the scene still works if its pack is later removed.
+
+## Changing placed stamps
+
+- **Move, resize and rotate** a stamp with Foundry's own tile tools. Its walls, lights and regions follow.
+- **Change variant** from the tile's HUD (right-click the tile): stamps with several variants show a button for each.
+- **Delete** a stamp with Foundry's tile tools or the **Erase** tool. Everything it created is removed with it.
+
+## What stamps can bring
+
+What a stamp does depends on its pack. A stamp can:
+
+- **Block sight:** walls along its edge or traced around its shape.
+- **Shine:** a light, which a variant can change or turn off.
+- **Be a door:** a door stamp turns the wall it sits on into a Foundry door, and its art follows the door's state in play. A *switch* stamp is a light switch (see [Rooms Doors and Lighting](?path=/docs/guide-rooms-doors-and-lighting--docs)).
+- **Join levels:** stairs, ladders, lifts and hatches (see [Levels](?path=/docs/guide-levels--docs)).
+- **Hold things:** a container (see below).
+- **Change movement:** a movement cost over its footprint, or a surface tokens stand on.
+- **Warn of a hazard:** fire, acid, toxic, radiation, a live current or a drop. Tokens entering it see a warning.
+- **Be a trap:** hidden from players, over a region that pauses the game the first time a token enters it.
+- **Play sound and particles**, and **cast a shadow** of its own height.
+
+## Containers (Item Piles)
+
+With the [Item Piles](https://foundryvtt.com/packages/item-piles) module active, a container stamp (a chest, a crate, a cabinet) becomes an Item Piles container on its level, which players can open and loot. Its art follows the container: open, empty, closed or locked. Without Item Piles, container stamps are ordinary stamps.
+
+## Interiors
+
+A building stamp can lead into its own interior scene.
+
+1. Right-click the stamp to open its tile HUD, and click **Interior** on the left.
+2. In the *Interior* panel, either **Create an interior scene** (named after the stamp), or pick a scene under **Or link an existing scene** and click **Link scene**.
+
+Linking creates an entrance region over the building and an exit region at the centre of the interior; each takes tokens to the other. Move the exit to the interior's door. Under **Travel** you can choose where tokens arrive, a scene transition and its length, and a prompt shown before travelling.
+
+**Open the interior** goes to the linked scene. **Unlink** removes both regions and keeps the interior scene.
+
+### Floors in the same scene
+
+Instead of a separate scene, a building can have upper floors in its own scene: under **Or floors in this scene**, choose how many and click **Add floors**. The floors are added as levels above the scene's top level and joined to the building with stairs over it. **Remove the stairs** removes only the stairs; remove the floors themselves in the *Levels* panel. Adding floors needs the scene to have at least one level.

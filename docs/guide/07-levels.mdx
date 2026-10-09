@@ -1,0 +1,38 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Levels" />
+
+# Levels
+
+The module builds multi-floor scenes on Foundry's native Levels. Until a scene has a level, everything drawn shows on every level.
+
+## The Levels panel
+
+Click **Levels** in the Cartography group.
+
+- **Add level above** and **Add level below** add a level. A new level is named *Level N*, is four grid squares tall in the scene's distance units, and becomes the level you edit.
+- Click a level's **name** to edit on that level. New features go on the level you are editing, and the map shows the level you are viewing.
+- **All levels** lets you edit on every level at once.
+
+Each level shows how many features it holds, and has:
+
+| Control | What it does |
+| --- | --- |
+| **Level name** | The level's name. |
+| **Floor elevation** / **Ceiling elevation** | The level's height band. The ceiling must be above the floor. |
+| **Background image**, **Foreground image**, **Fog image** | Image paths, with a **…** button to browse. |
+| **Look** | Background colour, tints, alpha thresholds, fit, and the image's anchor, offset, scale and rotation, plus which other levels show through. |
+| **Preload** | Foundry's preload, which loads the level on every player's screen ahead of time. |
+| **Remove level** | Removes the level. It is available only once the level has no features: erase or move them first. |
+
+Changes made in this panel cannot be undone with **Undo**; change them back in the panel. Edits made to the levels in Foundry's own scene configuration show here too.
+
+## Stairs, ladders, lifts and hatches
+
+Stairs, ladder, lift and hatch stamps join their level to the level above, below, or both, with a Foundry *change level* region over the stamp. Tokens that step onto it can move between the levels. The region is named after the kind and the levels it joins, for example *Stairs: Ground → Level 2*. A stamp with no level next to it in that direction joins nothing.
+
+To add upper floors to one building, see *Floors in the same scene* on the [Stamps](?path=/docs/guide-stamps--docs) page.
+
+## Ceilings
+
+A room with a level above it gets a ceiling region, unless its **Ceiling** option is unticked in [Room materials](?path=/docs/guide-rooms-doors-and-lighting--docs).

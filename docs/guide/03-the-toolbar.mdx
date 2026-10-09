@@ -1,0 +1,46 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/The Toolbar" />
+
+# The Toolbar
+
+The module adds one control group of its own, **Cartography**, and adds tools to six of Foundry's own groups, so each tool sits beside the documents it makes.
+
+All tools are used with the mouse. While a module tool is active, the left button belongs to the tool and the right button still pans the canvas. The module adds no keyboard shortcuts.
+
+## The Cartography group
+
+| Tool | What it does |
+| --- | --- |
+| **Road** | Draw a road. Opens the *Roads and rivers* panel. |
+| **Rivers and liquids** | Draw a river of water, lava, poison or acid. Opens the same panel. |
+| **Paint terrain** | Paint ground with a round brush. Opens the *Paint terrain* panel. |
+| **Edit points** | Drag a point to move it, Shift-drag a road or river point to set its width, right-click a point to delete it. |
+| **Erase** | Click a feature to remove it, with everything it created. |
+| **Undo** / **Redo** | Step back or forward through your edits. |
+| **Levels** | Open the *Levels* panel. |
+| **Map builder** | Open the *Map builder*. |
+
+## Tools in Foundry's groups
+
+| Foundry group | Module tools |
+| --- | --- |
+| **Walls** | Room, Doors, Room materials, Edit points, Erase |
+| **Tiles** | Stamps, Erase |
+| **Lighting** | Link light switches |
+| **Regions** | Zone, Area effects, Edit points, Erase |
+| **Notes** | Map pin, Edit points, Erase |
+| **Drawings** | Map label, Edit points, Erase |
+
+Each tool's tooltip says how to use it. The pages that follow describe every tool in turn.
+
+## Undo and redo
+
+**Undo** and **Redo** cover everything you draw, edit, place and erase with the module's tools, up to the last 50 steps. A whole Map builder build counts as one step.
+
+- History lasts only while you stay on the scene. Changing scene or reloading starts a fresh history.
+- Changes made in the *Levels* panel and to scene settings are not undoable. Use the panel to change them back.
+
+## Who can use the tools
+
+The tools are meant for the GM. They create and change scene documents, so a player can only use them as far as their Foundry permissions allow.

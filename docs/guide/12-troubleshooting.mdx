@@ -1,0 +1,42 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Troubleshooting" />
+
+# Troubleshooting
+
+## Messages
+
+| Message | What it means | What to do |
+| --- | --- | --- |
+| *Stamp pack X failed validation (N issues); see the console.* | An installed asset pack's file does not match the pack format, so it was not loaded. | Open the browser console (F12) for the list of problems, and report them to the pack's author. |
+| *Stamp pack X could not be loaded: …* | The pack file could not be fetched, for example *HTTP 404*. | Reinstall or update the pack. Check the pack path in its `module.json`. |
+| *There is no active scene to place a stamp on.* | You tried to place a stamp with no scene open. | Open a scene first. |
+| *Select a stamp in the stamp browser first.* | You clicked with the Stamps tool before choosing a stamp. | Pick a stamp in the browser. |
+| *No Actor has the UUID …* | A line in an area's **Spawn** list names an actor that does not exist. | Copy the actor's UUID again from its sheet. |
+| *The tokens could not be spawned: …* | Foundry refused to create the tokens. | Check the message, and that you can create tokens on this scene. |
+
+## Map builder problems
+
+The Map builder lists problems in its status list instead of a pop-up:
+
+- *The map intent is not valid JSON* or *The scene spec was not built:* followed by what is wrong. Fix the listed fields and build again.
+- *…its stamp is not in any loaded pack.* The spec names a stamp from a pack that is not installed or enabled.
+- *…its level could not be created.* A feature's level could not be added; check the spec's levels.
+- *…its mask is not an 8-bit RGBA or RGB PNG that can be read.* A painted-ground mask image in the spec is in the wrong format.
+- *The model could not be reached, so the map was composed without it.* The AI-assisted endpoint did not answer (see [Settings](?path=/docs/guide-settings--docs)). The map was still built.
+
+## Common questions
+
+**The stamp browser is empty.** No asset pack is enabled in this world. See [Asset Packs](?path=/docs/guide-asset-packs--docs).
+
+**Containers cannot be opened.** Container stamps need the [Item Piles](https://foundryvtt.com/packages/item-piles) module, enabled in the world.
+
+**Undo does nothing after I changed scene.** Undo history lasts only while you stay on one scene.
+
+**A level cannot be removed.** **Remove level** works only once the level has no features. Erase or move them first.
+
+**Stairs do not take tokens anywhere.** Stairs join their level to the next level above or below. Add that level in the *Levels* panel.
+
+## Getting help
+
+Report bugs and ask questions on the [issue tracker](https://github.com/JamesonRGrieve/zephyr-cartography/issues). Include your Foundry version, the module's version, your game system, and any messages from the browser console (F12).

@@ -1,0 +1,39 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Asset Packs" />
+
+# Asset Packs
+
+Zephyr's Cartography ships no art. Stamps, terrain textures, floors and wall materials come from **asset packs**: ordinary Foundry modules that declare a pack file. Install a pack like any module and enable it in your world; the module finds it when the world loads.
+
+## Without a pack
+
+Everything still works, drawn plainly:
+
+- Terrain, floors and roads draw as procedural patterns in each ground's colour.
+- The stamp browser is empty (*0 of 0 stamps*), and **Terrain texture set** has no choices.
+- Rooms offer only *Not drawn* for wall materials.
+- The Map builder places labelled placeholder boxes where it would place stamps.
+
+## Choosing a texture set
+
+A pack can carry one or more texture sets. Pick which one fills terrain, floors and roads with the world setting **Terrain texture set**. Ground with no texture in the chosen set draws its procedural pattern.
+
+## Making a pack
+
+A pack is a Foundry module whose `module.json` points at a pack file under its flags:
+
+```json
+{
+    "id": "my-stamp-pack",
+    "flags": {
+        "zephyr-cartography": { "pack": "zephyr-pack.json" }
+    }
+}
+```
+
+The pack file lists the pack's stamps, each with its art, size, tags and variants, and the behaviour it brings (walls, light, door, stairs, container, hazard and so on), plus any texture sets. Its format is a published JSON Schema: [stamp-pack.v1.schema.json](https://github.com/JamesonRGrieve/zephyr-cartography/blob/main/schema/stamp-pack.v1.schema.json). A pack needs a `schemaVersion` of 1, an `id`, a `name`, a `referenceGridSize` (the grid size its art is drawn for) and its `stamps`; stamp ids must be unique within the pack.
+
+A pack that fails validation is not loaded. Foundry shows a message naming it, and the browser console lists every problem (see [Troubleshooting](?path=/docs/guide-troubleshooting--docs)).
+
+Texture images may be `.ktx2` or `.basis` compressed textures; give those a preview image so they show in the panels.

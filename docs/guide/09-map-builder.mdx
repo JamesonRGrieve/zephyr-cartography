@@ -1,0 +1,67 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Map Builder" />
+
+# Map Builder
+
+Click **Map builder** in the Cartography group. It builds onto the scene you are viewing, adding to what is already there, and the whole build is one **Undo** step.
+
+The window has three sections, and a status list at the bottom that reports what was built and anything that could not be.
+
+## Compose a map
+
+Describe a map and the builder lays it out: grounds, roads, buildings with furnished rooms, and props.
+
+1. Pick a starting point under **Start from**. The presets are: *An inn in a woodland clearing*, *A tavern's rooms*, *A road through the forest*, *A marsh crossing*, *A fortified outpost in a shelled megacity district*, *A megacity chapel and its vestry*, *A factory floor and its workers' quarters*, *A void port landing field* and *A roadside inn, with guest rooms, a cellar and a bridge*.
+2. The preset's description appears in **Map intent (JSON)**. Edit it as you like.
+3. Click **Another layout** for a different arrangement of the same description, and **Compose** to build it.
+
+A map intent sets the map's size and scale, its ground and lighting (day, dim or night), its zones, roads, buildings and props, and the setting tags that choose which stamps are used. Its full format is published as a JSON Schema: [map-intent.v1.schema.json](https://github.com/JamesonRGrieve/zephyr-cartography/blob/main/schema/map-intent.v1.schema.json).
+
+Composing uses the stamps of your installed asset packs. Where no stamp fits, the builder places a labelled placeholder box and lists the problem.
+
+### AI-assisted composing
+
+By default the builder composes by algorithm. You can let a language model help: set **Map builder model: endpoint** and **Map builder model: model** in the module settings (and **Map builder model: key** if the service needs one). **Compose with** then offers *AI-assisted*. The endpoint must be an OpenAI-compatible API served over HTTPS that accepts requests from your Foundry address (CORS). If it cannot be reached, the map is composed without it.
+
+## Floor plan
+
+Generate a building's floor plan from a number.
+
+| Control | What it does |
+| --- | --- |
+| **Seed** | The number the plan is made from. The same seed and sizes always give the same plan. **New seed** picks another. |
+| **Width (squares)** / **Height (squares)** | The building's size, 1 to 200 squares. |
+| **Smallest room** / **Largest room** | The range of room sizes, in squares. |
+| **Entrance** | Whether the building gets an outside door. |
+| **Generate** | Builds the plan, and copies it into the *Scene spec* box for editing. |
+
+The footprint is split into rooms, with a door at every split. Rooms use the materials last chosen in *Room materials*.
+
+## Scene spec
+
+A scene spec is a complete map written as JSON: scene settings, levels, painted ground, and every road, room, stamp, pin, label and zone. Paste one into **Scene spec (JSON)** and click **Build spec**. Positions are in grid squares from the scene's top-left corner unless the spec says pixels.
+
+The format is published as a JSON Schema, so any tool that writes JSON can make maps: [scene-spec.v1.schema.json](https://github.com/JamesonRGrieve/zephyr-cartography/blob/main/schema/scene-spec.v1.schema.json). Stamps are named `"<pack module id>:<stamp id>"`.
+
+## The macro API
+
+Macros and other modules can use the module through `game.modules.get('zephyr-cartography').api`:
+
+| Member | What it does |
+| --- | --- |
+| `buildSpec(spec)` | Builds a scene spec on the viewed scene. Returns `{ ok, report }`, or `{ ok: false, issues }`. |
+| `compose(intent)` | Composes a map intent and builds it. |
+| `generateFloorPlan(options)` | Returns a floor plan as a scene spec. |
+| `spawn(featureId)` | Spawns an area's listed tokens. |
+| `setSun({ azimuth, elevation } \| null, sceneId)` | Sets or clears a scene's sun, for drop shadows. |
+| `exportUvtt({ image, imageGridSize })` | Exports the viewed level in Universal VTT (`.dd2vtt`) format. |
+| `terrainImagesLoading()` | How many terrain images are still loading. |
+| `controller()` | The live editing controller. |
+| `version` | The API's version, currently 1. |
+
+```js
+const api = game.modules.get('zephyr-cartography').api;
+const result = await api.buildSpec(api.generateFloorPlan({ seed: 7, width: 20, height: 14 }));
+if (!result.ok) console.warn(result.issues);
+```

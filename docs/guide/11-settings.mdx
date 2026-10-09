@@ -1,0 +1,20 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Settings" />
+
+# Settings
+
+Open **Game Settings → Configure Settings** and choose **Zephyr's Cartography**. *World* settings apply to everyone and only the GM can change them; *client* settings apply to your own browser.
+
+| Setting | Scope | Default | What it does |
+| --- | --- | --- | --- |
+| **Terrain as Scene Regions** | World | Off | Mirrors each painted area and brush stroke as a Scene Region named after its ground, so region behaviours (difficult terrain, weather and so on) can be attached to it. |
+| **Drop shadows** | World | On | Draws a soft shadow beneath every standing stamp, falling away from the scene's sun. None falls while the sun is down. |
+| **Terrain texture set** | World | The first loaded set | Which asset-pack texture set fills terrain, brush strokes, room floors and roads. |
+| **Snap placed stamps to the grid** | Client | On | Whether stamps you place snap to the grid. |
+| **Stamp scale** | Client | 1 | The size stamps are placed at, from 0.25 to 4. |
+| **Map builder model: endpoint** | World | Empty | The OpenAI-compatible API the Map builder's AI-assisted mode uses, for example `https://gateway.example/v1`. It must be served over HTTPS and allow your Foundry address (CORS). Empty turns the mode off. |
+| **Map builder model: model** | World | Empty | The model name to ask at that endpoint. |
+| **Map builder model: key** | Client | Empty | The API key, if the endpoint needs one. It is kept in your browser only. |
+
+Zone hazard presets are also stored as a world setting, but are managed from the *Zone* panel rather than this window.

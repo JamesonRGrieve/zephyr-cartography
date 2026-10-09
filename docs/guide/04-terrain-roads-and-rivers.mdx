@@ -1,0 +1,64 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Terrain Roads and Rivers" />
+
+# Terrain, Roads and Rivers
+
+## Painting terrain
+
+Choose **Paint terrain** in the Cartography group. The *Paint terrain* panel opens and a ring on the canvas shows the brush's size.
+
+- **Click** to dab, or **drag** to paint a stroke. Releasing the mouse finishes the stroke.
+- The right button only pans the canvas.
+
+Painted ground draws under tiles and tokens, on the floor of the level you are viewing.
+
+### The Paint terrain panel
+
+| Control | What it does |
+| --- | --- |
+| **Brush** | *Paint ground* lays the chosen ground. *Blend* softens the edges between grounds under the brush. *Unblend* restores hard edges. |
+| **Ground** | Thirteen kinds: Water, Grassland, Forest, Sand, Rock, Snow, Dirt, Lava, Marsh, Ice, Ash, Tundra and Ocean. |
+| **Texture** | *The ground's own* uses the active texture set's texture for that ground. Any other texture in the set can be painted instead. *Texture set* appears when more than one set is loaded. |
+| **Brush size (px)** | The brush's radius, 1 to 5000 pixels. |
+| **Movement cost (×)** | In *Paint ground*: how many times the normal movement cost this ground costs, 0 to 5. |
+| **Strength (0.05–1)** | In *Blend* and *Unblend*: how strongly each pass of the brush blends. |
+
+Each blend or unblend drag is one undo step.
+
+### Baking a blend
+
+Blending is drawn live. When a blended area is finished you can bake it into an image, which is faster to draw on large maps:
+
+- **Bake into a tile** writes the blend into a new tile.
+- **Bake into the level's background** writes it into the viewed level's background image. It needs the scene to have levels.
+- **Unbake to edit** turns the baked image back into an editable blend.
+
+### Terrain as regions
+
+With the world setting **Terrain as Scene Regions** on, every painted area and stroke is also mirrored as a Scene Region named after its ground. You can then attach region behaviours, such as difficult terrain or weather, to that ground. See [Settings](?path=/docs/guide-settings--docs).
+
+## Roads and rivers
+
+Choose **Road** or **Rivers and liquids**. The *Roads and rivers* panel opens.
+
+- **Click** to add each point of the path. Points are placed freely, not snapped to the grid.
+- **Right-click** to finish the path. The next click starts a new path with the same settings.
+- A path needs at least two points.
+
+### The Roads and rivers panel
+
+| Control | What it does |
+| --- | --- |
+| **Width (px)** | The path's width, 1 to 5000 pixels. The default is 40. |
+| **Walls** | *None*, or one of Foundry's wall kinds (Solid, Terrain, Invisible, Ethereal, Window) drawn along the path's centre line. |
+| **Liquid** | Rivers only: Water, Lava, Poison or Acid. Picking one resets the shade and bed to that liquid's look. |
+| **Shade** | Rivers only: the liquid's colour. |
+| **Bed** | Rivers only: *No bed*, or a floor material drawn under the liquid. |
+
+Rivers taper at their ends.
+
+## Editing and erasing
+
+- **Edit points:** press near a point and drag to move it. **Shift-drag** a road or river point to set the width there: the width becomes the distance from the point. **Right-click** a point to delete it. A path keeps at least two points and an area at least three.
+- **Erase:** click a feature to remove it, along with every wall, light and region it created.

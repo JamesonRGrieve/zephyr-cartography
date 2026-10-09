@@ -7,11 +7,24 @@
  * and is not bundled; `.storybook/chrome.css` stands in for its window chrome.
  */
 import type { StorybookConfig } from '@storybook/html-vite';
+import remarkGfm from 'remark-gfm';
 
 const config: StorybookConfig = {
-    stories: ['../src/**/*.stories.ts'],
+    // The published Storybook is the module's docs hub (GitHub Pages, see
+    // .github/workflows/docs.yml): the user guide (`docs/guide/*.mdx`, `Guide/…`)
+    // comes first, then the developer docs (`docs/dev/*.mdx`, `Dev/…`) and the
+    // view stories. The stories keep their own titles: their ids name the
+    // screenshot baselines.
+    stories: ['../docs/guide/*.mdx', '../docs/dev/*.mdx', '../src/**/*.stories.ts'],
     staticDirs: [],
-    addons: ['@storybook/addon-a11y'],
+    // MDX compiles CommonMark only; remark-gfm adds the GitHub tables the guide is written in.
+    addons: [
+        '@storybook/addon-a11y',
+        {
+            name: '@storybook/addon-docs',
+            options: { mdxPluginOptions: { mdxCompileOptions: { remarkPlugins: [remarkGfm] } } },
+        },
+    ],
     framework: { name: '@storybook/html-vite', options: {} },
     core: { disableTelemetry: true },
 };

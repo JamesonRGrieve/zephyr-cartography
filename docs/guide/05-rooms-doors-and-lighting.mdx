@@ -1,0 +1,64 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Rooms Doors and Lighting" />
+
+# Rooms, Doors and Lighting
+
+The room tools live in Foundry's **Walls** group.
+
+## Drawing a room
+
+Choose **Room**.
+
+- **Click** each corner. Corners snap to the grid.
+- **Right-click** to finish the room. A room needs at least three corners.
+
+A room gets native walls around its edge and a light at its centre. Rooms that touch share their walls. A new room takes the materials last chosen in the *Room materials* panel.
+
+## Room materials
+
+Choose **Room materials** and click a room to open the panel.
+
+| Control | What it does |
+| --- | --- |
+| **Floor** | The floor: any ground, or a floor material from the active texture set. |
+| **Walls** | *Not drawn*, or a wall material from the texture set, drawn along the walls. |
+| **Wall kind** | Which of Foundry's wall kinds the room's walls are: Solid, Terrain, Invisible, Ethereal or Window. |
+| **Ceiling (when a level is above)** | When the scene has a level above this room's, the room gets a ceiling region named *Ceiling of* that level. Untick for an open courtyard or a shaft. |
+
+Your choice also becomes the default for the next room you draw.
+
+## Doors
+
+Choose **Doors**.
+
+- **Click** a room's wall to put a door there.
+- **Click** an existing door to open the *Door* panel.
+
+| Control | What it does |
+| --- | --- |
+| **Door type** | *Door*, *Secret door*, or *Opening (no door, no wall)*. |
+| **Door state** | *Closed*, *Open* or *Locked*. |
+| **Door sound** | *Foundry default*, or one of Foundry's door sounds. |
+| **Door animation** | *Foundry default*, or Ascend, Descend, Slide, Swing or Swivel. |
+| **Remove door** | Turns the door back into wall. |
+
+Door stamps (see [Stamps](?path=/docs/guide-stamps--docs)) dropped close to a room's wall snap onto it and cut the wall themselves.
+
+## Light switches
+
+A light-switch stamp works as a switch for lamps, rooms and lights.
+
+1. Choose **Link light switches** in Foundry's **Lighting** group.
+2. Click a switch to pick it.
+3. Click each lamp stamp, room or Foundry light it should control. Clicking one again unlinks it. Clicking another switch picks that switch instead.
+
+Link lines show only while the tool is active. In play, a switch is worked like a door, with its own light icon. When it is on, linked lamps change to their lit look, rooms turn their centre light on, and linked Foundry lights appear.
+
+## Daylight
+
+Rooms built by the Map builder, or from a scene spec, can have windows that let in daylight. Each one gets a warm light just outside it, shining into the room, which is on only while the scene is light enough (darkness 0.6 or less).
+
+## Drop shadows
+
+With the **Drop shadows** setting on, standing stamps cast a soft shadow away from the scene's sun. The default sun is high in the north-west. A game system or macro can move it through the module's API (see [Map Builder](?path=/docs/guide-map-builder--docs)). No shadows fall while the sun is down. Shadows are drawn on each player's screen and are not saved in the scene.

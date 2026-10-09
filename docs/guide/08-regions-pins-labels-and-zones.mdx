@@ -1,0 +1,52 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Guide/Regions Pins Labels and Zones" />
+
+# Regions, Pins, Labels and Zones
+
+## Area effects
+
+Choose **Area effects** in Foundry's **Regions** group, and click painted ground, a room or a zone.
+
+| Section | What it does |
+| --- | --- |
+| **Movement cost (×)** | How many times the normal movement cost the area costs, 0 to 5. |
+| **Region** | The area's Foundry region settings: visibility, highlighting, measurements, whether players observe it, *Hidden: GM only, behaviours off*, and whether walls of a chosen kind shape it. |
+| **Region behaviours** | Add Foundry region behaviours with **New behaviour** and **Add behaviour**: Adjust Darkness Level, Suppress Weather, Display Scrolling Text, Pause Game, Execute Macro, Execute Script, Apply Active Effect and Toggle Behavior. **Remove** takes one away. |
+| **Spawn** | Tokens to put into the area. List actors one per line, as a UUID or as a count then a UUID. Choose whether they **Arrive** *At the centre* or *Anywhere inside*, whether to **Snap to the grid** and **Avoid occupied spaces**, then click **Spawn now**. |
+
+## Map pins
+
+Choose **Map pin** in Foundry's **Notes** group.
+
+- **Click** empty canvas to place a pin; its panel opens.
+- **Click** a pin to change it.
+
+The panel sets the pin's text, the journal entry and page it opens, its icon and icon size, and Foundry's *global* option (shown whether or not a token can see it). **Players read it on hover** turns it into a sign: no icon is drawn, and players read its text by hovering.
+
+A pin can be **Hidden from players**: tick or untick this on Foundry's own Note sheet. Players do not see a hidden pin until you untick it.
+
+## Map labels
+
+Choose **Map label** in Foundry's **Drawings** group.
+
+- **Click** to place text on the map, or click a label to change it.
+
+The panel sets the text, font size (8 to 256), colour, font, **Rotation (°)**, and **Hidden from players**.
+
+## Zones
+
+A zone is a region in one of Foundry's shapes, for a blast, an aura or an area hazard.
+
+Choose **Zone** in Foundry's **Regions** group.
+
+- **Click** to place a zone, a circle 150 pixels across, and open its panel.
+- **Click** a zone to reshape it.
+
+The panel sets its name, shape (circle, ellipse, ring, cone, line, rectangle, grid spaces on square grids, or emanation), size, rotation, and whether it follows the grid. **Attached token** makes the zone follow a token on the same level as it moves.
+
+### Hazard presets
+
+Save a zone you have set up as a preset: give it a **Preset name** and click **Save this zone as a preset**. To reuse it, pick it under **Preset** and click **Apply to this zone**. **Forget preset** deletes it. Presets are saved in the world.
+
+Use **Area effects** on a zone to give it a movement cost, behaviours or spawns.

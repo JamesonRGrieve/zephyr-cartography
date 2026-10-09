@@ -8,6 +8,30 @@ const preview: Preview = {
         layout: 'fullscreen',
         // Accessibility violations fail the a11y panel's checks rather than only warning.
         a11y: { test: 'error' },
+        // The user guide leads the sidebar, in reading order; developer docs and stories follow.
+        options: {
+            storySort: {
+                order: [
+                    'Guide',
+                    [
+                        'Introduction',
+                        'Installation',
+                        'The Toolbar',
+                        'Terrain Roads and Rivers',
+                        'Rooms Doors and Lighting',
+                        'Stamps',
+                        'Levels',
+                        'Regions Pins Labels and Zones',
+                        'Map Builder',
+                        'Asset Packs',
+                        'Settings',
+                        'Troubleshooting',
+                    ],
+                    'Dev',
+                    '*',
+                ],
+            },
+        },
     },
 };
 

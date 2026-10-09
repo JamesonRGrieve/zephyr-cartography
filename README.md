@@ -7,10 +7,14 @@ real Foundry documents, so vision, movement and lighting just work.
 It's an open (AGPL) alternative to the paid map tools (FA-Nexus, MapForge,
 Dungeondraft, Inkarnate) and runs entirely inside Foundry.
 
+**Documentation:** the user guide is at
+[jamesonrgrieve.github.io/zephyr-cartography](https://jamesonrgrieve.github.io/zephyr-cartography/).
+
 ## Features
 
-- **Terrain:** 13 biomes as smoothed regions or freehand brush strokes, with
-  soft edges and tiled textures from swappable texture packs.
+- **Terrain:** paint 13 kinds of ground with a round brush, blend their
+  edges, and bake the blend into a tile or a level's background. Tiled
+  textures come from swappable texture packs.
 - **Roads and rivers:** smooth, variable-width paths. Rivers taper at the ends.
   Paths can optionally emit walls along their centreline.
 - **Structures:** grid-snapped rooms with floor and wall materials. Each room
@@ -23,14 +27,16 @@ Dungeondraft, Inkarnate) and runs entirely inside Foundry.
   that cut room walls, and containers backed by Item Piles. Variants (open,
   lit, broken) switch in place.
 - **Levels:** multi-floor scenes on Foundry's native Levels, with per-floor
-  walls and vision, and stairs, ladders, lifts and hatches as teleport regions.
+  walls and vision, and stairs, ladders, lifts and hatches as change-level
+  regions.
 - **Interiors:** an enterable stamp (a building, a residence block) links to its own
   interior scene, new or existing, with an entrance and an exit.
-- **Map builder:** generate a floor plan from a seed, or build any map
-  described as a scene spec (a published JSON Schema), from terrain to stamps
-  and levels. The result is ordinary, editable features, and one undo step.
+- **Map builder:** compose a map from a short description (a map intent),
+  generate a floor plan from a seed, or build any map described as a scene
+  spec (a published JSON Schema), from terrain to stamps and levels. The
+  result is ordinary, editable features, and one undo step.
 - **Editing:** drag control points, set road and river widths per point,
-  delete points, erase, undo/redo, reorder.
+  delete points, erase, undo/redo.
 
 ## Asset packs
 
