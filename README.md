@@ -1,4 +1,4 @@
-# Zephyr Cartography
+# Zephyr's Cartography
 
 Scene authoring for Foundry VTT v14. Paint terrain, draw roads and rivers, and
 build structures directly on the canvas. Walls, doors and lights come out as
@@ -42,8 +42,24 @@ so any tool that writes JSON can generate maps.
 
 ## Install
 
-Add the module to your Foundry `Data/modules` folder (built output in `dist/`),
-then enable it in your world. Requires Foundry VTT v14.
+In Foundry VTT v14, open Add-on Modules → Install Module and paste the manifest
+URL, then enable the module in your world:
+
+```
+https://github.com/JamesonRGrieve/zephyr-cartography/releases/latest/download/module.json
+```
+
+For the rolling build of `main`, use
+`https://github.com/JamesonRGrieve/zephyr-cartography/releases/download/nightly/module.json`.
+
+## Releasing
+
+`.github/workflows/release.yml` publishes every push to `main` as the `nightly`
+prerelease. An official release is a `v<semver>` tag equal to `module.json`'s
+version (bump, commit, tag, push): once the maintainer approves the `release`
+environment it runs the full gate, publishes the GitHub release, and registers
+the version on the Foundry package listing (needs the listing's release token as
+the environment's `FOUNDRY_RELEASE_TOKEN` secret).
 
 ## Development
 
@@ -58,7 +74,7 @@ Contributor rules and architecture live in [CLAUDE.md](CLAUDE.md).
 
 ## Content and licensing
 
-Zephyr Cartography is an independent, unofficial tool. It is not affiliated
+Zephyr's Cartography is an independent, unofficial tool. It is not affiliated
 with, endorsed by, sponsored by or licensed by any game publisher, studio or
 other rights holder, and makes no claim of association with any of them.
 

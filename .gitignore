@@ -21,3 +21,7 @@ test-results/
 .strict-coverage.json
 .test-typecheck-coverage.json
 .husky/_logs/
+
+# Release staging and the packaged zip (.github/workflows/release.yml); never committed.
+release/
+zephyr-cartography.zip
