@@ -34,6 +34,22 @@ describe('pre-placed tokens', () => {
         expect(c.featureForToken('nope')).toBeNull();
     });
 
+    it('report each one whose actor is not in the world, keeping its feature to place on a later build', async () => {
+        const { c, d } = makeHarness();
+        d.missingActors = ['Actor.innkeep'];
+        const report = await realizeSpec(c, spec({ features: [guard, { ...guard, x: 4.5 }, { type: 'token', x: 0.5, y: 0.5, actor: 'Actor.innkeep' }] }), {
+            origin: { x: 0, y: 0 },
+            gridSize: GRID,
+        });
+        expect(report.problems).toEqual([{ index: 2, problem: 'token', actor: 'Actor.innkeep' }]);
+        expect(report.features).toHaveLength(3);
+        // Asked once, the controller's list is cleared: a later build reports only its own.
+        expect(c.takeUnplacedTokens()).toEqual([]);
+        d.missingActors = [];
+        const again = await realizeSpec(c, spec({ features: [guard] }), { origin: { x: 0, y: 0 }, gridSize: GRID });
+        expect(again.problems).toEqual([]);
+    });
+
     it('are erased with their Token, and undo brings both back', async () => {
         const { c, d } = makeHarness();
         const { features } = await realizeSpec(c, spec({ features: [guard] }), { origin: { x: 0, y: 0 }, gridSize: GRID });

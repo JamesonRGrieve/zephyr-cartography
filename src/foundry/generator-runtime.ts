@@ -79,7 +79,7 @@ function reportLines(report: RealizeReport): string[] {
     const problems = I18N.generator.problems;
     return [
         format(I18N.generator.built, { count: String(report.features.length) }),
-        ...report.problems.map((p) => format(problems[p.problem], { index: String(p.index) })),
+        ...report.problems.map((p) => format(problems[p.problem], { index: String(p.index), actor: p.problem === 'token' ? p.actor : '' })),
     ];
 }
 

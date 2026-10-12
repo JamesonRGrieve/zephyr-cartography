@@ -55,7 +55,7 @@ A map can be populated: a spec's `token` features, or a map intent's `tokens`, p
 - A compendium's actor is brought into the world the first time a token names it, and every later token of it uses that one world actor.
 - The tokens are real Foundry tokens. Moving, raising, hiding or revealing one in play is kept: rebuilding or editing the map never puts it back.
 - **Erase** and **Undo** remove and restore them with the rest of the map, and deleting one with Foundry's own tools removes it from the map.
-- A UUID that names no actor places no token, with a warning.
+- A UUID that names no actor places no token. The build reports it among its problems, with the feature's index and the UUID (`{ index, problem: "token", actor }` from `buildSpec` and `compose`). The feature stays, and the token is placed by the next build or edit once the actor is in the world.
 
 ## The macro API
 

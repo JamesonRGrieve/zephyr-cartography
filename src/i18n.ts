@@ -102,6 +102,7 @@ export const I18N = {
             interior: key('Generator.Problems.Interior'),
             switch: key('Generator.Problems.Switch'),
             splat: key('Generator.Problems.Splat'),
+            token: key('Generator.Problems.Token'),
         },
     },
     levels: {

@@ -90,7 +90,8 @@
                 "Stamp": "features.{index}: skipped, its stamp is not in any loaded pack.",
                 "Interior": "features.{index}: placed, but its interior could not be linked.",
                 "Switch": "features.{index}: placed, but it is not a light switch, or something it controls is not a lamp, a room or a light.",
-                "Splat": "splats.{index}: skipped, its mask is not an 8-bit RGBA or RGB PNG that can be read."
+                "Splat": "splats.{index}: skipped, its mask is not an 8-bit RGBA or RGB PNG that can be read.",
+                "Token": "features.{index}: no token placed, its actor {actor} is not in this world. It is placed on the next build once the actor is."
             }
         },
         "Paint": {

@@ -37,7 +37,12 @@ export interface RealizeOptions {
 }
 
 /** What could not be built; `splat` is indexed in the spec's splats, the rest in its features. */
-type RealizeProblem = 'level' | 'stamp' | 'interior' | 'switch' | 'splat';
+type RealizeProblem = 'level' | 'stamp' | 'interior' | 'switch' | 'splat' | 'token';
+
+/** One spec entry that could not be built in full: by its index, what went wrong, and for a token the actor not found. */
+type RealizeIssue =
+    | { readonly index: number; readonly problem: Exclude<RealizeProblem, 'token'> }
+    | { readonly index: number; readonly problem: 'token'; readonly actor: string };
 
 export interface RealizeReport {
     /** Ids of the features built, in spec order. */
@@ -45,7 +50,8 @@ export interface RealizeReport {
     /** Spec level key → the scene level created for it. */
     readonly levels: Readonly<Record<string, string>>;
     /** Spec features that could not be built in full, by index. */
-    readonly problems: readonly { readonly index: number; readonly problem: RealizeProblem }[];
+    /** Spec features (or splats) that could not be built in full, by index; a token's names the actor not in the world. */
+    readonly problems: readonly RealizeIssue[];
 }
 
 /** A spec's coordinate and length transforms into scene px. */
@@ -243,8 +249,10 @@ export async function realizeSpec(controller: CartographyController, spec: Scene
     const keyed: Record<string, string> = {};
     /** Spec feature index → the feature built for it. */
     const builtAt: Record<number, string> = {};
-    const problems: { index: number; problem: RealizeProblem }[] = [];
+    const problems: RealizeIssue[] = [];
     const editing = controller.activeLevel;
+    // Only this build's unplaced tokens are its problems.
+    controller.takeUnplacedTokens();
 
     if (spec.scene) {
         await controller.setSceneSettings(spec.scene);
@@ -347,6 +355,16 @@ export async function realizeSpec(controller: CartographyController, spec: Scene
                 problems.push({ index, problem: 'switch' });
             }
         }, Promise.resolve());
+    });
+
+    // Tokens whose actors are not in the world: reported, never skipped in silence; their features stay to be placed later.
+    const unplaced = new Set(controller.takeUnplacedTokens());
+    spec.features.forEach((f, index) => {
+        const id = builtAt[index];
+        const tokens = id === undefined ? [] : controller.getFeature(id)?.docs.tokens ?? [];
+        if (f.type === 'token' && tokens.some((t) => unplaced.has(t))) {
+            problems.push({ index, problem: 'token', actor: f.actor });
+        }
     });
 
     controller.setActiveLevel(editing);

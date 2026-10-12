@@ -260,7 +260,12 @@ export interface DocumentSink {
     /** A fresh id for a document of `kind` about to be created. */
     newId: (kind: DocumentKind) => string;
     /** Delete, create and update everything in `write`, in one transaction: all of it lands, or none. */
-    write: (write: StagedWrite) => Promise<void>;
+    write: (write: StagedWrite) => Promise<WriteResult>;
+}
+
+/** What a write left undone that its features own: the Tokens it could not place, their actors not in the world. */
+export interface WriteResult {
+    readonly unplacedTokens: readonly string[];
 }
 
 export type Brush =
@@ -336,6 +341,8 @@ export class CartographyController {
     private readonly staged: StagedChanges;
     /** Depth of nested transactions; only the outermost one writes. */
     private writing = 0;
+    /** Ids of Tokens the sink could not place since last asked (`takeUnplacedTokens`). */
+    private unplaced: string[] = [];
     /** Settles when the transaction under way ends: what an independent operation waits for before starting its own. */
     private settled: Promise<void> = Promise.resolve();
     /** The features changed inside the transaction under way, to be saved as it ends. */
@@ -1042,6 +1049,17 @@ export class CartographyController {
         return this.features.find((f) => f.docs.tiles.includes(tileId))?.id ?? null;
     }
 
+    /**
+     * The ids of the Tokens the sink could not place, their actors not in the
+     * world, since this was last asked; asking clears them. Their features keep
+     * them, so a later re-sync places them once their actors exist.
+     */
+    takeUnplacedTokens(): string[] {
+        const ids = this.unplaced;
+        this.unplaced = [];
+        return ids;
+    }
+
     /** The id of the token feature whose Token `tokenId` is; null when it is no feature's. */
     featureForToken(tokenId: string): string | null {
         return this.features.find((f) => f.docs.tokens.includes(tokenId))?.id ?? null;
@@ -1720,7 +1738,8 @@ export class CartographyController {
                 await this.store.save(this.features);
             }
             if (!this.staged.empty) {
-                await this.sink.write(this.staged.take());
+                const { unplacedTokens } = await this.sink.write(this.staged.take());
+                this.unplaced.push(...unplacedTokens);
             }
             return result;
         } catch (error) {

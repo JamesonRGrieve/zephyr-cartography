@@ -25,6 +25,7 @@ import {
     type SplatStore,
     type TileUpdate,
     type WorldScenes,
+    type WriteResult,
 } from './controller';
 import type { FeatureRenderer } from './renderer';
 import type { DocumentKind, Staged, StagedWrite } from './staged-changes';
@@ -92,6 +93,8 @@ class FakeSink implements DocumentSink {
     readonly deleted: GeneratedDocs[] = [];
     /** Reject every write, as Foundry rejects a batch it cannot apply. */
     rejecting = false;
+    /** Actors not in the world: tokens of them are reported unplaced. */
+    missingActors: string[] = [];
     private readonly counters: Record<DocumentKind, number> = { walls: 0, lights: 0, tiles: 0, regions: 0, sounds: 0, notes: 0, drawings: 0, tokens: 0 };
 
     newId(kind: DocumentKind): string {
@@ -100,7 +103,7 @@ class FakeSink implements DocumentSink {
         return id;
     }
 
-    async write(write: StagedWrite): Promise<void> {
+    async write(write: StagedWrite): Promise<WriteResult> {
         if (this.rejecting) {
             throw new Error('batch rejected');
         }
@@ -136,6 +139,9 @@ class FakeSink implements DocumentSink {
         record(this.wallWrites, [...write.walls, ...write.wallUpdates]);
         record(this.regionUpdates, write.regionUpdates);
         await Promise.resolve();
+        // A token whose actor is not in the world is never placed: the real sink reports it.
+        const unplacedTokens = [...write.tokens, ...write.tokenUpdates].filter(({ doc }) => this.missingActors.includes(doc.actor)).map(({ id }) => id);
+        return { unplacedTokens };
     }
     /** Every id deleted so far, flattened across document types. */
     deletedIds(): string[] {

@@ -241,10 +241,10 @@ describe('FoundryDocumentSink', () => {
         expect(orphaned).not.toHaveProperty('attachment');
     });
 
-    it('makes tokens one at a time, leaving out one whose actor is gone, and moves a live one by its centre', async () => {
+    it('makes tokens one at a time, reports those whose actor is gone, places one not yet placed, and moves a live one', async () => {
         const target = scene(['T9']);
         const { sink: s, batches, resolved } = sink(target);
-        await s.write({
+        const result = await s.write({
             ...NOTHING,
             tokens: [
                 { id: 'T1', doc: TOKEN },
@@ -253,10 +253,13 @@ describe('FoundryDocumentSink', () => {
             ],
             tokenUpdates: [
                 { id: 'T9', doc: TOKEN },
-                { id: 'T-deleted-by-hand', doc: TOKEN },
+                // Not placed when last written (its actor was missing then); now it is in the world.
+                { id: 'T-unplaced', doc: TOKEN },
+                { id: 'T-still-missing', doc: { ...TOKEN, actor: 'Actor.gone' } },
             ],
         });
-        expect(resolved).toEqual(['T1', 'T2', 'T3']);
+        expect(resolved).toEqual(['T1', 'T2', 'T3', 'T-unplaced', 'T-still-missing']);
+        expect(result).toEqual({ unplacedTokens: ['T2', 'T-still-missing'] });
         expect(batches[0]).toEqual([
             {
                 action: 'create',
@@ -266,6 +269,7 @@ describe('FoundryDocumentSink', () => {
                 data: [
                     { _id: 'T1', actorId: 'Actor.a', x: 250, y: 250 },
                     { _id: 'T3', actorId: 'Actor.a', x: 250, y: 250 },
+                    { _id: 'T-unplaced', actorId: 'Actor.a', x: 250, y: 250 },
                 ],
             },
             // The live token stands 1×1: its top-left is half a square up and left of the planned centre.

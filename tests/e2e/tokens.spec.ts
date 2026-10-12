@@ -88,3 +88,21 @@ test('a spec’s tokens are Tokens of world and compendium actors, the compendiu
         .poll(async () => world.evaluate<number>(`canvas.scene.getFlag('zephyr-cartography', 'features').filter((f) => f.type === 'token').length`))
         .toBe(2);
 });
+
+test('a spec’s token whose actor is not in the world is reported by index and actor, and nothing is placed for it', async ({ world }) => {
+    const guard = await world.evaluate<string>(`Actor.create({ name: 'Gate guard', type: 'npc' }).then((a) => a.uuid)`);
+    const missing = 'Actor.notInThisWorld0';
+    const outcome = await world.evaluate<{ ok: boolean; features: number; problems: unknown[] }>(`(async () => {
+        const outcome = await game.modules.get('zephyr-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [
+                { type: 'token', x: 2.5, y: 2.5, actor: ${JSON.stringify(guard)} },
+                { type: 'token', x: 5.5, y: 2.5, actor: ${JSON.stringify(missing)} },
+            ],
+        });
+        return outcome.ok ? { ok: true, features: outcome.report.features.length, problems: outcome.report.problems } : { ok: false, features: 0, problems: [] };
+    })()`);
+    // Its feature stays, to be placed by a later build once the actor exists.
+    expect(outcome).toEqual({ ok: true, features: 2, problems: [{ index: 1, problem: 'token', actor: missing }] });
+    await expect.poll(async () => world.evaluate<string[]>('canvas.scene.tokens.contents.map((t) => t.name)')).toEqual(['Gate guard']);
+});
