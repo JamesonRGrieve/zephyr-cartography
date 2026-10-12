@@ -254,8 +254,8 @@ export async function realizeSpec(controller: CartographyController, spec: Scene
     // Only this build's unplaced tokens are its problems.
     controller.takeUnplacedTokens();
 
-    if (spec.scene) {
-        await controller.setSceneSettings(spec.scene);
+    if (spec.scene ?? spec.sceneFlags) {
+        await controller.setSceneSettings({ ...spec.scene, ...(spec.sceneFlags === undefined ? {} : { flags: spec.sceneFlags }) });
     }
     await controller.batch(async () => {
         // A level may take the scene's own lowest floor rather than stacking a new one: those listed after it stack above,

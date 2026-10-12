@@ -376,6 +376,13 @@ describe('composeMap', () => {
         ]);
     });
 
+    it('carries a map’s scene flags to its spec untouched, and none when it has none', () => {
+        const sceneFlags = { 'wh40k-rpg': { vault: { path: 'Locations/Inn.md', entityType: 'location' } } };
+        expect(compose(intentOf({ ...INN_IN_THE_WOODS, sceneFlags })).spec.sceneFlags).toEqual(sceneFlags);
+        expect(compose(INN_IN_THE_WOODS).spec.sceneFlags).toBeUndefined();
+        expect(parseMapIntent({ schemaVersion: 1, sceneFlags: { 'zephyr-cartography': { x: 1 } } }).ok).toBe(false);
+    });
+
     it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {
         const { spec } = compose({ ...INN_IN_THE_WOODS, lighting: 'night' });
         // Out of doors: dark past the day's darkness, the global light waiting on the day.

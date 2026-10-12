@@ -73,7 +73,18 @@ export function createWorldScenes(options: WorldScenesOptions): WorldScenes {
             }
         },
         updateSettings: async (settings) => {
-            await activeScene()?.update(sceneSettingsData(settings));
+            const scene = activeScene();
+            if (!scene) {
+                return;
+            }
+            const data = sceneSettingsData(settings);
+            if (Object.keys(data).length > 0) {
+                await scene.update(data);
+            }
+            // Flags go key by key: Foundry merges each into the scene's own (other scopes and keys stay), and refuses a scope
+            // that is no live package's.
+            const flags = Object.entries(settings.flags ?? {}).flatMap(([scope, keys]) => Object.entries(keys).map(([key, value]) => ({ scope, key, value })));
+            await Promise.all(flags.map(async ({ scope, key, value }) => scene.setFlag(scope, key, value)));
         },
         deleteRegion: async (sceneId, regionId) => {
             const scene = worldScene(sceneId);

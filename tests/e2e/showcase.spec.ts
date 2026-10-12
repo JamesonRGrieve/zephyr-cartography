@@ -205,7 +205,10 @@ const REVIEW_MARGIN = 4;
 for (const file of REVIEW_INTENTS) {
     test(`review render: ${file}`, async ({ world }) => {
         test.skip(OUT_DIR === undefined, 'SHOWCASE_OUT names no directory to write the renders to');
-        const parsed = parseMapIntent(JSON.parse(readFileSync(join(INTENTS_DIR ?? '', file), 'utf8')));
+        // The file's own JSON goes to the module, as a macro would pass it (as text: its flags' JSON type is too deep for
+        // Playwright's argument typing); the parse here is for its size.
+        const text = readFileSync(join(INTENTS_DIR ?? '', file), 'utf8');
+        const parsed = parseMapIntent(JSON.parse(text));
         if (!parsed.ok) {
             throw new Error(`${file}: ${JSON.stringify(parsed.issues)}`);
         }
@@ -215,12 +218,12 @@ for (const file of REVIEW_INTENTS) {
         await freshScene(world, shot, size);
         await usePaintedSet(world);
         const problems = await world.evaluate(async (given) => {
-            const composed = await game.modules?.get('zephyr-cartography').api.compose(given);
+            const composed = await game.modules?.get('zephyr-cartography').api.compose(JSON.parse(given));
             if (!composed) {
                 return ['no module API'];
             }
             return composed.ok ? [...composed.report.problems, ...composed.problems].map((p) => JSON.stringify(p)) : composed.issues.map((i) => i.message);
-        }, intent);
+        }, text);
         mkdirSync(OUT_DIR ?? '', { recursive: true });
         writeFileSync(join(OUT_DIR ?? '', `${shot}.problems.json`), `${JSON.stringify(problems, null, 2)}\n`);
         const levels = await world.evaluate(() => (canvas?.scene?.levels.contents ?? []).map((l) => l.name));

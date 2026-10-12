@@ -44,6 +44,17 @@ A scene spec is a complete map written as JSON: scene settings, levels, painted 
 
 The format is published as a JSON Schema, so any tool that writes JSON can make maps: [scene-spec.v1.schema.json](https://github.com/JamesonRGrieve/zephyr-cartography/blob/main/schema/scene-spec.v1.schema.json). Stamps are named `"<pack module id>:<stamp id>"`.
 
+### Scene flags
+
+A spec or a map intent can mark the scene it builds for other modules and systems with `sceneFlags`, scope by scope. A game system can then find the scene by the place it records:
+
+```json
+{ "sceneFlags": { "my-system": { "location": { "path": "Locations/The Ship.md" } } } }
+```
+
+- Each key is merged onto the scene's flags. Every other scope, and every other key in the same scope, stays as it was.
+- The module never reads these flags. The scope must be an active package's (a system, a module, `world` or `core`), and never this module's own scope (`zephyr-cartography`), which holds the map's features.
+
 ## Pre-placed tokens
 
 A map can be populated: a spec's `token` features, or a map intent's `tokens`, place the people and creatures that belong there. Each names its actor by UUID, a world actor (`Actor.<id>`) or a compendium's (`Compendium.<pack>.Actor.<id>`), and may set its name, size in grid squares, disposition (friendly, neutral, hostile or secret) and whether it starts hidden; anything left out comes from the actor's prototype token. In a map intent each token also names its `storey`.

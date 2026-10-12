@@ -4596,10 +4596,61 @@
                 ],
                 "additionalProperties": false
             }
+        },
+        "sceneFlags": {
+            "type": "object",
+            "propertyNames": {
+                "type": "string",
+                "minLength": 1
+            },
+            "additionalProperties": {
+                "type": "object",
+                "propertyNames": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "additionalProperties": {
+                    "$ref": "#/$defs/__schema0"
+                }
+            },
+            "description": "Flags merged onto the scene a build is made on, `{ scope: { key: value } }`, for other modules and systems to find it by (a game system's record of the place it is). The engine never reads them; other scopes and keys already on the scene stay. Never this module's own scope."
         }
     },
     "required": [
         "schemaVersion"
     ],
-    "additionalProperties": false
+    "additionalProperties": false,
+    "$defs": {
+        "__schema0": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "boolean"
+                },
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/__schema0"
+                    }
+                },
+                {
+                    "type": "object",
+                    "propertyNames": {
+                        "type": "string"
+                    },
+                    "additionalProperties": {
+                        "$ref": "#/$defs/__schema0"
+                    }
+                }
+            ]
+        }
+    }
 }

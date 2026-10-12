@@ -75,6 +75,17 @@ describe('parseSceneSpec', () => {
         expect(parseSceneSpec({ schemaVersion: 1, features: [{ type: 'token', x: 1, y: 2, actor: 'Actor.a', size: 0 }] }).ok).toBe(false);
     });
 
+    it('takes scene flags of any JSON, scope by scope, and refuses this module’s own scope', () => {
+        const sceneFlags = { 'wh40k-rpg': { vault: { path: 'Locations/Ship.md', tags: ['ship', 2], private: false, none: null } } };
+        const parsed = parseSceneSpec({ schemaVersion: 1, sceneFlags, features: [] });
+        expect(parsed.ok && parsed.spec.sceneFlags).toEqual(sceneFlags);
+        const own = parseSceneSpec({ schemaVersion: 1, sceneFlags: { 'zephyr-cartography': { features: [] } }, features: [] });
+        expect(own.ok).toBe(false);
+        expect(own.ok ? [] : own.issues.map((i) => i.path)).toEqual(['sceneFlags']);
+        // A scope holds keys, never a bare value.
+        expect(parseSceneSpec({ schemaVersion: 1, sceneFlags: { 'wh40k-rpg': 3 }, features: [] }).ok).toBe(false);
+    });
+
     it('reports schema violations with their paths', () => {
         const result = parseSceneSpec({ schemaVersion: 1, features: [{ type: 'region', biome: 'quicksand', points: square }] });
         expect(result.ok ? null : result.issues[0]?.path).toBe('features.0.biome');

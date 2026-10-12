@@ -1085,7 +1085,14 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
         ...tokenFeatures(intent, levelOf),
     ]);
     return {
-        spec: { schemaVersion: SCENE_SPEC_SCHEMA_VERSION, units: 'grid', levels, features, ...(scene === null ? {} : { scene }) },
+        spec: {
+            schemaVersion: SCENE_SPEC_SCHEMA_VERSION,
+            units: 'grid',
+            levels,
+            features,
+            ...(scene === null ? {} : { scene }),
+            ...(intent.sceneFlags === undefined ? {} : { sceneFlags: intent.sceneFlags }),
+        },
         problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems), ...platforms.problems]),
     };
 }

@@ -215,6 +215,14 @@ describe('realizeSpec', () => {
         expect(h.w.settings).toEqual([scene]);
     });
 
+    it('merges a spec’s scene flags onto the scene with its settings, or alone', async () => {
+        const h = makeHarness();
+        const sceneFlags = { 'wh40k-rpg': { vault: { path: 'Locations/Ship.md' } } };
+        await realizeSpec(h.c, spec({ scene: { darkness: 0.5 }, sceneFlags, features: [] }), { origin: ORIGIN, gridSize: GRID });
+        await realizeSpec(h.c, spec({ sceneFlags, features: [] }), { origin: ORIGIN, gridSize: GRID });
+        expect(h.w.settings).toEqual([{ darkness: 0.5, flags: sceneFlags }, { flags: sceneFlags }]);
+    });
+
     it('takes the scene’s own lowest floor as an existing level, stacking those after it above and those before it below', async () => {
         const h = makeHarness();
         const own = await h.c.addLevel('above', 'Level 1');

@@ -12,6 +12,7 @@
  * this file. Changes to v1 are additive only.
  */
 import { z } from 'zod';
+import { MODULE_ID } from '../module-id';
 import {
     DARKNESS_MODES,
     DEFAULT_AREA_DISPLAY,
@@ -594,6 +595,14 @@ const sceneSettingsSpec = z
     .strict()
     .describe("The scene's own settings, as its config's Basics, Lighting and Ambience tabs set them; only those given change.");
 
+/** Flags a build merges onto its scene, scope by scope, for other modules and systems to find it by. */
+export const sceneFlagsSpec = z
+    .record(text, z.record(text, z.json()))
+    .refine((flags) => !Object.hasOwn(flags, MODULE_ID), { message: `the ${MODULE_ID} scope is this module's own: it holds the scene's features` })
+    .describe(
+        "Flags merged onto the scene a build is made on, `{ scope: { key: value } }`, for other modules and systems to find it by (a game system's record of the place it is). The engine never reads them; other scopes and keys already on the scene stay. Never this module's own scope.",
+    );
+
 const splatSpec = z
     .object({
         level,
@@ -613,6 +622,7 @@ export const sceneSpecSchema = z
         schemaVersion: z.literal(SCENE_SPEC_SCHEMA_VERSION),
         units: z.enum(['grid', 'px']).default('grid').describe('Unit of every coordinate, width and radius: grid squares, or scene pixels.'),
         scene: sceneSettingsSpec.optional(),
+        sceneFlags: sceneFlagsSpec.optional(),
         levels: z
             .array(levelSpec)
             .default([])

@@ -12,7 +12,7 @@
  */
 import { z } from 'zod';
 import { ROOM_CORNERS } from '../generate/floor-plan';
-import type { SpecIssue } from '../generate/spec';
+import { sceneFlagsSpec, type SpecIssue } from '../generate/spec';
 import { STAMP_ROLES } from '../stamps/schema';
 import { BIOMES } from '../tools/biome';
 import { DOOR_ANIMATIONS } from '../tools/documents';
@@ -896,6 +896,7 @@ export const mapIntentSchema = z
         labels: z.array(mapLabel).default([]).describe('Names written on the map, over its art.'),
         tokens: z.array(mapToken).default([]).describe('Tokens placed on the map: the people and creatures it is populated with.'),
         orbits: z.array(orbit).default([]).describe('Rings drawn round a star through the worlds that circle it.'),
+        sceneFlags: sceneFlagsSpec.optional(),
     })
     .strict()
     .superRefine((intent, ctx) => {

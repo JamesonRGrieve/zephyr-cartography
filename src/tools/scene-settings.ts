@@ -31,6 +31,12 @@ export interface Environment {
     readonly shadows?: number | undefined;
 }
 
+/** A JSON value, as a flag holds one. */
+type JsonValue = string | number | boolean | null | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+
+/** Flags for other modules and systems, scope by scope: `{ scope: { key: value } }`. The engine never reads them. */
+type SceneFlags = Readonly<Record<string, Readonly<Record<string, JsonValue>>>>;
+
 /** Each setting left out, or undefined (as a parsed spec gives it), stays as the GM left it. */
 export interface SceneSettings {
     /** Scene darkness, 0 (day) to 1 (night). */
@@ -53,6 +59,8 @@ export interface SceneSettings {
     readonly weather?: string | undefined;
     /** The transition shown on entering the scene: a Foundry transition type (null: none) and its length in ms. */
     readonly transition?: { readonly type: string | null; readonly duration?: number | undefined } | undefined;
+    /** Flags merged onto the scene: each scope's keys set, every other scope and key on it left as it is. */
+    readonly flags?: SceneFlags | undefined;
 }
 
 /** Whether `settings` changes anything. */

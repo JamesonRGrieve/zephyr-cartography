@@ -165,6 +165,22 @@ test('a spec sets the scene’s own darkness, fog, vision, weather and transitio
     expect(scene).toEqual({ darkness: 0.75, lock: true, globalLight: true, tokenVision: false, fog: 2, transition: { type: 'fade', duration: 800 } });
 });
 
+test('a spec merges its scene flags onto the scene, leaving every other scope and key there', async ({ world }) => {
+    // Plain script: fvtt-types knows only the configured flag scopes.
+    const flags = await world.evaluate<{ core: string; kept: string; vault: { path: string; entityType: string } }>(`(async () => {
+        const s = canvas.scene;
+        await s.setFlag('core', 'e2eKept', 'core stays');
+        await s.setFlag('world', 'kept', 'world key stays');
+        await game.modules.get('zephyr-cartography').api.buildSpec({
+            schemaVersion: 1,
+            sceneFlags: { world: { vault: { path: 'Locations/Ship.md', entityType: 'location' } } },
+            features: [],
+        });
+        return { core: s.getFlag('core', 'e2eKept'), kept: s.getFlag('world', 'kept'), vault: s.getFlag('world', 'vault') };
+    })()`);
+    expect(flags).toEqual({ core: 'core stays', kept: 'world key stays', vault: { path: 'Locations/Ship.md', entityType: 'location' } });
+});
+
 test('a spec sets the scene’s day and night environments, their cycle and the fog’s colours, leaving the rest', async ({ world }) => {
     const scene = await world.evaluate(async () => {
         await game.modules?.get('zephyr-cartography').api.buildSpec({
