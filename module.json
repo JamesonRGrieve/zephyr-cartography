@@ -2,7 +2,7 @@
     "id": "zephyr-cartography",
     "title": "Zephyr's Cartography",
     "description": "Standalone scene authoring for Foundry VTT: paint terrain, draw roads and rivers, build structures, and place structure-aware stamps (walls, lights, doors, levels, interiors), all as native Foundry documents.",
-    "version": "0.2.0",
+    "version": "0.1.0",
     "authors": [
         {
             "name": "Jameson Grieve"
