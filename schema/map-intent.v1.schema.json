@@ -3060,6 +3060,19 @@
                             }
                         ]
                     },
+                    "cellarAccessRoom": {
+                        "default": null,
+                        "description": "The ground-floor room the stair or ladder down to the cellars stands in, where it is not the one up (a ship’s ladder up from its chapel, its freight stair down from steerage); null: the same as `accessRoom`.",
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
                     "stormDoor": {
                         "default": null,
                         "description": "The side with storm doors down into the top cellar from outside, through a small areaway beside the wall; null for none.",

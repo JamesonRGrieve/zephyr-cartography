@@ -394,6 +394,37 @@ describe('layOutStoreys', () => {
         }
     });
 
+    it('climbs from one named room and descends from another: a ship’s ladder up from its chapel, its stair down from steerage', () => {
+        const ship = (cellarAccessRoom: string | null): BuildingIntent =>
+            buildingOf({
+                width: 12,
+                height: 10,
+                rooms: [
+                    { key: 'chapel', purpose: 'chapel', rect: { x: 0, y: 0, w: 6, h: 10 }, opensTo: ['steerage'] },
+                    { key: 'steerage', purpose: 'barracks', rect: { x: 6, y: 0, w: 6, h: 10 } },
+                ],
+                floors: [{ rooms: [{ key: 'spire', purpose: 'office', rect: { x: 0, y: 0, w: 6, h: 10 } }] }],
+                cellars: [{ rooms: [{ key: 'hold', purpose: 'storage', rect: { x: 6, y: 0, w: 6, h: 10 } }] }],
+                accessRoom: 'chapel',
+                cellarAccessRoom,
+            });
+        const wells: Wells = { up: { w: 1, h: 1 }, down: { w: 1, h: 2 } };
+        const within = (well: { x: number; w: number }, from: number, to: number): boolean => well.x >= from && well.x + well.w <= to;
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const storeys = layOutStoreys(ship('steerage'), { x: 0, y: 0, w: 12, h: 10 }, wells, seededRandom(seed));
+            const { stairwell, cellarWell } = storeys ?? {};
+            if (!stairwell || !cellarWell) {
+                throw new Error(`seed ${seed}: a well is missing`);
+            }
+            expect(within(stairwell, 0, 6)).toBe(true);
+            expect(within(cellarWell, 6, 12)).toBe(true);
+        }
+        // Without its own room the stair down follows the one up, as before: into the chapel, where no cellar lies.
+        expect(layOutStoreys(ship(null), { x: 0, y: 0, w: 12, h: 10 }, wells, seededRandom(1))?.cellarWell).toBeNull();
+        // And it must name a ground-floor room.
+        expect(parseMapIntent({ schemaVersion: 1, buildings: [{ ...HOUSE, cellarAccessRoom: 'attic' }] }).ok).toBe(false);
+    });
+
     it('keeps the way down off a piece asked for by a wall, where the piece is drawn in to stand', () => {
         // A ship's mess with a cot each side at the stern end, and a hatch down to engineering.
         const cot = (x: number): object => ({ name: 'crew cot', width: 1, height: 2, role: 'bed', place: { at: { x, y: 0.8 } } });

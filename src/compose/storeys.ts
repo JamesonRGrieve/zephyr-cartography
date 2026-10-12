@@ -208,7 +208,7 @@ export function layOutStoreys(building: BuildingIntent, footprint: Rect, wells: 
     if (!ground) {
         return null;
     }
-    const up = stack(ground, building.floors, { building, footprint, size: wells.up, clear: null }, random);
+    const up = stack(ground, building.floors, { building, footprint, size: wells.up, clear: null, accessRoom: building.accessRoom }, random);
     return withCellars(building, footprint, wells, random, { ground, floors: up.layouts, stairwell: up.well });
 }
 
@@ -220,7 +220,8 @@ function withCellars(
     random: Random,
     upper: Pick<Storeys, 'ground' | 'floors' | 'stairwell'>,
 ): Storeys {
-    const down = stack(upper.ground, building.cellars, { building, footprint, size: wells.down, clear: upper.stairwell }, random);
+    const accessRoom = building.cellarAccessRoom ?? building.accessRoom;
+    const down = stack(upper.ground, building.cellars, { building, footprint, size: wells.down, clear: upper.stairwell, accessRoom }, random);
     return { ...upper, cellars: down.layouts, cellarWell: down.well };
 }
 
@@ -318,10 +319,17 @@ function inHall(layout: BuildingLayout, box: Box): boolean {
 function stack(
     ground: BuildingLayout,
     storeys: BuildingIntent['floors'],
-    shared: { readonly building: BuildingIntent; readonly footprint: Rect; readonly size: Wells['up']; readonly clear: Box | null },
+    shared: {
+        readonly building: BuildingIntent;
+        readonly footprint: Rect;
+        readonly size: Wells['up'];
+        readonly clear: Box | null;
+        /** The ground-floor room the well must stand in; null: wherever (a hall first). */
+        readonly accessRoom: string | null;
+    },
     random: Random,
 ): { layouts: (BuildingLayout | null)[]; well: Well | null } {
-    const { building, footprint, size, clear } = shared;
+    const { building, footprint, size, clear, accessRoom } = shared;
     // A storey laid round a corridor makes it wide enough to hold the stairwell, so the stair lands in it.
     const widened = size === null ? {} : { corridor: corridorsFor(size)[0] ?? CORRIDOR_WIDTH };
     const each = (accept: (layout: BuildingLayout) => boolean): (BuildingLayout | null)[] =>
@@ -340,7 +348,7 @@ function stack(
     const held = spots(footprint, size, random)
         .flatMap((box) => {
             const room = stairwellRoom(ground, box);
-            const asked = building.accessRoom === null || room?.key === building.accessRoom;
+            const asked = accessRoom === null || room?.key === accessRoom;
             const apart = clear === null || !overlaps(box, clear);
             return room && asked && apart && pinned.every((rooms) => rooms.some((r) => couldHold(r, box))) ? [{ box, room }] : [];
         })

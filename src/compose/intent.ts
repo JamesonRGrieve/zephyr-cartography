@@ -563,6 +563,12 @@ const building = z
             .describe(
                 'The ground-floor room the stair or ladder between storeys stands in (the living area’s floor-hatch down to engineering); null: a hall where there is one, else wherever every storey holds it.',
             ),
+        cellarAccessRoom: text
+            .nullable()
+            .default(null)
+            .describe(
+                'The ground-floor room the stair or ladder down to the cellars stands in, where it is not the one up (a ship’s ladder up from its chapel, its freight stair down from steerage); null: the same as `accessRoom`.',
+            ),
         stormDoor: edge
             .nullable()
             .default(null)
@@ -606,8 +612,11 @@ const building = z
                 ctx.addIssue({ code: 'custom', path: ['openings', i, 'room'], message: `no ground-floor room is named ${o.room}` });
             }
         });
-        if (b.accessRoom !== null && !b.rooms.some((r) => r.key === b.accessRoom)) {
-            ctx.addIssue({ code: 'custom', path: ['accessRoom'], message: `no ground-floor room is named ${b.accessRoom}` });
+        for (const field of ['accessRoom', 'cellarAccessRoom'] as const) {
+            const named = b[field];
+            if (named !== null && !b.rooms.some((r) => r.key === named)) {
+                ctx.addIssue({ code: 'custom', path: [field], message: `no ground-floor room is named ${named}` });
+            }
         }
         if (b.frontDoorAt !== null && b.frontDoorAt + b.frontDoorWidth > wallLength(b.entrance)) {
             ctx.addIssue({ code: 'custom', path: ['frontDoorAt'], message: `the ${b.entrance} wall is ${wallLength(b.entrance)} squares long` });
