@@ -16,7 +16,7 @@ Describe a map and the builder lays it out: grounds, roads, buildings with furni
 2. The preset's description appears in **Map intent (JSON)**. Edit it as you like.
 3. Click **Another layout** for a different arrangement of the same description, and **Compose** to build it.
 
-A map intent sets the map's size and scale, its ground and lighting (day, dim or night), its zones, roads, buildings and props, and the setting tags that choose which stamps are used. Its full format is published as a JSON Schema: [map-intent.v1.schema.json](https://github.com/JamesonRGrieve/zephyr-cartography/blob/main/schema/map-intent.v1.schema.json).
+A map intent sets the map's size and scale, its ground and lighting (day, dim or night), its zones, roads, buildings and props, the tokens it is populated with, and the setting tags that choose which stamps are used. Its full format is published as a JSON Schema: [map-intent.v1.schema.json](https://github.com/JamesonRGrieve/zephyr-cartography/blob/main/schema/map-intent.v1.schema.json).
 
 Composing uses the stamps of your installed asset packs. Where no stamp fits, the builder places a labelled placeholder box and lists the problem.
 
@@ -40,9 +40,22 @@ The footprint is split into rooms, with a door at every split. Rooms use the mat
 
 ## Scene spec
 
-A scene spec is a complete map written as JSON: scene settings, levels, painted ground, and every road, room, stamp, pin, label and zone. Paste one into **Scene spec (JSON)** and click **Build spec**. Positions are in grid squares from the scene's top-left corner unless the spec says pixels.
+A scene spec is a complete map written as JSON: scene settings, levels, painted ground, and every road, room, stamp, pin, label, zone and token. Paste one into **Scene spec (JSON)** and click **Build spec**. Positions are in grid squares from the scene's top-left corner unless the spec says pixels.
 
 The format is published as a JSON Schema, so any tool that writes JSON can make maps: [scene-spec.v1.schema.json](https://github.com/JamesonRGrieve/zephyr-cartography/blob/main/schema/scene-spec.v1.schema.json). Stamps are named `"<pack module id>:<stamp id>"`.
+
+## Pre-placed tokens
+
+A map can be populated: a spec's `token` features, or a map intent's `tokens`, place the people and creatures that belong there. Each names its actor by UUID, a world actor (`Actor.<id>`) or a compendium's (`Compendium.<pack>.Actor.<id>`), and may set its name, size in grid squares, disposition (friendly, neutral, hostile or secret) and whether it starts hidden; anything left out comes from the actor's prototype token. In a map intent each token also names its `storey`.
+
+```json
+{ "type": "token", "x": 12.5, "y": 8.5, "actor": "Compendium.world.npcs.Actor.a1b2c3", "name": "Gate guard", "disposition": "hostile", "hidden": true }
+```
+
+- A compendium's actor is brought into the world the first time a token names it, and every later token of it uses that one world actor.
+- The tokens are real Foundry tokens. Moving, raising, hiding or revealing one in play is kept: rebuilding or editing the map never puts it back.
+- **Erase** and **Undo** remove and restore them with the rest of the map, and deleting one with Foundry's own tools removes it from the map.
+- A UUID that names no actor places no token, with a warning.
 
 ## The macro API
 

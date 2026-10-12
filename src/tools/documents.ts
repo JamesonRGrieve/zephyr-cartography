@@ -11,6 +11,7 @@ import type { HazardKind, PlacedBehaviour, StampLight, StampTile } from '../stam
 import type { AreaDisplay, AreaEffect } from './area-effects';
 import type { BiomeKind } from './biome';
 import type { ShapeBox, ShapeStyle } from './shape';
+import type { TokenDisposition } from './token';
 import type { ZoneShape } from './zone-shape';
 
 export type DoorType = 'none' | 'door' | 'secret';
@@ -297,6 +298,29 @@ export interface NoteDoc {
     readonly size: number | null;
     /** Hidden from players until the GM reveals it: the module's `hidden` flag, which its Note class honours. */
     readonly hidden: boolean;
+}
+
+/**
+ * A native Token of an actor, from its prototype token with what the map sets
+ * over it. Only where it stands (`x`, `y`, `elevation`, `level`) and whether
+ * it is hidden follow the plan once it is made: the rest is the actor's and
+ * play's.
+ */
+export interface TokenDoc {
+    /** Its centre, in scene px. */
+    readonly x: number;
+    readonly y: number;
+    readonly elevation: number;
+    readonly level: string | null;
+    /** The actor, by UUID: a world actor's, or a compendium's (brought into the world once). */
+    readonly actor: string;
+    /** Its name; null for the actor's prototype's. */
+    readonly name: string | null;
+    readonly hidden: boolean;
+    /** Friend or foe; null for the actor's prototype's. */
+    readonly disposition: TokenDisposition | null;
+    /** Grid squares across; null for the actor's prototype's. */
+    readonly size: number | null;
 }
 
 /** A native Drawing: a map label's text, or a drawn shape. */

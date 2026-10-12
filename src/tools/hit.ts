@@ -13,6 +13,7 @@ import { PIN_HIT_RADIUS, pinPoint } from './pin';
 import { regionOutline } from './region';
 import { shapeHit } from './shape';
 import { stampCorners } from './stamp';
+import { TOKEN_HIT_RADIUS, tokenPoint } from './token';
 import { zoneHit } from './zone';
 
 /** Extra tolerance (scene px) so thin paths/strokes are still comfortably clickable. */
@@ -40,6 +41,9 @@ export function featureHit(feature: Feature, pt: Point): boolean {
     }
     if (feature.type === 'pin') {
         return distance(pt, pinPoint(feature)) <= PIN_HIT_RADIUS;
+    }
+    if (feature.type === 'token') {
+        return distance(pt, tokenPoint(feature)) <= TOKEN_HIT_RADIUS;
     }
     if (feature.type === 'zone') {
         return zoneHit(feature, pt);

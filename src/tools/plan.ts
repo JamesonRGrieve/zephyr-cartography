@@ -23,6 +23,7 @@ import {
     senseLevel,
     type SoundDoc,
     type TileDoc,
+    type TokenDoc,
     type WallDoc,
     type WallThreshold,
 } from './documents';
@@ -41,6 +42,7 @@ import { stampCentre, stampCorners, stampDoorAxis, stampPoint, type StampFeature
 import type { StrokeFeature } from './stroke';
 import { SWITCH_BLOCKS } from './switches';
 import { type Costed, movementCostOf, NORMAL_COST } from './terrain-cost';
+import { tokenPoint, tokenSettingsOf } from './token';
 import { type PresetWall, presetWall, type WallPreset } from './wall-presets';
 import { type ZoneFeature, zonePoint } from './zone';
 
@@ -52,10 +54,11 @@ export interface DocumentPlan {
     readonly sounds: readonly SoundDoc[];
     readonly notes: readonly NoteDoc[];
     readonly drawings: readonly DrawingDoc[];
+    readonly tokens: readonly TokenDoc[];
 }
 
 /** A plan with no documents. */
-export const NO_PLAN: DocumentPlan = { walls: [], lights: [], tiles: [], regions: [], sounds: [], notes: [], drawings: [] };
+export const NO_PLAN: DocumentPlan = { walls: [], lights: [], tiles: [], regions: [], sounds: [], notes: [], drawings: [], tokens: [] };
 
 /** What a feature's plan may depend on besides the feature itself. */
 export interface PlanContext {
@@ -728,6 +731,10 @@ export function planDocuments(feature: Feature, context: PlanContext = NO_CONTEX
     if (feature.type === 'pin') {
         const { elevation, level } = floorOf(feature, context);
         return { ...NO_PLAN, notes: [{ ...pinPoint(feature), elevation, level, ...pinSettingsOf(feature) }] };
+    }
+    if (feature.type === 'token') {
+        const { elevation, level } = floorOf(feature, context);
+        return { ...NO_PLAN, tokens: [{ ...tokenPoint(feature), elevation: elevation + feature.lift, level, ...tokenSettingsOf(feature) }] };
     }
     // Foundry refuses a Drawing with nothing to show, so a label has none until it has text.
     if (feature.type === 'label' && feature.text.trim() !== '') {

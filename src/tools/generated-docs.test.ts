@@ -19,6 +19,12 @@ describe('generated docs', () => {
         expect(parseGeneratedDocs({ sounds: ['s0', 7] }).sounds).toEqual(['s0']);
     });
 
+    it('reads recorded tokens, and none from a record made before tokens were', () => {
+        expect(parseGeneratedDocs({ tokens: ['T0', null] }).tokens).toEqual(['T0']);
+        expect(parseGeneratedDocs({ walls: ['w'] }).tokens).toEqual([]);
+        expect(allDocIds({ ...NO_DOCS, tokens: ['T0'] })).toEqual(['T0']);
+    });
+
     it('lists every id, whatever its document type', () => {
         expect(allDocIds({ ...NO_DOCS, walls: ['w'], drawings: ['d'], notes: ['n'] })).toEqual(['w', 'n', 'd']);
     });

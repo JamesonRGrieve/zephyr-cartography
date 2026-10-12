@@ -2,7 +2,7 @@
 /**
  * The unified persisted feature model: roads/rivers (paths), biome regions
  * (closed fills), biome brush strokes (freehand swaths), rooms, stamps, map
- * pins, map labels, zones and drawn shapes, discriminated by `type`. `parseFeatures` validates the mixed
+ * pins, map labels, zones, drawn shapes and pre-placed tokens, discriminated by `type`. `parseFeatures` validates the mixed
  * scene-flag blob.
  */
 import type { GeneratedDocs } from './generated-docs';
@@ -14,13 +14,24 @@ import { parseRoom, type RoomFeature } from './room';
 import { parseShape, type ShapeFeature } from './shape';
 import { parseStamp, type StampFeature } from './stamp';
 import { parseStroke, type StrokeFeature } from './stroke';
+import { parseToken, type TokenFeature } from './token';
 import { parseZone, type ZoneFeature } from './zone';
 
-export type Feature = CartographyPath | RegionFeature | StrokeFeature | RoomFeature | StampFeature | PinFeature | LabelFeature | ZoneFeature | ShapeFeature;
+export type Feature =
+    | CartographyPath
+    | RegionFeature
+    | StrokeFeature
+    | RoomFeature
+    | StampFeature
+    | PinFeature
+    | LabelFeature
+    | ZoneFeature
+    | ShapeFeature
+    | TokenFeature;
 
-/** A map pin, label or zone: one point, where it stands, that moves it whole. */
-export function isAnchored(f: Feature): f is PinFeature | LabelFeature | ZoneFeature {
-    return f.type === 'pin' || f.type === 'label' || f.type === 'zone';
+/** A map pin, label, zone or token: one point, where it stands, that moves it whole. */
+export function isAnchored(f: Feature): f is PinFeature | LabelFeature | ZoneFeature | TokenFeature {
+    return f.type === 'pin' || f.type === 'label' || f.type === 'zone' || f.type === 'token';
 }
 
 export function isRegion(f: Feature): f is RegionFeature {
@@ -61,7 +72,8 @@ export function parseFeatures(raw: unknown): Feature[] {
             parsePin(entry) ??
             parseLabel(entry) ??
             parseZone(entry) ??
-            parseShape(entry);
+            parseShape(entry) ??
+            parseToken(entry);
         if (feature) {
             out.push(feature);
         }

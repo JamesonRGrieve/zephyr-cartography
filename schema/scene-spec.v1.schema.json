@@ -3558,6 +3558,94 @@
                         ],
                         "additionalProperties": false,
                         "description": "A drawn shape: a native Drawing, as Foundry's own Drawings tools draw them."
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "const": "token"
+                            },
+                            "key": {
+                                "description": "A name other entries use for this feature, as a light switch's `controls` do.",
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "x": {
+                                "type": "number",
+                                "description": "The token's centre."
+                            },
+                            "y": {
+                                "type": "number"
+                            },
+                            "actor": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "The actor, by UUID: a world actor (`Actor.<id>`) or a compendium's (`Compendium.<pack>.Actor.<id>`), brought into the world once."
+                            },
+                            "name": {
+                                "default": null,
+                                "description": "The token's name; null: the actor's prototype token's.",
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "hidden": {
+                                "default": false,
+                                "description": "Hidden from players until the GM reveals it.",
+                                "type": "boolean"
+                            },
+                            "disposition": {
+                                "default": null,
+                                "description": "Friend or foe; null: the actor's prototype token's.",
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "enum": [
+                                            "secret",
+                                            "hostile",
+                                            "neutral",
+                                            "friendly"
+                                        ]
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "size": {
+                                "default": null,
+                                "description": "Grid squares across, whatever the spec's units; null: the actor's prototype token's.",
+                                "anyOf": [
+                                    {
+                                        "type": "number",
+                                        "exclusiveMinimum": 0
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "level": {
+                                "description": "Key of an entry in `levels`. Omitted: the feature shows on every level.",
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "x",
+                            "y",
+                            "actor"
+                        ],
+                        "additionalProperties": false,
+                        "description": "A pre-placed token: a native Token of an actor, from its prototype token with what the spec sets over it."
                     }
                 ]
             },

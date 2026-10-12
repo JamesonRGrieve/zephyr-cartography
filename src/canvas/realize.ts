@@ -24,6 +24,7 @@ import { DEFAULT_BRUSH_RADIUS, makeStroke } from '../tools/stroke';
 import { DEFAULT_TRAVEL } from '../tools/submap';
 import type { SwitchTarget } from '../tools/switch-targets';
 import { type Costed, storedCost } from '../tools/terrain-cost';
+import { makeToken } from '../tools/token';
 import { DEFAULT_WALL_PRESET } from '../tools/wall-presets';
 import { makeZone, scaledZoneShape, withZoneSettings } from '../tools/zone';
 import type { CartographyController } from './controller';
@@ -88,6 +89,10 @@ function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string,
         const { text, entry, page, icon, readable, hidden } = spec;
         const settings = { text, entry, page, icon, global: spec.global, readable, size: spec.size === null ? null : scale.length(spec.size), hidden };
         return { ...withPinSettings(makePin(id, scale.point(spec)), settings), level };
+    }
+    if (spec.type === 'token') {
+        const { actor, hidden, disposition, size } = spec;
+        return { ...makeToken(id, scale.point(spec), { actor, name: spec.name, hidden, disposition, size }), level };
     }
     if (spec.type === 'shape') {
         const shape = buildShape(spec, id, scale);

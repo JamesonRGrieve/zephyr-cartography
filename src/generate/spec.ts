@@ -33,6 +33,7 @@ import { FOG_MODES } from '../tools/scene-settings';
 import { DEFAULT_SHAPE_STYLE, SHAPE_KINDS } from '../tools/shape';
 import { MAX_SPAWN_COUNT, NO_SPAWN, SPAWN_PLACEMENTS } from '../tools/spawn';
 import { MAX_SPLAT_LAYERS } from '../tools/splat';
+import { TOKEN_DISPOSITIONS } from '../tools/token';
 import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
 import { FULL_TURN, validZoneShape } from '../tools/zone';
 import { CONE_CURVATURES } from '../tools/zone-shape';
@@ -411,6 +412,24 @@ const pinSpec = z
     .strict()
     .describe('A map pin: a native Note.');
 
+const tokenSpec = z
+    .object({
+        type: z.literal('token'),
+        key: featureKey,
+        x: z.number().describe("The token's centre."),
+        y: z.number(),
+        actor: text.describe(
+            "The actor, by UUID: a world actor (`Actor.<id>`) or a compendium's (`Compendium.<pack>.Actor.<id>`), brought into the world once.",
+        ),
+        name: text.nullable().default(null).describe("The token's name; null: the actor's prototype token's."),
+        hidden: z.boolean().default(false).describe('Hidden from players until the GM reveals it.'),
+        disposition: z.enum(TOKEN_DISPOSITIONS).nullable().default(null).describe("Friend or foe; null: the actor's prototype token's."),
+        size: positive.nullable().default(null).describe("Grid squares across, whatever the spec's units; null: the actor's prototype token's."),
+        level,
+    })
+    .strict()
+    .describe('A pre-placed token: a native Token of an actor, from its prototype token with what the spec sets over it.');
+
 const labelSpec = z
     .object({
         type: z.literal('label'),
@@ -527,7 +546,7 @@ const shapeSpec = z
     .strict()
     .describe("A drawn shape: a native Drawing, as Foundry's own Drawings tools draw them.");
 
-const featureSpec = z.discriminatedUnion('type', [regionSpec, strokeSpec, pathSpec, roomSpec, stampSpec, pinSpec, labelSpec, zoneSpec, shapeSpec]);
+const featureSpec = z.discriminatedUnion('type', [regionSpec, strokeSpec, pathSpec, roomSpec, stampSpec, pinSpec, labelSpec, zoneSpec, shapeSpec, tokenSpec]);
 
 const signed = z.number().min(-1).max(1);
 

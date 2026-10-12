@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import type { StagedWrite } from '../canvas/staged-changes';
-import { BLOCKS_ALL, type RegionDoc, type TileDoc, type WallDoc } from '../tools/documents';
+import { BLOCKS_ALL, type RegionDoc, type TileDoc, type TokenDoc, type WallDoc } from '../tools/documents';
 import { NO_DOCS } from '../tools/generated-docs';
 import { DEFAULT_TRAVEL } from '../tools/submap';
 import type { BatchOperation, FoundryScene } from './boundary';
 import { FoundryDocumentSink } from './documents';
 
 const WALL: WallDoc = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, door: 'none', doorState: 'closed', blocks: BLOCKS_ALL, level: null };
+const TOKEN: TokenDoc = { x: 250, y: 250, elevation: 2, level: 'lv1', actor: 'Actor.a', name: null, hidden: true, disposition: null, size: null };
 const TILE: TileDoc = { name: 'Crate', src: 'crate.webp', x: 0, y: 0, width: 100, height: 100, rotation: 0, elevation: 0, level: null, featureId: 'p1' };
 const REGION: RegionDoc = {
     id: null,
@@ -32,9 +33,11 @@ const NOTHING: StagedWrite = {
     sounds: [],
     notes: [],
     drawings: [],
+    tokens: [],
     regions: [],
     tileUpdates: [],
     wallUpdates: [],
+    tokenUpdates: [],
     regionUpdates: [],
     lightVisibility: [],
 };
@@ -74,11 +77,13 @@ function scene(present: readonly string[], id: string | null = 'sc'): FoundrySce
     };
 }
 
-function sink(target: FoundryScene | null): { sink: FoundryDocumentSink; batches: BatchOperation[][] } {
+function sink(target: FoundryScene | null): { sink: FoundryDocumentSink; batches: BatchOperation[][]; resolved: string[] } {
     const batches: BatchOperation[][] = [];
+    const resolved: string[] = [];
     let counter = 0;
     return {
         batches,
+        resolved,
         sink: new FoundryDocumentSink(() => target, {
             makeId: () => {
                 counter += 1;
@@ -92,6 +97,12 @@ function sink(target: FoundryScene | null): { sink: FoundryDocumentSink; batches
             lightName: () => 'Light',
             soundName: (stampName) => stampName,
             hazardText: (kind) => `${kind}!`,
+            // An actor named "Actor.gone" no longer exists; any other's token is its UUID and position.
+            tokenData: async (token, id) => {
+                resolved.push(id);
+                await Promise.resolve();
+                return token.actor === 'Actor.gone' ? null : { _id: id, actorId: token.actor, x: token.x, y: token.y };
+            },
         }),
     };
 }
@@ -228,6 +239,45 @@ describe('FoundryDocumentSink', () => {
         const [attached, orphaned] = batches[0]?.[0]?.action === 'create' ? batches[0][0].data : [];
         expect(attached).toMatchObject({ _id: 'r1', attachment: { token: 'tk1' } });
         expect(orphaned).not.toHaveProperty('attachment');
+    });
+
+    it('makes tokens one at a time, leaving out one whose actor is gone, and moves a live one by its centre', async () => {
+        const target = scene(['T9']);
+        const { sink: s, batches, resolved } = sink(target);
+        await s.write({
+            ...NOTHING,
+            tokens: [
+                { id: 'T1', doc: TOKEN },
+                { id: 'T2', doc: { ...TOKEN, actor: 'Actor.gone' } },
+                { id: 'T3', doc: TOKEN },
+            ],
+            tokenUpdates: [
+                { id: 'T9', doc: TOKEN },
+                { id: 'T-deleted-by-hand', doc: TOKEN },
+            ],
+        });
+        expect(resolved).toEqual(['T1', 'T2', 'T3']);
+        expect(batches[0]).toEqual([
+            {
+                action: 'create',
+                documentName: 'Token',
+                parent: target,
+                keepId: true,
+                data: [
+                    { _id: 'T1', actorId: 'Actor.a', x: 250, y: 250 },
+                    { _id: 'T3', actorId: 'Actor.a', x: 250, y: 250 },
+                ],
+            },
+            // The live token stands 1×1: its top-left is half a square up and left of the planned centre.
+            { action: 'update', documentName: 'Token', parent: target, updates: [{ _id: 'T9', x: 200, y: 200, elevation: 2, hidden: true, level: 'lv1' }] },
+        ]);
+    });
+
+    it('deletes a token still on the scene', async () => {
+        const target = scene(['T1']);
+        const { sink: s, batches } = sink(target);
+        await s.write({ ...NOTHING, deletes: { ...NO_DOCS, tokens: ['T1', 'T-gone'] } });
+        expect(batches[0]).toEqual([{ action: 'delete', documentName: 'Token', parent: target, ids: ['T1'] }]);
     });
 
     it('writes nothing for an empty transaction, a transaction of missing ids, or no scene', async () => {

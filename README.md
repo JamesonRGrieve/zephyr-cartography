@@ -31,6 +31,8 @@ Dungeondraft, Inkarnate) and runs entirely inside Foundry.
   regions.
 - **Interiors:** an enterable stamp (a building, a residence block) links to its own
   interior scene, new or existing, with an entrance and an exit.
+- **Tokens:** pre-place the people and creatures a map holds, as tokens of
+  world or compendium actors (a compendium's brought into the world once).
 - **Map builder:** compose a map from a short description (a map intent),
   generate a floor plan from a seed, or build any map described as a scene
   spec (a published JSON Schema), from terrain to stamps and levels. The

@@ -7,7 +7,7 @@
 import type { Point } from '../geometry/spline';
 import { type CatalogStamp, loadPacks } from '../stamps/catalog';
 import type { PileSpec } from '../tools/containers';
-import type { DrawingDoc, LightDoc, NoteDoc, RegionDoc, SoundDoc, TileDoc, WallDoc } from '../tools/documents';
+import type { DrawingDoc, LightDoc, NoteDoc, RegionDoc, SoundDoc, TileDoc, TokenDoc, WallDoc } from '../tools/documents';
 import type { Feature } from '../tools/feature';
 import { allDocIds, hasDocs, type GeneratedDocs } from '../tools/generated-docs';
 import type { Level } from '../tools/levels';
@@ -66,7 +66,7 @@ class FakeStore implements SceneStore {
 }
 
 /** Document-id prefix per kind, like a real scene's distinct collections. */
-const ID_PREFIX: Record<DocumentKind, string> = { walls: 'w', lights: 'L', tiles: 't', regions: 'r', sounds: 's', notes: 'n', drawings: 'd' };
+const ID_PREFIX: Record<DocumentKind, string> = { walls: 'w', lights: 'L', tiles: 't', regions: 'r', sounds: 's', notes: 'n', drawings: 'd', tokens: 'T' };
 
 /**
  * Records every write, and the documents created per type (one entry per
@@ -87,10 +87,12 @@ class FakeSink implements DocumentSink {
     readonly sounds: SoundDoc[][] = [];
     readonly notes: NoteDoc[][] = [];
     readonly drawings: DrawingDoc[][] = [];
+    readonly tokens: TokenDoc[][] = [];
+    readonly tokenUpdates: Staged<TokenDoc>[][] = [];
     readonly deleted: GeneratedDocs[] = [];
     /** Reject every write, as Foundry rejects a batch it cannot apply. */
     rejecting = false;
-    private readonly counters: Record<DocumentKind, number> = { walls: 0, lights: 0, tiles: 0, regions: 0, sounds: 0, notes: 0, drawings: 0 };
+    private readonly counters: Record<DocumentKind, number> = { walls: 0, lights: 0, tiles: 0, regions: 0, sounds: 0, notes: 0, drawings: 0, tokens: 0 };
 
     newId(kind: DocumentKind): string {
         const id = `${ID_PREFIX[kind]}${this.counters[kind]}`;
@@ -117,6 +119,7 @@ class FakeSink implements DocumentSink {
         record(this.sounds, write.sounds);
         record(this.notes, write.notes);
         record(this.drawings, write.drawings);
+        record(this.tokens, write.tokens);
         const regions = write.regions.flatMap((group) => group.regions.filter((_, i) => !group.cancelled.includes(group.ids[i] ?? '')));
         if (regions.length > 0) {
             this.regions.push(regions);
@@ -126,6 +129,9 @@ class FakeSink implements DocumentSink {
         }
         if (write.wallUpdates.length > 0) {
             this.wallUpdates.push([...write.wallUpdates]);
+        }
+        if (write.tokenUpdates.length > 0) {
+            this.tokenUpdates.push([...write.tokenUpdates]);
         }
         record(this.wallWrites, [...write.walls, ...write.wallUpdates]);
         record(this.regionUpdates, write.regionUpdates);

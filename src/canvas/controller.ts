@@ -84,6 +84,7 @@ import { DEFAULT_TRAVEL, exitRegion, exitSquare, type SceneFrame, type SubmapLin
 import { sameTarget, type SwitchTarget, toggleTarget } from '../tools/switch-targets';
 import { lampVariant, switchOf } from '../tools/switches';
 import { NORMAL_COST, storedCost, validCost } from '../tools/terrain-cost';
+import { tokenPoint, withTokenPlay } from '../tools/token';
 import type { WallPreset } from '../tools/wall-presets';
 import { makeZone, NEW_ZONE, withZonePlace, withZoneSettings, type ZoneFeature, zonePoint, type ZoneSettings, zoneSettingsOf } from '../tools/zone';
 import { presetZone, type ZonePreset } from '../tools/zone-presets';
@@ -1041,6 +1042,35 @@ export class CartographyController {
         return this.features.find((f) => f.docs.tiles.includes(tileId))?.id ?? null;
     }
 
+    /** The id of the token feature whose Token `tokenId` is; null when it is no feature's. */
+    featureForToken(tokenId: string): string | null {
+        return this.features.find((f) => f.docs.tokens.includes(tokenId))?.id ?? null;
+    }
+
+    /**
+     * Follow a Token moved, raised, taken to another level, hidden or revealed
+     * in play: record where it now stands on its token feature, without
+     * touching the Token (Foundry already holds the change), so a later re-sync
+     * leaves it as play left it. False when the Token is no feature's, or its
+     * feature already stands so.
+     */
+    async followToken(tokenId: string, centre: Point, elevation: number, level: string | null, hidden: boolean): Promise<boolean> {
+        const feature = this.features.find((f) => f.docs.tokens.includes(tokenId));
+        if (feature?.type !== 'token') {
+            return false;
+        }
+        const on = level ?? feature.level;
+        const lift = elevation - levelElevation(this.levelList, on);
+        const at = tokenPoint(feature);
+        if (at.x === centre.x && at.y === centre.y && feature.lift === lift && feature.level === on && feature.hidden === hidden) {
+            return false;
+        }
+        const next = { ...withTokenPlay(feature, centre, lift, hidden), level: on };
+        this.features = this.features.map((f) => (f.id === feature.id ? next : f));
+        await this.persist();
+        return true;
+    }
+
     /**
      * Adopt a GM's native edit of a stamp's tile (move, resize, rotate) and
      * re-sync its other documents. Returns false when nothing changed, which
@@ -1173,7 +1203,7 @@ export class CartographyController {
     /** Delete everything a feature owns outside the feature list: its documents, its interior exit, its container pile. */
     private async discard(feature: Feature): Promise<void> {
         if (hasDocs(feature.docs)) {
-            await this.transaction(() => this.staged.stage({ remove: feature.docs, create: NO_PLAN, updateTiles: [], updateWalls: [] }));
+            await this.transaction(() => this.staged.stage({ remove: feature.docs, create: NO_PLAN, updateTiles: [], updateWalls: [], updateTokens: [] }));
         }
         if (feature.type !== 'stamp') {
             return;
@@ -1635,24 +1665,29 @@ export class CartographyController {
     private async stageDocs(feature: Feature): Promise<void> {
         const plan = planDocuments(feature, this.planContext());
         const old = feature.docs;
-        const planned = [plan.walls, plan.lights, plan.tiles, plan.regions, plan.sounds, plan.notes, plan.drawings].some((kind) => kind.length > 0);
+        const planned = [plan.walls, plan.lights, plan.tiles, plan.regions, plan.sounds, plan.notes, plan.drawings, plan.tokens].some(
+            (kind) => kind.length > 0,
+        );
         if (!planned && !hasDocs(old)) {
             return;
         }
-        // Tiles and walls whose count is unchanged are updated in place, keeping their ids:
-        // a door or switch a player just used must not be deleted from under them.
+        // Tiles, walls and tokens whose count is unchanged are updated in place, keeping their ids:
+        // a door or switch a player just used, or a token in play, must not be deleted from under them.
         const keepTiles = old.tiles.length > 0 && old.tiles.length === plan.tiles.length;
         const keepWalls = old.walls.length > 0 && old.walls.length === plan.walls.length;
+        const keepTokens = old.tokens.length > 0 && old.tokens.length === plan.tokens.length;
         const created = this.staged.stage({
-            remove: { ...old, tiles: keepTiles ? [] : old.tiles, walls: keepWalls ? [] : old.walls },
-            create: { ...plan, tiles: keepTiles ? [] : plan.tiles, walls: keepWalls ? [] : plan.walls },
+            remove: { ...old, tiles: keepTiles ? [] : old.tiles, walls: keepWalls ? [] : old.walls, tokens: keepTokens ? [] : old.tokens },
+            create: { ...plan, tiles: keepTiles ? [] : plan.tiles, walls: keepWalls ? [] : plan.walls, tokens: keepTokens ? [] : plan.tokens },
             updateTiles: keepTiles ? pairDocs(old.tiles, plan.tiles).map(({ id, doc }) => ({ id, tile: doc })) : [],
             updateWalls: keepWalls ? pairDocs(old.walls, plan.walls).map(({ id, doc }) => ({ id, wall: doc })) : [],
+            updateTokens: keepTokens ? pairDocs(old.tokens, plan.tokens).map(({ id, doc }) => ({ id, token: doc })) : [],
         });
         const docs: GeneratedDocs = {
             ...created,
             tiles: keepTiles ? old.tiles : created.tiles,
             walls: keepWalls ? old.walls : created.walls,
+            tokens: keepTokens ? old.tokens : created.tokens,
         };
         this.features = this.features.map((f) => (f.id === feature.id ? withDocs(f, docs) : f));
         await this.persist();

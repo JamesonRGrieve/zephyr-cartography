@@ -18,6 +18,7 @@ import { BIOMES } from '../tools/biome';
 import { DOOR_ANIMATIONS } from '../tools/documents';
 import { MAX_FONT_SIZE, MIN_FONT_SIZE } from '../tools/label';
 import type { Liquid } from '../tools/path';
+import { TOKEN_DISPOSITIONS } from '../tools/token';
 import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
 
 /**
@@ -712,6 +713,21 @@ const mapLabel = z
     })
     .strict();
 
+/** A token placed on the map: an actor's, by UUID, standing at a point on one of the map's storeys. */
+const mapToken = z
+    .object({
+        actor: text.describe(
+            "The actor, by UUID: a world actor (`Actor.<id>`) or a compendium's (`Compendium.<pack>.Actor.<id>`), brought into the world once.",
+        ),
+        at: point.describe("The token's centre."),
+        storey: z.number().int().default(0).describe('The storey it stands on, where the map has levels: 0 the ground, 1 the floor above, -1 the top cellar.'),
+        name: text.optional().describe("The token's name; omitted: the actor's prototype token's."),
+        hidden: z.boolean().default(false).describe('Hidden from players until the GM reveals it.'),
+        disposition: z.enum(TOKEN_DISPOSITIONS).optional().describe("Friend or foe; omitted: the actor's prototype token's."),
+        size: z.number().positive().optional().describe("Squares across; omitted: the actor's prototype token's."),
+    })
+    .strict();
+
 /** A world's orbit round its star on a system chart: a faint ring through it. */
 const orbit = z.object({ centre: point.describe('What it circles (the star).'), radius: squares }).strict();
 
@@ -869,6 +885,7 @@ export const mapIntentSchema = z
         curtains: z.array(curtain).default([]),
         platforms: z.array(platform).default([]),
         labels: z.array(mapLabel).default([]).describe('Names written on the map, over its art.'),
+        tokens: z.array(mapToken).default([]).describe('Tokens placed on the map: the people and creatures it is populated with.'),
         orbits: z.array(orbit).default([]).describe('Rings drawn round a star through the worlds that circle it.'),
     })
     .strict()

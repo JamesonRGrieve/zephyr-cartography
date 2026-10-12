@@ -11,20 +11,21 @@
  * such a tile updates its pending create instead. Pure and unit-tested; the
  * Foundry sink turns what it takes into create, update and delete operations.
  */
-import type { DrawingDoc, LightDoc, NoteDoc, RegionDoc, SoundDoc, TileDoc, WallDoc } from '../tools/documents';
+import type { DrawingDoc, LightDoc, NoteDoc, RegionDoc, SoundDoc, TileDoc, TokenDoc, WallDoc } from '../tools/documents';
 import { NO_DOCS, type GeneratedDocs } from '../tools/generated-docs';
 import type { DocumentPlan } from '../tools/plan';
 
 /**
  * One feature's change: its old documents to remove, the new ones to create,
- * and tiles and walls updated in place (keeping their ids, so a door a player
- * is using is never deleted from under them).
+ * and tiles, walls and tokens updated in place (keeping their ids, so a door a
+ * player is using, or a token in play, is never deleted from under them).
  */
 export interface DocumentChange {
     readonly remove: GeneratedDocs;
     readonly create: DocumentPlan;
     readonly updateTiles: readonly { readonly id: string; readonly tile: TileDoc }[];
     readonly updateWalls: readonly { readonly id: string; readonly wall: WallDoc }[];
+    readonly updateTokens: readonly { readonly id: string; readonly token: TokenDoc }[];
 }
 
 /** A document to create, with the id it will have. */
@@ -59,9 +60,11 @@ export interface StagedWrite {
     readonly sounds: readonly Staged<SoundDoc>[];
     readonly notes: readonly Staged<NoteDoc>[];
     readonly drawings: readonly Staged<DrawingDoc>[];
+    readonly tokens: readonly Staged<TokenDoc>[];
     readonly regions: readonly StagedRegions[];
     readonly tileUpdates: readonly Staged<TileDoc>[];
     readonly wallUpdates: readonly Staged<WallDoc>[];
+    readonly tokenUpdates: readonly Staged<TokenDoc>[];
     readonly regionUpdates: readonly Staged<RegionDoc>[];
     /** Plain Foundry lights (not the plugin's) a light switch shows or hides. */
     readonly lightVisibility: readonly LightVisibility[];
@@ -78,10 +81,10 @@ export type DocumentKind = keyof GeneratedDocs;
 
 type Kind = DocumentKind;
 
-const KINDS: readonly Kind[] = ['walls', 'lights', 'tiles', 'regions', 'sounds', 'notes', 'drawings'];
+const KINDS: readonly Kind[] = ['walls', 'lights', 'tiles', 'regions', 'sounds', 'notes', 'drawings', 'tokens'];
 
 /** A document staged for creation, of any kind but regions (staged in groups). */
-type PendingDoc = WallDoc | LightDoc | TileDoc | SoundDoc | NoteDoc | DrawingDoc;
+type PendingDoc = WallDoc | LightDoc | TileDoc | SoundDoc | NoteDoc | DrawingDoc | TokenDoc;
 
 export class StagedChanges {
     private deletes: Record<Kind, string[]> = emptyIds();
@@ -91,9 +94,11 @@ export class StagedChanges {
     private sounds: Staged<SoundDoc>[] = [];
     private notes: Staged<NoteDoc>[] = [];
     private drawings: Staged<DrawingDoc>[] = [];
+    private tokens: Staged<TokenDoc>[] = [];
     private regions: StagedRegions[] = [];
     private tileUpdates: Staged<TileDoc>[] = [];
     private wallUpdates: Staged<WallDoc>[] = [];
+    private tokenUpdates: Staged<TokenDoc>[] = [];
     private regionUpdates: Staged<RegionDoc>[] = [];
     private lightVisibility: LightVisibility[] = [];
 
@@ -114,9 +119,11 @@ export class StagedChanges {
                 this.sounds.length +
                 this.notes.length +
                 this.drawings.length +
+                this.tokens.length +
                 this.regions.length +
                 this.tileUpdates.length +
                 this.wallUpdates.length +
+                this.tokenUpdates.length +
                 this.regionUpdates.length +
                 this.lightVisibility.length ===
                 0
@@ -136,12 +143,16 @@ export class StagedChanges {
         for (const update of change.updateWalls) {
             this.wallUpdates = this.updateInPlace(this.walls, this.wallUpdates, update.id, update.wall);
         }
+        for (const update of change.updateTokens) {
+            this.tokenUpdates = this.updateInPlace(this.tokens, this.tokenUpdates, update.id, update.token);
+        }
         const walls = this.push('walls', this.walls, change.create.walls);
         const lights = this.push('lights', this.lights, change.create.lights);
         const tiles = this.push('tiles', this.tiles, change.create.tiles);
         const sounds = this.push('sounds', this.sounds, change.create.sounds);
         const notes = this.push('notes', this.notes, change.create.notes);
         const drawings = this.push('drawings', this.drawings, change.create.drawings);
+        const tokens = this.push('tokens', this.tokens, change.create.tokens);
         const regionIds = change.create.regions.map((region) => region.id ?? this.makeId('regions'));
         // A written region recreated under its own id is updated in place; it keeps its position in the group.
         const replaced = regionIds.filter((id, i) => change.create.regions[i]?.id === id && this.deletes.regions.includes(id));
@@ -155,7 +166,7 @@ export class StagedChanges {
         if (regionIds.length > replaced.length) {
             this.regions.push({ ids: regionIds, regions: change.create.regions, cancelled: replaced });
         }
-        return { ...NO_DOCS, walls, lights, tiles, sounds, notes, drawings, regions: regionIds };
+        return { ...NO_DOCS, walls, lights, tiles, sounds, notes, drawings, tokens, regions: regionIds };
     }
 
     /** Hand over everything staged, and start afresh. */
@@ -168,9 +179,11 @@ export class StagedChanges {
             sounds: this.sounds,
             notes: this.notes,
             drawings: this.drawings,
+            tokens: this.tokens,
             regions: this.regions,
             tileUpdates: this.tileUpdates,
             wallUpdates: this.wallUpdates,
+            tokenUpdates: this.tokenUpdates,
             regionUpdates: this.regionUpdates,
             lightVisibility: this.lightVisibility,
         };
@@ -181,9 +194,11 @@ export class StagedChanges {
         this.sounds = [];
         this.notes = [];
         this.drawings = [];
+        this.tokens = [];
         this.regions = [];
         this.tileUpdates = [];
         this.wallUpdates = [];
+        this.tokenUpdates = [];
         this.regionUpdates = [];
         this.lightVisibility = [];
         return write;
@@ -205,6 +220,9 @@ export class StagedChanges {
         }
         if (kind === 'walls') {
             this.wallUpdates = this.wallUpdates.filter((update) => update.id !== id);
+        }
+        if (kind === 'tokens') {
+            this.tokenUpdates = this.tokenUpdates.filter((update) => update.id !== id);
         }
         if (kind === 'regions') {
             this.regionUpdates = this.regionUpdates.filter((update) => update.id !== id);
@@ -252,11 +270,12 @@ export class StagedChanges {
             sounds: this.sounds,
             notes: this.notes,
             drawings: this.drawings,
+            tokens: this.tokens,
         };
         return pending[kind];
     }
 }
 
 function emptyIds(): Record<Kind, string[]> {
-    return { walls: [], lights: [], tiles: [], regions: [], sounds: [], notes: [], drawings: [] };
+    return { walls: [], lights: [], tiles: [], regions: [], sounds: [], notes: [], drawings: [], tokens: [] };
 }

@@ -52,9 +52,27 @@ describe('parseSceneSpec', () => {
                 { type: 'room', points: square, floor: 'floor.oak', wall: 'wall.brick' },
                 { type: 'stamp', stamp: 'pack:residence', x: 2, y: 2, rotation: 90, interior: { create: 'Residence interior' } },
                 { type: 'stamp', stamp: 'pack:residence', x: 8, y: 2, interior: { scene: 'abc' } },
+                { type: 'token', x: 3, y: 3, actor: 'Compendium.world.npcs.Actor.guard', level: 'g' },
             ],
         });
         expect(result.ok).toBe(true);
+    });
+
+    it('takes tokens, what they leave out the actor’s own, and refuses one with no actor or a disposition Foundry lacks', () => {
+        const parsed = parseSceneSpec({ schemaVersion: 1, features: [{ type: 'token', x: 1, y: 2, actor: 'Actor.a' }] });
+        expect(parsed.ok && parsed.spec.features[0]).toEqual({
+            type: 'token',
+            x: 1,
+            y: 2,
+            actor: 'Actor.a',
+            name: null,
+            hidden: false,
+            disposition: null,
+            size: null,
+        });
+        expect(parseSceneSpec({ schemaVersion: 1, features: [{ type: 'token', x: 1, y: 2 }] }).ok).toBe(false);
+        expect(parseSceneSpec({ schemaVersion: 1, features: [{ type: 'token', x: 1, y: 2, actor: 'Actor.a', disposition: 'enemy' }] }).ok).toBe(false);
+        expect(parseSceneSpec({ schemaVersion: 1, features: [{ type: 'token', x: 1, y: 2, actor: 'Actor.a', size: 0 }] }).ok).toBe(false);
     });
 
     it('reports schema violations with their paths', () => {

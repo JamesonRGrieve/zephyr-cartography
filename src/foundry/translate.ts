@@ -23,6 +23,7 @@ import type {
     SenseLevel,
     SoundDoc,
     TileDoc,
+    TokenDoc,
     WallDirection,
     WallDoc,
     WallThreshold,
@@ -42,6 +43,7 @@ import type {
     SoundCreateData,
     TileCreateData,
     TokenFootprint,
+    TokenPlacement,
     WallCreateData,
 } from './boundary';
 
@@ -187,6 +189,22 @@ export function noteCreateData(note: NoteDoc): NoteCreateData {
             : {}),
         ...(note.readable ? { author: null } : {}),
         ...levelsField(note.level),
+    };
+}
+
+/**
+ * Where a Token `width` by `height` grid squares across stands so that its
+ * centre is the planned one, on its planned level and elevation, hidden or
+ * not: what a Token the module made takes from its plan, at creation and on
+ * every re-sync, and nothing more.
+ */
+export function tokenPlacement(token: TokenDoc, width: number, height: number, gridSize: number): TokenPlacement {
+    return {
+        x: Math.round(token.x - (width * gridSize) / 2),
+        y: Math.round(token.y - (height * gridSize) / 2),
+        elevation: token.elevation,
+        hidden: token.hidden,
+        ...(token.level === null ? {} : { level: token.level }),
     };
 }
 

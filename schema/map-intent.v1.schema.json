@@ -4479,6 +4479,75 @@
                 "additionalProperties": false
             }
         },
+        "tokens": {
+            "default": [],
+            "description": "Tokens placed on the map: the people and creatures it is populated with.",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "actor": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The actor, by UUID: a world actor (`Actor.<id>`) or a compendium's (`Compendium.<pack>.Actor.<id>`), brought into the world once."
+                    },
+                    "at": {
+                        "type": "object",
+                        "properties": {
+                            "x": {
+                                "type": "number"
+                            },
+                            "y": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "x",
+                            "y"
+                        ],
+                        "additionalProperties": false,
+                        "description": "The token's centre."
+                    },
+                    "storey": {
+                        "default": 0,
+                        "description": "The storey it stands on, where the map has levels: 0 the ground, 1 the floor above, -1 the top cellar.",
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                    },
+                    "name": {
+                        "description": "The token's name; omitted: the actor's prototype token's.",
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "hidden": {
+                        "default": false,
+                        "description": "Hidden from players until the GM reveals it.",
+                        "type": "boolean"
+                    },
+                    "disposition": {
+                        "description": "Friend or foe; omitted: the actor's prototype token's.",
+                        "type": "string",
+                        "enum": [
+                            "secret",
+                            "hostile",
+                            "neutral",
+                            "friendly"
+                        ]
+                    },
+                    "size": {
+                        "description": "Squares across; omitted: the actor's prototype token's.",
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    }
+                },
+                "required": [
+                    "actor",
+                    "at"
+                ],
+                "additionalProperties": false
+            }
+        },
         "orbits": {
             "default": [],
             "description": "Rings drawn round a star through the worlds that circle it.",

@@ -35,6 +35,7 @@ import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './pr
 import { type ComposeProblem, distinctProblems } from './problems';
 import { drawnAs, type RoleIndex, type RoleStamp } from './roles';
 import { flawsOf, layOutStoreys, type Storeys, type Well, type Wells } from './storeys';
+import { tokenFeatures } from './tokens';
 import { windowSlots } from './windows';
 
 type FeatureInput = SceneSpecInput['features'][number];
@@ -1080,6 +1081,8 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
         ...ways,
         // Its names and orbits over it all.
         ...chartMarks(intent, levelOf(0)),
+        // And who stands on it.
+        ...tokenFeatures(intent, levelOf),
     ]);
     return {
         spec: { schemaVersion: SCENE_SPEC_SCHEMA_VERSION, units: 'grid', levels, features, ...(scene === null ? {} : { scene }) },

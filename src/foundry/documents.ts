@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * The {@link DocumentSink} over the live scene: writes the walls, lights,
- * sounds, tiles and regions features generate, one staged transaction at a
+ * sounds, tiles, regions, notes, drawings and tokens features generate, one staged transaction at a
  * time, as a single `modifyBatch` — so an edit, an undo or a whole generated
  * map lands entirely or not at all. Foundry owns the documents from there
  * (vision, doors, lighting, tile rendering, teleports); this is only the
@@ -10,7 +10,7 @@
 import type { DocumentSink } from '../canvas/controller';
 import type { DocumentKind, StagedWrite } from '../canvas/staged-changes';
 import type { HazardKind } from '../stamps/schema';
-import type { LightSource, RegionDoc } from '../tools/documents';
+import type { LightSource, RegionDoc, TokenDoc } from '../tools/documents';
 import type { BatchOperation, EmbeddedCollection, EmbeddedName, FoundryScene, IdentifiedCreateData, ModifyBatch, RegionCreateData } from './boundary';
 import {
     drawingCreateData,
@@ -20,6 +20,7 @@ import {
     regionCreateData,
     soundCreateData,
     tileCreateData,
+    tokenPlacement,
     wallCreateData,
 } from './translate';
 
@@ -36,6 +37,12 @@ export interface SinkOptions {
     readonly soundName: (stampName: string) => string;
     /** A hazard region's warning, scrolled over a token coming into it. */
     readonly hazardText: (kind: HazardKind) => string;
+    /**
+     * A planned Token's create data, with the id `id`, from its actor's
+     * prototype token (a compendium's actor brought into the world first);
+     * null where its UUID names no actor, and it is left out.
+     */
+    readonly tokenData: (token: TokenDoc, id: string) => Promise<IdentifiedCreateData | null>;
 }
 
 /** Each generated kind's Foundry document name and its collection on a scene. */
@@ -47,6 +54,7 @@ const EMBEDDED: readonly [DocumentKind, EmbeddedName, (scene: FoundryScene) => E
     ['drawings', 'Drawing', (scene) => scene.drawings],
     ['tiles', 'Tile', (scene) => scene.tiles],
     ['regions', 'Region', (scene) => scene.regions],
+    ['tokens', 'Token', (scene) => scene.tokens],
 ];
 
 export class FoundryDocumentSink implements DocumentSink {
@@ -70,7 +78,7 @@ export class FoundryDocumentSink implements DocumentSink {
         const replaced = write.regionUpdates.flatMap(({ id, doc }) => regionCreateData([doc], [id], context));
         const regionUpdates = replaced.filter((region) => scene.regions.has(region._id)).map(({ behaviors: _behaviors, ...region }) => region);
         const recreated = replaced.filter((region) => !scene.regions.has(region._id));
-        const operations = [...deleteOperations(scene, write), ...this.createOperations(scene, sceneId, write, recreated)];
+        const operations = [...deleteOperations(scene, write), ...(await this.createOperations(scene, sceneId, write, recreated))];
         if (tileUpdates.length > 0) {
             operations.push({ action: 'update', documentName: 'Tile', parent: scene, updates: tileUpdates });
         }
@@ -81,6 +89,15 @@ export class FoundryDocumentSink implements DocumentSink {
         }
         if (regionUpdates.length > 0) {
             operations.push({ action: 'update', documentName: 'Region', parent: scene, updates: regionUpdates });
+        }
+        // A token keeps whatever play and its actor set on it: only where it stands and whether it is hidden follow the
+        // plan. One deleted by hand is gone.
+        const tokenUpdates = write.tokenUpdates.flatMap(({ id, doc }) => {
+            const live = scene.tokens.get(id);
+            return live ? [{ _id: id, ...tokenPlacement(doc, live.width, live.height, scene.grid.size) }] : [];
+        });
+        if (tokenUpdates.length > 0) {
+            operations.push({ action: 'update', documentName: 'Token', parent: scene, updates: tokenUpdates });
         }
         // A region redrawn in place keeps its behaviours, whose settings (a teleport's travel) follow the plan.
         operations.push(...behaviourUpdates(scene, replaced));
@@ -94,7 +111,12 @@ export class FoundryDocumentSink implements DocumentSink {
         }
     }
 
-    private createOperations(scene: FoundryScene, sceneId: string, write: StagedWrite, recreated: readonly RegionCreateData[]): BatchOperation[] {
+    private async createOperations(
+        scene: FoundryScene,
+        sceneId: string,
+        write: StagedWrite,
+        recreated: readonly RegionCreateData[],
+    ): Promise<BatchOperation[]> {
         const { grid } = scene;
         const regions = [
             ...write.regions.flatMap((group) =>
@@ -114,10 +136,28 @@ export class FoundryDocumentSink implements DocumentSink {
             ['Note', write.notes.map(({ id, doc }) => ({ _id: id, ...noteCreateData(doc) }))],
             ['Drawing', write.drawings.map(({ id, doc }) => ({ _id: id, ...drawingCreateData(doc) }))],
             ['Region', regions.map((region) => attachable(scene, region))],
+            ['Token', await this.tokens(write)],
         ];
         return creates
             .filter(([, data]) => data.length > 0)
             .map(([documentName, data]) => ({ action: 'create', documentName, parent: scene, data, keepId: true }));
+    }
+
+    /**
+     * The staged tokens' create data, one at a time: two tokens of one
+     * compendium actor must find it brought into the world by the first, not
+     * bring it in twice. A token whose actor is gone is left out.
+     */
+    private async tokens(write: StagedWrite): Promise<IdentifiedCreateData[]> {
+        const made: IdentifiedCreateData[] = [];
+        for (const { id, doc } of write.tokens) {
+            // eslint-disable-next-line no-await-in-loop -- sequential by design: see above
+            const data = await this.options.tokenData(doc, id);
+            if (data !== null) {
+                made.push(data);
+            }
+        }
+        return made;
     }
 }
 

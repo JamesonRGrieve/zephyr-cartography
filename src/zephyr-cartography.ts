@@ -26,6 +26,7 @@ import { createItemPilesContainers, followPileStates } from './foundry/item-pile
 import { registerLabelRuntime } from './foundry/label-runtime';
 import { registerLevelRuntime } from './foundry/level-runtime';
 import { createLevelStore } from './foundry/levels';
+import { format } from './foundry/localize';
 import { registerMaterialsRuntime } from './foundry/materials-runtime';
 import { registerPackRuntime } from './foundry/pack-runtime';
 import { registerPaintRuntime } from './foundry/paint-runtime';
@@ -45,6 +46,8 @@ import { registerSubmapRuntime } from './foundry/submap-runtime';
 import { registerSwitchDoorControl } from './foundry/switch-door-control';
 import { createSwitchLinker, type SwitchLinker } from './foundry/switch-linker';
 import { createTerrainLayer } from './foundry/terrain-layer';
+import { followTokens } from './foundry/token-runtime';
+import { tokenCreateData } from './foundry/tokens';
 import { registerZoneRuntime } from './foundry/zone-runtime';
 import { distance, type Point } from './geometry/spline';
 import { I18N } from './i18n';
@@ -98,6 +101,7 @@ const zones = registerZoneRuntime(() => state?.controller ?? null);
 
 followPileStates(() => state?.controller ?? null);
 followNoteReveals(() => state?.controller ?? null);
+followTokens(() => state?.controller ?? null);
 followShadows();
 
 registerAdvisorSettings();
@@ -478,7 +482,21 @@ function setupDrawLayer(): void {
         splats: createSplatStore(activeScene),
         splatRenderer: createSplatRenderer(terrain, packs.textures(), gridSize),
         store: new FoundrySceneStore(activeScene),
-        sink: new FoundryDocumentSink(activeScene, { makeId, modifyBatch, regionName, lightName, soundName, hazardText: hazardWarning }),
+        sink: new FoundryDocumentSink(activeScene, {
+            makeId,
+            modifyBatch,
+            regionName,
+            lightName,
+            soundName,
+            hazardText: hazardWarning,
+            tokenData: async (token, id) => {
+                const scene = canvas.scene;
+                const missing = (uuid: string): void => {
+                    ui.notifications?.warn(format(I18N.effects.spawn.missing, { uuid }));
+                };
+                return scene ? tokenCreateData(token, id, scene, missing) : null;
+            },
+        }),
         levels: createLevelStore(activeScene),
         scenes: createWorldScenes({ regionName, hazardText: hazardWarning }),
         containers: createItemPilesContainers(() => activeScene()?.id ?? null),

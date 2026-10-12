@@ -370,7 +370,24 @@ interface BakedTileCreateData extends OnLevels {
     readonly sort: number;
 }
 
-export type EmbeddedName = 'Wall' | 'AmbientLight' | 'AmbientSound' | 'Tile' | 'Region' | 'Level' | 'Note' | 'Drawing';
+/**
+ * Where a Token stands and whether players see it: the only fields the
+ * module writes to a Token it made once it exists, so whatever play and the
+ * actor set on it stays. `x`, `y` is its top-left; `level` is the scene level
+ * it stands on, Foundry's initial level where omitted.
+ */
+export interface TokenPlacement {
+    readonly x: number;
+    readonly y: number;
+    readonly elevation: number;
+    readonly hidden: boolean;
+    readonly level?: string;
+}
+
+/** A Token made from its actor's prototype (`Actor#getTokenDocument`), passed to Foundry whole. */
+type TokenCreateData = TokenDocument.CreateData;
+
+export type EmbeddedName = 'Wall' | 'AmbientLight' | 'AmbientSound' | 'Tile' | 'Region' | 'Level' | 'Note' | 'Drawing' | 'Token';
 
 type EmbeddedCreateData =
     | WallCreateData
@@ -381,7 +398,8 @@ type EmbeddedCreateData =
     | LevelCreateData
     | NoteCreateData
     | DrawingCreateData
-    | BakedTileCreateData;
+    | BakedTileCreateData
+    | TokenCreateData;
 
 /** Create data carrying the id the document will have. */
 export type IdentifiedCreateData = EmbeddedCreateData & { readonly _id: string };
@@ -413,6 +431,12 @@ export type BatchOperation =
           readonly updates: readonly { readonly _id: string; readonly system: RegionBehaviorSystem }[];
       }
     | { readonly action: 'update'; readonly documentName: 'Region'; readonly parent: FoundryScene; readonly updates: readonly RegionUpdateData[] }
+    | {
+          readonly action: 'update';
+          readonly documentName: 'Token';
+          readonly parent: FoundryScene;
+          readonly updates: readonly (TokenPlacement & { readonly _id: string })[];
+      }
     | {
           readonly action: 'update';
           readonly documentName: 'AmbientLight';

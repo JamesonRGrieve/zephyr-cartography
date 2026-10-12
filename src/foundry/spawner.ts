@@ -6,17 +6,12 @@
  * button and the module API.
  */
 import type { AreaSpawn } from '../tools/spawn';
+import { isActor } from './tokens';
 
 /** What a spawn made, and the UUIDs that named no Actor. */
 export interface SpawnResult {
     readonly spawned: number;
     readonly missing: readonly string[];
-}
-
-/** Whether `found` is an Actor, as the configured implementation (a bare `instanceof` leaves its subtype `any`). */
-// eslint-disable-next-line no-restricted-syntax -- boundary: fromUuid resolves any document; narrowed here
-function isActor(found: unknown): found is Actor.Implementation {
-    return found instanceof Actor;
 }
 
 /**

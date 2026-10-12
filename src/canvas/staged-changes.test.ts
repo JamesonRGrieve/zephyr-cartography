@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { BLOCKS_ALL, type RegionDoc, type TileDoc, type WallDoc } from '../tools/documents';
+import { BLOCKS_ALL, type RegionDoc, type TileDoc, type TokenDoc, type WallDoc } from '../tools/documents';
 import { NO_DOCS } from '../tools/generated-docs';
 import { NO_PLAN } from '../tools/plan';
 import { type DocumentChange, type DocumentKind, StagedChanges } from './staged-changes';
 
 const WALL: WallDoc = { a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, door: 'none', doorState: 'closed', blocks: BLOCKS_ALL, level: null };
+const TOKEN: TokenDoc = { x: 50, y: 50, elevation: 0, level: null, actor: 'Actor.a', name: null, hidden: false, disposition: null, size: null };
 const TILE: TileDoc = { name: 'Crate', src: 'crate.webp', x: 0, y: 0, width: 100, height: 100, rotation: 0, elevation: 0, level: null, featureId: 'p1' };
 const MOVED: TileDoc = { ...TILE, x: 200 };
 
@@ -37,7 +38,7 @@ function staging(): StagedChanges {
 }
 
 function change(partial: Partial<DocumentChange>): DocumentChange {
-    return { remove: NO_DOCS, create: NO_PLAN, updateTiles: [], updateWalls: [], ...partial };
+    return { remove: NO_DOCS, create: NO_PLAN, updateTiles: [], updateWalls: [], updateTokens: [], ...partial };
 }
 
 describe('StagedChanges', () => {
@@ -158,5 +159,20 @@ describe('StagedChanges', () => {
         staged.stage(change({ updateWalls: [{ id: 'live', wall: door }] }));
         staged.stage(change({ remove: { ...NO_DOCS, walls: ['live'] } }));
         expect(staged.take()).toMatchObject({ wallUpdates: [], deletes: { ...NO_DOCS, walls: ['live'] } });
+    });
+
+    it('updates tokens in place like walls, so a token in play is never deleted and made again', () => {
+        const staged = staging();
+        const created = staged.stage(change({ create: { ...NO_PLAN, tokens: [TOKEN] } }));
+        const pendingId = created.tokens[0] ?? '';
+        const moved: TokenDoc = { ...TOKEN, x: 150 };
+        staged.stage(change({ updateTokens: [{ id: pendingId, token: moved }] }));
+        staged.stage(change({ updateTokens: [{ id: 'live', token: moved }] }));
+        const write = staged.take();
+        expect(write.tokens).toEqual([{ id: pendingId, doc: moved }]);
+        expect(write.tokenUpdates).toEqual([{ id: 'live', doc: moved }]);
+        staged.stage(change({ updateTokens: [{ id: 'live', token: moved }] }));
+        staged.stage(change({ remove: { ...NO_DOCS, tokens: ['live'] } }));
+        expect(staged.take()).toMatchObject({ tokenUpdates: [], deletes: { ...NO_DOCS, tokens: ['live'] } });
     });
 });

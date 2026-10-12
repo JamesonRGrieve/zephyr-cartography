@@ -16,13 +16,14 @@ export interface GeneratedDocs {
     readonly sounds: readonly string[];
     readonly notes: readonly string[];
     readonly drawings: readonly string[];
+    readonly tokens: readonly string[];
 }
 
-export const NO_DOCS: GeneratedDocs = { walls: [], lights: [], tiles: [], regions: [], sounds: [], notes: [], drawings: [] };
+export const NO_DOCS: GeneratedDocs = { walls: [], lights: [], tiles: [], regions: [], sounds: [], notes: [], drawings: [], tokens: [] };
 
 /** Every generated id, whatever its document type. */
 export function allDocIds(docs: GeneratedDocs): string[] {
-    return [...docs.walls, ...docs.lights, ...docs.tiles, ...docs.regions, ...docs.sounds, ...docs.notes, ...docs.drawings];
+    return [...docs.walls, ...docs.lights, ...docs.tiles, ...docs.regions, ...docs.sounds, ...docs.notes, ...docs.drawings, ...docs.tokens];
 }
 
 export function hasDocs(docs: GeneratedDocs): boolean {
@@ -39,9 +40,10 @@ export function parseGeneratedDocs(v: unknown): GeneratedDocs {
         lights: stringArray(v['lights']),
         tiles: stringArray(v['tiles']),
         regions: stringArray(v['regions']),
-        // Recorded since stamps emit sounds, pins make notes and labels drawings; an older record has none.
+        // Recorded since stamps emit sounds, pins make notes, labels drawings and tokens tokens; an older record has none.
         sounds: stringArray(v['sounds']),
         notes: stringArray(v['notes']),
         drawings: stringArray(v['drawings']),
+        tokens: stringArray(v['tokens']),
     };
 }

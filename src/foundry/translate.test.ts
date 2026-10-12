@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { BLOCKS_ALL, type DrawingDoc, type RegionDoc } from '../tools/documents';
+import { BLOCKS_ALL, type DrawingDoc, type RegionDoc, type TokenDoc } from '../tools/documents';
 import { DEFAULT_TRAVEL } from '../tools/submap';
 import type { ZoneShape } from '../tools/zone-shape';
 import {
@@ -19,6 +19,7 @@ import {
     soundCreateData,
     tileCreateData,
     tileFrame,
+    tokenPlacement,
     wallCreateData,
 } from './translate';
 
@@ -833,5 +834,19 @@ describe('regionCreateData', () => {
         const [entrance, back] = regionCreateData([{ ...exit, id: 'in1', label: { kind: 'entrance', scene: 'Residence' } }, exit], ['in1', 'out1'], CONTEXT);
         expect([entrance?.locked, back?.locked]).toEqual([true, false]);
         expect([entrance?.visibility, back?.visibility]).toEqual([0, 0]);
+    });
+});
+
+describe('tokenPlacement', () => {
+    const token: TokenDoc = { x: 250, y: 350, elevation: 4, level: 'lv1', actor: 'Actor.a', name: 'Guard', hidden: true, disposition: 'hostile', size: null };
+
+    it('stands a token so its centre is the planned one, on its level and elevation, hidden as planned', () => {
+        expect(tokenPlacement(token, 1, 1, 100)).toEqual({ x: 200, y: 300, elevation: 4, hidden: true, level: 'lv1' });
+        expect(tokenPlacement(token, 2, 3, 100)).toEqual({ x: 150, y: 200, elevation: 4, hidden: true, level: 'lv1' });
+    });
+
+    it('leaves the level to Foundry where the plan has none, and sets nothing of the actor’s', () => {
+        const placed = tokenPlacement({ ...token, level: null }, 1, 1, 50);
+        expect(placed).toEqual({ x: 225, y: 325, elevation: 4, hidden: true });
     });
 });
