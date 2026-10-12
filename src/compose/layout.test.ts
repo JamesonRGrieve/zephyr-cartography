@@ -139,9 +139,17 @@ describe('layOutBuilding', () => {
         expect(layOut(TAVERN, FOOTPRINT, 7)).toEqual(layOut(TAVERN, FOOTPRINT, 7));
     });
 
-    it('has no layout when the rooms cannot fit the footprint', () => {
+    it('has no layout when the rooms cannot fit the footprint, and spends no tries finding that out', () => {
         const crowded = building({ width: 3, height: 3, rooms: [0, 1, 2, 3].map((i) => ({ key: `r${i}`, purpose: 'cell' })) });
-        expect(layOutBuilding(crowded, { x: 0, y: 0, w: 3, h: 3 }, seededRandom(1))).toBeNull();
+        const random = seededRandom(1);
+        let draws = 0;
+        const counted = (): number => {
+            draws += 1;
+            return random();
+        };
+        expect(layOutBuilding(crowded, { x: 0, y: 0, w: 3, h: 3 }, counted)).toBeNull();
+        // Four rooms of at least 2 by 2 need 16 squares of the 9: refused before any layout is drawn.
+        expect(draws).toBe(0);
     });
 
     it('takes the first room as the entrance when none is marked, and faces another way when the asked-for side is inside', () => {

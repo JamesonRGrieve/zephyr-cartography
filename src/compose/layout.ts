@@ -511,6 +511,11 @@ export function layOutBuilding(
     }
     const rooms: [RoomIntent, ...RoomIntent[]] = [first, ...others];
     const pinned = pinnedRooms(rooms, footprint);
+    // Every room takes at least MIN_ROOM_SIDE squares each way, so rooms needing more squares than the footprint holds can
+    // never fit: refuse at once rather than through every try (an upper floor runs the tries again for each stairwell spot).
+    if (pinned === null && rooms.length * MIN_ROOM_SIDE * MIN_ROOM_SIDE > footprint.w * footprint.h) {
+        return null;
+    }
     let best: { layout: BuildingLayout; score: number } | null = null;
     for (let attempt = 0; attempt < LAYOUT_TRIES; attempt++) {
         // Rooms each placed by the intent are laid as given; else a corridor with rooms along it is tried beside the splits,
