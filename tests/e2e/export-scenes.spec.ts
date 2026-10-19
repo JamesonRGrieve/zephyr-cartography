@@ -32,8 +32,17 @@ const OUT = process.env['EXPORT_SCENES_OUT'];
 /** Px per grid square the scenes are composed at. */
 const GRID = 100;
 
-/** The longest side an exported image may have, in px; a larger scene is drawn smaller. */
-const MAX_SIDE = 4096;
+/** The longest side an exported image may have by default, in px; a larger scene is drawn smaller. */
+const DEFAULT_MAX_SIDE = 4096;
+
+/** The longest side for this run: `EXPORT_MAX_SIDE` raises it for a large outdoor map (a 180-square field at 50 px). */
+const MAX_SIDE = z.coerce.number().int().positive().default(DEFAULT_MAX_SIDE).parse(process.env['EXPORT_MAX_SIDE']);
+
+/**
+ * The largest viewport one picture is taken at, in px: software GL draws nothing past its largest texture, so a larger
+ * export is taken as tiles of at most this size, panned across the scene, and joined.
+ */
+const MAX_TILE_SIDE = 4096;
 
 /** How long one scene's export may take, in ms: a tower's five levels, drawn in software GL on the build runner, ran past ten minutes. */
 const EXPORT_TIMEOUT_MS = 30 * 60_000;
@@ -62,6 +71,61 @@ async function drawn(page: Page): Promise<void> {
             { timeout: IMAGES_LOAD_MS },
         )
         .toBe(true);
+}
+
+/** The tiles a picture `image` px is taken in: equal tiles of at most MAX_TILE_SIDE, their top-left corners in image px. */
+export function tilesFor(image: { readonly width: number; readonly height: number }): {
+    readonly tile: { readonly width: number; readonly height: number };
+    readonly origins: readonly { readonly x: number; readonly y: number }[];
+} {
+    const across = Math.ceil(image.width / MAX_TILE_SIDE);
+    const down = Math.ceil(image.height / MAX_TILE_SIDE);
+    const tile = { width: Math.ceil(image.width / across), height: Math.ceil(image.height / down) };
+    const origins = Array.from({ length: across * down }, (_, i) => ({ x: (i % across) * tile.width, y: Math.floor(i / across) * tile.height }));
+    return { tile, origins };
+}
+
+/** The tiles' pictures joined into one PNG `image` px, on a 2D canvas in the page (2D canvases hold far more than GL). */
+async function joined(
+    page: Page,
+    shots: readonly Buffer[],
+    grid: ReturnType<typeof tilesFor>,
+    image: { readonly width: number; readonly height: number },
+): Promise<Buffer> {
+    const base64 = await page.evaluate(
+        async ({ pictures, origins, width, height }) => {
+            const board = document.createElement('canvas');
+            board.width = width;
+            board.height = height;
+            const context = board.getContext('2d');
+            if (!context) {
+                throw new Error('no 2D canvas to join the tiles on');
+            }
+            await Promise.all(
+                pictures.map(async (data, i) => {
+                    const picture = new Image();
+                    picture.src = `data:image/png;base64,${data}`;
+                    await picture.decode();
+                    const at = origins[i] ?? { x: 0, y: 0 };
+                    context.drawImage(picture, at.x, at.y);
+                }),
+            );
+            const blob = await new Promise<Blob | null>((resolve) => {
+                board.toBlob(resolve, 'image/png');
+            });
+            if (!blob) {
+                throw new Error('the joined picture could not be encoded');
+            }
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            let text = '';
+            for (const byte of bytes) {
+                text += String.fromCharCode(byte);
+            }
+            return btoa(text);
+        },
+        { pictures: shots.map((b) => b.toString('base64')), origins: grid.origins, width: image.width, height: image.height },
+    );
+    return Buffer.from(base64, 'base64');
 }
 
 test.beforeEach(async ({ world }) => {
@@ -130,7 +194,9 @@ for (const { key, intent: source } of listed) {
             return found.map(({ region, ids }) => ({ region: region.id, ids }));
         });
         const scale = Math.min(1, MAX_SIDE / Math.max(size.width, size.height));
-        await world.setViewportSize({ width: Math.round(size.width * scale), height: Math.round(size.height * scale) });
+        const image = { width: Math.round(size.width * scale), height: Math.round(size.height * scale) };
+        const grid = tilesFor(image);
+        await world.setViewportSize({ width: grid.tile.width, height: grid.tile.height });
         await world.addStyleTag({ content: 'body > :not(#board) { visibility: hidden !important; }' });
         const levels = await world.evaluate(() => (canvas?.scene?.levels.contents ?? []).map((l) => ({ id: l.id, name: l.name })));
         await levels.reduce(async (previous, level, n) => {
@@ -149,24 +215,33 @@ for (const { key, intent: source } of listed) {
                 );
                 return shining;
             });
-            await world.evaluate(
-                async ({ x, y, zoom }) => {
-                    await canvas?.animatePan({ x, y, scale: zoom, duration: 0 });
-                },
-                { x: size.width / 2, y: size.height / 2, zoom: scale },
-            );
-            await drawn(world);
-            // Viewing a level redraws the canvas, the token layer with it: hidden again for each picture, and the door
-            // controls with it (Foundry's door icon, drawn over every door's art; the GM's, not the map's).
-            await world.evaluate(() => {
-                if (canvas?.tokens) {
-                    canvas.tokens.visible = false;
-                }
-                if (canvas?.controls?.doors) {
-                    canvas.controls.doors.visible = false;
-                }
-            });
-            await world.locator('#board').screenshot({ path: join(out, `${key}.${n}.png`) });
+            // Each tile's picture, panned so the tile's middle is in the middle of the view.
+            const shots = await grid.origins.reduce(async (before, at) => {
+                const taken = await before;
+                await world.evaluate(
+                    async ({ x, y, zoom }) => {
+                        await canvas?.animatePan({ x, y, scale: zoom, duration: 0 });
+                    },
+                    {
+                        x: (at.x + grid.tile.width / 2) / scale,
+                        y: (at.y + grid.tile.height / 2) / scale,
+                        zoom: scale,
+                    },
+                );
+                await drawn(world);
+                // Viewing a level redraws the canvas, the token layer with it: hidden again for each picture, and the door
+                // controls with it (Foundry's door icon, drawn over every door's art; the GM's, not the map's).
+                await world.evaluate(() => {
+                    if (canvas?.tokens) {
+                        canvas.tokens.visible = false;
+                    }
+                    if (canvas?.controls?.doors) {
+                        canvas.controls.doors.visible = false;
+                    }
+                });
+                return [...taken, await world.locator('#board').screenshot()];
+            }, Promise.resolve<Buffer[]>([]));
+            writeFileSync(join(out, `${key}.${n}.png`), grid.origins.length === 1 && shots[0] ? shots[0] : await joined(world, shots, grid, image));
             const uvtt = await world.evaluate(
                 async ({ shining, imageGridSize }) => {
                     await canvas?.scene?.updateEmbeddedDocuments(
