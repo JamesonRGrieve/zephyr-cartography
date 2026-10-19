@@ -53,8 +53,21 @@ import { distance, type Point } from './geometry/spline';
 import { I18N } from './i18n';
 import { MODULE_ID } from './module-id';
 import type { BiomeKind } from './tools/biome';
+import type { Feature } from './tools/feature';
 import { WALL_BAND_SQUARES } from './tools/materials';
 import { FLAG_KEY } from './tools/path';
+import { type ControlOverlay, handleFromDrag, type HandleSide, type PathControl, type PathKey, pathKey } from './tools/pen';
+
+/** A control point being dragged in edit mode: moved, its path width set (Shift) by distance from it, or one of its handles pulled. */
+type Drag =
+    | { readonly kind: 'move' | 'width'; readonly id: string; readonly index: number; readonly anchor: Point; moved: boolean }
+    | { readonly kind: 'handle'; readonly id: string; readonly index: number; readonly anchor: Point; readonly side: HandleSide; moved: boolean };
+
+/** The road or river picked with the edit tool, its anchors shown to reshape it, and its picked anchor (or none). */
+interface PathSelection {
+    readonly id: string;
+    index: number | null;
+}
 
 interface DrawState {
     controller: CartographyController;
@@ -67,8 +80,11 @@ interface DrawState {
     /** Where the levels the viewed one sees below it draw, each at its own floor (made as needed). */
     seenTerrains: PIXI.Container[];
     mode: Mode;
-    /** A control point being dragged: moved, or (Shift) its path width set by distance from `anchor`. */
-    drag: { id: string; index: number; kind: 'move' | 'width'; anchor: Point } | null;
+    drag: Drag | null;
+    /** The path the edit tool has picked, or null. */
+    selected: PathSelection | null;
+    /** The pen's guides over the path being drawn or edited: its centreline, anchors and handles. */
+    guides: PIXI.Graphics;
     /** A brush stroke is being painted (the pointer is down with the paint tool laying ground). */
     painting: boolean;
     /** The paint brush's outline, following the pointer while the paint tool is in hand. */
@@ -162,8 +178,21 @@ packs.onChange(() => {
 /** Shared across canvases so a stamp variant's silhouette is traced once per session. */
 const silhouettes = createSilhouetteSource();
 
-/** Scene-px radius within which a click grabs a control-point handle in edit mode. */
-const EDIT_PICK_TOL = 10;
+/** Screen-px radius within which a press grabs a control point or a handle's end, however far the view is zoomed. */
+const PICK_SCREEN_PX = 9;
+
+/** The pen's guides, in screen px: the centreline and handle lines, anchor and handle-end sizes, and their colours. */
+const GUIDES = {
+    line: 1.5,
+    halo: 3.5,
+    anchor: 4.5,
+    picked: 6,
+    handleEnd: 3.5,
+    light: 0xffffff,
+    dark: 0x000000,
+    accent: 0xff9c00,
+    alpha: 0.9,
+} as const;
 
 /** Scene-px radius within which a click grabs a room wall segment in door mode. */
 const WALL_PICK_TOL = 16;
@@ -214,6 +243,7 @@ function enterMode(st: DrawState, mode: Mode): void {
     capturePointer(st.container, mode.kind !== 'idle');
     st.mode = mode;
     st.drag = null;
+    st.selected = null;
     st.painting = false;
     st.cursor.visible = false;
     // A blend stroke cut short by a tool change still lands as one undo step.
@@ -224,19 +254,169 @@ function enterMode(st: DrawState, mode: Mode): void {
     st.controller.cancel();
     // A clicked shape starts now; a paint stroke starts with its press.
     if (mode.kind === 'brush' && mode.brush.type !== 'stroke') {
-        st.controller.begin(mode.brush, 'click');
+        startShape(st, mode.brush);
     }
     // Link lines show only while the link tool is in hand.
     if (mode.kind !== 'link') {
         st.linker.reset();
     }
+    drawGuides(st);
+}
+
+/** Start the next shape with `brush`: a road or river with the pen, a room point by point. */
+function startShape(st: DrawState, brush: Brush): void {
+    st.controller.begin(brush, brush.type === 'path' ? 'pen' : 'click');
 }
 
 /** Finish the shape being drawn, then start the next one with the same brush. */
 async function commitAndContinue(st: DrawState, brush: Brush): Promise<void> {
     await st.controller.commit();
-    st.controller.begin(brush, 'click');
+    startShape(st, brush);
+    drawGuides(st);
 }
+
+/** How far (scene px) from a control point a press still takes it: a fixed distance on screen, whatever the zoom. */
+function pickTolerance(): number {
+    return PICK_SCREEN_PX / (canvas?.stage?.scale.x ?? 1);
+}
+
+/**
+ * Redraw the guides: over the path the pen is drawing, or the one the edit
+ * tool has picked (as `shown`, a drag's preview of it, where given); none
+ * otherwise. A picked path that is gone (erased, undone) is let go.
+ */
+function drawGuides(st: DrawState, shown: Feature | null = null): void {
+    const { mode, selected } = st;
+    let overlay: ControlOverlay | null = null;
+    if (mode.kind === 'brush' && mode.brush.type === 'path') {
+        overlay = st.controller.penOverlay();
+    } else if (mode.kind === 'edit' && selected) {
+        overlay = st.controller.pathOverlay(selected.id, selected.index, shown);
+        if (overlay === null) {
+            st.selected = null;
+        }
+    }
+    paintGuides(st.guides, overlay);
+    // Re-adding moves them above anything drawn on the layer since.
+    st.container.addChild(st.guides);
+}
+
+/** Draw `overlay` on `guides`, a dark halo under light lines so they read on any ground, at a fixed size on screen. */
+function paintGuides(guides: PIXI.Graphics, overlay: ControlOverlay | null): void {
+    guides.clear();
+    if (overlay === null) {
+        return;
+    }
+    const px = 1 / (canvas?.stage?.scale.x ?? 1);
+    const polyline = (points: readonly Point[]): void => {
+        const [first, ...rest] = points;
+        if (first) {
+            guides.moveTo(first.x, first.y);
+            for (const p of rest) {
+                guides.lineTo(p.x, p.y);
+            }
+        }
+    };
+    for (const [width, colour] of [
+        [GUIDES.halo, GUIDES.dark],
+        [GUIDES.line, GUIDES.light],
+    ] as const) {
+        guides.lineStyle(width * px, colour, GUIDES.alpha);
+        polyline(overlay.spine);
+        for (const handle of overlay.handles) {
+            polyline([handle.from, handle.to]);
+        }
+    }
+    guides.lineStyle(GUIDES.line * px, GUIDES.dark, GUIDES.alpha);
+    for (const handle of overlay.handles) {
+        guides
+            .beginFill(GUIDES.light, 1)
+            .drawCircle(handle.to.x, handle.to.y, GUIDES.handleEnd * px)
+            .endFill();
+    }
+    overlay.anchors.forEach((at, i) => {
+        const half = (i === overlay.selected ? GUIDES.picked : GUIDES.anchor) * px;
+        guides
+            .beginFill(i === overlay.selected ? GUIDES.accent : GUIDES.light, 1)
+            .drawRect(at.x - half, at.y - half, half * 2, half * 2)
+            .endFill();
+    });
+}
+
+/** Is the key going to a field (a panel's input), not to the canvas? */
+function typing(target: EventTarget | null): boolean {
+    return (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+    );
+}
+
+/**
+ * The pen's and the edit tool's keys, taken before Foundry's own (which would
+ * delete the Tokens selected on Backspace, or open the menu on Escape) only
+ * when they act on a path: drawing, Backspace or Delete takes back the last
+ * point, Enter finishes and Escape throws the path away; editing a path,
+ * Backspace or Delete removes its picked point and Escape lets it go.
+ */
+function onKeyDown(keyEvent: KeyboardEvent): void {
+    const st = state;
+    const key = pathKey(keyEvent.key);
+    if (!st || key === null || keyEvent.repeat || typing(keyEvent.target)) {
+        return;
+    }
+    if (pathKeyDown(st, key)) {
+        keyEvent.preventDefault();
+        keyEvent.stopPropagation();
+    }
+}
+
+/** Act on a path key; whether it did anything. */
+function pathKeyDown(st: DrawState, key: PathKey): boolean {
+    const { mode, controller, selected } = st;
+    if (mode.kind === 'brush' && mode.brush.type === 'path') {
+        const anchors = controller.penAnchors;
+        if (key === 'remove' && controller.penUndo()) {
+            drawGuides(st);
+            return true;
+        }
+        if (key === 'finish' && anchors >= 2) {
+            void commitAndContinue(st, mode.brush);
+            return true;
+        }
+        if (key === 'cancel' && anchors > 0) {
+            controller.cancel();
+            startShape(st, mode.brush);
+            drawGuides(st);
+            return true;
+        }
+        return false;
+    }
+    if (mode.kind !== 'edit' || !selected) {
+        return false;
+    }
+    if (key === 'remove' && selected.index !== null) {
+        void removePathPoint(st, selected, selected.index);
+        return true;
+    }
+    if (key === 'cancel') {
+        st.selected = null;
+        drawGuides(st);
+        return true;
+    }
+    return false;
+}
+
+/** Remove point `index` of the picked path, and show what is left of it. */
+async function removePathPoint(st: DrawState, selection: PathSelection, index: number): Promise<void> {
+    selection.index = null;
+    await st.controller.deleteVertex(selection.id, index);
+    drawGuides(st);
+}
+
+// Capturing, so the pen's keys are handled before Foundry's own listener on the window sees them.
+window.addEventListener('keydown', onKeyDown, { capture: true });
 
 function onPointerDown(st: DrawState, pointerEvent: PIXI.FederatedPointerEvent): void {
     // A tool's left press is the tool's: left to reach the stage, Foundry would also run its own gestures on it (a
@@ -257,16 +437,9 @@ function onPointerDown(st: DrawState, pointerEvent: PIXI.FederatedPointerEvent):
         case 'door':
             doorAt(st.controller, pt);
             return;
-        case 'edit': {
-            const hit = st.controller.pickVertex(pt, EDIT_PICK_TOL);
-            const anchor = hit ? st.controller.getFeature(hit.id)?.points[hit.index] : undefined;
-            if (hit && pointerEvent.button === SECONDARY_BUTTON) {
-                void st.controller.deleteVertex(hit.id, hit.index);
-            } else if (hit && anchor) {
-                st.drag = { ...hit, kind: pointerEvent.shiftKey ? 'width' : 'move', anchor };
-            }
+        case 'edit':
+            editDown(st, pt, pointerEvent);
             return;
-        }
         case 'materials':
             openOn(st.controller, pt, (id) => st.controller.roomMaterials(id) !== null, materials.edit);
             return;
@@ -307,8 +480,87 @@ function onPointerDown(st: DrawState, pointerEvent: PIXI.FederatedPointerEvent):
             void st.linker.click(pt);
             return;
         case 'brush':
-            brushDown(st, mode.brush, pt, pointerEvent.button);
+            brushDown(st, mode.brush, pt, pointerEvent);
     }
+}
+
+/**
+ * A press with the edit tool. On the picked road or river it takes what is
+ * under it: an anchor (dragged to move it, Shift-dragged to set the width
+ * there; Alt-, Ctrl- or right-clicked to remove it), a handle's end (dragged
+ * to bend the curve), or the path between anchors (a new anchor there).
+ * Elsewhere it takes any feature's control point as before, and a road or
+ * river pressed on is picked, its anchors and handles shown.
+ */
+function editDown(st: DrawState, pt: Point, pointerEvent: PIXI.FederatedPointerEvent): void {
+    const { controller } = st;
+    const tolerance = pickTolerance();
+    const remove = pointerEvent.button === SECONDARY_BUTTON || pointerEvent.altKey || pointerEvent.ctrlKey || pointerEvent.metaKey;
+    const width = pointerEvent.shiftKey;
+    const selected = st.selected;
+    const control = selected ? controller.pickPathControl(selected.id, pt, tolerance, selected.index) : null;
+    if (selected && control) {
+        pathControlDown(st, selected, control, { remove, width });
+        return;
+    }
+    const hit = controller.pickVertex(pt, tolerance);
+    const feature = hit ? controller.getFeature(hit.id) : null;
+    const anchor = hit ? feature?.points[hit.index] : undefined;
+    const isPath = feature?.type === 'path';
+    if (hit && remove) {
+        st.selected = isPath ? { id: hit.id, index: null } : null;
+        void removeVertex(st, hit.id, hit.index);
+        return;
+    }
+    if (hit && anchor) {
+        st.selected = isPath ? { id: hit.id, index: hit.index } : null;
+        st.drag = { ...hit, kind: width ? 'width' : 'move', anchor, moved: false };
+        drawGuides(st);
+        return;
+    }
+    const picked = controller.hitTest(pt);
+    st.selected = picked !== null && controller.getFeature(picked)?.type === 'path' ? { id: picked, index: null } : null;
+    drawGuides(st);
+}
+
+/** A press on part of the picked path: its anchor, a handle's end, or the path between anchors. */
+function pathControlDown(st: DrawState, selected: PathSelection, control: PathControl, held: { readonly remove: boolean; readonly width: boolean }): void {
+    const feature = st.controller.getFeature(selected.id);
+    if (control.kind === 'span') {
+        if (!held.remove) {
+            void insertAnchor(st, selected, control.span, control.t);
+        }
+        return;
+    }
+    const anchor = feature?.points[control.index];
+    if (!anchor) {
+        return;
+    }
+    if (control.kind === 'anchor' && held.remove) {
+        void removePathPoint(st, selected, control.index);
+        return;
+    }
+    selected.index = control.index;
+    st.drag =
+        control.kind === 'handle'
+            ? { kind: 'handle', id: selected.id, index: control.index, anchor, side: control.side, moved: false }
+            : { kind: held.width ? 'width' : 'move', id: selected.id, index: control.index, anchor, moved: false };
+    drawGuides(st);
+}
+
+/** Add an anchor to the picked path at `t` along span `span`, and pick it. */
+async function insertAnchor(st: DrawState, selected: PathSelection, span: number, t: number): Promise<void> {
+    const index = await st.controller.insertPathPoint(selected.id, span, t);
+    if (index !== null) {
+        selected.index = index;
+    }
+    drawGuides(st);
+}
+
+/** Remove a feature's control point, then redraw the guides over what is left. */
+async function removeVertex(st: DrawState, id: string, index: number): Promise<void> {
+    await st.controller.deleteVertex(id, index);
+    drawGuides(st);
 }
 
 /** Open a panel on the feature clicked, if it is one the panel is for. */
@@ -344,14 +596,28 @@ async function placeOrOpen(
     }
 }
 
-/** A press with a drawing brush in hand. */
-function brushDown(st: DrawState, brush: Brush, pt: Point, button: number): void {
+/**
+ * A press with a drawing brush in hand. A road or river is drawn with the
+ * pen: a press drops an anchor (Alt: a sharp corner) and dragging pulls out
+ * its handles; a press on the last anchor (a double-click's second press
+ * lands there) finishes the path. A right-click finishes any shape.
+ */
+function brushDown(st: DrawState, brush: Brush, pt: Point, pointerEvent: PIXI.FederatedPointerEvent): void {
+    const { button } = pointerEvent;
     if (brush.type === 'stroke') {
         paintDown(st, brush.biome, pt, button);
         return;
     }
     if (button === SECONDARY_BUTTON) {
         void commitAndContinue(st, brush);
+        return;
+    }
+    if (brush.type === 'path') {
+        if (button === PRIMARY_BUTTON && st.controller.penPress(pt, pickTolerance(), pointerEvent.altKey) === 'finish') {
+            void commitAndContinue(st, brush);
+            return;
+        }
+        drawGuides(st);
         return;
     }
     st.controller.addPoint(pt);
@@ -408,13 +674,46 @@ function onPointerMove(st: DrawState, pointerEvent: PIXI.FederatedPointerEvent):
         }
         return;
     }
-    if (st.drag?.kind === 'width') {
-        st.controller.previewPathWidth(st.drag.id, st.drag.index, distance(st.drag.anchor, pt));
+    if (mode.kind === 'brush' && mode.brush.type === 'path') {
+        st.controller.penMove(pt, pickTolerance());
+        drawGuides(st);
         return;
     }
-    if (st.drag) {
-        st.controller.previewVertexMove(st.drag.id, st.drag.index, pt);
+    const { drag } = st;
+    if (drag) {
+        drag.moved = true;
+        drawGuides(st, previewDrag(st.controller, drag, pt));
     }
+}
+
+/** Preview a drag in edit mode with the pointer at `pt`; the feature as previewed, or null. */
+function previewDrag(controller: CartographyController, drag: Drag, pt: Point): Feature | null {
+    if (drag.kind === 'handle') {
+        return controller.previewPathHandle(drag.id, drag.index, handleFromDrag(drag.anchor, drag.side, pt));
+    }
+    return drag.kind === 'width'
+        ? controller.previewPathWidth(drag.id, drag.index, distance(drag.anchor, pt))
+        : controller.previewVertexMove(drag.id, drag.index, pt);
+}
+
+/** Land a drag in edit mode released at `pt` (a press that never moved changes nothing), then redraw the guides. */
+async function endDrag(st: DrawState, drag: Drag, pt: Point): Promise<void> {
+    const { controller } = st;
+    controller.clearPreview();
+    if (drag.moved) {
+        switch (drag.kind) {
+            case 'width':
+                await controller.setPathWidth(drag.id, drag.index, distance(drag.anchor, pt));
+                break;
+            case 'handle':
+                await controller.setPathHandle(drag.id, drag.index, handleFromDrag(drag.anchor, drag.side, pt));
+                break;
+            case 'move':
+                await controller.moveVertex(drag.id, drag.index, pt);
+                break;
+        }
+    }
+    drawGuides(st);
 }
 
 function onPointerUp(st: DrawState, pointerEvent: PIXI.FederatedPointerEvent): void {
@@ -425,14 +724,15 @@ function onPointerUp(st: DrawState, pointerEvent: PIXI.FederatedPointerEvent): v
         return;
     }
     if (st.drag) {
-        const { id, index, kind, anchor } = st.drag;
+        const { drag } = st;
         st.drag = null;
-        if (kind === 'width') {
-            void st.controller.setPathWidth(id, index, distance(anchor, pt));
-        } else {
-            void st.controller.moveVertex(id, index, pt);
-        }
-        st.controller.clearPreview();
+        void endDrag(st, drag, pt);
+        return;
+    }
+    const { mode } = st;
+    if (mode.kind === 'brush' && mode.brush.type === 'path') {
+        st.controller.penRelease();
+        drawGuides(st);
         return;
     }
     if (st.painting) {
@@ -528,12 +828,16 @@ function setupDrawLayer(): void {
         seenTerrains,
         mode: IDLE,
         drag: null,
+        selected: null,
+        guides: Object.assign(new PIXI.Graphics(), { eventMode: 'none' as const }),
         painting: false,
         cursor: Object.assign(new PIXI.Graphics(), { eventMode: 'none' as const, visible: false }),
         blending: false,
         linker: createSwitchLinker(controller, container),
     };
     state = st;
+    // On the layer from the start, so it goes with the layer however it is torn down.
+    container.addChild(st.guides);
     // A redraw keeps Foundry's control group and tool (it re-activates the layer that was active), so a module tool
     // selected in Walls or Tiles is still in hand: pick it straight back up.
     const control = ui.controls?.control;

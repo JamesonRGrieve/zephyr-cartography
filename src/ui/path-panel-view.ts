@@ -2,13 +2,14 @@
 /**
  * The road and river tools' panel: the width the next path is drawn at, the
  * kind of walls along it (Foundry's own, or none) and, for a river, what it carries (water, lava, poison or acid), the liquid's
- * shade, and the texture of the bed laid beneath it (or none). A pure
+ * shade, and the texture of the bed laid beneath it (or none); and how the
+ * pen draws a path and the edit tool reshapes it. A pure
  * function from the panel state to elements; unit-tested under happy-dom.
  */
 import { cssHex, parseCssHex } from '../tools/colour';
 import { LIQUID_LOOKS, LIQUIDS, type Liquid, type PathKind, type RiverLook } from '../tools/path';
 import { isWallPreset, WALL_PRESETS, type WallPreset } from '../tools/wall-presets';
-import { choice, labelledInput, replacePreservingFocus } from './dom';
+import { choice, el, labelledInput, replacePreservingFocus } from './dom';
 
 export interface BedChoice {
     readonly role: string;
@@ -37,6 +38,10 @@ export interface PathLabels {
     readonly noWalls: string;
     /** Foundry's own Walls palette names. */
     readonly wallKinds: Readonly<Record<WallPreset, string>>;
+    /** How the pen draws a path: clicks, drags and keys. */
+    readonly drawHint: string;
+    /** How the edit tool reshapes one. */
+    readonly editHint: string;
 }
 
 export interface PathHandlers {
@@ -97,5 +102,7 @@ export function renderPathPanel(root: HTMLElement, panel: PathPanel, labels: Pat
             },
         ),
         ...(panel.kind === 'river' ? riverControls(panel, labels, handlers) : []),
+        el('p', 'tw-italic tw-text-xs tw-w-full tw-m-0', labels.drawHint),
+        el('p', 'tw-italic tw-text-xs tw-w-full tw-m-0', labels.editHint),
     ]);
 }

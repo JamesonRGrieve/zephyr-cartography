@@ -53,6 +53,7 @@ const road: CartographyPath = {
         { x: 10, y: 0 },
     ],
     halfWidths: [5, 5],
+    handles: [null, null],
     walls: null,
     river: null,
     surface: null,

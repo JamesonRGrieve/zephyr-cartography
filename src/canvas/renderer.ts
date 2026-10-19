@@ -5,14 +5,14 @@
  * Style is derived from the feature, so the controller just hands over features;
  * the concrete PIXI surface lives at the Foundry boundary, keeping this pure.
  */
-import { type Banks, brushOutline, buildRibbon, RIBBON_SAMPLES, ribbonOutline } from '../geometry/ribbon';
+import { type Banks, brushOutline, RIBBON_SAMPLES, ribbonAlong, ribbonOutline } from '../geometry/ribbon';
 import { perimeterSegments, type Segment, segmentBand, wallRuns } from '../geometry/wall';
 import { BIOME_STYLES, isBiomeKind, type BiomeKind } from '../tools/biome';
 import { tintToward } from '../tools/colour';
 import type { DoorAnimationType } from '../tools/documents';
 import { type Feature, isAnchored } from '../tools/feature';
 import { materialName } from '../tools/materials';
-import type { CartographyPath, Liquid } from '../tools/path';
+import { type CartographyPath, type Liquid, pathSpine } from '../tools/path';
 import { proceduralRole, type Pattern } from '../tools/procedural';
 import { regionOutline } from '../tools/region';
 import { BIOME_TEXTURE, BIOME_TINT, ROAD_TEXTURE, type Textured, type TextureResolver } from '../tools/texture';
@@ -184,13 +184,16 @@ function groundFilled(ground: { readonly biome: BiomeKind } & Textured, outline:
         : { ...roleFilled(own, outline, feather, resolve), fill: BIOME_STYLES[ground.biome].fill };
 }
 
-/** A path's ribbon outline at `halfWidths`, ending square across at full width: a road's carriageway, a river's banks. */
-function pathOutline(path: CartographyPath, halfWidths: readonly number[]): number[] {
-    return ribbonOutline(buildRibbon(path.points, halfWidths, RIBBON_SAMPLES));
+/**
+ * A path's ribbon outline along its shaped centreline, ending square across at full width: a road's carriageway, a
+ * river's water; with `banks`, its bed's.
+ */
+function pathOutline(path: CartographyPath, banks?: Banks): number[] {
+    return ribbonOutline(ribbonAlong(pathSpine(path, RIBBON_SAMPLES), path.halfWidths, banks));
 }
 
 function pathFilled(path: CartographyPath, resolve: TextureResolver): Filled {
-    const outline = pathOutline(path, path.halfWidths);
+    const outline = pathOutline(path);
     if (path.river === null) {
         // Its own surface where the set has it (a chart's dirt track), else the set's road.
         const road = texturing(resolve, path.surface === null ? [ROAD_TEXTURE] : [path.surface, ROAD_TEXTURE], NO_TINT, 'grain', ROAD_STYLE.fill);
@@ -207,7 +210,7 @@ function underlays(feature: Feature, resolve: TextureResolver): Filled[] {
     if (feature.type !== 'path' || bed === null) {
         return [];
     }
-    const outline = ribbonOutline(buildRibbon(feature.points, feature.halfWidths, RIBBON_SAMPLES, RIVER_BANKS));
+    const outline = pathOutline(feature, RIVER_BANKS);
     return [roleFilled(bed, outline, true, resolve)];
 }
 

@@ -8,7 +8,7 @@
  * (the other features and the levels): the declarative-first rule.
  */
 import { brushOutline, RIBBON_SAMPLES } from '../geometry/ribbon';
-import { catmullRom, distanceToSegment, type Point } from '../geometry/spline';
+import { distanceToSegment, type Point } from '../geometry/spline';
 import { cutSegment, perimeterSegments, type Segment, splitSegment } from '../geometry/wall';
 import type { StampLight } from '../stamps/schema';
 import { type Affected, customDisplay, displayOf, effectsOf } from './area-effects';
@@ -31,7 +31,7 @@ import { doorOpenings, OPENING_TOLERANCE, stampDoorState } from './doors';
 import type { Feature } from './feature';
 import { labelBox, labelPoint, labelSettingsOf } from './label';
 import { adjacentLevel, findLevel, levelElevation, type Level } from './levels';
-import type { CartographyPath } from './path';
+import { type CartographyPath, pathSpine } from './path';
 import { MIN_NOTE_SIZE, NEW_PIN, pinPoint, pinSettingsOf } from './pin';
 import { regionOutline, type RegionFeature } from './region';
 import { roomDoorLook, roomLight, roomWalls, type RoomDoor, type RoomFeature } from './room';
@@ -84,7 +84,7 @@ function floorOf(feature: Feature, context: PlanContext): Floor {
 
 /** Plain walls along a path's smoothed centerline. */
 function pathWalls(path: CartographyPath, kind: WallPreset, floor: Floor): WallDoc[] {
-    const spine = catmullRom(path.points, RIBBON_SAMPLES);
+    const spine = pathSpine(path, RIBBON_SAMPLES);
     const { blocks, threshold } = presetWall(kind);
     const walls: WallDoc[] = [];
     for (let i = 1; i < spine.length; i++) {

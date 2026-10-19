@@ -34,6 +34,7 @@ const road = (id: string, level: string | null): Feature => ({
         { x: 5, y: 5 },
     ],
     halfWidths: [10, 10],
+    handles: [null, null],
     walls: null,
     river: null,
     surface: null,

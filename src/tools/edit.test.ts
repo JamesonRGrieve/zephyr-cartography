@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { deletePoint, MIN_HALF_WIDTH, movePoint, setHalfWidth } from './edit';
+import { cubicAt, spanControls } from '../geometry/spline';
+import { deletePoint, insertPathPoint, MIN_HALF_WIDTH, movePoint, setHalfWidth, setPathHandle } from './edit';
 import type { Feature } from './feature';
-import { LIQUID_LOOKS, makePath } from './path';
+import { type CartographyPath, LIQUID_LOOKS, makePath } from './path';
 import { makeRegion } from './region';
 import { makeRoom } from './room';
 import { makeStroke } from './stroke';
@@ -177,5 +178,77 @@ describe('setHalfWidth', () => {
         expect(setHalfWidth(region(), 0, 5)).toBeNull();
         expect(setHalfWidth(road(), 9, 5)).toBeNull();
         expect(setHalfWidth(road(), 0, Number.NaN)).toBeNull();
+    });
+});
+
+/** A river through four points, shaped at the second, widening along its run. */
+function shapedRiver(): CartographyPath {
+    const p = makePath(
+        'r',
+        'river',
+        [
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+            { x: 200, y: 0 },
+            { x: 300, y: 0 },
+        ],
+        [10, 20, 30, 40],
+        null,
+        LIQUID_LOOKS.water,
+        null,
+        [null, { x: 30, y: 30 }, null, null],
+    );
+    if (!p) {
+        throw new Error('fixture');
+    }
+    return p;
+}
+
+/** Each of a path's parallel lists' lengths: points, widths, handles. */
+const lengths = (f: Feature | null): number[] => (f?.type === 'path' ? [f.points.length, f.halfWidths.length, f.handles.length] : []);
+
+describe('path handles in edits', () => {
+    it('keeps each point’s handle with it when a point moves or another is deleted', () => {
+        const moved = movePoint(shapedRiver(), 1, { x: 90, y: 5 });
+        expect(moved?.type === 'path' ? moved.handles : null).toEqual([null, { x: 30, y: 30 }, null, null]);
+        const deleted = deletePoint(shapedRiver(), 0);
+        expect(lengths(deleted)).toEqual([3, 3, 3]);
+        expect(deleted?.type === 'path' ? deleted.handles : null).toEqual([{ x: 30, y: 30 }, null, null]);
+        expect(deleted?.type === 'path' ? deleted.halfWidths : null).toEqual([20, 30, 40]);
+    });
+
+    it('sets a point’s handle, back to auto with null, and refuses a bad index or a handle that is not finite', () => {
+        expect(setPathHandle(shapedRiver(), 2, { x: -5, y: 5 })?.handles).toEqual([null, { x: 30, y: 30 }, { x: -5, y: 5 }, null]);
+        expect(setPathHandle(shapedRiver(), 1, null)?.handles).toEqual([null, null, null, null]);
+        expect(setPathHandle(shapedRiver(), 4, null)).toBeNull();
+        expect(setPathHandle(shapedRiver(), -1, null)).toBeNull();
+        expect(setPathHandle(shapedRiver(), 0, { x: Number.NaN, y: 0 })).toBeNull();
+    });
+
+    it('inserts a point on the curve as drawn, as wide as the path is there, every list kept one per point', () => {
+        const river = shapedRiver();
+        const inserted = insertPathPoint(river, 1, 0.5);
+        expect(lengths(inserted)).toEqual([5, 5, 5]);
+        const controls = spanControls(river.points, river.handles, 1);
+        expect(controls).not.toBeNull();
+        if (!controls || !inserted) {
+            return;
+        }
+        expect(inserted.points[2]).toEqual(cubicAt(...controls, 0.5));
+        expect(inserted.halfWidths).toEqual([10, 20, 25, 30, 40]);
+        // Beside a shaped point it takes the curve's direction there: a sixth of its derivative.
+        const handle = inserted.handles[2];
+        expect(handle?.x).toBeCloseTo(17.0833, 3);
+        expect(handle?.y).toBeCloseTo(-3.75, 3);
+    });
+
+    it('inserts an auto-smooth point between two auto-smooth ones, and none outside the path', () => {
+        const river = shapedRiver();
+        expect(insertPathPoint(river, 2, 0.25)?.handles).toEqual([null, { x: 30, y: 30 }, null, null, null]);
+        expect(insertPathPoint(river, 2, 0.25)?.halfWidths[3]).toBe(32.5);
+        expect(insertPathPoint(river, 3, 0.5)).toBeNull();
+        expect(insertPathPoint(river, 0, Number.NaN)).toBeNull();
+        // Past either end of its span, a point lands on the span's end.
+        expect(insertPathPoint(river, 0, 7)?.points[1]).toEqual({ x: 100, y: 0 });
     });
 });

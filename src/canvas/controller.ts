@@ -8,8 +8,9 @@
  */
 import { isSurface } from '../compose/role-tags';
 import { nearestVertex } from '../geometry/hit';
+import { RIBBON_SAMPLES } from '../geometry/ribbon';
 import { snapToGrid, type Grid } from '../geometry/snap';
-import type { Point } from '../geometry/spline';
+import type { Handle, Point } from '../geometry/spline';
 import { centroid, nearestSegment } from '../geometry/wall';
 import { type CatalogStamp, cycleVariantIndex, effectiveProperties } from '../stamps/catalog';
 import { storedDisplay, storedEffects } from '../tools/area-effects';
@@ -19,7 +20,7 @@ import { pileSpec, type PileSpec, type PileState, pileStateLabel } from '../tool
 import type { DoorState, RegionDoc, SubmapTravel, TileDoc } from '../tools/documents';
 import { isDoorStamp, snapDoorToRooms, stampDoorState } from '../tools/doors';
 import { DrawSession, type DrawMode } from '../tools/draw-session';
-import { deletePoint, movePoint, setHalfWidth } from '../tools/edit';
+import { deletePoint, insertPathPoint, movePoint, setHalfWidth, setPathHandle } from '../tools/edit';
 import { withDocs, type Feature } from '../tools/feature';
 import { hasDocs, NO_DOCS, type GeneratedDocs } from '../tools/generated-docs';
 import { featureHit } from '../tools/hit';
@@ -40,6 +41,7 @@ import {
 import type { FloorMaterial, WallMaterial } from '../tools/materials';
 import { drawOrder } from '../tools/nesting';
 import { DEFAULT_HALF_WIDTH, LIQUID_LOOKS, makePath, type PathKind, type RiverLook } from '../tools/path';
+import { type ControlOverlay, controlOverlay, type PathControl, PenSession, type PenPress, type PenShape, pickPathControl } from '../tools/pen';
 import { makePin, NEW_PIN, type PinSettings, pinSettingsOf, withPinSettings } from '../tools/pin';
 import { NO_PLAN, type PlanContext, planDocuments } from '../tools/plan';
 import type { RgbaImage } from '../tools/png';
@@ -325,6 +327,8 @@ function sameOrder(a: readonly Feature[], b: readonly Feature[]): boolean {
 export class CartographyController {
     private features: Feature[] = [];
     private session: DrawSession | null = null;
+    /** The road or river being drawn with the pen, or null. */
+    private pen: PenSession | null = null;
     private brush: Brush | null = null;
     private readonly history: HistoryEntry[] = [];
     private future: HistoryEntry[] = [];
@@ -1115,7 +1119,7 @@ export class CartographyController {
     }
 
     get drawing(): boolean {
-        return this.session !== null;
+        return this.session !== null || this.pen !== null;
     }
 
     /**
@@ -1146,9 +1150,86 @@ export class CartographyController {
         this.redraw();
     }
 
-    begin(brush: Brush, mode: DrawMode): void {
+    /**
+     * Start drawing with `brush`: a click or freehand point stream, or (a
+     * road or river only) the pen, which drops anchors and pulls out their
+     * handles ({@link penPress}).
+     */
+    begin(brush: Brush, mode: DrawMode | 'pen'): void {
         this.brush = brush;
-        this.session = new DrawSession(mode);
+        this.session = null;
+        this.pen = null;
+        if (mode === 'pen' && brush.type === 'path') {
+            this.pen = new PenSession();
+        } else {
+            this.session = new DrawSession(mode === 'pen' ? 'click' : mode);
+        }
+    }
+
+    /**
+     * A press with the pen at `p`: drops an anchor (a corner with `corner`)
+     * and previews the path, or, on its last anchor (within `tolerance`),
+     * says the path wants finishing. Ignored with no pen in hand.
+     */
+    penPress(p: Point, tolerance: number, corner: boolean): PenPress {
+        const result = this.pen?.press(p, tolerance, corner) ?? 'ignored';
+        this.previewPen();
+        return result;
+    }
+
+    /** The pointer moved with the pen in hand: a press under way pulls out its anchor's handles; else the rubber band follows. */
+    penMove(p: Point, tolerance: number): void {
+        if (this.pen) {
+            this.pen.move(p, tolerance);
+            this.previewPen();
+        }
+    }
+
+    /** The pen's press ended. */
+    penRelease(): void {
+        if (this.pen) {
+            this.pen.release();
+            this.previewPen();
+        }
+    }
+
+    /** Take back the pen's last anchor; false when there was none. */
+    penUndo(): boolean {
+        const undone = this.pen?.undo() ?? false;
+        if (undone) {
+            this.previewPen();
+        }
+        return undone;
+    }
+
+    /** How many anchors the path being drawn with the pen has (0 with no pen in hand). */
+    get penAnchors(): number {
+        return this.pen?.anchorCount ?? 0;
+    }
+
+    /** The guides over the path being drawn with the pen, or null with none in hand. */
+    penOverlay(): ControlOverlay | null {
+        return this.pen?.overlay(RIBBON_SAMPLES) ?? null;
+    }
+
+    /** Show the path being drawn with the pen as it would be, out to the pointer, at the width it will be drawn. */
+    private previewPen(): void {
+        const shape = this.pen?.preview();
+        const preview = shape ? this.penPath('__preview__', shape) : null;
+        if (preview) {
+            this.renderer.preview(preview);
+        } else {
+            this.renderer.clearPreview();
+        }
+    }
+
+    /** The road or river the pen's `shape` makes with the brush and the panel's choices, or null. */
+    private penPath(id: string, shape: PenShape): Feature | null {
+        const brush = this.brush;
+        if (brush?.type !== 'path') {
+            return null;
+        }
+        return makePath(id, brush.kind, shape.points, this.halfWidth, this.pathWalls, this.riverLook, null, shape.handles);
     }
 
     addPoint(p: Point): void {
@@ -1166,6 +1247,7 @@ export class CartographyController {
 
     cancel(): void {
         this.session = null;
+        this.pen = null;
         this.brush = null;
         this.renderer.clearPreview();
     }
@@ -1173,6 +1255,7 @@ export class CartographyController {
     async commit(): Promise<void> {
         const feature = this.buildFeature(this.makeId());
         this.session = null;
+        this.pen = null;
         this.brush = null;
         this.renderer.clearPreview();
         if (!feature) {
@@ -1476,16 +1559,62 @@ export class CartographyController {
         return true;
     }
 
-    /** Render a transient preview of a vertex move (drag feedback), without persisting. */
-    previewVertexMove(id: string, index: number, to: Point): void {
+    /** Render a transient preview of a vertex move (drag feedback), without persisting; the feature as previewed, or null. */
+    previewVertexMove(id: string, index: number, to: Point): Feature | null {
         const f = this.getFeature(id);
-        if (!f) {
-            return;
+        return this.previewed(f ? movePoint(f, index, to) : null);
+    }
+
+    /** Show `next` as a transient preview, if there is one; it, for the caller's guides. */
+    private previewed<F extends Feature>(next: F | null): F | null {
+        if (next) {
+            this.renderer.preview(next);
         }
-        const moved = movePoint(f, index, to);
-        if (moved) {
-            this.renderer.preview(moved);
+        return next;
+    }
+
+    /** What a press at `pt` takes hold of on path `id` (anchor, handle end, or the path between anchors), with `selected` its picked anchor; null for none. */
+    pickPathControl(id: string, pt: Point, tolerance: number, selected: number | null): PathControl | null {
+        const f = this.getFeature(id);
+        if (f?.type !== 'path') {
+            return null;
         }
+        const reach = Math.max(tolerance, ...f.halfWidths);
+        return pickPathControl(f, pt, tolerance, reach, selected, RIBBON_SAMPLES);
+    }
+
+    /** The guides over path `id` while it is edited, with `selected` its picked anchor; over `shown` (a preview of it) where given. Null if not a path. */
+    pathOverlay(id: string, selected: number | null, shown: Feature | null = null): ControlOverlay | null {
+        const f = shown ?? this.getFeature(id);
+        return f?.type === 'path' ? controlOverlay(f.points, f.handles, RIBBON_SAMPLES, selected) : null;
+    }
+
+    /** Give a path's control point another out-handle (null: auto-smooth again); false if it is not a path point. */
+    async setPathHandle(id: string, index: number, handle: Handle): Promise<boolean> {
+        const f = this.getFeature(id);
+        const next = f?.type === 'path' ? setPathHandle(f, index, handle) : null;
+        if (!next) {
+            return false;
+        }
+        await this.replaceFeature(id, next);
+        return true;
+    }
+
+    /** Render a transient preview of a handle drag, without persisting; the path as previewed, or null. */
+    previewPathHandle(id: string, index: number, handle: Handle): Feature | null {
+        const f = this.getFeature(id);
+        return this.previewed(f?.type === 'path' ? setPathHandle(f, index, handle) : null);
+    }
+
+    /** Insert a control point into path `id` at `t` along the span from point `span`; the new point's index, or null if invalid. */
+    async insertPathPoint(id: string, span: number, t: number): Promise<number | null> {
+        const f = this.getFeature(id);
+        const next = f?.type === 'path' ? insertPathPoint(f, span, t) : null;
+        if (!next) {
+            return null;
+        }
+        await this.replaceFeature(id, next);
+        return span + 1;
     }
 
     /** Set a path's half-width at one control point; false if it is not a path point. */
@@ -1499,13 +1628,10 @@ export class CartographyController {
         return true;
     }
 
-    /** Render a transient preview of a path width change (drag feedback), without persisting. */
-    previewPathWidth(id: string, index: number, halfWidth: number): void {
+    /** Render a transient preview of a path width change (drag feedback), without persisting; the path as previewed, or null. */
+    previewPathWidth(id: string, index: number, halfWidth: number): Feature | null {
         const f = this.getFeature(id);
-        const next = f ? setHalfWidth(f, index, halfWidth) : null;
-        if (next) {
-            this.renderer.preview(next);
-        }
+        return this.previewed(f ? setHalfWidth(f, index, halfWidth) : null);
     }
 
     /** Clear any transient preview (end of a drag). */
@@ -2150,6 +2276,9 @@ export class CartographyController {
     }
 
     private buildFeature(id: string): Feature | null {
+        if (this.pen) {
+            return this.penPath(id, this.pen.shape());
+        }
         if (!this.session || !this.brush) {
             return null;
         }

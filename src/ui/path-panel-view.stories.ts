@@ -25,6 +25,10 @@ const LABELS: PathLabels = {
     noWalls: 'None',
     // Named as Foundry's own Walls palette names them.
     wallKinds: { solid: 'Solid Wall', terrain: 'Terrain Wall', invisible: 'Invisible Wall', ethereal: 'Ethereal Wall', window: 'Window' },
+    drawHint:
+        'Click to add a point, drag to curve the path through it, Alt-click for a sharp corner. Backspace takes back the last point, Enter, a double-click or a click on the last point finishes, and Esc cancels.',
+    editHint:
+        'To reshape a road or river, click it with the Edit tool: drag a point to move it or a handle to bend the curve, Shift-drag a point to set the width there, click the path between points to add one, and Alt-click, right-click or Delete removes the picked point.',
 };
 
 /** Mount an interactive panel inside a stand-in Foundry window scoped for the module's styles. */

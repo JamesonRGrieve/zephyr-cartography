@@ -34,17 +34,22 @@ class FakeRenderer implements FeatureRenderer {
     readonly setIds: string[] = [];
     readonly removed: string[] = [];
     previews = 0;
+    /** What the last preview showed, until the preview is cleared. */
+    previewed: Feature | null = null;
     cleared = 0;
     set(id: string, _feature: Feature): void {
         this.setIds.push(id);
     }
-    preview(_feature: Feature): void {
+    preview(feature: Feature): void {
         this.previews += 1;
+        this.previewed = feature;
     }
     remove(id: string): void {
         this.removed.push(id);
     }
-    clearPreview(): void {}
+    clearPreview(): void {
+        this.previewed = null;
+    }
     clear(): void {
         this.cleared += 1;
     }

@@ -426,6 +426,21 @@ that type's own control group, after Foundry's tools
 - `tests/e2e/pointer.spec.ts` drives every tool with the real mouse from its
   group.
 
+**Pen paths [done]:** roads and rivers are drawn with a Bezier pen
+(`tools/pen.ts`, a pure session the controller holds): a click drops an
+auto-smooth anchor, a press dragged out pulls its symmetric handles, Alt-click
+a corner; the whole path previews at its width out to the pointer, with its
+anchors and handles drawn as guides on the draw layer. Backspace/Delete takes
+the last anchor back, Enter, a double-click, a click on the last anchor or a
+right-click finishes, Esc cancels (keys taken in the capture phase, before
+Foundry's own, only when they act on a path). A path stores `handles` parallel
+to `points` and `halfWidths` (an out-handle offset, mirrored behind; null:
+auto, the Catmull-Rom tangent), so a path saved before handles, all auto,
+parses and renders exactly as it did (`bezierSpline` IS `catmullRom` then).
+The edit tool picks a road or river and shows its anchors and the shaped (and
+picked) anchors' handles: drag a handle to bend it, click the path to insert
+an anchor (on the curve, at the width there), Delete/Alt-click to remove one.
+
 **Terrain & paths [done]:** click + freehand paths (Catmull-Rom, RDP), variable
 width ribbons ending square at full width (roads and rivers alike), 13-biome
 regions, freehand brush strokes shaped as a round brush leaves them (the

@@ -59,6 +59,8 @@ export function registerPathRuntime(textureRoles: () => string[], onChange: (set
                     walls: localize(I18N.paths.walls),
                     noWalls: localize(I18N.paths.noWalls),
                     wallKinds: wallKindNames(),
+                    drawHint: localize(I18N.paths.drawHint),
+                    editHint: localize(I18N.paths.editHint),
                 },
                 {
                     setWidth: acceptTyped(parseSizePx, (width) => {

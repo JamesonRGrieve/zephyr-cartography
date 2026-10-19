@@ -132,6 +132,125 @@ export function catmullRom(points: readonly Point[], samplesPerSegment: number):
 }
 
 /**
+ * A Bezier anchor's handle: its out-handle as an offset from the anchor, the
+ * in-handle its mirror (a smooth node, as a pen tool pulls out); `{0, 0}` is
+ * a corner. Null is an auto-smooth node, its handle the Catmull-Rom tangent
+ * the neighbouring anchors give it ({@link autoHandle}).
+ */
+export type Handle = Point | null;
+
+/**
+ * The out-handle Catmull-Rom gives anchor `index` (a sixth of the way from
+ * the anchor before it to the one after, an end standing in for its missing
+ * neighbour), so a Bezier through auto handles is the Catmull-Rom spline.
+ */
+export function autoHandle(points: readonly Point[], index: number): Point {
+    const at = points[index];
+    if (at === undefined) {
+        return { x: 0, y: 0 };
+    }
+    const before = points[index - 1] ?? at;
+    const after = points[index + 1] ?? at;
+    return { x: (after.x - before.x) / 6, y: (after.y - before.y) / 6 };
+}
+
+/** Anchor `index`'s out-handle: its own, or the auto one where it has none. */
+export function outHandle(points: readonly Point[], handles: readonly Handle[], index: number): Point {
+    return handles[index] ?? autoHandle(points, index);
+}
+
+/** The point at `t` (0–1) along the cubic Bezier from `a` through controls `c1`, `c2` to `b`. */
+export function cubicAt(a: Point, c1: Point, c2: Point, b: Point, t: number): Point {
+    const u = 1 - t;
+    const w0 = u * u * u;
+    const w1 = 3 * u * u * t;
+    const w2 = 3 * u * t * t;
+    const w3 = t * t * t;
+    return { x: w0 * a.x + w1 * c1.x + w2 * c2.x + w3 * b.x, y: w0 * a.y + w1 * c1.y + w2 * c2.y + w3 * b.y };
+}
+
+/** The Bezier controls of the span from anchor `index` to the next: the one's out-handle and the other's in-handle, absolute. */
+export function spanControls(points: readonly Point[], handles: readonly Handle[], index: number): readonly [Point, Point, Point, Point] | null {
+    const a = points[index];
+    const b = points[index + 1];
+    if (a === undefined || b === undefined) {
+        return null;
+    }
+    const out = outHandle(points, handles, index);
+    const into = outHandle(points, handles, index + 1);
+    return [a, { x: a.x + out.x, y: a.y + out.y }, { x: b.x - into.x, y: b.y - into.y }, b];
+}
+
+/**
+ * A path through `points` shaped by its `handles` (parallel; a missing one is
+ * auto), `samplesPerSegment` samples per span from each anchor, then the last
+ * anchor: the same samples, span for span, as {@link catmullRom} takes. With
+ * every handle auto it IS that spline, so a path drawn before handles keeps
+ * exactly the shape it had.
+ */
+export function bezierSpline(points: readonly Point[], handles: readonly Handle[], samplesPerSegment: number): Point[] {
+    if (handles.every((handle) => handle === null)) {
+        return catmullRom(points, samplesPerSegment);
+    }
+    if (points.length < 2 || samplesPerSegment < 1) {
+        return [...points];
+    }
+    const curve: Point[] = [];
+    for (let i = 0; i < points.length - 1; i++) {
+        const span = spanControls(points, handles, i);
+        if (span === null) {
+            continue;
+        }
+        const [a, c1, c2, b] = span;
+        for (let k = 0; k < samplesPerSegment; k++) {
+            curve.push(cubicAt(a, c1, c2, b, k / samplesPerSegment));
+        }
+    }
+    const tail = points[points.length - 1];
+    if (tail !== undefined) {
+        curve.push(tail);
+    }
+    return curve;
+}
+
+/** Where a point lies nearest a shaped path: the span (from anchor `span` to the next), how far along it (`t`, 0–1), the point there, and how far off. */
+export interface SplineSpot {
+    readonly span: number;
+    readonly t: number;
+    readonly at: Point;
+    readonly distance: number;
+}
+
+/**
+ * The spot on the path {@link bezierSpline} draws nearest `pt`, found on its
+ * `samplesPerSegment` samples per span and between them; null for a path of
+ * fewer than two anchors.
+ */
+export function nearestOnSpline(points: readonly Point[], handles: readonly Handle[], pt: Point, samplesPerSegment: number): SplineSpot | null {
+    const samples = Math.max(1, Math.floor(samplesPerSegment));
+    const spine = bezierSpline(points, handles, samples);
+    let best: SplineSpot | null = null;
+    for (let j = 0; j + 1 < spine.length; j++) {
+        const a = spine[j];
+        const b = spine[j + 1];
+        if (a === undefined || b === undefined) {
+            continue;
+        }
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const lengthSq = dx * dx + dy * dy;
+        const along = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / lengthSq));
+        const at = { x: a.x + along * dx, y: a.y + along * dy };
+        const off = distance(pt, at);
+        if (best === null || off < best.distance) {
+            const span = Math.floor(j / samples);
+            best = { span, t: (j - span * samples + along) / samples, at, distance: off };
+        }
+    }
+    return best;
+}
+
+/**
  * Catmull-Rom through a CLOSED loop of control points (wrapping around), for
  * smoothed biome-region boundaries. Fewer than 3 points returns a copy.
  */

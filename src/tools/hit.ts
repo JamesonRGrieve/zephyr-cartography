@@ -6,9 +6,11 @@
  * controller for click-to-select and the eraser.
  */
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
+import { RIBBON_SAMPLES } from '../geometry/ribbon';
 import { distance, type Point } from '../geometry/spline';
 import { isRegion, isRoom, isStamp, isStroke, type Feature } from './feature';
 import { labelCorners } from './label';
+import { pathSpine } from './path';
 import { PIN_HIT_RADIUS, pinPoint } from './pin';
 import { regionOutline } from './region';
 import { shapeHit } from './shape';
@@ -58,5 +60,6 @@ export function featureHit(feature: Feature, pt: Point): boolean {
         );
     }
     const maxHalf = feature.halfWidths.reduce((m, w) => Math.max(m, w), 0);
-    return distanceToPolyline(pt, feature.points) <= maxHalf + PATH_HIT_PADDING;
+    // Along the curve as drawn, which its handles may bow well away from the straight line between its points.
+    return distanceToPolyline(pt, pathSpine(feature, RIBBON_SAMPLES)) <= maxHalf + PATH_HIT_PADDING;
 }

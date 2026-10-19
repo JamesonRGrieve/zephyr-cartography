@@ -42,9 +42,16 @@ With the world setting **Terrain as Scene Regions** on, every painted area and s
 
 Choose **Road** or **Rivers and liquids**. The *Roads and rivers* panel opens.
 
-- **Click** to add each point of the path. Points are placed freely, not snapped to the grid.
-- **Right-click** to finish the path. The next click starts a new path with the same settings.
-- A path needs at least two points.
+The path is drawn with a pen, as in Inkscape:
+
+- **Click** to add a point. The path runs smoothly through it.
+- **Press and drag** to add a point and pull out its handles. The path curves through the point along the handle you drag. The other handle mirrors it.
+- **Alt-click** to add a sharp corner.
+- While you draw, the whole path shows at its width, out to the pointer, with its points and handles on top.
+- **Backspace** or **Delete** takes back the last point.
+- **Enter**, a **double-click**, a click on the last point or a **right-click** finishes the path. The next click starts a new path with the same settings.
+- **Esc** throws away the path being drawn.
+- Points are placed freely, not snapped to the grid. A path needs at least two points.
 
 ### The Roads and rivers panel
 
@@ -60,5 +67,9 @@ Rivers taper at their ends.
 
 ## Editing and erasing
 
-- **Edit points:** press near a point and drag to move it. **Shift-drag** a road or river point to set the width there: the width becomes the distance from the point. **Right-click** a point to delete it. A path keeps at least two points and an area at least three.
+- **Edit points:** press near a point and drag to move it. **Shift-drag** a road or river point to set the width there: the width becomes the distance from the point. **Right-click**, **Alt-click** or **Ctrl-click** a point to delete it. A path keeps at least two points and an area at least three.
+- **Reshape a road or river:** click it with the edit tool to pick it. Its points show, with the handles of every curved point and of the picked one.
+  - Drag a handle to bend the curve through its point.
+  - Click the path between two points to add a point there. The new point is picked.
+  - **Delete** or **Backspace** removes the picked point. **Esc** lets go of the path.
 - **Erase:** click a feature to remove it, along with every wall, light and region it created.

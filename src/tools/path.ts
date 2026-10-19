@@ -5,7 +5,7 @@
  * JSON, so `parsePaths` validates the shape and drops anything malformed rather
  * than trusting the blob.
  */
-import type { Point } from '../geometry/spline';
+import { bezierSpline, type Handle, type Point } from '../geometry/spline';
 import { NEW_FEATURE, parseFeatureCommon, type FeatureCommon } from './feature-common';
 import { isPoint, isRecord, numberArray, numberOr } from './guards';
 import { DEFAULT_WALL_PRESET, isWallPreset, type WallPreset } from './wall-presets';
@@ -43,6 +43,12 @@ export interface CartographyPath extends FeatureCommon {
     readonly kind: PathKind;
     /** Half-width in scene pixels at each control point (parallel to `points`). */
     readonly halfWidths: number[];
+    /**
+     * Each control point's Bezier handle (parallel to `points`): the out-handle
+     * the pen pulled out there, mirrored behind it, or null for an auto-smooth
+     * point (the Catmull-Rom curve every path drawn before handles keeps).
+     */
+    readonly handles: readonly Handle[];
     /** The kind of Foundry walls along the centerline (a fence, a cliff edge, a canal wall), or null for none. */
     readonly walls: WallPreset | null;
     /** A river's look; null for a road. */
@@ -88,7 +94,11 @@ export function parsePath(v: unknown): CartographyPath | null {
     if (typeof v['id'] !== 'string' || !isPathKind(v['kind'])) {
         return null;
     }
-    const points = Array.isArray(v['points']) ? v['points'].filter(isPoint) : [];
+    const rawPoints: readonly unknown[] = Array.isArray(v['points']) ? v['points'] : [];
+    const rawHandles: readonly unknown[] = Array.isArray(v['handles']) ? v['handles'] : [];
+    // A handle belongs to the point at its index, so a malformed point drops its handle with it.
+    const kept = rawPoints.flatMap((p, i) => (isPoint(p) ? [{ point: { x: p.x, y: p.y }, handle: parseHandle(rawHandles[i]) }] : []));
+    const points = kept.map((k) => k.point);
     if (points.length < 2) {
         return null;
     }
@@ -97,7 +107,37 @@ export function parsePath(v: unknown): CartographyPath | null {
     const halfWidths = points.map((_, i) => rawWidths[i] ?? rawWidths[0] ?? DEFAULT_HALF_WIDTH);
     const river = v['kind'] === 'river' ? parseRiverLook(v['river']) : null;
     const surface = v['kind'] === 'road' && typeof v['surface'] === 'string' ? v['surface'] : null;
-    return { type: 'path', id: v['id'], kind: v['kind'], points, halfWidths, walls: parsePathWalls(v['walls']), river, surface, ...parseFeatureCommon(v) };
+    return {
+        type: 'path',
+        id: v['id'],
+        kind: v['kind'],
+        points,
+        halfWidths,
+        handles: kept.map((k) => k.handle),
+        walls: parsePathWalls(v['walls']),
+        river,
+        surface,
+        ...parseFeatureCommon(v),
+    };
+}
+
+/** A persisted handle: a finite offset, or (missing, null or malformed, as every path saved before handles) auto. */
+// eslint-disable-next-line no-restricted-syntax -- boundary: narrows a persisted path handle from scene-flag JSON
+function parseHandle(v: unknown): Handle {
+    return isPoint(v) && Number.isFinite(v.x) && Number.isFinite(v.y) ? { x: v.x, y: v.y } : null;
+}
+
+/** The handles of `count` points: `handles` where given, auto past its end. */
+function handlesFor(count: number, handles: readonly Handle[]): Handle[] {
+    return Array.from({ length: count }, (_, i) => {
+        const handle = handles[i] ?? null;
+        return handle === null ? null : { x: handle.x, y: handle.y };
+    });
+}
+
+/** A path's smoothed centerline, `samplesPerSegment` samples per span: shaped by its handles, the Catmull-Rom curve where it has none. */
+export function pathSpine(path: CartographyPath, samplesPerSegment: number): Point[] {
+    return bezierSpline(path.points, path.handles, samplesPerSegment);
 }
 
 /** A path's persisted walls: a wall kind, or `true` (the original format) for solid walls; anything else, none. */
@@ -116,7 +156,8 @@ export const DEFAULT_HALF_WIDTH = 20;
  * Build a committed path from a point stream and a half-width (one for every
  * point, or one each), or null if too short. A river takes `river` as its
  * look; a road has none, whatever is passed, and takes `surface` as its
- * texture role (null: the set's own road).
+ * texture role (null: the set's own road). `handles` shape it (one per
+ * point; auto where missing).
  */
 export function makePath(
     id: string,
@@ -126,6 +167,7 @@ export function makePath(
     walls: WallPreset | null,
     river: RiverLook,
     surface: string | null = null,
+    handles: readonly Handle[] = [],
 ): CartographyPath | null {
     if (points.length < 2) {
         return null;
@@ -136,6 +178,7 @@ export function makePath(
         kind,
         points: points.map((p) => ({ x: p.x, y: p.y })),
         halfWidths: points.map((_, i) => (typeof halfWidth === 'number' ? halfWidth : halfWidth[i] ?? halfWidth[0] ?? DEFAULT_HALF_WIDTH)),
+        handles: handlesFor(points.length, handles),
         walls,
         river: kind === 'river' ? river : null,
         surface: kind === 'road' ? surface : null,
@@ -143,10 +186,18 @@ export function makePath(
     };
 }
 
-/** Rebuild a path with new geometry (edit ops), preserving id/kind/walls, or null if invalid. */
-export function withPathGeometry(path: CartographyPath, points: readonly Point[], halfWidths: readonly number[]): CartographyPath | null {
-    if (points.length < 2 || points.length !== halfWidths.length) {
+/**
+ * Rebuild a path with new geometry (edit ops), preserving id/kind/walls, or
+ * null if invalid: fewer than two points, or widths and handles not one per point.
+ */
+export function withPathGeometry(
+    path: CartographyPath,
+    points: readonly Point[],
+    halfWidths: readonly number[],
+    handles: readonly Handle[],
+): CartographyPath | null {
+    if (points.length < 2 || points.length !== halfWidths.length || points.length !== handles.length) {
         return null;
     }
-    return { ...path, points: points.map((p) => ({ x: p.x, y: p.y })), halfWidths: [...halfWidths] };
+    return { ...path, points: points.map((p) => ({ x: p.x, y: p.y })), halfWidths: [...halfWidths], handles: handlesFor(points.length, handles) };
 }

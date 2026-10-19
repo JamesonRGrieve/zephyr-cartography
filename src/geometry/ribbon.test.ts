@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { brushOutline, buildRibbon } from './ribbon';
+import { brushOutline, buildRibbon, ribbonAlong } from './ribbon';
 import { catmullRom, type Point } from './spline';
+
+describe('ribbonAlong', () => {
+    it('is the ribbon buildRibbon smooths for itself, given that smoothed spine', () => {
+        const bend: Point[] = [
+            { x: 0, y: 0 },
+            { x: 50, y: 40 },
+            { x: 120, y: 10 },
+        ];
+        expect(ribbonAlong(catmullRom(bend, 6), [4, 9, 6])).toEqual(buildRibbon(bend, [4, 9, 6], 6));
+    });
+
+    it('is empty along a spine of one point', () => {
+        expect(ribbonAlong([{ x: 0, y: 0 }], [3]).rails).toEqual([]);
+    });
+});
 
 describe('buildRibbon', () => {
     it('is empty for fewer than two points', () => {

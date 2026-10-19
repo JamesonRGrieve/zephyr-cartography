@@ -39,6 +39,15 @@ describe('road and river panel', () => {
         document.body.replaceChildren();
     });
 
+    it('says how the pen draws a path and the edit tool reshapes it', () => {
+        const root = mount(stories.WaterOnDirt);
+        const hints = [...root.querySelectorAll('p')].map((p) => p.textContent);
+        expect(hints).toHaveLength(2);
+        expect(hints[0]).toMatch(/drag to curve/u);
+        expect(hints[0]).toMatch(/Enter/u);
+        expect(hints[1]).toMatch(/Edit tool/u);
+    });
+
     it('shows a river’s width, liquid, shade and bed', () => {
         const root = mount(stories.WaterOnDirt);
         expect(width(root).value).toBe('40');

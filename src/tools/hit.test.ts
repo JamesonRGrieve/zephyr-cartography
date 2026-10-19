@@ -71,4 +71,26 @@ describe('featureHit', () => {
         expect(featureHit(room as Feature, { x: 50, y: 50 })).toBe(true);
         expect(featureHit(room as Feature, { x: 200, y: 50 })).toBe(false);
     });
+
+    it('hits a path along the curve its handles bow it into, not the straight line between its points', () => {
+        const arch = makePath(
+            'a',
+            'river',
+            [
+                { x: 0, y: 0 },
+                { x: 100, y: 0 },
+            ],
+            5,
+            null,
+            LIQUID_LOOKS.water,
+            null,
+            [
+                { x: 0, y: 60 },
+                { x: 0, y: -60 },
+            ],
+        );
+        expect(arch).not.toBeNull();
+        expect(arch && featureHit(arch, { x: 50, y: 45 })).toBe(true);
+        expect(arch && featureHit(arch, { x: 50, y: 0 })).toBe(false);
+    });
 });

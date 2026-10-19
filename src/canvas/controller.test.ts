@@ -228,6 +228,7 @@ describe('CartographyController', () => {
                     { x: 5, y: 5 },
                 ],
                 halfWidths: [10, 10],
+                handles: [null, null],
                 walls: null,
                 river: null,
                 surface: null,
@@ -251,6 +252,7 @@ describe('CartographyController', () => {
                 { x: 5, y: 5 },
             ],
             halfWidths: [10, 10],
+            handles: [null, null],
             walls: null,
             river: null,
             surface: null,
@@ -458,5 +460,126 @@ describe('CartographyController', () => {
         await c.undo();
         expect(c.getFeature('p1')?.points).toHaveLength(4);
         expect(s.saved.length).toBeGreaterThan(0);
+    });
+});
+
+describe('CartographyController pen', () => {
+    const TOL = 5;
+
+    /** A river drawn with the pen: a plain click, a press dragged out into a curve, and a click on its last anchor. */
+    async function drawRiver(c: ReturnType<typeof make>['c']): Promise<void> {
+        c.halfWidth = 15;
+        c.begin({ type: 'path', kind: 'river' }, 'pen');
+        expect(c.penPress({ x: 0, y: 0 }, TOL, false)).toBe('added');
+        c.penRelease();
+        expect(c.penPress({ x: 100, y: 0 }, TOL, false)).toBe('added');
+        c.penMove({ x: 140, y: 30 }, TOL);
+        c.penRelease();
+        expect(c.penPress({ x: 200, y: 0 }, TOL, false)).toBe('added');
+        c.penRelease();
+        expect(c.penPress({ x: 201, y: 1 }, TOL, false)).toBe('finish');
+        await c.commit();
+    }
+
+    it('commits what the pen shaped: anchors, the handle pulled out, the panel’s width', async () => {
+        const { c, s } = make();
+        await drawRiver(c);
+        const river = s.last()[0];
+        expect(river?.type).toBe('path');
+        if (river?.type !== 'path') {
+            return;
+        }
+        expect(river.kind).toBe('river');
+        expect(river.points).toEqual([
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+            { x: 200, y: 0 },
+        ]);
+        expect(river.handles).toEqual([null, { x: 40, y: 30 }, null]);
+        expect(river.halfWidths).toEqual([15, 15, 15]);
+        expect(c.drawing).toBe(false);
+    });
+
+    it('previews the whole path at its width, out to the pointer, while drawing', () => {
+        const { c, r } = make();
+        c.halfWidth = 12;
+        c.begin({ type: 'path', kind: 'road' }, 'pen');
+        c.penPress({ x: 0, y: 0 }, TOL, false);
+        c.penRelease();
+        c.penMove({ x: 50, y: 50 }, TOL);
+        const shown = r.previewed;
+        expect(shown?.type === 'path' ? { points: shown.points, halfWidths: shown.halfWidths } : null).toEqual({
+            points: [
+                { x: 0, y: 0 },
+                { x: 50, y: 50 },
+            ],
+            halfWidths: [12, 12],
+        });
+        expect(c.penOverlay()?.anchors).toEqual([{ x: 0, y: 0 }]);
+        expect(c.penAnchors).toBe(1);
+    });
+
+    it('takes back the last anchor, and throws the path away on cancel', async () => {
+        const { c, s, r } = make();
+        c.begin({ type: 'path', kind: 'road' }, 'pen');
+        c.penPress({ x: 0, y: 0 }, TOL, false);
+        c.penRelease();
+        c.penPress({ x: 50, y: 0 }, TOL, false);
+        c.penRelease();
+        expect(c.penUndo()).toBe(true);
+        expect(c.penAnchors).toBe(1);
+        expect(c.penUndo()).toBe(true);
+        expect(c.penUndo()).toBe(false);
+        c.penPress({ x: 0, y: 0 }, TOL, false);
+        c.cancel();
+        expect(c.penOverlay()).toBeNull();
+        expect(r.previewed).toBeNull();
+        await c.commit();
+        expect(s.saved).toEqual([]);
+    });
+
+    it('drops an Alt-pressed anchor as a corner', async () => {
+        const { c, s } = make();
+        c.begin({ type: 'path', kind: 'road' }, 'pen');
+        c.penPress({ x: 0, y: 0 }, TOL, false);
+        c.penRelease();
+        c.penPress({ x: 50, y: 0 }, TOL, true);
+        c.penRelease();
+        c.penPress({ x: 50, y: 50 }, TOL, false);
+        c.penRelease();
+        await c.commit();
+        const road = s.last()[0];
+        expect(road?.type === 'path' ? road.handles : null).toEqual([null, { x: 0, y: 0 }, null]);
+    });
+
+    it('ignores the pen with another brush, or none', () => {
+        const { c } = make();
+        expect(c.penPress({ x: 0, y: 0 }, TOL, false)).toBe('ignored');
+        c.begin({ type: 'region', biome: 'forest' }, 'pen');
+        expect(c.penPress({ x: 0, y: 0 }, TOL, false)).toBe('ignored');
+        expect(c.penUndo()).toBe(false);
+    });
+
+    it('reshapes a drawn path: a handle, an inserted anchor, a removed one, widths and handles kept one per point', async () => {
+        const { c, s, r } = make();
+        await drawRiver(c);
+        expect(c.pickPathControl('p1', { x: 140, y: 30 }, TOL, 1)).toEqual({ kind: 'handle', index: 1, side: 'out' });
+        expect(c.pickPathControl('p1', { x: 100, y: 1 }, TOL, null)).toEqual({ kind: 'anchor', index: 1 });
+        expect(c.previewPathHandle('p1', 1, { x: 0, y: 40 })?.type).toBe('path');
+        expect(r.previewed?.type === 'path' ? r.previewed.handles[1] : null).toEqual({ x: 0, y: 40 });
+        expect(await c.setPathHandle('p1', 1, null)).toBe(true);
+        expect(await c.setPathWidth('p1', 2, 35)).toBe(true);
+        expect(await c.insertPathPoint('p1', 1, 0.5)).toBe(2);
+        const reshaped = c.getFeature('p1');
+        expect(reshaped?.type === 'path' ? reshaped.handles : null).toEqual([null, null, null, null]);
+        expect(reshaped?.type === 'path' ? reshaped.halfWidths : null).toEqual([15, 15, 25, 35]);
+        expect(c.pathOverlay('p1', 2)?.anchors).toHaveLength(4);
+        expect(await c.deleteVertex('p1', 2)).toBe(true);
+        const after = s.last()[0];
+        expect(after?.type === 'path' ? [after.points.length, after.halfWidths.length, after.handles.length] : null).toEqual([3, 3, 3]);
+        expect(await c.insertPathPoint('p1', 9, 0.5)).toBeNull();
+        expect(await c.setPathHandle('p1', 9, null)).toBe(false);
+        expect(c.pickPathControl('nope', { x: 0, y: 0 }, TOL, null)).toBeNull();
+        expect(c.pathOverlay('nope', null)).toBeNull();
     });
 });

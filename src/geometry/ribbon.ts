@@ -115,7 +115,15 @@ export function buildRibbon(centerline: readonly Point[], halfWidths: readonly n
     if (centerline.length < 2) {
         return EMPTY;
     }
-    const spine = catmullRom(centerline, Math.max(1, samplesPerSegment));
+    return ribbonAlong(catmullRom(centerline, Math.max(1, samplesPerSegment)), halfWidths, banks);
+}
+
+/**
+ * The ribbon along an already smoothed `spine` (its samples spread evenly
+ * over its spans, as {@link catmullRom} and `bezierSpline` lay them), with
+ * `halfWidths` one per control point across it; as {@link buildRibbon}.
+ */
+export function ribbonAlong(spine: readonly Point[], halfWidths: readonly number[], banks?: Banks): RibbonGeometry {
     const n = spine.length;
     if (n < 2) {
         return EMPTY;

@@ -1,11 +1,44 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_HALF_WIDTH, isLiquid, LIQUID_LOOKS, LIQUIDS, makePath, parsePath, type RiverLook } from './path';
+import { catmullRom } from '../geometry/spline';
+import { DEFAULT_HALF_WIDTH, isLiquid, LIQUID_LOOKS, LIQUIDS, makePath, parsePath, pathSpine, type RiverLook, withPathGeometry } from './path';
 
 const LINE = [
     { x: 0, y: 0 },
     { x: 10, y: 0 },
 ];
+
+describe('path handles', () => {
+    it('parses a path saved before handles as auto-smooth at every point, its curve the Catmull-Rom one it always had', () => {
+        const path = parsePath({ id: 'a', kind: 'river', points: [...LINE, { x: 20, y: 10 }], halfWidths: [5, 5, 5] });
+        expect(path?.handles).toEqual([null, null, null]);
+        expect(path && pathSpine(path, 8)).toEqual(catmullRom([...LINE, { x: 20, y: 10 }], 8));
+    });
+
+    it('parses handles beside their points, a malformed one auto, a dropped point’s handle dropped with it', () => {
+        const path = parsePath({
+            id: 'a',
+            kind: 'road',
+            points: [{ x: 0, y: 0 }, { x: 'bad' }, { x: 10, y: 0 }, { x: 20, y: 0 }],
+            handles: [{ x: 1, y: 2 }, { x: 9, y: 9 }, 'nonsense', { x: Number.POSITIVE_INFINITY, y: 0 }],
+        });
+        expect(path?.points).toHaveLength(3);
+        expect(path?.handles).toEqual([{ x: 1, y: 2 }, null, null]);
+        expect(path?.halfWidths).toHaveLength(3);
+    });
+
+    it('makes a path with a handle per point, auto past those given', () => {
+        const path = makePath('p', 'river', [...LINE, { x: 20, y: 0 }], 4, null, LIQUID_LOOKS.water, null, [{ x: 3, y: 3 }]);
+        expect(path?.handles).toEqual([{ x: 3, y: 3 }, null, null]);
+        expect(makePath('p', 'road', LINE, 4, null, LIQUID_LOOKS.water)?.handles).toEqual([null, null]);
+    });
+
+    it('refuses new geometry whose handles are not one per point', () => {
+        const path = makePath('p', 'road', LINE, 4, null, LIQUID_LOOKS.water);
+        expect(path && withPathGeometry(path, LINE, [4, 4], [null])).toBeNull();
+        expect(path && withPathGeometry(path, LINE, [4, 4], [null, { x: 1, y: 0 }])?.handles).toEqual([null, { x: 1, y: 0 }]);
+    });
+});
 
 describe('parsePath', () => {
     it('returns null for non-path input', () => {

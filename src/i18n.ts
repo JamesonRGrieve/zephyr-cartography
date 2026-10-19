@@ -171,6 +171,8 @@ export const I18N = {
         noBed: key('Paths.NoBed'),
         walls: key('Paths.Walls'),
         noWalls: key('Paths.NoWalls'),
+        drawHint: key('Paths.DrawHint'),
+        editHint: key('Paths.EditHint'),
         liquids: {
             water: key('Paths.Liquids.Water'),
             lava: key('Paths.Liquids.Lava'),
