@@ -82,11 +82,21 @@ function tokenUuidOf(result: unknown): string | null {
 }
 
 /**
- * A pile token's own fields: its stamp's size, turn, elevation and picture, on its stamp's level. Foundry puts a token
- * given no level on the scene's first, so a guest room's chest stood on the taproom floor below it.
+ * A pile token's own fields: its stamp's box, elevation and picture, on its stamp's level. Foundry puts a token given no
+ * level on the scene's first, so a guest room's chest stood on the taproom floor below it. The token is a handle on the
+ * pile, never a second picture: drawn clear and unnamed (Item Piles names it always), the stamp's tile drawing the
+ * container; it stays where players click to search it.
  */
 function tokenData(spec: PileSpec): object {
-    const base = { width: spec.width, height: spec.height, rotation: spec.rotation, elevation: spec.elevation, texture: { src: spec.src } };
+    const base = {
+        width: spec.width,
+        height: spec.height,
+        rotation: 0,
+        alpha: 0,
+        displayName: CONST.TOKEN_DISPLAY_MODES.NONE,
+        elevation: spec.elevation,
+        texture: { src: spec.src },
+    };
     return spec.level === null ? base : { ...base, level: spec.level };
 }
 

@@ -41,18 +41,26 @@ describe('pile states', () => {
 });
 
 describe('pileSpec', () => {
-    it('covers the stamp footprint in grid squares, in its image, turn and elevation above the floor', () => {
+    it('covers the stamp as it lies, turned a quarter, in grid squares, in its image and elevation above the floor', () => {
+        // The 2 x 1 chest turned a quarter lies 1 across and 2 down; the token is never turned (Foundry would turn its
+        // picture but never its box, leaving the box across the chest).
         expect(pileSpec(placed(100), 10)).toEqual({
-            x: 400,
-            y: 250,
-            width: 2,
-            height: 1,
-            rotation: 90,
+            x: 450,
+            y: 200,
+            width: 1,
+            height: 2,
             elevation: 10,
             level: null,
             src: 'modules/pack/chest.png',
             pile: { type: 'container' },
         });
+    });
+
+    it('covers an unturned stamp exactly, and a stamp at an angle by its bounds', () => {
+        expect(pileSpec({ ...placed(100), rotation: 0 }, 0)).toMatchObject({ x: 400, y: 250, width: 2, height: 1 });
+        const angled = pileSpec({ ...placed(100), rotation: 45 }, 0);
+        expect(angled.width).toBeCloseTo((300 * Math.SQRT1_2) / 100);
+        expect(angled.height).toBeCloseTo((300 * Math.SQRT1_2) / 100);
     });
 
     it("puts the pile on its stamp's level, so a guest room's chest never stands on the floor below", () => {
@@ -68,10 +76,10 @@ describe('pileSpec', () => {
 
     it('treats a gridless stamp as one px per square rather than dividing by zero', () => {
         const stamp = { ...placed(100), gridSize: 0 };
-        expect(pileSpec(stamp, 0)).toMatchObject({ width: 200, height: 100 });
+        expect(pileSpec(stamp, 0)).toMatchObject({ width: 100, height: 200 });
     });
 
     it('falls back to the origin for a stamp with no centre point', () => {
-        expect(pileSpec({ ...placed(100), points: [] }, 0)).toMatchObject({ x: -100, y: -50 });
+        expect(pileSpec({ ...placed(100), points: [] }, 0)).toMatchObject({ x: -50, y: -100 });
     });
 });

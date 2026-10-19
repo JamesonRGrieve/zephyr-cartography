@@ -48,18 +48,18 @@ const stamps = catalogStamps([
 ]);
 
 describe('CartographyController containers', () => {
-    it('backs a container stamp with a named Item Piles container over its footprint', async () => {
+    it('backs a container stamp with a named Item Piles container over its footprint as it lies', async () => {
         const { c, k } = makeHarness(stamps);
         c.grid = { size: 100, originX: 0, originY: 0 };
         await c.placeStamp({ stamp: 'pack:chest', x: 250, y: 125, rotation: 90 });
+        // The 1 x 0.5 chest turned a quarter lies 0.5 across and 1 down.
         expect(k.created).toEqual([
             {
                 spec: {
-                    x: 200,
-                    y: 100,
-                    width: 1,
-                    height: 0.5,
-                    rotation: 90,
+                    x: 225,
+                    y: 75,
+                    width: 0.5,
+                    height: 1,
                     elevation: 0,
                     level: null,
                     src: 'modules/pack/chest.png',

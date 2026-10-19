@@ -74,6 +74,28 @@ test('a plain container stamp is a container pile with Item Piles defaults', asy
     expect(pile).toEqual({ type: 'container', enabled: true, deleteWhenEmpty: false });
 });
 
+test('a pile token is an unseen, unnamed handle lying along its turned stamp, never a second picture', async ({ world }) => {
+    test.skip(!(await moduleActive(world, 'item-piles')), 'Item Piles is not installed in the e2e world (FOUNDRY_TEST_MODULES)');
+    const token = await world.evaluate(async () => {
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
+        const id = await controller?.placeStamp({ stamp: 'zc-e2e-pack:chest', x: 300, y: 300, rotation: 90 });
+        const feature = id === undefined || id === null ? null : controller?.getFeature(id);
+        const pile = feature?.type === 'stamp' && feature.pile !== null ? foundry.utils.fromUuidSync(feature.pile) : null;
+        const stamp = feature?.type === 'stamp' ? { width: feature.width, height: feature.height } : null;
+        return pile instanceof TokenDocument && stamp
+            ? {
+                  alpha: pile.alpha,
+                  named: pile.displayName !== CONST.TOKEN_DISPLAY_MODES.NONE,
+                  rotation: pile.rotation,
+                  // Its box in px, against the stamp's own sides turned a quarter.
+                  across: pile.width * (canvas?.grid?.size ?? 0) === stamp.height,
+                  down: pile.height * (canvas?.grid?.size ?? 0) === stamp.width,
+              }
+            : null;
+    });
+    expect(token).toEqual({ alpha: 0, named: false, rotation: 0, across: true, down: true });
+});
+
 test('a container stamp shows its pile closed or open as its Item Piles state changes', async ({ world }) => {
     test.skip(!(await moduleActive(world, 'item-piles')), 'Item Piles is not installed in the e2e world (FOUNDRY_TEST_MODULES)');
     const placed = await world.evaluate(async () => {
