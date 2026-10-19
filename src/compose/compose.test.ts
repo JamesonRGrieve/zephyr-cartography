@@ -389,6 +389,27 @@ describe('composeMap', () => {
         expect(spec.splats).toEqual(splats);
         expect(compose(INN_IN_THE_WOODS).spec.splats).toEqual([]);
         expect(parseSceneSpec(spec).ok).toBe(true);
+        // A map of several levels paints its ground on the ground level, not over every level.
+        const layered = composeMap(
+            intentOf({
+                width: 16,
+                height: 16,
+                splats,
+                buildings: [
+                    {
+                        key: 'tower',
+                        at: { x: 4, y: 4 },
+                        width: 8,
+                        height: 8,
+                        rooms: [{ key: 'parlour', purpose: 'hall', entrance: true }],
+                        floors: [{ rooms: [{ key: 'study', purpose: 'office' }] }],
+                    },
+                ],
+            }),
+            TEST_ROLES,
+        ).spec;
+        expect(layered.splats).toEqual([{ ...splats[0], level: 'ground' }]);
+        expect(parseSceneSpec(layered).ok).toBe(true);
     });
 
     it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {
@@ -1039,6 +1060,15 @@ describe('maps drawn to a brief', () => {
             TEST_ROLES,
         ).spec;
         expect(soft.features.some((f) => f.type === 'region' && f.texture === 'floor.mud' && f.sharp !== true)).toBe(true);
+        // A soft zone asking for a wide blend carries it to its region; one that does not, none.
+        const blended = composeMap(
+            intentOf({
+                zones: [{ kind: 'paving', soft: true, blend: 3, texture: 'floor.mud', area: { shape: 'circle', centre: { x: 10, y: 10 }, radius: 2 } }],
+            }),
+            TEST_ROLES,
+        ).spec;
+        expect(blended.features.find((f) => f.type === 'region' && f.texture === 'floor.mud')).toMatchObject({ blend: 3 });
+        expect(soft.features.find((f) => f.type === 'region' && f.texture === 'floor.mud')).not.toHaveProperty('blend');
     });
 
     it('hangs only door art carrying one of the building’s door tags; with none, its rooms draw their doors, animated as the building asks', () => {

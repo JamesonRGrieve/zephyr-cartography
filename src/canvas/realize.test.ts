@@ -103,6 +103,28 @@ describe('realizeSpec', () => {
         expect(h.s.last()).toHaveLength(report.features.length);
     });
 
+    it('carries a region’s blend width onto the region it builds, and none when it has none', async () => {
+        const h = makeHarness();
+        const square = [
+            { x: 0, y: 0 },
+            { x: 2, y: 0 },
+            { x: 2, y: 2 },
+        ];
+        await realizeSpec(
+            h.c,
+            spec({
+                features: [
+                    { type: 'region', biome: 'dirt', points: square, blend: 3 },
+                    { type: 'region', biome: 'forest', points: square },
+                ],
+            }),
+            { origin: ORIGIN, gridSize: GRID },
+        );
+        const regions = h.s.last().filter((f) => f.type === 'region');
+        expect(regions.find((f) => f.biome === 'dirt')).toMatchObject({ blend: 3 });
+        expect(regions.find((f) => f.biome === 'forest')).not.toHaveProperty('blend');
+    });
+
     it('scales grid units, keeps px as given, and applies default widths', async () => {
         const h = makeHarness();
         await realizeSpec(
