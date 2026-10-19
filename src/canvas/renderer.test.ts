@@ -24,6 +24,7 @@ class FakeSurface implements DrawSurface {
         alpha: number;
         feather: boolean;
         angle: number;
+        blend: number | undefined;
     }[] = [];
     readonly removed: string[] = [];
     /** Each flat fill's polygon, by id. */
@@ -33,8 +34,17 @@ class FakeSurface implements DrawSurface {
         this.filled.push({ id, n: polygon.length, color, feather });
         this.polygons.set(id, polygon);
     }
-    fillTextured(id: string, polygon: readonly number[], textureFile: string, tint: number, alpha: number, feather: boolean, angle: number): void {
-        this.textured.push({ id, n: polygon.length, polygon, textureFile, tint, alpha, feather, angle });
+    fillTextured(
+        id: string,
+        polygon: readonly number[],
+        textureFile: string,
+        tint: number,
+        alpha: number,
+        feather: boolean,
+        angle: number,
+        blend?: number,
+    ): void {
+        this.textured.push({ id, n: polygon.length, polygon, textureFile, tint, alpha, feather, angle, blend });
     }
     remove(id: string): void {
         this.removed.push(id);
@@ -274,6 +284,17 @@ describe('GraphicsFeatureRenderer', () => {
         new GraphicsFeatureRenderer(flowing, RESOLVE).set('r', river);
         expect(flowing.textured[0]?.alpha).toBe(s.textured[0]?.alpha);
         expect(s.textured[0]?.n ?? 0).toBeGreaterThanOrEqual(6);
+    });
+
+    it('hands a soft region’s own blend width to the surface, and none to one without', () => {
+        const s = new FakeSurface();
+        const ground: RegionFeature = { ...lake, id: 'g', biome: 'dirt' };
+        new GraphicsFeatureRenderer(s, RESOLVE).set('g', { ...ground, blend: 3 });
+        new GraphicsFeatureRenderer(s, RESOLVE).set('h', { ...ground, id: 'h' });
+        expect(s.textured.map((t) => [t.id, t.feather, t.blend])).toEqual([
+            ['g', true, 3],
+            ['h', true, undefined],
+        ]);
     });
 
     it('textures a brush stroke as a feathered biome swath', () => {

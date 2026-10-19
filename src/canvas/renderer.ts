@@ -112,7 +112,16 @@ export interface DrawSurface {
      * its tiling turned by `angle` (radians) about the scene's origin: a wall
      * band's courses run along its wall.
      */
-    fillTextured: (id: string, polygon: readonly number[], textureUrl: string, tint: number, alpha: number, feather: boolean, angle: number) => void;
+    fillTextured: (
+        id: string,
+        polygon: readonly number[],
+        textureUrl: string,
+        tint: number,
+        alpha: number,
+        feather: boolean,
+        angle: number,
+        blend?: number,
+    ) => void;
     remove: (id: string) => void;
     clear: () => void;
 }
@@ -137,6 +146,8 @@ interface Filled {
     readonly feather: boolean;
     /** How far (radians) the texture's tiling is turned: a wall band's, to lie along its wall; unturned when absent. */
     readonly angle?: number;
+    /** How wide a feathered edge blends, in squares; absent: the surface's own narrow feather. */
+    readonly blend?: number;
 }
 
 /** Fill descriptor for a biome area (region, brush stroke, or room floor) — textured, tinted. */
@@ -223,7 +234,8 @@ function outlineAndStyle(feature: Feature, resolve: TextureResolver): Filled {
         return NOT_DRAWN;
     }
     if (feature.type === 'region') {
-        return groundFilled(feature, regionOutline(feature), resolve, !feature.sharp);
+        const filled = groundFilled(feature, regionOutline(feature), resolve, !feature.sharp);
+        return feature.blend === undefined ? filled : { ...filled, blend: feature.blend };
     }
     if (feature.type === 'stroke') {
         // What a round brush leaves along the pointer's path: rounded at both ends.
@@ -356,11 +368,11 @@ export class GraphicsFeatureRenderer implements FeatureRenderer {
         return extraId;
     }
 
-    private draw(id: string, { outline, fill, alpha, texture, tint, feather, angle = 0 }: Filled): void {
+    private draw(id: string, { outline, fill, alpha, texture, tint, feather, angle = 0, blend }: Filled): void {
         if (outline.length < 6) {
             this.surface.remove(id);
         } else if (texture !== null) {
-            this.surface.fillTextured(id, outline, texture, tint, alpha, feather, angle);
+            this.surface.fillTextured(id, outline, texture, tint, alpha, feather, angle, blend);
         } else {
             this.surface.fill(id, outline, fill, alpha, feather);
         }

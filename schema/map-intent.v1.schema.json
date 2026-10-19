@@ -445,6 +445,12 @@
                         "default": false,
                         "description": "Paving only: its edge feathered rather than crisp (standing water, a stain), not laid hard standing.",
                         "type": "boolean"
+                    },
+                    "blend": {
+                        "description": "How wide its soft edge blends into the ground round it, in squares: open ground meeting open ground fades over several (operator 2026-10-19: \"texture edge fuzzing\"); unset: under a square.",
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 8
                     }
                 },
                 "required": [
@@ -3491,6 +3497,12 @@
                         "additionalProperties": false,
                         "description": "Its centre, in grid squares from the map’s top-left corner."
                     },
+                    "angle": {
+                        "description": "Degrees clockwise it lies turned, in place of its `facing`: wreckage strewn at any angle across open ground, never squared to the grid.",
+                        "type": "number",
+                        "minimum": 0,
+                        "exclusiveMaximum": 360
+                    },
                     "storey": {
                         "default": 0,
                         "description": "The level it stands on: 0 the ground, -1 the level below (a cave’s lower galleries, reached by `hewn` at that storey).",
@@ -4374,6 +4386,12 @@
                                     "additionalProperties": false,
                                     "description": "Its centre, in grid squares from the map’s top-left corner."
                                 },
+                                "angle": {
+                                    "description": "Degrees clockwise it lies turned, in place of its `facing`: wreckage strewn at any angle across open ground, never squared to the grid.",
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "exclusiveMaximum": 360
+                                },
                                 "storey": {
                                     "default": 0,
                                     "description": "The level it stands on: 0 the ground, -1 the level below (a cave’s lower galleries, reached by `hewn` at that storey).",
@@ -4614,6 +4632,80 @@
                 }
             },
             "description": "Flags merged onto the scene a build is made on, `{ scope: { key: value } }`, for other modules and systems to find it by (a game system's record of the place it is). The engine never reads them; other scopes and keys already on the scene stay. Never this module's own scope."
+        },
+        "splats": {
+            "default": [],
+            "description": "Its ground painted as a map artist paints it: splat masks over the whole map, each channel weighting one texture role, blended per pixel (never patches of one ground laid on another).",
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "mask": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Path to the mask image: an 8-bit RGBA or RGB PNG laid over the whole scene, each channel weighting one texture (RGB leaves the fourth unused)."
+                    },
+                    "roles": {
+                        "type": "array",
+                        "prefixItems": [
+                            {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        ],
+                        "items": false,
+                        "minItems": 4,
+                        "maxItems": 4,
+                        "description": "The texture roles of the red, green, blue and alpha channels, e.g. \"sand\"; null for a channel not used."
+                    }
+                },
+                "required": [
+                    "mask",
+                    "roles"
+                ],
+                "additionalProperties": false
+            }
         }
     },
     "required": [

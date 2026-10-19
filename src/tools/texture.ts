@@ -100,6 +100,26 @@ export const BIOME_TINT: Record<BiomeKind, number> = {
 export const TEXTURE_TILE_SQUARES = 2;
 
 /**
+ * Grid squares a soft edge blends over where one ground meets another. At a
+ * few px the edge read as a hard seam on a battlemap (operator 2026-10-19:
+ * "Do we have texture fuzzing where two textures meet?").
+ */
+export const FEATHER_SQUARES = 0.75;
+
+/** The least blur (px) a soft edge gets: a scene with no grid, or a tiny one. */
+export const MIN_FEATHER_PX = 6;
+
+/** Blur (px) of a soft edge on a grid of `gridSize` px (0: no grid). */
+export function featherPx(gridSize: number): number {
+    return blendPx(FEATHER_SQUARES, gridSize);
+}
+
+/** Blur (px) of a soft edge `squares` wide on a grid of `gridSize` px (0: no grid). */
+export function blendPx(squares: number, gridSize: number): number {
+    return Math.max(MIN_FEATHER_PX, Math.round(gridSize * squares));
+}
+
+/**
  * Scene px one tile of a texture `width` by `height` px spans, in its own
  * proportions: its shorter side `squares` grid squares (the pack's, else
  * {@link TEXTURE_TILE_SQUARES}),

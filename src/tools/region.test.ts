@@ -53,6 +53,23 @@ describe('parseRegion', () => {
         expect(parseRegion({ ...r, texture: 'floor.moss' })?.texture).toBe('floor.moss');
     });
 
+    it('keeps a region’s blend width, and drops one out of range', () => {
+        const base = {
+            type: 'region',
+            id: 'a',
+            biome: 'dirt',
+            points: [
+                { x: 0, y: 0 },
+                { x: 1, y: 0 },
+                { x: 0, y: 1 },
+            ],
+        };
+        expect(parseRegion({ ...base, blend: 3 })?.blend).toBe(3);
+        expect(parseRegion({ ...base, blend: 99 })?.blend).toBeUndefined();
+        expect(parseRegion({ ...base, blend: 'wide' })?.blend).toBeUndefined();
+        expect(parseRegion(base)?.blend).toBeUndefined();
+    });
+
     it('rejects non-regions and unknown biomes', () => {
         expect(parseRegion({ type: 'path', id: 'x' })).toBeNull();
         expect(

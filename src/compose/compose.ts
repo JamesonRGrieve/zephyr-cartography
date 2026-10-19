@@ -1092,6 +1092,10 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
             features,
             ...(scene === null ? {} : { scene }),
             ...(intent.sceneFlags === undefined ? {} : { sceneFlags: intent.sceneFlags }),
+            // The ground's painted blend lies on the ground level, under everything else.
+            ...(intent.splats.length === 0
+                ? {}
+                : { splats: intent.splats.map((s) => (levels.some((l) => l.key === GROUND_LEVEL) ? { ...s, level: GROUND_LEVEL } : s)) }),
         },
         problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems), ...platforms.problems]),
     };

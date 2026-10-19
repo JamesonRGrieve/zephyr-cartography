@@ -527,6 +527,12 @@
                                 "description": "Its exact outline with a crisp edge (a deck, a paved yard, storm doors), instead of smoothed and feathered.",
                                 "type": "boolean"
                             },
+                            "blend": {
+                                "description": "How wide its soft edge blends into what lies under it, in squares; unset: under a square.",
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "maximum": 8
+                            },
                             "movementCost": {
                                 "default": 1,
                                 "description": "Difficult ground: what crossing it on foot costs, times the distance (1 ordinary, 2 mud), as Foundry's Modify Movement Cost.",

@@ -11,13 +11,10 @@
  * whole texture.
  */
 import type { DrawSurface } from '../canvas/renderer';
-import { isCompressedTexture, tileSize } from '../tools/texture';
+import { blendPx, featherPx, isCompressedTexture, tileSize } from '../tools/texture';
 
-/** Blur strength (px) for a feathered (soft-edged) region boundary. */
-const FEATHER_BLUR = 6;
-
-/** Room (px) left round a feathered mask for its blur to spread into. */
-const FEATHER_PAD = FEATHER_BLUR * 2;
+/** Room left round a feathered mask for its blur to spread into, as a multiple of the blur. */
+const FEATHER_PAD_BLURS = 2;
 
 /** Longest side (px) a feathered mask is rendered at: a larger area's mask is rendered coarser, its edge soft anyway. */
 const MAX_MASK_SIDE = 4096;
@@ -214,9 +211,10 @@ function maskShape(polygon: readonly number[]): PIXI.Graphics {
 }
 
 /** The scene area a feathered mask of `polygon` covers: its bounds and the blur round them. */
-function featherRegion(polygon: readonly number[]): PIXI.Rectangle {
+function featherRegion(polygon: readonly number[], blurPx: number): PIXI.Rectangle {
     const b = bounds(polygon);
-    return new PIXI.Rectangle(b.x - FEATHER_PAD, b.y - FEATHER_PAD, b.w + 2 * FEATHER_PAD, b.h + 2 * FEATHER_PAD);
+    const pad = blurPx * FEATHER_PAD_BLURS;
+    return new PIXI.Rectangle(b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad);
 }
 
 /**
@@ -224,22 +222,22 @@ function featherRegion(polygon: readonly number[]): PIXI.Rectangle {
  * null without a renderer. Rendering it is costly (a large blur pass), so a
  * mask is rendered once per outline and reused while the outline holds.
  */
-function renderMask(polygon: readonly number[]): PIXI.RenderTexture | null {
+function renderMask(polygon: readonly number[], blurPx: number): PIXI.RenderTexture | null {
     const renderer = canvas?.app?.renderer;
     if (!renderer) {
         return null;
     }
     const shape = maskShape(polygon);
-    shape.filters = [new PIXI.BlurFilter(FEATHER_BLUR)];
-    const region = featherRegion(polygon);
+    shape.filters = [new PIXI.BlurFilter(blurPx)];
+    const region = featherRegion(polygon, blurPx);
     const texture = renderer.generateTexture(shape, { region, resolution: Math.min(1, MAX_MASK_SIDE / Math.max(region.width, region.height)) });
     shape.destroy();
     return texture;
 }
 
 /** A sprite showing a feathered mask texture over the area it was rendered from. */
-function maskSprite(texture: PIXI.RenderTexture, polygon: readonly number[]): PIXI.Sprite {
-    const region = featherRegion(polygon);
+function maskSprite(texture: PIXI.RenderTexture, polygon: readonly number[], blurPx: number): PIXI.Sprite {
+    const region = featherRegion(polygon, blurPx);
     const mask = new PIXI.Sprite(texture);
     mask.x = region.x;
     mask.y = region.y;
@@ -260,6 +258,8 @@ function discard(node: PIXI.DisplayObject): void {
 /** Draw into `container` on a grid of `gridSize` px (0: none). */
 export function createPixiSurface(container: PIXI.Container, gridSize: number): DrawSurface {
     const nodes = new Map<string, Node>();
+    // A soft edge blends over most of a square, whatever the grid's size in px.
+    const blurPx = featherPx(gridSize);
     /**
      * Masks of the nodes the last clear took away, by id. A clear is a redraw
      * starting over (to rebuild the draw order), so the fills it brings back
@@ -301,16 +301,18 @@ export function createPixiSurface(container: PIXI.Container, gridSize: number): 
             g.beginFill(color, alpha);
             g.drawPolygon([...polygon]);
             g.endFill();
-            g.filters = feather ? [new PIXI.BlurFilter(FEATHER_BLUR)] : null;
+            g.filters = feather ? [new PIXI.BlurFilter(blurPx)] : null;
             container.addChild(g);
             nodes.set(id, { node: g, mask: null });
         },
-        fillTextured(id, polygon, textureUrl, tint, alpha, feather, angle): void {
-            const outline = outlineKey(polygon);
+        fillTextured(id, polygon, textureUrl, tint, alpha, feather, angle, blend): void {
+            // A region's own blend width, else the surface's narrow feather.
+            const edge = blend === undefined ? blurPx : blendPx(blend, gridSize);
+            const outline = `${outlineKey(polygon)}@${edge}`;
             const reused = feather ? renderedMask(id, outline) : null;
             drop(id, reused);
             const b = bounds(polygon);
-            const pad = feather ? FEATHER_PAD : 0;
+            const pad = feather ? edge * FEATHER_PAD_BLURS : 0;
             const wrap = new PIXI.Container();
             const sprite = new PIXI.TilingSprite(canvasTexture(textureUrl), b.w + 2 * pad, b.h + 2 * pad);
             // Named for the image it draws: its texture is resampled, so no longer carries the image's URL itself.
@@ -324,9 +326,9 @@ export function createPixiSurface(container: PIXI.Container, gridSize: number): 
             scaleTiles(sprite, tiles, gridSize);
             sprite.tint = tint;
             sprite.alpha = alpha;
-            const texture = feather ? reused ?? renderMask(polygon) : null;
+            const texture = feather ? reused ?? renderMask(polygon, edge) : null;
             // Without a feather (or a renderer) the polygon itself masks, with a crisp edge.
-            const mask = texture ? maskSprite(texture, polygon) : maskShape(polygon);
+            const mask = texture ? maskSprite(texture, polygon, edge) : maskShape(polygon);
             sprite.mask = mask;
             wrap.addChild(mask, sprite);
             container.addChild(wrap);

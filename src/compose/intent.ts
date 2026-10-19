@@ -12,12 +12,14 @@
  */
 import { z } from 'zod';
 import { ROOM_CORNERS } from '../generate/floor-plan';
-import { sceneFlagsSpec, type SpecIssue } from '../generate/spec';
+import { sceneFlagsSpec, type SpecIssue, splatSpec } from '../generate/spec';
 import { STAMP_ROLES } from '../stamps/schema';
 import { BIOMES } from '../tools/biome';
 import { DOOR_ANIMATIONS } from '../tools/documents';
 import { MAX_FONT_SIZE, MIN_FONT_SIZE } from '../tools/label';
 import type { Liquid } from '../tools/path';
+import { MAX_BLEND_SQUARES } from '../tools/region';
+import { MAX_SPLAT_LAYERS } from '../tools/splat';
 import { TOKEN_DISPOSITIONS } from '../tools/token';
 import { DEFAULT_WALL_PRESET, WALL_PRESETS } from '../tools/wall-presets';
 
@@ -87,6 +89,9 @@ const INTENT_LIQUIDS = ['water', 'lava', 'poison', 'acid'] as const satisfies re
 
 /** A map of this many squares when the intent gives no size. */
 const DEFAULT_MAP_SQUARES = { width: 30, height: 20 } as const;
+
+/** Degrees in a whole turn: an outdoor piece's `angle` lies below it. */
+const FULL_TURN_DEGREES = 360;
 
 const text = z.string().min(1);
 const squares = z.number().positive();
@@ -388,6 +393,14 @@ const outdoorFixture = z
     .object({
         ...namedPiece,
         at: point.describe('Its centre, in grid squares from the map’s top-left corner.'),
+        angle: z
+            .number()
+            .min(0)
+            .lt(FULL_TURN_DEGREES)
+            .optional()
+            .describe(
+                'Degrees clockwise it lies turned, in place of its `facing`: wreckage strewn at any angle across open ground, never squared to the grid.',
+            ),
         storey: z
             .number()
             .int()
@@ -701,6 +714,14 @@ const zone = z
         density: z.enum(DENSITIES).default('normal'),
         texture: groundTexture,
         soft: z.boolean().default(false).describe('Paving only: its edge feathered rather than crisp (standing water, a stain), not laid hard standing.'),
+        blend: z
+            .number()
+            .positive()
+            .max(MAX_BLEND_SQUARES)
+            .optional()
+            .describe(
+                'How wide its soft edge blends into the ground round it, in squares: open ground meeting open ground fades over several (operator 2026-10-19: "texture edge fuzzing"); unset: under a square.',
+            ),
     })
     .strict();
 
@@ -897,6 +918,13 @@ export const mapIntentSchema = z
         tokens: z.array(mapToken).default([]).describe('Tokens placed on the map: the people and creatures it is populated with.'),
         orbits: z.array(orbit).default([]).describe('Rings drawn round a star through the worlds that circle it.'),
         sceneFlags: sceneFlagsSpec.optional(),
+        splats: z
+            .array(splatSpec.omit({ level: true }))
+            .max(MAX_SPLAT_LAYERS)
+            .default([])
+            .describe(
+                'Its ground painted as a map artist paints it: splat masks over the whole map, each channel weighting one texture role, blended per pixel (never patches of one ground laid on another).',
+            ),
     })
     .strict()
     .superRefine((intent, ctx) => {

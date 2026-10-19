@@ -107,6 +107,16 @@ describe('runs between end pieces', () => {
         const flipped = standingAt({ ...asked, mirror: true }, pool).placed;
         expect(flipped.map((p) => [p.stamp, p.x, p.mirror === true])).toEqual(plain.map((p) => [p.stamp, 20 - p.x, p.mirror !== true]));
     });
+
+    it('lays a piece given its own angle at that angle, not squared to its facing; upright art never turns', () => {
+        const wreck = { ...desk('wreck', []), role: 'table' as const, width: 2, height: 1 };
+        const pool: RoleIndex = new Map([['table', [wreck]]]);
+        const asked = { name: 'wreck', role: 'table' as const, tags: [], width: 2, height: 1, at: { x: 10, y: 5 }, facing: 'left' as const };
+        expect(standingAt(asked, pool).placed[0]?.rotation).toBe((90 + wreck.turn) % 360);
+        expect(standingAt({ ...asked, angle: 37 }, pool).placed[0]?.rotation).toBe((37 + wreck.turn) % 360);
+        const statue = { ...wreck, key: 'statue', upright: true };
+        expect(standingAt({ ...asked, angle: 37 }, new Map([['table', [statue]]])).placed[0]?.rotation).toBe(statue.turn % 360);
+    });
 });
 
 describe('a run part asked for by name', () => {

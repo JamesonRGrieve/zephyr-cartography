@@ -1184,6 +1184,7 @@ export function composeExterior(
             biome: ZONE_GROUND[zone.kind],
             points: outline,
             sharp: !zone.soft,
+            ...(zone.blend === undefined ? {} : { blend: zone.blend }),
             ...textured(zone.texture),
         });
     }

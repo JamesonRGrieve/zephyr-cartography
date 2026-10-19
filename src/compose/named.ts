@@ -395,12 +395,13 @@ export const namedBox = (piece: NamedPiece): RoleStamp => reading(placeholder(pi
  * it is a box for want of art. Isometric art stands as drawn.
  */
 export function standingAt(
-    fixture: NamedPiece & { readonly at: { readonly x: number; readonly y: number }; readonly facing: Side },
+    fixture: NamedPiece & { readonly at: { readonly x: number; readonly y: number }; readonly facing: Side; readonly angle?: number | undefined },
     stamps: RoleIndex,
 ): { placed: PlacedPiece[]; piece: RoleStamp; boxed: boolean } {
     const art = namedArt(fixture, stamps);
     const piece = art ?? namedBox(fixture);
-    const turn = piece.upright ? 0 : FACING_TURN[fixture.facing];
+    // Upright art never turns; a piece given its own angle lies at it, else it turns to its facing.
+    const turn = piece.upright ? 0 : fixture.angle ?? FACING_TURN[fixture.facing];
     const placed = standsAs(piece, fixture.at, turn);
     return { placed: fixture.mirror === true ? placed.map((p) => mirrored(p, fixture.at.x)) : placed, piece, boxed: art === undefined };
 }

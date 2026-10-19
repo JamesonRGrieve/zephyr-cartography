@@ -29,6 +29,7 @@ import { DOOR_ANIMATIONS, type DoorState, TRAVEL_PLACEMENTS } from '../tools/doc
 import { MAX_FONT_SIZE, MIN_FONT_SIZE, NEW_LABEL } from '../tools/label';
 import { NO_LEVEL_ART, TEXTURE_FITS } from '../tools/levels';
 import type { Liquid, PathKind } from '../tools/path';
+import { MAX_BLEND_SQUARES } from '../tools/region';
 import type { RoomDoorType } from '../tools/room';
 import { FOG_MODES } from '../tools/scene-settings';
 import { DEFAULT_SHAPE_STYLE, SHAPE_KINDS } from '../tools/shape';
@@ -183,6 +184,12 @@ const regionSpec = z
             .boolean()
             .default(false)
             .describe('Its exact outline with a crisp edge (a deck, a paved yard, storm doors), instead of smoothed and feathered.'),
+        blend: z
+            .number()
+            .positive()
+            .max(MAX_BLEND_SQUARES)
+            .optional()
+            .describe('How wide its soft edge blends into what lies under it, in squares; unset: under a square.'),
         movementCost,
         effects: areaEffects,
         display: areaDisplay,
@@ -603,7 +610,7 @@ export const sceneFlagsSpec = z
         "Flags merged onto the scene a build is made on, `{ scope: { key: value } }`, for other modules and systems to find it by (a game system's record of the place it is). The engine never reads them; other scopes and keys already on the scene stay. Never this module's own scope.",
     );
 
-const splatSpec = z
+export const splatSpec = z
     .object({
         level,
         mask: text.describe(

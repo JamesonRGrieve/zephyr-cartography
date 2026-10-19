@@ -383,6 +383,14 @@ describe('composeMap', () => {
         expect(parseMapIntent({ schemaVersion: 1, sceneFlags: { 'zephyr-cartography': { x: 1 } } }).ok).toBe(false);
     });
 
+    it('lays a map’s painted ground blend on its spec, over the whole of a one-level map, and none when it has none', () => {
+        const splats = [{ mask: 'modules/x/ground.png', roles: ['floor.packed-dirt', 'floor.mud', null, null] as const }];
+        const spec = compose(intentOf({ ...INN_IN_THE_WOODS, splats })).spec;
+        expect(spec.splats).toEqual(splats);
+        expect(compose(INN_IN_THE_WOODS).spec.splats).toEqual([]);
+        expect(parseSceneSpec(spec).ok).toBe(true);
+    });
+
     it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {
         const { spec } = compose({ ...INN_IN_THE_WOODS, lighting: 'night' });
         // Out of doors: dark past the day's darkness, the global light waiting on the day.

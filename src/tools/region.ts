@@ -12,6 +12,9 @@ import { isPoint, isRecord, stringOrNull } from './guards';
 import type { Costed } from './terrain-cost';
 import type { Textured } from './texture';
 
+/** The widest soft edge a zone or region may blend over, in squares. */
+export const MAX_BLEND_SQUARES = 8;
+
 /** Default half-count of samples per region-boundary span. */
 const REGION_SAMPLES = 10;
 
@@ -24,6 +27,8 @@ export interface RegionFeature extends FeatureCommon, Costed, Affected, Textured
     readonly type: 'region';
     readonly biome: BiomeKind;
     readonly sharp: boolean;
+    /** How wide its soft edge blends, in squares; absent: the renderer's own narrow feather. */
+    readonly blend?: number;
 }
 
 /** Build a committed region from a boundary point stream, or null if too small; `texture` null draws the biome's own. */
@@ -63,5 +68,7 @@ export function parseRegion(v: unknown): RegionFeature | null {
     }
     const points = Array.isArray(v['points']) ? v['points'].filter(isPoint) : [];
     const region = makeRegion(v['id'], v['biome'], points, stringOrNull(v['texture']), v['sharp'] === true);
-    return region && { ...region, ...parseAreaFields(v), ...parseFeatureCommon(v) };
+    const blend = v['blend'];
+    const blended = typeof blend === 'number' && blend > 0 && blend <= MAX_BLEND_SQUARES ? { blend } : {};
+    return region && { ...region, ...blended, ...parseAreaFields(v), ...parseFeatureCommon(v) };
 }

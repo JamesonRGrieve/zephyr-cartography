@@ -5,8 +5,12 @@ import {
     BIOME_TEXTURE,
     BIOME_TINT,
     biomeSwatches,
+    blendPx,
     compressedTextures,
+    FEATHER_SQUARES,
+    featherPx,
     isCompressedTexture,
+    MIN_FEATHER_PX,
     pickTextureSet,
     previewResolver,
     roleLabel,
@@ -35,6 +39,20 @@ describe('texture choices', () => {
         ]);
         // Two roles reading alike keep a stable order.
         expect(textureSwatches(['wall.stone', 'floor.stone'], previews).map((s) => s.role)).toEqual(['floor.stone', 'wall.stone']);
+    });
+});
+
+describe('featherPx', () => {
+    it('blends a soft edge over most of a grid square, never less than a few px', () => {
+        expect(featherPx(100)).toBe(Math.round(100 * FEATHER_SQUARES));
+        expect(featherPx(140)).toBe(Math.round(140 * FEATHER_SQUARES));
+        expect(featherPx(0)).toBe(MIN_FEATHER_PX);
+        expect(featherPx(4)).toBe(MIN_FEATHER_PX);
+    });
+
+    it('blends a region asking for a wide edge over that many squares', () => {
+        expect(blendPx(3, 50)).toBe(150);
+        expect(blendPx(0.01, 50)).toBe(MIN_FEATHER_PX);
     });
 });
 

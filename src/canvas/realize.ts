@@ -146,7 +146,7 @@ function buildGround(spec: Extract<FeatureSpec, { type: 'region' | 'stroke' }>, 
     const texture = spec.texture ?? null;
     if (spec.type === 'region') {
         const region = makeRegion(id, spec.biome, points, texture, spec.sharp);
-        return region && { ...region, ...areaOf(spec) };
+        return region && { ...region, ...(spec.blend === undefined ? {} : { blend: spec.blend }), ...areaOf(spec) };
     }
     const radius = spec.radius === undefined ? DEFAULT_BRUSH_RADIUS : scale.length(spec.radius);
     const stroke = makeStroke(id, spec.biome, points, radius, texture);
