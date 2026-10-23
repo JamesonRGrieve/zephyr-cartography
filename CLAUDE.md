@@ -11,9 +11,9 @@ Art (stamps, terrain textures) is **not** in this repo. It ships in separate
 [`zephyr-cartography-assets`](https://github.com/JamesonRGrieve/zephyr-cartography-assets).
 This module owns the engine and the **pack schema** every pack must conform to.
 
-This file is authoritative for this repo. It stacks on the workspace standards
-(`/home/jameson/Source/CLAUDE.md`) and the user-level engineering tenets; where
-this file is more specific, it wins. **This is a standalone tool:** the checkout
+This file is authoritative for this repo. It stacks on the SOP standards (Zephyrex SOP →
+*Agent Operating Standards*, over MCP); where this file is more specific, it
+wins. **This is a standalone tool:** the checkout
 happens to sit inside the `dh-campaign` directory, but that campaign vault and its
 `CLAUDE.md` do **not** govern this repo, and nothing here may depend on it.
 
