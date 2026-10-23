@@ -19,7 +19,9 @@ happens to sit inside the `dh-campaign` directory, but that campaign vault and i
 
 ---
 
-## ⛔ TOP RULES — non-negotiable
+## ⛔ Repo rules — non-negotiable
+
+The SOP TOP RULES (Zephyrex SOP → *Agent Operating Standards*) apply first; these add the repo's own bar.
 
 1. **Full gates, no shortcuts. Fresh code goes to ZERO — never baseline a
    problem in new code.** Every lint warning, type error, and coverage gap in
@@ -31,14 +33,13 @@ happens to sit inside the `dh-campaign` directory, but that campaign vault and i
 2. **Match foundry-system's quality bar exactly.** Its patterns are the
    reference: graduate-at-zero ratchets, `require-await`/`promise-function-async`
    idioms, point-of-use `eslint-disable … -- <rationale>` for real boundaries.
-3. **Architecture / dependency / asset-sourcing decisions are the operator's.**
-   Surface the specific decision and ask; never infer a default.
+3. **Architecture / dependency / asset-sourcing decisions are the operator's**
+   (SOP TOP RULE 4).
 4. **AGPL-3.0-or-later. SPDX header on every source file:**
    `// SPDX-License-Identifier: AGPL-3.0-or-later`. Every dependency must be
    licence-compatible. Art lives in asset packs under their own licences.
 5. **Commit + push after each feature lands green** (the operator's standing
-   cadence for this repo). Work on `main`, never branch. Stage explicit
-   pathspecs, `git add <paths> && git commit` in one breath. Never `--no-verify`.
+   cadence for this repo). Commit form and hooks: SOP → *Git and Commits*.
 6. **Never invent assets/licences/facts.** Verify a licence before bundling;
    verify a Foundry API (document fields, region behaviour types) against
    fvtt-types before building on it. An empty query result is suspect, not proof.
