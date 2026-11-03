@@ -42,8 +42,13 @@ export class LevelRoutedSplatRenderer implements SplatRenderer {
         this.drawnOn.delete(key);
     }
 
+    /**
+     * A bake of the layers `keys`, rendered where they are drawn: a level viewed without a redraw since (a bake straight
+     * after `setActiveLevel`) still has its layers on the surface they were drawn on, not on this renderer's own.
+     */
     async snapshot(keys: readonly string[]): Promise<Uint8Array<ArrayBuffer> | null> {
-        return this.own.snapshot(keys);
+        const first = keys[0];
+        return ((first === undefined ? undefined : this.drawnOn.get(first)) ?? this.own).snapshot(keys);
     }
 
     /** The renderer for a layer on `level`: the viewed level's own for it and for every level; else that level's, made once. */

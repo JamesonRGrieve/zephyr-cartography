@@ -67,6 +67,17 @@ describe('LevelRoutedSplatRenderer', () => {
         expect(ground.calls).toEqual([]);
     });
 
+    it('bakes a blend where it is drawn: a level made active since the surfaces were laid out bakes from its own', async () => {
+        const own = new Recording();
+        const ground = new Recording();
+        const renderer = new LevelRoutedSplatRenderer(own, 'upper', () => ground);
+        renderer.set('c', layer('ground'), MASK);
+        await renderer.snapshot(['c']);
+        await renderer.snapshot([]);
+        expect(ground.calls).toEqual(['set c', 'snapshot c']);
+        expect(own.calls).toEqual(['snapshot ']);
+    });
+
     it('moves a layer that changes level off the surface it was on', () => {
         const own = new Recording();
         const ground = new Recording();
