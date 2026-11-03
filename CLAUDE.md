@@ -1143,6 +1143,11 @@ These make everything after them cheaper and safer, so they come first.
       client redraws a Note whose flag changed, and the active GM records it
       on the pin or stamp (`followNoteHidden`), so a re-sync keeps it as
       left. Proven in `tests/e2e/structures.spec.ts`.
+    - **Global pins are authorless too**, so a pin shown to everyone with
+      no journal (a town quarter's name) is seen by players, not only the
+      GM. An intent label with `pin: true` is such a pin at its point,
+      read on hover instead of written over the art (operator 2026-11-03:
+      "They should be hover pins in foundry not text on the map").
 - **[done] Drawings: map labels.** A `label` feature (`tools/label.ts`) is
   text on the map, realised as a native text Drawing on its level: a
   rectangle with no fill and no line, centred on the label's point and

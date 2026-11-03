@@ -740,6 +740,12 @@ const mapLabel = z
             .boolean()
             .default(false)
             .describe('Seen by the GM alone until revealed with the Drawing’s own toggle: a place whose name the party has not learnt.'),
+        pin: z
+            .boolean()
+            .default(false)
+            .describe(
+                'Read on hover over a map pin (a native Note shown to everyone) instead of written over the art: a town quarter’s name, kept off the map (operator 2026-11-03). Its size, colour and font are then unused.',
+            ),
     })
     .strict();
 

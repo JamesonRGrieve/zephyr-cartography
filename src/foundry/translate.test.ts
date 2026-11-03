@@ -335,6 +335,7 @@ describe('noteCreateData', () => {
             pageId: null,
             global: true,
             texture: { src: 'icons/svg/tankard.svg' },
+            author: null,
         });
     });
 });
@@ -377,6 +378,24 @@ describe('noteCreateData for a sign', () => {
         });
         expect(noteCreateData({ ...innName, readable: false, hidden: true })).toMatchObject({ flags: { 'zephyr-cartography': { hidden: true } } });
         expect(noteCreateData({ ...innName, readable: false, hidden: true })).not.toHaveProperty('author');
+    });
+
+    it('writes a global Note authorless, so everyone sees it with no journal: a town quarter’s name on its pin', () => {
+        const quarter = {
+            x: 0,
+            y: 0,
+            elevation: 0,
+            level: null,
+            text: 'Market Square',
+            entry: null,
+            page: null,
+            icon: null,
+            size: null,
+            readable: false,
+            hidden: false,
+        };
+        expect(noteCreateData({ ...quarter, global: true })).toMatchObject({ author: null, global: true });
+        expect(noteCreateData({ ...quarter, global: false })).not.toHaveProperty('author');
     });
 });
 

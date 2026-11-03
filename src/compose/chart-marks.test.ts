@@ -9,7 +9,7 @@ describe('chartMarks', () => {
         const marks = chartMarks(
             {
                 orbits: [{ centre: { x: 7, y: 15 }, radius: 12 }],
-                labels: [{ text: 'Dunmarch', at: { x: 20, y: 13 }, size: 40, colour: '#f0e8d0', font: 'Signika', hidden: false }],
+                labels: [{ text: 'Dunmarch', at: { x: 20, y: 13 }, size: 40, colour: '#f0e8d0', font: 'Signika', hidden: false, pin: false }],
                 fixtures: [],
             },
             { level: 'ground' },
@@ -22,10 +22,26 @@ describe('chartMarks', () => {
         expect(ORBIT_STROKE.alpha).toBeLessThan(0.5);
         // A name the party has not learnt is the GM's alone until revealed.
         const secret = chartMarks(
-            { orbits: [], labels: [{ text: 'The Kingsbarrow', at: { x: 5, y: 5 }, size: 40, colour: '#f0e8d0', font: '', hidden: true }], fixtures: [] },
+            {
+                orbits: [],
+                labels: [{ text: 'The Kingsbarrow', at: { x: 5, y: 5 }, size: 40, colour: '#f0e8d0', font: '', hidden: true, pin: false }],
+                fixtures: [],
+            },
             {},
         );
         expect(secret).toEqual([expect.objectContaining({ type: 'label', text: 'The Kingsbarrow', hidden: true })]);
+    });
+
+    it('names a place on a pin read on hover, shown to everyone, instead of writing it over the art where asked', () => {
+        const marks = chartMarks(
+            {
+                orbits: [],
+                labels: [{ text: 'Market Square', at: { x: 30, y: 24 }, size: 120, colour: '#f4ecd6', font: '', hidden: false, pin: true }],
+                fixtures: [],
+            },
+            { level: 'ground' },
+        );
+        expect(marks).toEqual([{ type: 'pin', x: 30, y: 24, text: 'Market Square', global: true, hidden: false, level: 'ground' }]);
     });
 
     it('breaks an orbit round each world standing on it, never across it, and keeps the star at its centre off it', () => {

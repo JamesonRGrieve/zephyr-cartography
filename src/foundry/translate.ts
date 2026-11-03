@@ -187,7 +187,8 @@ export function noteCreateData(note: NoteDoc): NoteCreateData {
         ...(note.readable || note.hidden
             ? { flags: { [MODULE_ID]: { ...(note.readable ? { readable: true } : {}), ...(note.hidden ? { hidden: true } : {}) } } }
             : {}),
-        ...(note.readable ? { author: null } : {}),
+        // Authorless where players are to see it with no journal: a readable pin, and a global one opening none (shown to everyone).
+        ...(note.readable || (note.global && note.entry === null) ? { author: null } : {}),
         ...levelsField(note.level),
     };
 }

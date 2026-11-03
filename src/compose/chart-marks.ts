@@ -74,17 +74,20 @@ export function chartMarks(intent: Pick<MapIntent, 'labels' | 'orbits' | 'fixtur
     return [
         ...intent.orbits.flatMap((orbit) => orbitLines(orbit, bodies, onLevel)),
         ...intent.labels.map(
-            (label): FeatureInput => ({
-                type: 'label',
-                x: label.at.x,
-                y: label.at.y,
-                text: label.text,
-                fontSize: label.size,
-                colour: label.colour,
-                fontFamily: label.font,
-                ...(label.hidden ? { hidden: true } : {}),
-                ...onLevel,
-            }),
+            (label): FeatureInput =>
+                label.pin
+                    ? { type: 'pin', x: label.at.x, y: label.at.y, text: label.text, global: true, hidden: label.hidden, ...onLevel }
+                    : {
+                          type: 'label',
+                          x: label.at.x,
+                          y: label.at.y,
+                          text: label.text,
+                          fontSize: label.size,
+                          colour: label.colour,
+                          fontFamily: label.font,
+                          ...(label.hidden ? { hidden: true } : {}),
+                          ...onLevel,
+                      },
         ),
     ];
 }
