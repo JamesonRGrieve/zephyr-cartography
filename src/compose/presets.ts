@@ -51,7 +51,7 @@ export function withSeed(text: string, seed: number): string | null {
 // a second walled bar with a hearth of its own, nor guests walking through the kitchen to bed.
 const TAVERN_ROOMS = [
     { key: 'taproom', purpose: 'bar', size: 5, entrance: true, opensTo: ['kitchen', 'store', 'hall'] },
-    { key: 'kitchen', purpose: 'kitchen', size: 1.6, floor: 'floor.cobbled-street' },
+    { key: 'kitchen', purpose: 'kitchen', size: 1.6, floor: 'floor.grey-flagstones' },
     { key: 'store', purpose: 'storage', size: 0.9, floor: 'floor.packed-dirt' },
     { key: 'hall', purpose: 'hall', size: 1.2, opensTo: ['room-1', 'room-2'] },
     { key: 'room-1', purpose: 'bedroom', size: 1 },
