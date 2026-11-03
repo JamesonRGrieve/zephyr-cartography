@@ -405,6 +405,19 @@ describe('bridges and yard pieces', () => {
         expect(stampsOf(shut, 'test:storage')).toBeGreaterThanOrEqual(2);
     });
 
+    it('lays a working yard’s trodden earth only where no painted blend is the ground, and its stores either way', () => {
+        const barn = crossing({
+            paths: [],
+            buildings: [{ key: 'barn', at: { x: 8, y: 5 }, width: 12, height: 8, yard: true, rooms: [{ key: 'room', purpose: 'storage' }] }],
+        });
+        const splats: typeof barn.splats = [{ mask: 'modules/x/ground.png', roles: ['floor.packed-dirt', 'floor.mud', null, null] }];
+        const earth = (spec: ReturnType<typeof composeMap>['spec']): number => spec.features.filter((f) => f.type === 'region' && f.biome === 'dirt').length;
+        const plain = composeMap(barn, TEST_ROLES).spec;
+        const blended = composeMap({ ...barn, splats }, TEST_ROLES).spec;
+        expect([earth(plain) > 0, earth(blended)]).toEqual([true, 0]);
+        expect(stampsOf(blended, 'test:storage')).toBe(stampsOf(plain, 'test:storage'));
+    });
+
     it('stacks a yard’s stores in clumps with open wall between, stands its cart, and lays nothing it has no art for', () => {
         const barn = { x: 8, y: 5, w: 12, h: 8 };
         const yard = crossing({

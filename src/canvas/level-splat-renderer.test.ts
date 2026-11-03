@@ -57,6 +57,16 @@ describe('LevelRoutedSplatRenderer', () => {
         expect(own.calls).toEqual(['snapshot a']);
     });
 
+    it('passes an update or removal of a layer it never drew to its own surface', () => {
+        const own = new Recording();
+        const ground = new Recording();
+        const renderer = new LevelRoutedSplatRenderer(own, 'upper', () => ground);
+        renderer.update('x', RECT);
+        renderer.remove('x');
+        expect(own.calls).toEqual(['update x', 'remove x']);
+        expect(ground.calls).toEqual([]);
+    });
+
     it('moves a layer that changes level off the surface it was on', () => {
         const own = new Recording();
         const ground = new Recording();
