@@ -1101,21 +1101,31 @@ export function composeExterior(
 ): { features: FeatureInput[]; problems: ComposeProblem[]; paths: readonly LaidPath[] } {
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
+    // A painted blend (splats) is the map's open ground, and it draws beneath painted terrain: the ground, the zones'
+    // own ground, worn earth and yards are painted into the blend instead, never laid over it as patches. Each is still
+    // outlined, so a map's random draws (its roads, its dressing) are the same blended or not, and the map keeps its
+    // ground (it is still out of doors, lit by the day). A zone given a texture of its own (a crop field) paints it.
+    const blended = intent.splats.length > 0;
     if (intent.ground !== null) {
         const everywhere: ZoneIntent = { kind: 'meadow', area: { shape: 'everywhere' }, density: 'normal', texture: null, soft: false };
         const points = zoneOutline(everywhere, intent, noiseField(random, EDGE_SCALE));
-        features.push({ type: 'region', biome: intent.ground, points, ...textured(intent.groundTexture) });
+        if (!blended) {
+            features.push({ type: 'region', biome: intent.ground, points, ...textured(intent.groundTexture) });
+        }
     }
     const outlines = intent.zones.map((zone) => ({ zone, outline: zoneOutline(zone, intent, noiseField(random, EDGE_SCALE)) }));
     const isLake = ({ zone }: { zone: ZoneIntent }): boolean => zone.kind === 'lake';
     // Water and paving lie over the paths, crisp to their outlines; every other zone's ground lies under them.
     const laidOver = ({ zone }: { zone: ZoneIntent }): boolean => zone.kind === 'lake' || zone.kind === 'paving';
-    for (const { zone, outline } of outlines.filter((o) => !laidOver(o))) {
+    for (const { zone, outline } of outlines.filter((o) => !laidOver(o) && (!blended || o.zone.texture !== null))) {
         features.push({ type: 'region', biome: ZONE_GROUND[zone.kind], points: outline, ...textured(zone.texture) });
     }
     // A working yard's ground is trodden earth round the building, under its paths.
     for (const site of sites.filter((s) => s.yard)) {
-        features.push({ type: 'region', biome: 'dirt', texture: YARD_GROUND, points: yardEdge(grown(siteBounds(site), YARD_EARTH), random) });
+        const points = yardEdge(grown(siteBounds(site), YARD_EARTH), random);
+        if (!blended) {
+            features.push({ type: 'region', biome: 'dirt', texture: YARD_GROUND, points });
+        }
     }
     const keyed = new Map(outlines.flatMap(({ zone, outline }) => (zone.key === undefined ? [] : [[zone.key, outline] as const])));
     const paths: LaidPath[] = intent.paths.map((path) => {
@@ -1150,7 +1160,10 @@ export function composeExterior(
     // A chart (a region, a world, a system) is its ground, zones, paths and the places it names: nothing scattered or worn.
     const charted = intent.scale !== 'battlemap';
     for (const { zone, outline } of charted ? [] : outlines) {
-        features.push(...wornEarth(zone, outline, keepout, random));
+        const worn = wornEarth(zone, outline, keepout, random);
+        if (!blended) {
+            features.push(...worn);
+        }
     }
     // On a chart a river broadens and narrows along its run, as a painted one does; on a battlemap it keeps the one width
     // its bridges are built across. Its own stream from the seed, so nothing else on the map moves.

@@ -389,6 +389,24 @@ describe('composeMap', () => {
         expect(spec.splats).toEqual(splats);
         expect(compose(INN_IN_THE_WOODS).spec.splats).toEqual([]);
         expect(parseSceneSpec(spec).ok).toBe(true);
+        // The blend is the open ground: no ground, zone ground or worn earth is painted over it as a patch, yet the map is
+        // still lit as out of doors, and its roads and dressing are laid exactly as without the blend.
+        const painted = (s: typeof spec): number => s.features.filter((f) => f.type === 'region' || f.type === 'stroke').length;
+        const plain = compose(INN_IN_THE_WOODS).spec;
+        expect([painted(plain) > 0, painted(spec)]).toEqual([true, 0]);
+        expect(spec.scene?.globalLight).toBe(true);
+        const laid = (s: typeof spec): typeof spec.features => s.features.filter((f) => f.type === 'path' || f.type === 'stamp');
+        expect(laid(spec)).toEqual(laid(plain));
+        // A zone given a texture of its own (a crop field) still paints it over the blend.
+        const fielded = {
+            ...INN_IN_THE_WOODS,
+            zones: [
+                ...INN_IN_THE_WOODS.zones,
+                { kind: 'meadow' as const, area: { shape: 'circle' as const, centre: { x: 30, y: 5 }, radius: 3 }, texture: 'floor.standing-wheat' },
+            ],
+        };
+        const fieldTextures = compose(intentOf({ ...fielded, splats })).spec.features.flatMap((f) => (f.type === 'region' ? [f.texture] : []));
+        expect(fieldTextures).toEqual(['floor.standing-wheat']);
         // A map of several levels paints its ground on the ground level, not over every level.
         const layered = composeMap(
             intentOf({

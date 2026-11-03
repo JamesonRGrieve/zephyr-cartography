@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** The controller's splat maps: blending textures with the brush, level by level, with undo. */
 import { describe, expect, it } from 'vitest';
+import { NO_LEVEL_ART } from '../tools/levels';
 import { makeHarness } from './test-fakes';
 
 const dab = { at: { x: 500, y: 400 }, radius: 100, strength: 1, erase: false };
@@ -71,6 +72,23 @@ describe('splat maps', () => {
         expect(c.splatLayer()?.level).toBe('lv2');
         c.setActiveLevel('lv1');
         expect([...spr.shown.keys()]).toEqual(['lv1']);
+    });
+
+    it('show the blend of a level the edited one sees below it (the ground round an upper storey), and not of one it does not', async () => {
+        const { c, spr } = makeHarness();
+        await c.addLevel('above', 'Ground');
+        await c.addLevel('above', 'Upper');
+        c.setActiveLevel('lv1');
+        c.blend({ ...dab, role: 'grassland' });
+        await c.endBlend();
+        c.setActiveLevel('lv2');
+        expect(spr.shown.has('lv1')).toBe(false);
+        const upper = c.levels.find((level) => level.id === 'lv2');
+        await c.setLevelArt('lv2', { ...(upper?.art ?? NO_LEVEL_ART), visibleLevels: ['lv1'] });
+        expect([...spr.shown.keys()]).toEqual(['lv1']);
+        // Seen, never edited: blending on the upper storey makes its own map, the ground's untouched.
+        c.blend({ ...dab, role: 'rock' });
+        expect(c.splatLayer()?.level).toBe('lv2');
     });
 
     it('stack a layer for a fifth texture, sixteen at most, and read saved maps back in', async () => {

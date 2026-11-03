@@ -2229,11 +2229,17 @@ export class CartographyController {
         return { layer, mask: blankMask(layer) };
     }
 
-    /** Draw the splat maps shown while editing the active level, and no others; a baked one is what it was baked into. */
+    /**
+     * Draw the splat maps shown while editing the active level (its own, and those of the levels it sees below it), and
+     * no others; a baked one is what it was baked into.
+     */
     private redrawSplats(): void {
+        // A level the active one sees below it (the yard round an upper storey) shows its blend too, as its painting.
+        const seen = new Set(seenBelow(this.levelList, this.active).map((level) => level.id));
         for (const [key, splat] of this.splats) {
             const baked = this.splats.get(splatKey(splat.layer.level, 0))?.layer.baked ?? null;
-            if (baked === null && onLevel(splat.layer.level, this.active)) {
+            const shown = onLevel(splat.layer.level, this.active) || (splat.layer.level !== null && seen.has(splat.layer.level));
+            if (baked === null && shown) {
                 this.splatRenderer.set(key, splat.layer, splat.mask);
             } else {
                 this.splatRenderer.remove(key);

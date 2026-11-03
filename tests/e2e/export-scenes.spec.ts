@@ -21,6 +21,7 @@ import { parseMapIntent } from '../../src/compose/intent';
 import { sceneIdOf } from '../../src/compose/links';
 import { MAP_PRESETS, type MapPreset, PRESET_INTENTS } from '../../src/compose/presets';
 import { expect, freshScene, moduleActive, type SceneSize, test } from './lib/foundry';
+import { joinPngs } from './lib/png-join';
 
 const ASSETS = 'zephyr-cartography-assets';
 /** The suite's own pack of test stamps, which no exported scene may use. */
@@ -59,7 +60,8 @@ const isPreset = (value: string): value is MapPreset => MAP_PRESETS.some((preset
 
 /** Wait until every visible tile and terrain image of the viewed level is drawn. */
 async function drawn(page: Page): Promise<void> {
-    await expect.poll(async () => page.evaluate(() => canvas?.ready === true)).toBe(true);
+    // A level's redraw loads its textures too, so it gets the images' budget: on a busy runner it outlasts the default.
+    await expect.poll(async () => page.evaluate(() => canvas?.ready === true), { timeout: IMAGES_LOAD_MS }).toBe(true);
     await expect
         .poll(
             async () =>
@@ -85,47 +87,13 @@ export function tilesFor(image: { readonly width: number; readonly height: numbe
     return { tile, origins };
 }
 
-/** The tiles' pictures joined into one PNG `image` px, on a 2D canvas in the page (2D canvases hold far more than GL). */
-async function joined(
-    page: Page,
-    shots: readonly Buffer[],
-    grid: ReturnType<typeof tilesFor>,
-    image: { readonly width: number; readonly height: number },
-): Promise<Buffer> {
-    const base64 = await page.evaluate(
-        async ({ pictures, origins, width, height }) => {
-            const board = document.createElement('canvas');
-            board.width = width;
-            board.height = height;
-            const context = board.getContext('2d');
-            if (!context) {
-                throw new Error('no 2D canvas to join the tiles on');
-            }
-            await Promise.all(
-                pictures.map(async (data, i) => {
-                    const picture = new Image();
-                    picture.src = `data:image/png;base64,${data}`;
-                    await picture.decode();
-                    const at = origins[i] ?? { x: 0, y: 0 };
-                    context.drawImage(picture, at.x, at.y);
-                }),
-            );
-            const blob = await new Promise<Blob | null>((resolve) => {
-                board.toBlob(resolve, 'image/png');
-            });
-            if (!blob) {
-                throw new Error('the joined picture could not be encoded');
-            }
-            const bytes = new Uint8Array(await blob.arrayBuffer());
-            let text = '';
-            for (const byte of bytes) {
-                text += String.fromCharCode(byte);
-            }
-            return btoa(text);
-        },
-        { pictures: shots.map((b) => b.toString('base64')), origins: grid.origins, width: image.width, height: image.height },
+/** The tiles' pictures joined into one PNG `image` px, in Node (a 2D canvas of a 9000 px map crashed the browser). */
+function joined(shots: readonly Buffer[], grid: ReturnType<typeof tilesFor>, image: { readonly width: number; readonly height: number }): Buffer {
+    return joinPngs(
+        shots.map((picture, i) => ({ picture, ...(grid.origins[i] ?? { x: 0, y: 0 }) })),
+        image.width,
+        image.height,
     );
-    return Buffer.from(base64, 'base64');
 }
 
 test.beforeEach(async ({ world }) => {
@@ -241,7 +209,7 @@ for (const { key, intent: source } of listed) {
                 });
                 return [...taken, await world.locator('#board').screenshot()];
             }, Promise.resolve<Buffer[]>([]));
-            writeFileSync(join(out, `${key}.${n}.png`), grid.origins.length === 1 && shots[0] ? shots[0] : await joined(world, shots, grid, image));
+            writeFileSync(join(out, `${key}.${n}.png`), grid.origins.length === 1 && shots[0] ? shots[0] : joined(shots, grid, image));
             const uvtt = await world.evaluate(
                 async ({ shining, imageGridSize }) => {
                     await canvas?.scene?.updateEmbeddedDocuments(

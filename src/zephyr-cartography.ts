@@ -9,8 +9,9 @@
  * editing). Pointer input is routed by one {@link Mode} per active tool.
  */
 import './styles/entry.css';
-import { type Brush, CartographyController } from './canvas/controller';
+import { type Brush, CartographyController, type SplatRenderer } from './canvas/controller';
 import { LevelRoutedRenderer } from './canvas/level-renderer';
+import { LevelRoutedSplatRenderer } from './canvas/level-splat-renderer';
 import { IDLE, type Mode, modeForTool } from './canvas/modes';
 import { type FeatureRenderer, GraphicsFeatureRenderer } from './canvas/renderer';
 import { inOwnGroup, moduleTool, NATIVE_GROUPS, NATIVE_TOOLS, type NativeTool, nativeToolName } from './canvas/tool-placement';
@@ -77,8 +78,8 @@ interface DrawState {
     container: PIXI.Container;
     /** Where the painted map draws, in Foundry's primary group beneath tiles and tokens. */
     terrain: PIXI.Container;
-    /** Where the levels the viewed one sees below it draw, each at its own floor (made as needed). */
-    seenTerrains: PIXI.Container[];
+    /** Where the levels the viewed one sees below it draw, each at its own floor (made as needed), by level id. */
+    seenTerrains: ReadonlyMap<string, PIXI.Container>;
     mode: Mode;
     drag: Drag | null;
     /** The path the edit tool has picked, or null. */
@@ -215,7 +216,7 @@ function teardown(): void {
         state.renderer.clear();
         state.container.destroy({ children: true });
         state.terrain.destroy({ children: true });
-        for (const seenTerrain of state.seenTerrains) {
+        for (const seenTerrain of state.seenTerrains.values()) {
             seenTerrain.destroy({ children: true });
         }
         state = null;
@@ -760,16 +761,28 @@ function setupDrawLayer(): void {
     const viewed = canvas.level?.id ?? null;
     // A level the viewed one sees below it (the yard round an upper storey) draws on its own layer at its own floor,
     // beneath its tiles as Foundry sorts them; each is made when first needed and torn down with the rest.
-    const seenTerrains: PIXI.Container[] = [];
-    const seenSurface = (levelId: string): FeatureRenderer | null => {
+    // One layer per seen level, shared by its painted features and its blend (the blend beneath, as on the viewed level).
+    const seenTerrains = new Map<string, PIXI.Container>();
+    const seenTerrainOf = (levelId: string): PIXI.Container | null => {
+        const made = seenTerrains.get(levelId);
+        if (made) {
+            return made;
+        }
         const seenLevel = canvas.scene?.levels.contents.find((level) => level.id === levelId);
         // Foundry's open-bottomed band (null) starts at no floor: the ground's own, 0.
         const seenTerrain = seenLevel ? createTerrainLayer(seenLevel.elevation.bottom ?? 0) : null;
-        if (!seenTerrain) {
-            return null;
+        if (seenTerrain) {
+            seenTerrains.set(levelId, seenTerrain);
         }
-        seenTerrains.push(seenTerrain);
-        return new GraphicsFeatureRenderer(createPixiSurface(seenTerrain, gridSize), packs.textures(), wallBand);
+        return seenTerrain;
+    };
+    const seenSurface = (levelId: string): FeatureRenderer | null => {
+        const seenTerrain = seenTerrainOf(levelId);
+        return seenTerrain ? new GraphicsFeatureRenderer(createPixiSurface(seenTerrain, gridSize), packs.textures(), wallBand) : null;
+    };
+    const seenSplats = (levelId: string): SplatRenderer | null => {
+        const seenTerrain = seenTerrainOf(levelId);
+        return seenTerrain ? createSplatRenderer(seenTerrain, packs.textures(), gridSize) : null;
     };
     const renderer = withParticles(
         new LevelRoutedRenderer(new GraphicsFeatureRenderer(createPixiSurface(terrain, gridSize), packs.textures(), wallBand), viewed, seenSurface),
@@ -780,7 +793,7 @@ function setupDrawLayer(): void {
     const controller = new CartographyController({
         renderer,
         splats: createSplatStore(activeScene),
-        splatRenderer: createSplatRenderer(terrain, packs.textures(), gridSize),
+        splatRenderer: new LevelRoutedSplatRenderer(createSplatRenderer(terrain, packs.textures(), gridSize), viewed, seenSplats),
         store: new FoundrySceneStore(activeScene),
         sink: new FoundryDocumentSink(activeScene, {
             makeId,
