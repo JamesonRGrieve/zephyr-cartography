@@ -96,6 +96,10 @@ function joined(shots: readonly Buffer[], grid: ReturnType<typeof tilesFor>, ima
     );
 }
 
+// The world fixture's set-up counts against the test's timeout too: reloading Foundry with the full packs ran past the
+// default two minutes on a loaded runner before a single scene was composed.
+test.describe.configure({ timeout: EXPORT_TIMEOUT_MS });
+
 test.beforeEach(async ({ world }) => {
     test.skip(!(await moduleActive(world, ASSETS)), `${ASSETS} is not installed among the test modules`);
 });
