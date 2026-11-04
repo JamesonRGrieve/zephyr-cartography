@@ -441,6 +441,8 @@ export interface LaidPath {
     readonly kind: PathIntent['kind'];
     readonly points: readonly Point[];
     readonly halfWidth: number;
+    /** A road's crossing: bridge art carrying these tags, or a ford; undefined, any road bridge. */
+    readonly bridge?: readonly string[] | false;
 }
 
 /** Everything that decides whether something may stand at a point. */
@@ -797,9 +799,17 @@ function bridges(paths: readonly LaidPath[], stamps: RoleIndex, random: Random):
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     for (const road of paths.filter((p) => p.kind === 'road')) {
+        const wanted = road.bridge;
+        // A ford: waded, no bridge, nothing reported.
+        if (wanted === false) {
+            continue;
+        }
+        // Art of the kind asked (the first tag any loaded art carries), else any road bridge.
+        const asked: readonly RoleStamp[] = (wanted ?? []).map((tag) => sound.filter((art) => art.tags.includes(tag))).find((a) => a.length > 0) ?? [];
+        const kinds = asked.length > 0 ? asked : choices;
         for (const river of paths.filter((p) => p.kind === 'river')) {
             for (const { at, along } of crossings(road.points, river.points)) {
-                const fits = choices.flatMap((stamp) => {
+                const fits = kinds.flatMap((stamp) => {
                     const rotation = bridgeRotation(stamp, along);
                     return rotation === null ? [] : [{ stamp, rotation }];
                 });
@@ -1156,6 +1166,7 @@ export function composeExterior(
         const line = path.via.length === 0 ? bends : catmullRom(bends, VIA_SAMPLES);
         return {
             kind: path.kind,
+            ...(path.bridge === undefined ? {} : { bridge: path.bridge }),
             halfWidth,
             points: toDoors(
                 detour(

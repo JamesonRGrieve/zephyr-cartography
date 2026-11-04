@@ -645,6 +645,23 @@
                         "description": "A road only: its texture role (a pale `dirt` track on a chart); omitted, the texture set’s road.",
                         "type": "string",
                         "minLength": 1
+                    },
+                    "bridge": {
+                        "description": "A road only: how it crosses a river. Tags its bridge art must carry, the first carried preferred (`stone`, `timber`, `rope`); false for a ford, waded with no bridge; omitted, any bridge built for a road.",
+                        "anyOf": [
+                            {
+                                "type": "boolean",
+                                "const": false
+                            },
+                            {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                }
+                            }
+                        ]
                     }
                 },
                 "required": [

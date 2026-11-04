@@ -786,6 +786,12 @@ const path = z
             .optional()
             .describe('A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.'),
         texture: text.optional().describe('A road only: its texture role (a pale `dirt` track on a chart); omitted, the texture set’s road.'),
+        bridge: z
+            .union([z.literal(false), z.array(text).min(1)])
+            .optional()
+            .describe(
+                'A road only: how it crosses a river. Tags its bridge art must carry, the first carried preferred (`stone`, `timber`, `rope`); false for a ford, waded with no bridge; omitted, any bridge built for a road.',
+            ),
     })
     .strict();
 

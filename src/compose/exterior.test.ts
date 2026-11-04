@@ -117,6 +117,39 @@ describe('bridges and yard pieces', () => {
     const stampsOf = (spec: ReturnType<typeof composeMap>['spec'], key: string): number =>
         spec.features.filter((f) => f.type === 'stamp' && f.stamp === key).length;
 
+    it('bridges a road in the kind of bridge asked, or fords it with none and nothing reported', () => {
+        const base = (TEST_ROLES.get('bridge') ?? [])[0];
+        expect(base).toBeDefined();
+        if (!base) {
+            return;
+        }
+        const roles: RoleIndex = new Map([
+            ...TEST_ROLES,
+            [
+                'bridge',
+                [
+                    { ...base, key: 'test:stone-bridge', tags: ['stone', 'road', 'bridge'] },
+                    { ...base, key: 'test:timber-bridge', tags: ['timber', 'road', 'bridge'] },
+                ],
+            ],
+        ]);
+        const road = (bridge?: false | string[]): object => ({
+            paths: [
+                { kind: 'road', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, meander: 0, ...(bridge === undefined ? {} : { bridge }) },
+                { kind: 'river', from: { x: 15, y: -1 }, to: { x: 15, y: 21 }, meander: 0 },
+            ],
+        });
+        const timber = composeMap(crossing(road(['timber'])), roles);
+        expect(stampsOf(timber.spec, 'test:timber-bridge')).toBe(1);
+        expect(stampsOf(timber.spec, 'test:stone-bridge')).toBe(0);
+        // A kind no art draws falls back to any road bridge.
+        const rope = composeMap(crossing(road(['rope'])), roles).spec;
+        expect(stampsOf(rope, 'test:timber-bridge') + stampsOf(rope, 'test:stone-bridge')).toBe(1);
+        const ford = composeMap(crossing(road(false)), roles);
+        expect(stampsOf(ford.spec, 'test:timber-bridge') + stampsOf(ford.spec, 'test:stone-bridge')).toBe(0);
+        expect(ford.problems.filter((p) => 'role' in p && p.role === 'bridge')).toEqual([]);
+    });
+
     it('lays a bridge drawn with depth only where the road runs across it as drawn, and says when a road crossing has none', () => {
         const upright = (roles: RoleIndex): RoleIndex => new Map([...roles, ['bridge', (roles.get('bridge') ?? []).map((s) => ({ ...s, upright: true }))]]);
         // An east–west road runs along the art's length: it carries it as drawn.
