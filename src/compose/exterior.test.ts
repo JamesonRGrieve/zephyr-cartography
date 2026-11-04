@@ -187,6 +187,38 @@ describe('bridges and yard pieces', () => {
         expect(composed.spec.features.filter((f) => f.type === 'stamp').length).toBeGreaterThan(5);
     });
 
+    it('never lays rocks, logs or shrubs on a tree crown or on each other', () => {
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            width: 30,
+            height: 20,
+            zones: [
+                // A sparse wood: open ground between its crowns where litter can lie.
+                { kind: 'woodland', area: { shape: 'everywhere' }, density: 'sparse' },
+                { kind: 'rocky', area: { shape: 'circle', centre: { x: 15, y: 10 }, radius: 6 }, density: 'dense' },
+            ],
+        });
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) {
+            return;
+        }
+        const { spec } = composeMap(parsed.intent, TEST_ROLES);
+        const stamps = spec.features.flatMap((f) => (f.type === 'stamp' ? [f] : []));
+        const radius = (key: string): number => {
+            const role = [...TEST_ROLES.values()].flat().find((s) => s.key === key);
+            return role ? Math.hypot(role.width, role.height) / 2 : 0;
+        };
+        const roleOf = (key: string): string | undefined => [...TEST_ROLES.entries()].find(([, list]) => list.some((s) => s.key === key))?.[0];
+        const trees = stamps.filter((s) => roleOf(s.stamp) === 'tree');
+        const litter = stamps.filter((s) => ['rock', 'log', 'shrub'].includes(roleOf(s.stamp) ?? ''));
+        expect(trees.length).toBeGreaterThan(0);
+        expect(litter.length).toBeGreaterThan(0);
+        const onACrown = litter.filter((l) => trees.some((t) => Math.hypot(t.x - l.x, t.y - l.y) < radius(t.stamp) * 0.8 + radius(l.stamp) - 1e-6));
+        expect(onACrown).toEqual([]);
+        const onOther = litter.filter((a, i) => litter.some((b, j) => i !== j && Math.hypot(a.x - b.x, a.y - b.y) < radius(a.stamp) + radius(b.stamp) - 1e-6));
+        expect(onOther).toEqual([]);
+    });
+
     it('strews crates over open ground but never storage that stands against a wall', () => {
         const crate = (TEST_ROLES.get('storage') ?? [])[0];
         expect(crate).toBeDefined();

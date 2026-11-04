@@ -501,7 +501,19 @@ interface Standing {
     readonly x: number;
     readonly y: number;
     readonly r: number;
+    /** A tree's crown: other crowns may run into it (a wood is crowns touching), nothing else may lie on it. */
+    readonly canopy?: true;
 }
+
+/**
+ * Litter of the open ground: drawn over whatever is under it, so it never lies on a tree's crown or on other litter
+ * (operator 2026-11-04 of an encounter map: "Rocks on top of trees ... Shit overlapping, what is this mess?"). Flora
+ * keeps off crowns but grows in patches, so it does not hold its ground against more flora.
+ */
+const LITTER_ROLES: readonly StampRole[] = ['rock', 'log', 'shrub', 'debris', 'flora'];
+
+/** How far a crown reaches for what lies near it, as a share of its footprint's radius: its leaves' edge, not its box's. */
+const CROWN_REACH = 0.8;
 
 /** The radius of a piece's footprint however it is turned. */
 const footprintRadius = (stamp: RoleStamp): number => Math.hypot(stamp.width, stamp.height) / 2;
@@ -549,6 +561,21 @@ function dress(
                 return [];
             }
             standing.push({ x: p.x, y: p.y, r });
+        } else if (dressing.role === 'tree') {
+            // A crown may run into other crowns, never over rocks, logs or works laid before it.
+            const r = footprintRadius(stamp) * CROWN_REACH;
+            if (standing.some((s) => s.canopy !== true && Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
+                return [];
+            }
+            standing.push({ x: p.x, y: p.y, r, canopy: true });
+        } else if (LITTER_ROLES.includes(dressing.role)) {
+            const r = footprintRadius(stamp);
+            if (standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
+                return [];
+            }
+            if (dressing.role !== 'flora') {
+                standing.push({ x: p.x, y: p.y, r });
+            }
         } else if (dressing.role === 'crater') {
             // A crater may cut a road, but no work stands in it and no two run together (2026-11-04: a silo and a
             // luggage pile drawn inside craters, two craters overlapping): it keeps clear of every standing piece, and

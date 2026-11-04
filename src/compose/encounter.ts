@@ -72,15 +72,15 @@ interface SettingLook {
     /** What stands where a place is built up: ruined walls, or a works yard. */
     readonly ruin: 'rubble' | 'industrial';
     readonly lighting: 'day' | 'night';
-    /** Whether its art has a bridge for a road over a river; where not, "any bridge" is a ford. */
+    /** Whether its art has a road bridge (only the feudal world's does; the Imperium's is a pipe bridge): where not, "any bridge" is a ford. */
     readonly bridged: boolean;
 }
 
 // The feudal world's woods and stone; the Imperium's works; the warp's corrupted night; a frontier world's works.
 const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
     feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true },
-    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: true },
-    warp: { settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'], ruin: 'rubble', lighting: 'night', bridged: true },
+    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false },
+    warp: { settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'], ruin: 'rubble', lighting: 'night', bridged: false },
     scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false },
 };
 
@@ -246,11 +246,14 @@ export function encounterIntent(choice: EncounterChoice): object {
     };
     if (has('cliffs')) {
         // Heights of rock along both long sides, the way between them a pass.
-        zones.push({ kind: 'rocky', area: edgeStrip('north', Math.round(height * 0.28)), density: 'dense' });
-        zones.push({ kind: 'rocky', area: edgeStrip('south', Math.round(height * 0.28)), density: 'dense' });
+        // Not a boulder field: a band of rock either side (2026-11-04 preview: dense strips swamped a marsh in boulders).
+        zones.push({ kind: 'rocky', area: edgeStrip('north', Math.round(height * 0.2)) });
+        zones.push({ kind: 'rocky', area: edgeStrip('south', Math.round(height * 0.2)) });
     }
+    let lakeAt: Point | null = null;
     if (has('lake')) {
         const at = take();
+        lakeAt = at;
         zones.push({ kind: 'lake', key: 'lake', area: circle(at, span * 0.18) });
         opened(at, span * 0.18);
     }
@@ -281,7 +284,7 @@ export function encounterIntent(choice: EncounterChoice): object {
             meander: 0.4,
         });
     }
-    // A frontier world has no bridge art: its rivers are forded unless a kind is asked for.
+    // A world with no road bridge art fords its rivers unless a kind is asked for.
     const bridge = choice.bridge === 'any' && !look.bridged ? false : BRIDGE[choice.bridge];
     const road = (from: Side, to: Side, via: Point | null): object => ({
         kind: 'road',
@@ -291,12 +294,19 @@ export function encounterIntent(choice: EncounterChoice): object {
         meander: Math.round((0.3 + random() * 0.3) * 100) / 100,
         ...(bridge === undefined ? {} : { bridge }),
     });
-    // The road runs through the camp's gate where there is one: it is what the camp holds.
+    // The road runs through the camp's gate where there is one: it is what the camp holds. Round a lake, never over it
+    // (2026-11-04 preview: a road ran straight across one): it passes the far side of the map from the water.
+    const clear = (along: 'x' | 'y'): Point | null =>
+        lakeAt === null
+            ? null
+            : along === 'y'
+            ? { x: width / 2, y: lakeAt.y < height / 2 ? height * 0.82 : height * 0.18 }
+            : { x: lakeAt.x < width / 2 ? width * 0.82 : width * 0.18, y: height / 2 };
     if (choice.road !== 'none') {
-        paths.push(road('west', 'east', campAt));
+        paths.push(road('west', 'east', campAt ?? clear('y')));
     }
     if (choice.road === 'crossroads') {
-        paths.push(road('south', 'north', null));
+        paths.push(road('south', 'north', clear('x')));
     }
     return { ...base, ground: land.ground, lighting: look.lighting, zones, paths };
 }

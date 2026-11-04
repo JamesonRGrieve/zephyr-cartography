@@ -67,8 +67,25 @@ describe('encounter maps', () => {
         expect(bridgeOf('rope')).toEqual(['rope']);
         expect(bridgeOf('ford')).toBe(false);
         expect(bridgeOf('any')).toBeUndefined();
-        // A frontier world draws no bridges: there "any bridge" fords the river.
-        expect(parsed({ setting: 'scifi', bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBe(false);
+        // Only the feudal world draws road bridges: elsewhere "any bridge" fords the river.
+        for (const setting of ['grimdark', 'warp', 'scifi'] as const) {
+            expect(parsed({ setting, bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBe(false);
+        }
+        expect(parsed({ setting: 'feudal', bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBeUndefined();
+    });
+
+    it('runs the roads round a lake, on the far side of the map from it', () => {
+        const intent = parsed({ road: 'crossroads', features: ['lake'] });
+        const lake = intent.zones.find((z) => z.kind === 'lake' && z.key === 'lake');
+        expect(lake?.area.shape).toBe('circle');
+        if (lake?.area.shape !== 'circle') {
+            return;
+        }
+        for (const road of intent.paths.filter((p) => p.kind === 'road')) {
+            const [via] = road.via;
+            expect(via).toBeDefined();
+            expect(Math.hypot((via?.x ?? 0) - lake.area.centre.x, (via?.y ?? 0) - lake.area.centre.y)).toBeGreaterThan(lake.area.radius);
+        }
     });
 
     it('opens a clearing round each feature in a forest, and runs the road through the camp', () => {
