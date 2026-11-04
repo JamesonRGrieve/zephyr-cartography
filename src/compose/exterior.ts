@@ -89,6 +89,11 @@ interface Dressing {
      * ground cover grow, never dotted evenly over the grass.
      */
     readonly patch?: readonly [number, number];
+    /**
+     * A scar the ground can do without (a crater): where the map's settings draw none, the zone is dressed without it
+     * and nothing is reported (2026-11-04: a feudal ruin or a frontier camp reported its missing shell craters).
+     */
+    readonly optional?: true;
 }
 
 /** How far a patch's pieces lie from its middle, in the pieces' typical size. */
@@ -124,7 +129,7 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
     ],
     rubble: [
         { role: 'debris', spread: 1.6, clumping: 0.4 },
-        { role: 'crater', spread: 3, clumping: 0.2 },
+        { role: 'crater', spread: 3, clumping: 0.2, optional: true },
         { role: 'rock', spread: 5, clumping: 0 },
     ],
     industrial: [
@@ -139,7 +144,7 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         { role: 'barricade', spread: 1.05, clumping: 0, perimeter: true },
         { role: 'structure', spread: 2, clumping: 0.2 },
         { role: 'storage', spread: 4, clumping: 0.6 },
-        { role: 'crater', spread: 5, clumping: 0 },
+        { role: 'crater', spread: 5, clumping: 0, optional: true },
         { role: 'debris', spread: 5, clumping: 0.2 },
     ],
     landing: [
@@ -162,7 +167,7 @@ const LAND_ROLES: readonly StampRole[] = ['tree', 'shrub', 'rock', 'log', 'flora
 /**
  * Roles whose pieces must not stand on one another, or reach over a path or
  * a building. Land's canopies and litter may overlap, and a crater is a scar
- * in the ground: works stand at its lip and a road can be shelled.
+ * in the ground: works stand at its lip, never in it, and a road can be shelled.
  */
 const SOLID_ROLES: readonly StampRole[] = ['structure', 'vehicle', 'emplacement', 'barricade', 'storage', 'well'];
 
@@ -188,7 +193,12 @@ const BANK_HABITATS: readonly StampHabitat[] = ['forest', 'grassland', 'marsh', 
 /** The stamps of a role that belong on any of `habitats` (any stamp of a role that is not land). */
 function inHabitat(stamps: RoleIndex, role: StampRole, habitats: readonly StampHabitat[]): RoleStamp[] {
     const all = stamps.get(role) ?? [];
-    return LAND_ROLES.includes(role) ? all.filter((stamp) => stamp.habitats.some((h) => habitats.includes(h))) : [...all];
+    if (LAND_ROLES.includes(role)) {
+        return all.filter((stamp) => stamp.habitats.some((h) => habitats.includes(h)));
+    }
+    // Storage that stands against a wall (a locker, a cabinet, a wardrobe) is never strewn over open ground, where there
+    // is no wall (2026-11-04: medicae cabinets and evidence lockers out in a ruin's rubble); crates, barrels and sacks are.
+    return role === 'storage' ? all.filter((stamp) => stamp.against !== 'wall') : [...all];
 }
 
 /** The pieces' typical size: the mean of each one's longer side, in squares. */
@@ -534,6 +544,15 @@ function dress(
             // A solid piece, however big, keeps its whole footprint off paths, buildings and every other solid piece.
             const r = footprintRadius(stamp);
             if (blocked(p, dressing.role, keepout, r, r) || standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
+                return [];
+            }
+            standing.push({ x: p.x, y: p.y, r });
+        } else if (dressing.role === 'crater') {
+            // A crater may cut a road, but no work stands in it and no two run together (2026-11-04: a silo and a
+            // luggage pile drawn inside craters, two craters overlapping): it keeps clear of every standing piece, and
+            // the works laid after it keep clear of it.
+            const r = footprintRadius(stamp);
+            if (standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
                 return [];
             }
             standing.push({ x: p.x, y: p.y, r });
@@ -1229,7 +1248,7 @@ export function composeExterior(
     outlines.forEach(({ zone, outline }, i) => {
         for (const dressing of ZONE_DRESSING[zone.kind]) {
             const choices = narrowed(inHabitat(stamps, dressing.role, ZONE_HABITATS[zone.kind]), preferences.get(zonePlace(i))?.get(dressing.role));
-            const lacking = choices.every((s) => isPlaceholder(s.key)) ? missing(dressing.role, zone.kind, choices[0]) : null;
+            const lacking = !dressing.optional && choices.every((s) => isPlaceholder(s.key)) ? missing(dressing.role, zone.kind, choices[0]) : null;
             if (lacking) {
                 problems.push(lacking);
             }

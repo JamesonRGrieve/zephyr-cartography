@@ -133,6 +133,50 @@ describe('bridges and yard pieces', () => {
         expect(composed.problems).toContainEqual({ kind: 'no-stamp', role: 'bridge', wantedIn: 'road' });
     });
 
+    it('dresses rubble and a camp without craters where none are loaded, and reports nothing for them', () => {
+        const noCraters: RoleIndex = new Map([...TEST_ROLES].filter(([role]) => role !== 'crater'));
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            width: 30,
+            height: 20,
+            zones: [
+                { kind: 'rubble', area: { shape: 'circle', centre: { x: 8, y: 10 }, radius: 6 } },
+                { kind: 'fortified', area: { shape: 'circle', centre: { x: 22, y: 10 }, radius: 6 } },
+            ],
+        });
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) {
+            return;
+        }
+        const composed = composeMap(parsed.intent, noCraters);
+        expect(composed.problems.filter((p) => 'role' in p && p.role === 'crater')).toEqual([]);
+        // The rest of the dressing still stands.
+        expect(composed.spec.features.filter((f) => f.type === 'stamp').length).toBeGreaterThan(5);
+    });
+
+    it('strews crates over open ground but never storage that stands against a wall', () => {
+        const crate = (TEST_ROLES.get('storage') ?? [])[0];
+        expect(crate).toBeDefined();
+        if (!crate) {
+            return;
+        }
+        const locker: RoleStamp = { ...crate, key: 'test:locker', against: 'wall' };
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['storage', [{ ...crate, against: 'free' }, locker]]]);
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            width: 30,
+            height: 20,
+            zones: [{ kind: 'industrial', area: { shape: 'everywhere' }, density: 'dense' }],
+        });
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) {
+            return;
+        }
+        const { spec } = composeMap(parsed.intent, roles);
+        expect(stampsOf(spec, crate.key)).toBeGreaterThan(0);
+        expect(stampsOf(spec, 'test:locker')).toBe(0);
+    });
+
     it('carries a road on a sound road bridge where one is loaded, in the picture of it seen from above', () => {
         const [plain] = TEST_ROLES.get('bridge') ?? [];
         if (!plain) {
