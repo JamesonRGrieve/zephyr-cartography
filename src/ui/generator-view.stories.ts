@@ -7,13 +7,21 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
 import { composeMap } from '../compose/compose';
 import {
+    DEFAULT_ENCOUNTER,
+    ENCOUNTER_BRIDGES,
     ENCOUNTER_DENSITIES,
-    ENCOUNTER_KINDS,
+    ENCOUNTER_FEATURES,
+    ENCOUNTER_LANDSCAPES,
+    ENCOUNTER_ROADS,
     ENCOUNTER_SETTINGS,
     ENCOUNTER_SIZES,
+    type EncounterChoice,
     encounterIntent,
+    isEncounterBridge,
     isEncounterDensity,
-    isEncounterKind,
+    isEncounterFeature,
+    isEncounterLandscape,
+    isEncounterRoad,
     isEncounterSetting,
     isEncounterSize,
 } from '../compose/encounter';
@@ -33,7 +41,10 @@ const LABELS: GeneratorLabels = {
     composeMap: 'Compose',
     reseedMap: 'Another layout',
     encounter: 'Encounter map',
-    encounterKind: 'Place',
+    encounterLandscape: 'Landscape',
+    encounterRoad: 'Road',
+    encounterBridge: 'Bridge',
+    encounterFeatures: 'Include',
     encounterSetting: 'Setting',
     encounterSize: 'Size',
     encounterDensity: 'Cover',
@@ -61,13 +72,27 @@ function describeBuild(featureCount: number): string {
     return `Would build ${featureCount} features.`;
 }
 
-/** The encounter as picked, its intent as the GM would edit it, with `seed`. */
-function encounterText(encounter: EncounterPanel, seed: number): string {
-    const { kind, setting, size, density } = encounter;
-    if (!isEncounterKind(kind) || !isEncounterSetting(setting) || !isEncounterSize(size) || !isEncounterDensity(density)) {
-        return '';
+/** The checklist the panel shows, as an encounter, or null while any of it names nothing. */
+function encounterOf(panel: EncounterPanel, seed: number): EncounterChoice | null {
+    const { landscape, road, bridge, setting, size, density } = panel;
+    const features = panel.features.filter((f) => f.on).map((f) => f.key);
+    if (
+        !isEncounterLandscape(landscape) ||
+        !isEncounterRoad(road) ||
+        !isEncounterBridge(bridge) ||
+        !isEncounterSetting(setting) ||
+        !isEncounterSize(size) ||
+        !isEncounterDensity(density)
+    ) {
+        return null;
     }
-    return JSON.stringify(encounterIntent({ kind, setting, size, density, seed }), null, 2);
+    return { landscape, road, bridge, features: features.filter(isEncounterFeature), setting, size, density, seed };
+}
+
+/** The encounter as ticked, its intent as the GM would edit it, with `seed`. */
+function encounterText(panel: EncounterPanel, seed: number): string {
+    const encounter = encounterOf(panel, seed);
+    return encounter ? JSON.stringify(encounterIntent(encounter), null, 2) : '';
 }
 
 /** Mount an interactive panel inside a stand-in Foundry window scoped for the module's styles. */
@@ -118,6 +143,10 @@ export function mountGeneratorPanel(args: GeneratorArgs): HTMLElement {
             },
             pickEncounter: (field, key) => {
                 panel = { ...panel, encounter: { ...panel.encounter, [field]: key } };
+                render();
+            },
+            toggleEncounterFeature: (key, on) => {
+                panel = { ...panel, encounter: { ...panel.encounter, features: panel.encounter.features.map((f) => (f.key === key ? { ...f, on } : f)) } };
                 render();
             },
             generateEncounter: () => {
@@ -188,16 +217,26 @@ const PRESETS: readonly PresetChoice[] = MAP_PRESETS.map((key) => ({ key, label:
 
 const named = (keys: readonly string[]): readonly PresetChoice[] => keys.map((key) => ({ key, label: key }));
 
-const ENCOUNTER: EncounterPanel = {
-    kinds: named(ENCOUNTER_KINDS),
-    kind: 'road',
-    settings: named(ENCOUNTER_SETTINGS),
-    setting: 'feudal',
-    sizes: named(ENCOUNTER_SIZES),
-    size: 'medium',
-    densities: named(ENCOUNTER_DENSITIES),
-    density: 'normal',
-};
+/** The panel showing an encounter's checklist. */
+function encounterPanel(encounter: EncounterChoice): EncounterPanel {
+    return {
+        landscapes: named(ENCOUNTER_LANDSCAPES),
+        landscape: encounter.landscape,
+        roads: named(ENCOUNTER_ROADS),
+        road: encounter.road,
+        bridges: named(ENCOUNTER_BRIDGES),
+        bridge: encounter.bridge,
+        features: ENCOUNTER_FEATURES.map((key) => ({ key, label: key, on: encounter.features.includes(key) })),
+        settings: named(ENCOUNTER_SETTINGS),
+        setting: encounter.setting,
+        sizes: named(ENCOUNTER_SIZES),
+        size: encounter.size,
+        densities: named(ENCOUNTER_DENSITIES),
+        density: encounter.density,
+    };
+}
+
+const ENCOUNTER: EncounterPanel = encounterPanel(DEFAULT_ENCOUNTER);
 
 const meta: Meta<GeneratorArgs> = {
     title: 'Builder/Generator Panel',
@@ -268,11 +307,20 @@ export const Assisted: Story = {
     },
 };
 
-/** A warp-touched cave rolled as an encounter, its intent in the box and its report. */
-export const EncounterCave: Story = {
+/** A grimdark marsh ticked with a river, a lake and ruins, crossed by a road on a ford: its intent in the box and its report. */
+const MARSH_FORD: EncounterChoice = {
+    ...DEFAULT_ENCOUNTER,
+    landscape: 'marsh',
+    road: 'crossroads',
+    bridge: 'ford',
+    features: ['river', 'lake', 'ruins'],
+    setting: 'grimdark',
+    seed: 4,
+};
+export const EncounterMarshFord: Story = {
     args: {
-        encounter: { ...ENCOUNTER, kind: 'cave', setting: 'warp' },
-        intentText: JSON.stringify(encounterIntent({ kind: 'cave', setting: 'warp', size: 'medium', density: 'normal', seed: 4 }), null, 2),
+        encounter: encounterPanel(MARSH_FORD),
+        intentText: JSON.stringify(encounterIntent(MARSH_FORD), null, 2),
         status: ['Built 140 features.'],
     },
 };

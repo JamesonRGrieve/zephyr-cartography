@@ -671,28 +671,31 @@ test('the Map builder composes an intent from a preset or pasted text, reporting
     await expect(intent).not.toHaveValue(/"seed": 5\b/u);
 });
 
-test('the Map builder rolls an encounter map of the place picked, composes it, and rerolls another layout of it', async ({ world }) => {
+test('the Map builder rolls the encounter ticked on its checklist, composes it, and rerolls another layout', async ({ world }) => {
     await activate(world, MODULE_ID, 'road');
     await world.click('button[data-tool="generator"]');
     const panel = world.locator(panelSelector('generator'));
     const intent = panel.getByLabel('Map intent (JSON)');
     const report = panel.getByRole('status');
 
-    await panel.getByLabel('Place').selectOption({ label: 'Cave' });
+    // A desert crossed by a crossroads, a river ticked on and forded, a small map.
+    await panel.getByLabel('Landscape').selectOption({ label: 'Desert' });
+    await panel.getByLabel('Road', { exact: true }).selectOption({ label: 'Crossroads' });
+    await panel.getByLabel('Bridge').selectOption({ label: 'Ford (no bridge)' });
     await panel.getByLabel('Size').selectOption({ label: 'Small (24 × 18)' });
     await panel.getByRole('button', { name: 'Generate encounter' }).click();
     // The encounter's intent stands in the box for the GM to edit, and is composed on the scene.
-    await expect(intent).toHaveValue(/"hewn"/u);
-    await expect(intent).toHaveValue(/"width": 24/u);
+    await expect(intent).toHaveValue(/"ground": "sand"/u);
+    await expect(intent).toHaveValue(/"bridge": false/u);
     await expect(report).toContainText('Built', { timeout: 120_000 });
-    const walls = await world.evaluate(() => canvas?.scene?.walls.size ?? 0);
-    // The cave's ragged chambers are walled in native walls.
-    expect(walls).toBeGreaterThan(0);
-    const seed = /"seed": (\d+)/u.exec(await intent.inputValue())?.[1];
 
-    // Reroll keeps the place and gives it another seed.
+    // A cave instead: its ragged chambers walled in native walls; Reroll keeps it and gives it another seed.
+    await panel.getByLabel('Landscape').selectOption({ label: 'Cave' });
+    await panel.getByRole('button', { name: 'Generate encounter' }).click();
+    await expect(intent).toHaveValue(/"hewn"/u);
+    await expect.poll(async () => world.evaluate(() => canvas?.scene?.walls.size ?? 0), { timeout: 120_000 }).toBeGreaterThan(0);
+    const seed = /"seed": (\d+)/u.exec(await intent.inputValue())?.[1];
     await panel.getByRole('button', { name: 'Reroll' }).click();
-    await expect(report).toContainText('Built', { timeout: 120_000 });
     await expect(intent).toHaveValue(/"hewn"/u);
     expect(/"seed": (\d+)/u.exec(await intent.inputValue())?.[1]).not.toBe(seed);
 });

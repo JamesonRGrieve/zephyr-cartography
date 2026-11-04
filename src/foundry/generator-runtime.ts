@@ -11,19 +11,29 @@ import type { CartographyController } from '../canvas/controller';
 import type { RealizeReport } from '../canvas/realize';
 import type { Advised } from '../compose/assist';
 import {
+    DEFAULT_ENCOUNTER,
+    ENCOUNTER_BRIDGES,
     ENCOUNTER_DENSITIES,
-    ENCOUNTER_KINDS,
+    ENCOUNTER_FEATURES,
+    ENCOUNTER_LANDSCAPES,
+    ENCOUNTER_ROADS,
     ENCOUNTER_SETTINGS,
     ENCOUNTER_SIZES,
+    type EncounterBridge,
     type EncounterChoice,
     type EncounterDensity,
-    type EncounterKind,
+    type EncounterFeature,
+    type EncounterLandscape,
+    type EncounterRoad,
     type EncounterSetting,
     type EncounterSize,
     encounterIntent,
     freshSeed,
+    isEncounterBridge,
     isEncounterDensity,
-    isEncounterKind,
+    isEncounterFeature,
+    isEncounterLandscape,
+    isEncounterRoad,
     isEncounterSetting,
     isEncounterSize,
 } from '../compose/encounter';
@@ -37,7 +47,14 @@ import { I18N } from '../i18n';
 import type { CatalogStamp } from '../stamps/catalog';
 import type { StampTransitionKind } from '../stamps/schema';
 import type { RoomMaterials } from '../tools/room';
-import { type ComposeMode, type EncounterPanel, renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel } from '../ui/generator-view';
+import {
+    type ComposeMode,
+    type EncounterField,
+    type EncounterPanel,
+    renderGeneratorPanel,
+    type GeneratorLabels,
+    type GeneratorPanel,
+} from '../ui/generator-view';
 import { advisorAvailable, askAdvisor } from './advisor';
 import { buildOnScene, composeOnScene } from './build-spec';
 import { format, localize } from './localize';
@@ -57,7 +74,10 @@ function panelLabels(): GeneratorLabels {
         composeMap: localize(g.composeMap),
         reseedMap: localize(g.reseedMap),
         encounter: localize(g.encounter),
-        encounterKind: localize(g.encounterKind),
+        encounterLandscape: localize(g.encounterLandscape),
+        encounterRoad: localize(g.encounterRoad),
+        encounterBridge: localize(g.encounterBridge),
+        encounterFeatures: localize(g.encounterFeatures),
         encounterSetting: localize(g.encounterSetting),
         encounterSize: localize(g.encounterSize),
         encounterDensity: localize(g.encounterDensity),
@@ -159,22 +179,27 @@ const PRESET_TITLES: Readonly<Record<MapPreset, string>> = {
     'roadside-inn': I18N.generator.presets.roadsideInn,
 };
 
-/** Each encounter choice by name, as the pickers list them. */
-const ENCOUNTER_KIND_TITLES: Readonly<Record<EncounterKind, string>> = I18N.generator.encounterKinds;
+/** Each encounter choice by name, as the pickers and tick boxes list them. */
+const ENCOUNTER_LANDSCAPE_TITLES: Readonly<Record<EncounterLandscape, string>> = I18N.generator.encounterLandscapes;
+const ENCOUNTER_ROAD_TITLES: Readonly<Record<EncounterRoad, string>> = I18N.generator.encounterRoads;
+const ENCOUNTER_BRIDGE_TITLES: Readonly<Record<EncounterBridge, string>> = I18N.generator.encounterBridges;
+const ENCOUNTER_FEATURE_TITLES: Readonly<Record<EncounterFeature, string>> = I18N.generator.encounterFeatureNames;
 const ENCOUNTER_SETTING_TITLES: Readonly<Record<EncounterSetting, string>> = I18N.generator.encounterSettings;
 const ENCOUNTER_SIZE_TITLES: Readonly<Record<EncounterSize, string>> = I18N.generator.encounterSizes;
 const ENCOUNTER_DENSITY_TITLES: Readonly<Record<EncounterDensity, string>> = I18N.generator.encounterDensities;
 
-/** The encounter the builder starts on: a feudal road, the next arc's. */
-const FIRST_ENCOUNTER: EncounterChoice = { kind: 'road', setting: 'feudal', size: 'medium', density: 'normal', seed: 1 };
-
-/** The pickers' lists and the encounter picked. */
+/** The checklist's lists and what is picked and ticked. */
 function encounterPanel(encounter: EncounterChoice): EncounterPanel {
     const listed = <K extends string>(keys: readonly K[], titles: Readonly<Record<K, string>>): readonly { key: string; label: string }[] =>
         keys.map((key) => ({ key, label: localize(titles[key]) }));
     return {
-        kinds: listed(ENCOUNTER_KINDS, ENCOUNTER_KIND_TITLES),
-        kind: encounter.kind,
+        landscapes: listed(ENCOUNTER_LANDSCAPES, ENCOUNTER_LANDSCAPE_TITLES),
+        landscape: encounter.landscape,
+        roads: listed(ENCOUNTER_ROADS, ENCOUNTER_ROAD_TITLES),
+        road: encounter.road,
+        bridges: listed(ENCOUNTER_BRIDGES, ENCOUNTER_BRIDGE_TITLES),
+        bridge: encounter.bridge,
+        features: ENCOUNTER_FEATURES.map((key) => ({ key, label: localize(ENCOUNTER_FEATURE_TITLES[key]), on: encounter.features.includes(key) })),
         settings: listed(ENCOUNTER_SETTINGS, ENCOUNTER_SETTING_TITLES),
         setting: encounter.setting,
         sizes: listed(ENCOUNTER_SIZES, ENCOUNTER_SIZE_TITLES),
@@ -185,9 +210,15 @@ function encounterPanel(encounter: EncounterChoice): EncounterPanel {
 }
 
 /** The encounter with one picker's choice applied, or unchanged when the key names nothing of that list. */
-function withEncounterField(encounter: EncounterChoice, field: 'kind' | 'setting' | 'size' | 'density', key: string): EncounterChoice {
-    if (field === 'kind') {
-        return isEncounterKind(key) ? { ...encounter, kind: key } : encounter;
+function withEncounterField(encounter: EncounterChoice, field: EncounterField, key: string): EncounterChoice {
+    if (field === 'landscape') {
+        return isEncounterLandscape(key) ? { ...encounter, landscape: key } : encounter;
+    }
+    if (field === 'road') {
+        return isEncounterRoad(key) ? { ...encounter, road: key } : encounter;
+    }
+    if (field === 'bridge') {
+        return isEncounterBridge(key) ? { ...encounter, bridge: key } : encounter;
     }
     if (field === 'setting') {
         return isEncounterSetting(key) ? { ...encounter, setting: key } : encounter;
@@ -196,6 +227,15 @@ function withEncounterField(encounter: EncounterChoice, field: 'kind' | 'setting
         return isEncounterSize(key) ? { ...encounter, size: key } : encounter;
     }
     return isEncounterDensity(key) ? { ...encounter, density: key } : encounter;
+}
+
+/** The encounter with a feature ticked on or off. */
+function withEncounterFeature(encounter: EncounterChoice, key: string, on: boolean): EncounterChoice {
+    if (!isEncounterFeature(key)) {
+        return encounter;
+    }
+    const rest = encounter.features.filter((f) => f !== key);
+    return { ...encounter, features: on ? [...rest, key] : rest };
 }
 
 /** The preset the builder starts on. */
@@ -223,7 +263,7 @@ export function registerGeneratorRuntime(
     let outcome: readonly string[] | null = null;
     let busy = false;
     let mode: ComposeMode = 'algorithmic';
-    let encounter: EncounterChoice = FIRST_ENCOUNTER;
+    let encounter: EncounterChoice = DEFAULT_ENCOUNTER;
 
     /**
      * Run a build with the panel marked busy, then report `lines` of what it
@@ -326,6 +366,10 @@ export function registerGeneratorRuntime(
                 },
                 pickEncounter: (field, key) => {
                     encounter = withEncounterField(encounter, field, key);
+                    panelWindow.refresh();
+                },
+                toggleEncounterFeature: (key, on) => {
+                    encounter = withEncounterFeature(encounter, key, on);
                     panelWindow.refresh();
                 },
                 generateEncounter: rollEncounter,

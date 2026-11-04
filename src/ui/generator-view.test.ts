@@ -11,7 +11,21 @@ function mount(story: { readonly args?: Partial<stories.GeneratorArgs> }): HTMLE
         preset: story.args?.preset ?? base?.preset ?? '',
         intentText: story.args?.intentText ?? base?.intentText ?? '',
         encounter: story.args?.encounter ??
-            base?.encounter ?? { kinds: [], kind: '', settings: [], setting: '', sizes: [], size: '', densities: [], density: '' },
+            base?.encounter ?? {
+                landscapes: [],
+                landscape: '',
+                roads: [],
+                road: '',
+                bridges: [],
+                bridge: '',
+                features: [],
+                settings: [],
+                setting: '',
+                sizes: [],
+                size: '',
+                densities: [],
+                density: '',
+            },
         form: story.args?.form ?? base?.form ?? { seed: 1, width: 24, height: 16, minRoom: 3, maxRoom: 8, entrance: true },
         specText: story.args?.specText ?? base?.specText ?? '',
         status: story.args?.status ?? base?.status ?? null,
@@ -59,29 +73,60 @@ describe('generator panel', () => {
         document.body.replaceChildren();
     });
 
-    it('rolls an encounter of the place, setting and size picked into the intent box, composes it, and rerolls another layout', () => {
+    it('rolls the encounter ticked into the intent box, composes it, and rerolls another layout', () => {
         const root = mount(stories.Empty);
-        const place = picker(root, 'kind');
-        place.value = 'cave';
-        place.dispatchEvent(new Event('change'));
-        const size = picker(root, 'size');
-        size.value = 'large';
-        size.dispatchEvent(new Event('change'));
+        const pick = (field: string, value: string): void => {
+            const select = picker(root, field);
+            select.value = value;
+            select.dispatchEvent(new Event('change'));
+        };
+        const tick = (label: string, on: boolean): void => {
+            const checkbox = labelled<HTMLInputElement>(root, label, 'input');
+            checkbox.checked = on;
+            checkbox.dispatchEvent(new Event('change'));
+        };
+        pick('landscape', 'desert');
+        pick('road', 'crossroads');
+        tick('lake', true);
+        tick('camp', true);
+        pick('size', 'large');
         buttonNamed(root, 'Generate encounter').click();
         const box = (): string => labelled<HTMLTextAreaElement>(root, 'Map intent (JSON)', 'textarea').value;
-        const first = JSON.parse(box()) as { readonly width: number; readonly hewn: readonly object[]; readonly seed: number };
+        type Rolled = {
+            readonly width: number;
+            readonly ground: string;
+            readonly seed: number;
+            readonly paths: readonly { kind: string }[];
+            readonly zones: readonly { kind: string }[];
+        };
+        const first = JSON.parse(box()) as Rolled;
         expect(first.width).toBe(44);
-        expect(first.hewn).toHaveLength(1);
+        expect(first.ground).toBe('sand');
+        expect(first.paths.filter((p) => p.kind === 'road')).toHaveLength(2);
+        expect(first.zones.some((z) => z.kind === 'lake')).toBe(true);
+        expect(first.zones.some((z) => z.kind === 'fortified')).toBe(true);
         expect(statusLines(root)[0]).toMatch(/^Would build \d+ features\.$/);
         buttonNamed(root, 'Reroll').click();
-        expect((JSON.parse(box()) as { readonly seed: number }).seed).not.toBe(first.seed);
+        expect((JSON.parse(box()) as Rolled).seed).not.toBe(first.seed);
     });
 
-    it('shows a rolled encounter and its report', () => {
-        const root = mount(stories.EncounterCave);
-        expect(picker(root, 'kind').value).toBe('cave');
-        expect(picker(root, 'setting').value).toBe('warp');
-        expect(root.querySelector('label[for="zc-generator-encounter-kind"]')?.textContent).toBe('Place');
+    it('asks how a road crosses the river only while both are on the checklist', () => {
+        const root = mount(stories.Empty);
+        expect(root.querySelector('#zc-generator-encounter-bridge')).not.toBeNull();
+        const river = labelled<HTMLInputElement>(root, 'river', 'input');
+        river.checked = false;
+        river.dispatchEvent(new Event('change'));
+        expect(root.querySelector('#zc-generator-encounter-bridge')).toBeNull();
+    });
+
+    it('shows a ticked encounter and its report', () => {
+        const root = mount(stories.EncounterMarshFord);
+        expect(picker(root, 'landscape').value).toBe('marsh');
+        expect(picker(root, 'bridge').value).toBe('ford');
+        expect(labelled<HTMLInputElement>(root, 'ruins', 'input').checked).toBe(true);
+        expect(labelled<HTMLInputElement>(root, 'camp', 'input').checked).toBe(false);
+        expect(root.querySelector('label[for="zc-generator-encounter-landscape"]')?.textContent).toBe('Landscape');
+        expect(root.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('Include');
         expect(statusLines(root)).toEqual(['Built 140 features.']);
     });
 
@@ -187,7 +232,7 @@ describe('generator panel', () => {
             stories.Building,
             stories.ComposedTavern,
             stories.Assisted,
-            stories.EncounterCave,
+            stories.EncounterMarshFord,
         ]) {
             // Compose, encounter, floor plan and scene spec.
             expect(mount(story).querySelectorAll('fieldset')).toHaveLength(4);

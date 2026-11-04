@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * The map builder panel. Compose a whole map from a map intent (starting from
- * a preset and editing it), roll a throwaway encounter map from a few choices
+ * a preset and editing it), roll a throwaway encounter map from a checklist
  * and a seed (operator 2026-11-04), generate a floor plan from a few settings and a
  * seed, or build any scene spec pasted in as JSON. The outcome of the last
  * build, or why it was refused, is announced in a live status line. A pure
@@ -23,10 +23,22 @@ export interface PresetChoice {
 /** How a map is composed: by the algorithm alone, or with a language model choosing stamps and critiquing the result. */
 export type ComposeMode = 'algorithmic' | 'assisted';
 
-/** The encounter to roll: each list's choices and the one picked, by key. */
+/** A feature that can be ticked onto an encounter, and whether it is. */
+export interface EncounterFeatureChoice {
+    readonly key: string;
+    readonly label: string;
+    readonly on: boolean;
+}
+
+/** The encounter to roll, as a checklist: each list's choices and the one picked, by key, and the features ticked. */
 export interface EncounterPanel {
-    readonly kinds: readonly PresetChoice[];
-    readonly kind: string;
+    readonly landscapes: readonly PresetChoice[];
+    readonly landscape: string;
+    readonly roads: readonly PresetChoice[];
+    readonly road: string;
+    readonly bridges: readonly PresetChoice[];
+    readonly bridge: string;
+    readonly features: readonly EncounterFeatureChoice[];
     readonly settings: readonly PresetChoice[];
     readonly setting: string;
     readonly sizes: readonly PresetChoice[];
@@ -36,7 +48,7 @@ export interface EncounterPanel {
 }
 
 /** Which of an encounter's choices a picker sets. */
-export type EncounterField = 'kind' | 'setting' | 'size' | 'density';
+export type EncounterField = 'landscape' | 'road' | 'bridge' | 'setting' | 'size' | 'density';
 
 export interface GeneratorPanel {
     readonly mode: ComposeMode;
@@ -70,7 +82,12 @@ export interface GeneratorLabels {
     /** The button giving the map intent a new seed. */
     readonly reseedMap: string;
     readonly encounter: string;
-    readonly encounterKind: string;
+    readonly encounterLandscape: string;
+    readonly encounterRoad: string;
+    /** How a road crosses a river; shown while the river is ticked. */
+    readonly encounterBridge: string;
+    /** The heading over the features' tick boxes. */
+    readonly encounterFeatures: string;
     readonly encounterSetting: string;
     readonly encounterSize: string;
     readonly encounterDensity: string;
@@ -100,6 +117,8 @@ export interface GeneratorHandlers {
     readonly reseedIntent: () => void;
     readonly compose: () => void;
     readonly pickEncounter: (field: EncounterField, key: string) => void;
+    /** Tick a feature onto the encounter, or off it. */
+    readonly toggleEncounterFeature: (key: string, on: boolean) => void;
     /** Put the encounter's intent in the box and compose it. */
     readonly generateEncounter: () => void;
     /** The same, with a fresh seed. */
@@ -191,8 +210,22 @@ function encounterSection(panel: GeneratorPanel, labels: GeneratorLabels, handle
     const reroll = button('tw-text-xs', labels.rerollEncounter, 'reroll-encounter', handlers.rerollEncounter);
     generate.disabled = panel.busy;
     reroll.disabled = panel.busy;
+    // The checklist: the landscape and its ways, what stands on it, then the world, the size and the cover.
+    const ticks = el('div', 'tw-flex tw-flex-wrap tw-gap-2 tw-w-full');
+    ticks.setAttribute('role', 'group');
+    ticks.setAttribute('aria-label', labels.encounterFeatures);
+    ticks.append(
+        el('span', 'tw-text-xs tw-w-full', labels.encounterFeatures),
+        ...encounter.features.map((f) => labelledCheckbox(f.label, f.on, `encounter-feature-${f.key}`, (on) => handlers.toggleEncounterFeature(f.key, on))),
+    );
+    const riverTicked = encounter.features.some((f) => f.key === 'river' && f.on);
+    const roadLaid = encounter.road !== 'none';
     return section(labels.encounter, [
-        picker('kind', labels.encounterKind, encounter.kinds, encounter.kind),
+        picker('landscape', labels.encounterLandscape, encounter.landscapes, encounter.landscape),
+        picker('road', labels.encounterRoad, encounter.roads, encounter.road),
+        ticks,
+        // A bridge is asked only where a road meets a river.
+        ...(riverTicked && roadLaid ? [picker('bridge', labels.encounterBridge, encounter.bridges, encounter.bridge)] : []),
         picker('setting', labels.encounterSetting, encounter.settings, encounter.setting),
         picker('size', labels.encounterSize, encounter.sizes, encounter.size),
         picker('density', labels.encounterDensity, encounter.densities, encounter.density),

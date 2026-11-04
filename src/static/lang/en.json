@@ -42,23 +42,44 @@
             "ComposeMap": "Compose",
             "ReseedMap": "Another layout",
             "Encounter": "Encounter map",
-            "EncounterKind": "Place",
+            "EncounterLandscape": "Landscape",
+            "EncounterRoad": "Road",
+            "EncounterBridge": "Bridge",
+            "EncounterFeatures": "Include",
             "EncounterSetting": "Setting",
             "EncounterSize": "Size",
             "EncounterDensity": "Cover",
             "GenerateEncounter": "Generate encounter",
             "RerollEncounter": "Reroll",
-            "EncounterKinds": {
-                "Road": "Road through cover",
-                "Crossroads": "Crossroads",
-                "Ford": "River crossing",
-                "Clearing": "Clearing",
+            "EncounterLandscapes": {
+                "Forest": "Forest",
+                "Plains": "Plains",
+                "Hills": "Hills",
+                "Desert": "Desert",
+                "Marsh": "Marsh",
+                "Tundra": "Tundra",
+                "Wasteland": "Wasteland",
+                "Cave": "Cave"
+            },
+            "EncounterRoads": {
+                "None": "No road",
+                "Road": "Road",
+                "Crossroads": "Crossroads"
+            },
+            "EncounterBridges": {
+                "Any": "Any bridge",
+                "Stone": "Stone bridge",
+                "Timber": "Timber bridge",
+                "Rope": "Rope bridge",
+                "Ford": "Ford (no bridge)"
+            },
+            "EncounterFeatureNames": {
+                "River": "River",
+                "Lake": "Lake",
                 "Ruins": "Ruins",
                 "Camp": "Fortified camp",
-                "Marsh": "Marsh",
-                "Pass": "Rocky pass",
-                "Wreck": "Wreck site",
-                "Cave": "Cave"
+                "Wreck": "Wreckage",
+                "Cliffs": "Cliffs"
             },
             "EncounterSettings": {
                 "Feudal": "Feudal",
