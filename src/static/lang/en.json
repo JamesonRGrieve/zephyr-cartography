@@ -41,6 +41,41 @@
             "Intent": "Map intent (JSON)",
             "ComposeMap": "Compose",
             "ReseedMap": "Another layout",
+            "Encounter": "Encounter map",
+            "EncounterKind": "Place",
+            "EncounterSetting": "Setting",
+            "EncounterSize": "Size",
+            "EncounterDensity": "Cover",
+            "GenerateEncounter": "Generate encounter",
+            "RerollEncounter": "Reroll",
+            "EncounterKinds": {
+                "Road": "Road through cover",
+                "Crossroads": "Crossroads",
+                "Ford": "River crossing",
+                "Clearing": "Clearing",
+                "Ruins": "Ruins",
+                "Camp": "Fortified camp",
+                "Marsh": "Marsh",
+                "Pass": "Rocky pass",
+                "Wreck": "Wreck site",
+                "Cave": "Cave"
+            },
+            "EncounterSettings": {
+                "Feudal": "Feudal",
+                "Grimdark": "Grimdark Imperium",
+                "Warp": "Warp-touched",
+                "Scifi": "Sci-fi"
+            },
+            "EncounterSizes": {
+                "Small": "Small (24 × 18)",
+                "Medium": "Medium (32 × 24)",
+                "Large": "Large (44 × 30)"
+            },
+            "EncounterDensities": {
+                "Sparse": "Sparse",
+                "Normal": "Normal",
+                "Dense": "Dense"
+            },
             "Mode": "Compose with",
             "Modes": {
                 "Algorithmic": "Algorithm",

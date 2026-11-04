@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * The map builder window. It composes a whole map from a map intent (a
- * preset the GM edits), generates a floor plan, or takes any scene spec as
+ * preset the GM edits), rolls a throwaway encounter map, generates a floor plan, or takes any scene spec as
  * JSON, and realises it on the current scene from the scene's top-left
  * corner. A generated plan's spec is put in the spec box, so the GM can edit
  * it and build it again. Floor-plan rooms get the materials last chosen in
@@ -10,6 +10,23 @@
 import type { CartographyController } from '../canvas/controller';
 import type { RealizeReport } from '../canvas/realize';
 import type { Advised } from '../compose/assist';
+import {
+    ENCOUNTER_DENSITIES,
+    ENCOUNTER_KINDS,
+    ENCOUNTER_SETTINGS,
+    ENCOUNTER_SIZES,
+    type EncounterChoice,
+    type EncounterDensity,
+    type EncounterKind,
+    type EncounterSetting,
+    type EncounterSize,
+    encounterIntent,
+    freshSeed,
+    isEncounterDensity,
+    isEncounterKind,
+    isEncounterSetting,
+    isEncounterSize,
+} from '../compose/encounter';
 import { parseMapIntent } from '../compose/intent';
 import { isMapPreset, MAP_PRESETS, type MapPreset, presetText, withSeed } from '../compose/presets';
 import type { Access, ComposeProblem } from '../compose/problems';
@@ -20,7 +37,7 @@ import { I18N } from '../i18n';
 import type { CatalogStamp } from '../stamps/catalog';
 import type { StampTransitionKind } from '../stamps/schema';
 import type { RoomMaterials } from '../tools/room';
-import { type ComposeMode, renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel } from '../ui/generator-view';
+import { type ComposeMode, type EncounterPanel, renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel } from '../ui/generator-view';
 import { advisorAvailable, askAdvisor } from './advisor';
 import { buildOnScene, composeOnScene } from './build-spec';
 import { format, localize } from './localize';
@@ -39,6 +56,13 @@ function panelLabels(): GeneratorLabels {
         intent: localize(g.intent),
         composeMap: localize(g.composeMap),
         reseedMap: localize(g.reseedMap),
+        encounter: localize(g.encounter),
+        encounterKind: localize(g.encounterKind),
+        encounterSetting: localize(g.encounterSetting),
+        encounterSize: localize(g.encounterSize),
+        encounterDensity: localize(g.encounterDensity),
+        generateEncounter: localize(g.generateEncounter),
+        rerollEncounter: localize(g.rerollEncounter),
         mode: localize(g.mode),
         algorithmic: localize(g.algorithmic),
         assisted: localize(g.assisted),
@@ -135,6 +159,45 @@ const PRESET_TITLES: Readonly<Record<MapPreset, string>> = {
     'roadside-inn': I18N.generator.presets.roadsideInn,
 };
 
+/** Each encounter choice by name, as the pickers list them. */
+const ENCOUNTER_KIND_TITLES: Readonly<Record<EncounterKind, string>> = I18N.generator.encounterKinds;
+const ENCOUNTER_SETTING_TITLES: Readonly<Record<EncounterSetting, string>> = I18N.generator.encounterSettings;
+const ENCOUNTER_SIZE_TITLES: Readonly<Record<EncounterSize, string>> = I18N.generator.encounterSizes;
+const ENCOUNTER_DENSITY_TITLES: Readonly<Record<EncounterDensity, string>> = I18N.generator.encounterDensities;
+
+/** The encounter the builder starts on: a feudal road, the next arc's. */
+const FIRST_ENCOUNTER: EncounterChoice = { kind: 'road', setting: 'feudal', size: 'medium', density: 'normal', seed: 1 };
+
+/** The pickers' lists and the encounter picked. */
+function encounterPanel(encounter: EncounterChoice): EncounterPanel {
+    const listed = <K extends string>(keys: readonly K[], titles: Readonly<Record<K, string>>): readonly { key: string; label: string }[] =>
+        keys.map((key) => ({ key, label: localize(titles[key]) }));
+    return {
+        kinds: listed(ENCOUNTER_KINDS, ENCOUNTER_KIND_TITLES),
+        kind: encounter.kind,
+        settings: listed(ENCOUNTER_SETTINGS, ENCOUNTER_SETTING_TITLES),
+        setting: encounter.setting,
+        sizes: listed(ENCOUNTER_SIZES, ENCOUNTER_SIZE_TITLES),
+        size: encounter.size,
+        densities: listed(ENCOUNTER_DENSITIES, ENCOUNTER_DENSITY_TITLES),
+        density: encounter.density,
+    };
+}
+
+/** The encounter with one picker's choice applied, or unchanged when the key names nothing of that list. */
+function withEncounterField(encounter: EncounterChoice, field: 'kind' | 'setting' | 'size' | 'density', key: string): EncounterChoice {
+    if (field === 'kind') {
+        return isEncounterKind(key) ? { ...encounter, kind: key } : encounter;
+    }
+    if (field === 'setting') {
+        return isEncounterSetting(key) ? { ...encounter, setting: key } : encounter;
+    }
+    if (field === 'size') {
+        return isEncounterSize(key) ? { ...encounter, size: key } : encounter;
+    }
+    return isEncounterDensity(key) ? { ...encounter, density: key } : encounter;
+}
+
 /** The preset the builder starts on. */
 const FIRST_PRESET: MapPreset = 'woodland-inn';
 
@@ -160,6 +223,7 @@ export function registerGeneratorRuntime(
     let outcome: readonly string[] | null = null;
     let busy = false;
     let mode: ComposeMode = 'algorithmic';
+    let encounter: EncounterChoice = FIRST_ENCOUNTER;
 
     /**
      * Run a build with the panel marked busy, then report `lines` of what it
@@ -216,7 +280,26 @@ export function registerGeneratorRuntime(
         width: PANEL_WIDTH,
         render: (root) => {
             const presets = MAP_PRESETS.map((key) => ({ key, label: localize(PRESET_TITLES[key]) }));
-            const panel: GeneratorPanel = { mode, assistAvailable: advisorAvailable(), presets, preset, intentText, form, specText, status: outcome, busy };
+            const panel: GeneratorPanel = {
+                mode,
+                assistAvailable: advisorAvailable(),
+                presets,
+                preset,
+                intentText,
+                encounter: encounterPanel(encounter),
+                form,
+                specText,
+                status: outcome,
+                busy,
+            };
+            // The encounter's intent goes in the box, where the GM can edit it and compose it again, and is composed now.
+            const rollEncounter = (): void => {
+                if (!controller() || busy) {
+                    return;
+                }
+                intentText = JSON.stringify(encounterIntent(encounter), null, SPEC_INDENT);
+                compose();
+            };
             renderGeneratorPanel(root, panel, panelLabels(), {
                 pickMode: (picked) => {
                     mode = picked;
@@ -240,6 +323,15 @@ export function registerGeneratorRuntime(
                     if (controller() && !busy) {
                         compose();
                     }
+                },
+                pickEncounter: (field, key) => {
+                    encounter = withEncounterField(encounter, field, key);
+                    panelWindow.refresh();
+                },
+                generateEncounter: rollEncounter,
+                rerollEncounter: () => {
+                    encounter = { ...encounter, seed: freshSeed(Math.random) };
+                    rollEncounter();
                 },
                 setField: (field, typed) => {
                     const next = withGeneratorField(form, field, typed);

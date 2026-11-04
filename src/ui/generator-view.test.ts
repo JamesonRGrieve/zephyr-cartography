@@ -10,6 +10,8 @@ function mount(story: { readonly args?: Partial<stories.GeneratorArgs> }): HTMLE
         presets: story.args?.presets ?? base?.presets ?? [],
         preset: story.args?.preset ?? base?.preset ?? '',
         intentText: story.args?.intentText ?? base?.intentText ?? '',
+        encounter: story.args?.encounter ??
+            base?.encounter ?? { kinds: [], kind: '', settings: [], setting: '', sizes: [], size: '', densities: [], density: '' },
         form: story.args?.form ?? base?.form ?? { seed: 1, width: 24, height: 16, minRoom: 3, maxRoom: 8, entrance: true },
         specText: story.args?.specText ?? base?.specText ?? '',
         status: story.args?.status ?? base?.status ?? null,
@@ -41,11 +43,46 @@ function type(input: HTMLInputElement | HTMLTextAreaElement, value: string): voi
     input.dispatchEvent(new Event('change'));
 }
 
+/** An encounter picker, by the field it sets (its label points at it by id). */
+function picker(root: HTMLElement, field: string): HTMLSelectElement {
+    const found = root.querySelector<HTMLSelectElement>(`#zc-generator-encounter-${field}`);
+    if (!found) {
+        throw new Error(`no encounter picker for ${field}`);
+    }
+    return found;
+}
+
 const statusLines = (root: HTMLElement): string[] => [...root.querySelectorAll('[role="status"] li')].map((li) => li.textContent);
 
 describe('generator panel', () => {
     beforeEach(() => {
         document.body.replaceChildren();
+    });
+
+    it('rolls an encounter of the place, setting and size picked into the intent box, composes it, and rerolls another layout', () => {
+        const root = mount(stories.Empty);
+        const place = picker(root, 'kind');
+        place.value = 'cave';
+        place.dispatchEvent(new Event('change'));
+        const size = picker(root, 'size');
+        size.value = 'large';
+        size.dispatchEvent(new Event('change'));
+        buttonNamed(root, 'Generate encounter').click();
+        const box = (): string => labelled<HTMLTextAreaElement>(root, 'Map intent (JSON)', 'textarea').value;
+        const first = JSON.parse(box()) as { readonly width: number; readonly hewn: readonly object[]; readonly seed: number };
+        expect(first.width).toBe(44);
+        expect(first.hewn).toHaveLength(1);
+        expect(statusLines(root)[0]).toMatch(/^Would build \d+ features\.$/);
+        buttonNamed(root, 'Reroll').click();
+        expect((JSON.parse(box()) as { readonly seed: number }).seed).not.toBe(first.seed);
+    });
+
+    it('shows a rolled encounter and its report', () => {
+        const root = mount(stories.EncounterCave);
+        expect(picker(root, 'kind').value).toBe('cave');
+        expect(picker(root, 'setting').value).toBe('warp');
+        expect(root.querySelector('label[for="zc-generator-encounter-kind"]')?.textContent).toBe('Place');
+        expect(statusLines(root)).toEqual(['Built 140 features.']);
     });
 
     it('shows the floor-plan settings as labelled inputs', () => {
@@ -142,8 +179,18 @@ describe('generator panel', () => {
     });
 
     it('renders every story', () => {
-        for (const story of [stories.Empty, stories.WithSpec, stories.Built, stories.RefusedSpec, stories.Building, stories.ComposedTavern, stories.Assisted]) {
-            expect(mount(story).querySelectorAll('fieldset')).toHaveLength(3);
+        for (const story of [
+            stories.Empty,
+            stories.WithSpec,
+            stories.Built,
+            stories.RefusedSpec,
+            stories.Building,
+            stories.ComposedTavern,
+            stories.Assisted,
+            stories.EncounterCave,
+        ]) {
+            // Compose, encounter, floor plan and scene spec.
+            expect(mount(story).querySelectorAll('fieldset')).toHaveLength(4);
         }
     });
 });

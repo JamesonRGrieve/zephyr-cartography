@@ -6,12 +6,23 @@
  */
 import type { Meta, StoryObj } from '@storybook/html-vite';
 import { composeMap } from '../compose/compose';
+import {
+    ENCOUNTER_DENSITIES,
+    ENCOUNTER_KINDS,
+    ENCOUNTER_SETTINGS,
+    ENCOUNTER_SIZES,
+    encounterIntent,
+    isEncounterDensity,
+    isEncounterKind,
+    isEncounterSetting,
+    isEncounterSize,
+} from '../compose/encounter';
 import { parseMapIntent } from '../compose/intent';
 import { isMapPreset, MAP_PRESETS, presetText, withSeed } from '../compose/presets';
 import { generateFloorPlan } from '../generate/floor-plan';
 import { DEFAULT_GENERATOR_FORM, floorPlanOptions, newSeed, withGeneratorField, type GeneratorForm } from '../generate/form';
 import { formatSpecIssue, parseSceneSpecJson } from '../generate/spec';
-import { renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel, type PresetChoice } from './generator-view';
+import { type EncounterPanel, renderGeneratorPanel, type GeneratorLabels, type GeneratorPanel, type PresetChoice } from './generator-view';
 
 export type GeneratorArgs = GeneratorPanel;
 
@@ -21,6 +32,13 @@ const LABELS: GeneratorLabels = {
     intent: 'Map intent (JSON)',
     composeMap: 'Compose',
     reseedMap: 'Another layout',
+    encounter: 'Encounter map',
+    encounterKind: 'Place',
+    encounterSetting: 'Setting',
+    encounterSize: 'Size',
+    encounterDensity: 'Cover',
+    generateEncounter: 'Generate encounter',
+    rerollEncounter: 'Reroll',
     mode: 'Compose with',
     algorithmic: 'Algorithm',
     assisted: 'AI-assisted',
@@ -43,6 +61,15 @@ function describeBuild(featureCount: number): string {
     return `Would build ${featureCount} features.`;
 }
 
+/** The encounter as picked, its intent as the GM would edit it, with `seed`. */
+function encounterText(encounter: EncounterPanel, seed: number): string {
+    const { kind, setting, size, density } = encounter;
+    if (!isEncounterKind(kind) || !isEncounterSetting(setting) || !isEncounterSize(size) || !isEncounterDensity(density)) {
+        return '';
+    }
+    return JSON.stringify(encounterIntent({ kind, setting, size, density, seed }), null, 2);
+}
+
 /** Mount an interactive panel inside a stand-in Foundry window scoped for the module's styles. */
 export function mountGeneratorPanel(args: GeneratorArgs): HTMLElement {
     const windowEl = document.createElement('div');
@@ -51,6 +78,14 @@ export function mountGeneratorPanel(args: GeneratorArgs): HTMLElement {
     windowEl.append(root);
     let panel: GeneratorPanel = args;
     let seeds = 0;
+    let encounterSeed = 1;
+    // Stories have no packs: the map in the box is composed without stamps, and says so.
+    const composeBox = (): void => {
+        const parsed = parseMapIntent(JSON.parse(panel.intentText));
+        const lines = parsed.ok ? [describeBuild(composeMap(parsed.intent, new Map()).spec.features.length)] : parsed.issues.map(formatSpecIssue);
+        panel = { ...panel, status: lines };
+        render();
+    };
     const render = (): void => {
         renderGeneratorPanel(root, panel, LABELS, {
             pickMode: (mode) => {
@@ -79,11 +114,21 @@ export function mountGeneratorPanel(args: GeneratorArgs): HTMLElement {
                 render();
             },
             compose: () => {
-                // Stories have no packs: the map is composed without stamps, and says so.
-                const parsed = parseMapIntent(JSON.parse(panel.intentText));
-                const lines = parsed.ok ? [describeBuild(composeMap(parsed.intent, new Map()).spec.features.length)] : parsed.issues.map(formatSpecIssue);
-                panel = { ...panel, status: lines };
+                composeBox();
+            },
+            pickEncounter: (field, key) => {
+                panel = { ...panel, encounter: { ...panel.encounter, [field]: key } };
                 render();
+            },
+            generateEncounter: () => {
+                panel = { ...panel, intentText: encounterText(panel.encounter, encounterSeed) };
+                composeBox();
+            },
+            rerollEncounter: () => {
+                seeds += 1;
+                encounterSeed = newSeed(() => (seeds * 0.618) % 1);
+                panel = { ...panel, intentText: encounterText(panel.encounter, encounterSeed) };
+                composeBox();
             },
             setField: (field, typed) => {
                 const form = withGeneratorField(panel.form, field, typed);
@@ -141,6 +186,19 @@ const SPEC = JSON.stringify({
 
 const PRESETS: readonly PresetChoice[] = MAP_PRESETS.map((key) => ({ key, label: key.replaceAll('-', ' ') }));
 
+const named = (keys: readonly string[]): readonly PresetChoice[] => keys.map((key) => ({ key, label: key }));
+
+const ENCOUNTER: EncounterPanel = {
+    kinds: named(ENCOUNTER_KINDS),
+    kind: 'road',
+    settings: named(ENCOUNTER_SETTINGS),
+    setting: 'feudal',
+    sizes: named(ENCOUNTER_SIZES),
+    size: 'medium',
+    densities: named(ENCOUNTER_DENSITIES),
+    density: 'normal',
+};
+
 const meta: Meta<GeneratorArgs> = {
     title: 'Builder/Generator Panel',
     excludeStories: ['mountGeneratorPanel'],
@@ -151,6 +209,7 @@ const meta: Meta<GeneratorArgs> = {
         presets: PRESETS,
         preset: 'woodland-inn',
         intentText: presetText('woodland-inn'),
+        encounter: ENCOUNTER,
         form: FORM,
         specText: '',
         status: null,
@@ -206,5 +265,14 @@ export const Assisted: Story = {
             '#41 turn: the lectern should face the pews',
             '#57 remove: a supply cache does not belong in a nave',
         ],
+    },
+};
+
+/** A warp-touched cave rolled as an encounter, its intent in the box and its report. */
+export const EncounterCave: Story = {
+    args: {
+        encounter: { ...ENCOUNTER, kind: 'cave', setting: 'warp' },
+        intentText: JSON.stringify(encounterIntent({ kind: 'cave', setting: 'warp', size: 'medium', density: 'normal', seed: 4 }), null, 2),
+        status: ['Built 140 features.'],
     },
 };

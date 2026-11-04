@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * The map builder panel. Compose a whole map from a map intent (starting from
- * a preset and editing it), generate a floor plan from a few settings and a
+ * a preset and editing it), roll a throwaway encounter map from a few choices
+ * and a seed (operator 2026-11-04), generate a floor plan from a few settings and a
  * seed, or build any scene spec pasted in as JSON. The outcome of the last
  * build, or why it was refused, is announced in a live status line. A pure
  * function from the panel state to elements; unit-tested under happy-dom.
@@ -22,6 +23,21 @@ export interface PresetChoice {
 /** How a map is composed: by the algorithm alone, or with a language model choosing stamps and critiquing the result. */
 export type ComposeMode = 'algorithmic' | 'assisted';
 
+/** The encounter to roll: each list's choices and the one picked, by key. */
+export interface EncounterPanel {
+    readonly kinds: readonly PresetChoice[];
+    readonly kind: string;
+    readonly settings: readonly PresetChoice[];
+    readonly setting: string;
+    readonly sizes: readonly PresetChoice[];
+    readonly size: string;
+    readonly densities: readonly PresetChoice[];
+    readonly density: string;
+}
+
+/** Which of an encounter's choices a picker sets. */
+export type EncounterField = 'kind' | 'setting' | 'size' | 'density';
+
 export interface GeneratorPanel {
     readonly mode: ComposeMode;
     /** A model is set up for the AI-assisted mode. */
@@ -31,6 +47,7 @@ export interface GeneratorPanel {
     readonly preset: string;
     /** The map intent JSON being edited. */
     readonly intentText: string;
+    readonly encounter: EncounterPanel;
     readonly form: GeneratorForm;
     /** The scene spec JSON being edited. */
     readonly specText: string;
@@ -52,6 +69,15 @@ export interface GeneratorLabels {
     readonly composeMap: string;
     /** The button giving the map intent a new seed. */
     readonly reseedMap: string;
+    readonly encounter: string;
+    readonly encounterKind: string;
+    readonly encounterSetting: string;
+    readonly encounterSize: string;
+    readonly encounterDensity: string;
+    /** Compose the encounter as picked, with its seed. */
+    readonly generateEncounter: string;
+    /** Compose the same encounter again with a fresh seed: another layout of the same place. */
+    readonly rerollEncounter: string;
     readonly floorPlan: string;
     readonly seed: string;
     readonly newSeed: string;
@@ -73,6 +99,11 @@ export interface GeneratorHandlers {
     /** Give the map intent a new seed: the same map, differently. */
     readonly reseedIntent: () => void;
     readonly compose: () => void;
+    readonly pickEncounter: (field: EncounterField, key: string) => void;
+    /** Put the encounter's intent in the box and compose it. */
+    readonly generateEncounter: () => void;
+    /** The same, with a fresh seed. */
+    readonly rerollEncounter: () => void;
     /** Apply a typed setting; false rejects it (the input reverts). */
     readonly setField: (field: GeneratorField, typed: string) => boolean;
     readonly setEntrance: (on: boolean) => void;
@@ -146,6 +177,29 @@ function composeSection(panel: GeneratorPanel, labels: GeneratorLabels, handlers
     ]);
 }
 
+function encounterSection(panel: GeneratorPanel, labels: GeneratorLabels, handlers: GeneratorHandlers): HTMLElement {
+    const { encounter } = panel;
+    const picker = (field: EncounterField, label: string, items: readonly PresetChoice[], current: string): HTMLElement =>
+        choice(
+            `zc-generator-encounter-${field}`,
+            label,
+            items.map((i) => [i.key, i.label] as const),
+            current,
+            (key) => handlers.pickEncounter(field, key),
+        );
+    const generate = button('tw-text-xs', labels.generateEncounter, 'generate-encounter', handlers.generateEncounter);
+    const reroll = button('tw-text-xs', labels.rerollEncounter, 'reroll-encounter', handlers.rerollEncounter);
+    generate.disabled = panel.busy;
+    reroll.disabled = panel.busy;
+    return section(labels.encounter, [
+        picker('kind', labels.encounterKind, encounter.kinds, encounter.kind),
+        picker('setting', labels.encounterSetting, encounter.settings, encounter.setting),
+        picker('size', labels.encounterSize, encounter.sizes, encounter.size),
+        picker('density', labels.encounterDensity, encounter.densities, encounter.density),
+        actionRow([reroll, generate]),
+    ]);
+}
+
 function specSection(panel: GeneratorPanel, labels: GeneratorLabels, handlers: GeneratorHandlers): HTMLElement {
     const wrap = labelledTextArea(labels.spec, panel.specText, 'spec', SPEC_ROWS, handlers.setSpecText);
     return section(labels.spec, [wrap, textWithAction(wrap, handlers.setSpecText, handlers.buildSpec, labels.buildSpec, 'build-spec', panel.busy)]);
@@ -161,6 +215,7 @@ export function renderGeneratorPanel(root: HTMLElement, panel: GeneratorPanel, l
     }
     replacePreservingFocus(root, [
         composeSection(panel, labels, handlers),
+        encounterSection(panel, labels, handlers),
         floorPlanSection(panel, labels, handlers),
         specSection(panel, labels, handlers),
         outcome,
