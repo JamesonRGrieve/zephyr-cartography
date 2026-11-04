@@ -1706,7 +1706,11 @@ or a tavern is. Composition is the layer above them (operator decisions,
   - Solid works (structures, vehicles, barricades, emplacements, cargo)
     keep their whole footprint off one another, paths and buildings.
     Defences line a fortified zone's edge, fronts facing out, the line
-    breaking where a road passes.
+    breaking where a road passes. Storage that stands against a wall (a
+    locker, a cabinet) is never strewn on open ground. A crater may cut a
+    road but keeps clear of every standing piece and of other craters, and
+    is optional dressing: where no crater art is loaded, nothing is
+    reported.
   - Ground is layered: the base, then each zone's own ground, its edge
     wandering by noise. Worn earth wears into woods and meadows in short
     wandering strokes, never into a clearing.
@@ -1731,7 +1735,10 @@ or a tavern is. Composition is the layer above them (operator decisions,
   - **Bridges.** Wherever a road crosses a river, a `bridge` stamp is laid
     along the road (art drawn with depth only where the road runs as it
     is drawn), a bridge built for a road (tagged `road`) before a
-    footbridge or a rope span; none loaded is reported.
+    footbridge or a rope span; none loaded is reported. A road's `bridge`
+    names the kind (tags, the first any loaded art carries preferred:
+    `stone`, `timber`, `rope`), or is false for a ford, waded with no
+    bridge and nothing reported.
   - **Sound before wrecked.** Art tagged as a wreck (`ruined`, `broken`,
     `collapsed`, `destroyed`, `abandoned`) stands as a bridge or a prop
     only where no sound art of its role is loaded (`soundFirst`): a
@@ -1778,6 +1785,19 @@ or a tavern is. Composition is the layer above them (operator decisions,
   roadside inn with guest rooms, a cellar and a bridged river, a forest
   road, a marsh crossing), grimdark (a megacity outpost, a megacity chapel,
   a factory) and sci-fi (a void port), as intents.
+- **Encounter maps** (`compose/encounter.ts`; operator 2026-11-04: "a wide
+  variety of throwaway encounter maps", built from "a checklist of what to
+  include"). A checklist (a landscape: forest, plains, hills, desert, marsh,
+  tundra, wasteland or cave; a road: none, a road or a crossroads; the
+  bridge a road takes over the river: any, stone, timber, rope or a ford;
+  tick boxes for a river, a lake, ruins, a fortified camp, wreckage and
+  cliffs; a setting: feudal, grimdark, warp-touched or sci-fi; a size; a
+  cover; a seed) becomes an intent, pure and seeded. Each ticked feature
+  takes its own spot; on covered ground (a wood, a bog) it stands in a
+  clearing of its own; a river runs out of a ticked lake; the road runs
+  through a camp. The Map builder's Encounter section ticks it, "Generate
+  encounter" puts the intent in the box and composes it, "Reroll" gives the
+  same checklist another seed.
 - **Where.** The module API's `compose(intent)`, and the Map builder's
   Compose section: a preset or pasted intent, "Compose map", and "Another
   layout" to reseed. Problems are listed, localised.
