@@ -53,7 +53,11 @@ const JOIN_ATTEMPTS = 6;
 const JOIN_RETRY_MS = 2_000;
 /** The join form's user field: a name typed in, since 14.368 (earlier releases listed users in a select). */
 const USER_FIELD = 'input[name="username"]';
-const READY_TIMEOUT_MS = 60_000;
+/**
+ * How long Foundry may take to be ready after a load or reload, in ms: on a heavily loaded runner a reload with the full
+ * packs ran past the minute (2026-11-04, an export at load 160). `E2E_READY_TIMEOUT_S` gives such a run longer.
+ */
+const READY_TIMEOUT_MS = (Number(process.env['E2E_READY_TIMEOUT_S']) || 60) * 1000;
 
 /** A scene every test starts on: gridded, unpadded, so scene px equal canvas px from (0, 0). */
 export const SCENE = { width: 2000, height: 1500, gridSize: 100 } as const;
