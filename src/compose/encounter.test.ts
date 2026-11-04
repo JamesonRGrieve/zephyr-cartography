@@ -58,6 +58,9 @@ describe('encounter maps', () => {
         const all = parsed({ features: ['ruins', 'camp', 'wreck', 'cliffs'] });
         expect(all.zones.some((z) => z.kind === 'fortified')).toBe(true);
         expect(all.zones.filter((z) => z.kind === 'rocky' && z.area.shape === 'edge')).toHaveLength(2);
+        // Each height ends in a cliff face along its edge, the face looking into the pass.
+        expect(all.fixtures.filter((f) => f.name === 'cliff face').map((f) => f.facing)).toEqual(['bottom', 'top']);
+        expect(parsed({ features: [] }).fixtures).toEqual([]);
     });
 
     it('crosses the river by the bridge asked: a kind, any road bridge, or a ford', () => {
@@ -85,6 +88,20 @@ describe('encounter maps', () => {
             const [via] = road.via;
             expect(via).toBeDefined();
             expect(Math.hypot((via?.x ?? 0) - lake.area.centre.x, (via?.y ?? 0) - lake.area.centre.y)).toBeGreaterThan(lake.area.radius);
+        }
+    });
+
+    it('keeps a crossroads road running down the map to one bank of a river running down it', () => {
+        const xOf = (anchor: MapIntent['paths'][number]['from'] | undefined): number => (typeof anchor === 'object' && 'x' in anchor ? anchor.x : Number.NaN);
+        for (let seed = 1; seed <= 20; seed += 1) {
+            const intent = parsed({ seed, road: 'crossroads', features: ['river'] });
+            const river = intent.paths.find((p) => p.kind === 'river');
+            const pinned = intent.paths.filter((p) => p.kind === 'road').at(1);
+            const width = intent.width;
+            for (const end of [xOf(pinned?.from), xOf(pinned?.to)]) {
+                expect(Math.abs(end - xOf(river?.from))).toBeGreaterThan(width / 6);
+                expect(Math.abs(end - xOf(river?.to))).toBeGreaterThan(width / 6);
+            }
         }
     });
 

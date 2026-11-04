@@ -275,6 +275,22 @@ describe('bridges and yard pieces', () => {
         }
     });
 
+    it('runs a road round a lake in its way, never through the water', () => {
+        const pond = crossing({
+            zones: [{ kind: 'lake', area: { shape: 'circle', centre: { x: 15, y: 10 }, radius: 3 } }],
+            paths: [{ kind: 'road', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, meander: 0 }],
+            buildings: [],
+        });
+        const { spec } = composeMap(pond, TEST_ROLES);
+        const water = spec.features.find((f) => f.type === 'region' && f.biome === 'water');
+        const road = spec.features.find((f) => f.type === 'path' && f.kind === 'road');
+        if (water?.type !== 'region' || road?.type !== 'path') {
+            throw new Error('no road beside a lake');
+        }
+        const shore = water.points.flatMap((q) => [q.x, q.y]);
+        expect(road.points.filter((p) => pointInPolygon(p, shore))).toEqual([]);
+    });
+
     it('runs a river between two lakes from the shore of one to the shore of the other, each end a little inside its water', () => {
         const lakes = crossing({
             zones: [

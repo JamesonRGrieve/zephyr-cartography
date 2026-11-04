@@ -1730,6 +1730,8 @@ or a tavern is. Composition is the layer above them (operator decisions,
     the same water as a river, so a river leaves a lake seamlessly;
     nothing stands in one, a canopy
     reaches only a little over it, and reeds and rocks dress its shore. A
+    road goes round one as round a building (its box grown by the road's
+    setback), unless it ends in it; a river runs out of it. A
     zone with a `key` is a path anchor: a river from a lake starts a
     square inside its shore nearest the other end.
   - **Bridges.** Wherever a road crosses a river, a `bridge` stamp is laid
@@ -1795,7 +1797,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
   cover; a seed) becomes an intent, pure and seeded. Each ticked feature
   takes its own spot; on covered ground (a wood, a bog) it stands in a
   clearing of its own; a river runs out of a ticked lake; the road runs
-  through a camp. The Map builder's Encounter section ticks it, "Generate
+  through a camp; a road down the map beside a river down it keeps to one
+  bank; cliffs are rocky heights along both long sides, each ending in a run
+  of plan-view cliff face looking into the pass. The Map builder's Encounter section ticks it, "Generate
   encounter" puts the intent in the box and composes it, "Reroll" gives the
   same checklist another seed.
 - **Where.** The module API's `compose(intent)`, and the Map builder's

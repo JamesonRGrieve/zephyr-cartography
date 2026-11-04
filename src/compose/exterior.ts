@@ -14,6 +14,7 @@
 import type { Rect, Side } from '../generate/floor-plan';
 import { pick, seededRandom, shuffled, type Random } from '../generate/random';
 import type { SceneSpecInput } from '../generate/spec';
+import { boundsOf } from '../geometry/bounds';
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { catmullRom, type Point } from '../geometry/spline';
 import type { StampHabitat, StampRole } from '../stamps/schema';
@@ -237,6 +238,13 @@ const EDGE_SCALE = 4;
 /** How far a zone's edge wanders in or out, as a fraction of its size (circles) or in squares (edges). */
 const EDGE_WANDER = { circle: 0.25, strip: 2 } as const;
 
+/**
+ * A lake's shore wanders a second, finer octave, sampled about its own centre, so every pool has a ragged shore of its
+ * own (2026-11-04 render: a marsh's two pools drew as near-perfect discs). Its share of the radius, and its frequency
+ * as a multiple of the edge's.
+ */
+const SHORE_WANDER = { share: 0.12, frequency: 2.5 } as const;
+
 /** Points round a circular zone's edge, and the step along a strip's inner edge (squares). */
 const CIRCLE_POINTS = 28;
 const STRIP_STEP = 2;
@@ -282,7 +290,17 @@ export function zoneOutline(zone: ZoneIntent, size: Size, noise: NoiseField): Po
     if (area.shape === 'circle') {
         return Array.from({ length: CIRCLE_POINTS }, (_, i) => {
             const a = (i / CIRCLE_POINTS) * 2 * Math.PI;
-            const r = area.radius * (1 + EDGE_WANDER.circle * (noise(Math.cos(a) * EDGE_SCALE, Math.sin(a) * EDGE_SCALE) * 2 - 1));
+            const ragged =
+                zone.kind === 'lake'
+                    ? SHORE_WANDER.share *
+                      (noise(
+                          area.centre.x + Math.cos(a) * EDGE_SCALE * SHORE_WANDER.frequency,
+                          area.centre.y + Math.sin(a) * EDGE_SCALE * SHORE_WANDER.frequency,
+                      ) *
+                          2 -
+                          1)
+                    : 0;
+            const r = area.radius * (1 + EDGE_WANDER.circle * (noise(Math.cos(a) * EDGE_SCALE, Math.sin(a) * EDGE_SCALE) * 2 - 1) + ragged);
             return { x: area.centre.x + Math.cos(a) * r, y: area.centre.y + Math.sin(a) * r };
         });
     }
@@ -1184,6 +1202,10 @@ export function composeExterior(
         }
     }
     const keyed = new Map(outlines.flatMap(({ zone, outline }) => (zone.key === undefined ? [] : [[zone.key, outline] as const])));
+    // A road goes round open water as it goes round a building (2026-11-04 render: an encounter's road ran straight
+    // through both of a marsh's pools). A river runs out of its lake, and a road ending in one is meant to.
+    const lakeBounds: readonly Rect[] = outlines.filter(isLake).map(({ outline }) => boundsOf(outline));
+    const holds = (b: Rect, p: Point): boolean => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
     const paths: LaidPath[] = intent.paths.map((path) => {
         const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
         const [from, to] = pathEnds(path, intent, sites, keyed, random);
@@ -1191,18 +1213,12 @@ export function composeExterior(
         const stops = [from, ...path.via, to];
         const bends = stops.slice(1).flatMap((next, i) => meanderLine(stops[i] ?? from, next, path.meander, random).slice(i === 0 ? 0 : 1));
         const line = path.via.length === 0 ? bends : catmullRom(bends, VIA_SAMPLES);
+        const waters = path.kind === 'river' ? [] : lakeBounds.filter((b) => !holds(b, from) && !holds(b, to)).map((b) => grown(b, halfWidth + PATH_MARGIN));
         return {
             kind: path.kind,
             ...(path.bridge === undefined ? {} : { bridge: path.bridge }),
             halfWidth,
-            points: toDoors(
-                detour(
-                    line,
-                    sites.map((site) => aroundSite(site, path, halfWidth)),
-                ),
-                path,
-                sites,
-            ),
+            points: toDoors(detour(line, [...sites.map((site) => aroundSite(site, path, halfWidth)), ...waters]), path, sites),
         };
     });
     const props: Standing[] = [];

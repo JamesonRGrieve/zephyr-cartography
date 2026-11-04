@@ -238,6 +238,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     const span = Math.min(width, height);
     const zones: object[] = land.zones(random, width, height, choice.density);
     const paths: object[] = [];
+    const fixtures: object[] = [];
     // On covered ground a feature stands in a clearing of its own.
     const opened = (at: Point, radius: number): void => {
         if (land.covered) {
@@ -247,8 +248,23 @@ export function encounterIntent(choice: EncounterChoice): object {
     if (has('cliffs')) {
         // Heights of rock along both long sides, the way between them a pass.
         // Not a boulder field: a band of rock either side (2026-11-04 preview: dense strips swamped a marsh in boulders).
-        zones.push({ kind: 'rocky', area: edgeStrip('north', Math.round(height * 0.2)) });
-        zones.push({ kind: 'rocky', area: edgeStrip('south', Math.round(height * 0.2)) });
+        const depth = Math.round(height * 0.2);
+        zones.push({ kind: 'rocky', area: edgeStrip('north', depth) });
+        zones.push({ kind: 'rocky', area: edgeStrip('south', depth) });
+        // Each height ends in a cliff face looking down into the pass, laid along its edge as a run of plan-view cliff art
+        // (2026-11-04 render: the strips alone drew as flat grey bands, no cliff to them).
+        const face = (y: number, facing: 'top' | 'bottom'): object => ({
+            name: 'cliff face',
+            width,
+            height: 1,
+            at: { x: width / 2, y },
+            role: 'fitting',
+            tags: ['cliff', 'face', 'run'],
+            state: 'only cliff face',
+            facing,
+            fixed: true,
+        });
+        fixtures.push(face(depth, 'bottom'), face(height - depth, 'top'));
     }
     let lakeAt: Point | null = null;
     if (has('lake')) {
@@ -273,13 +289,16 @@ export function encounterIntent(choice: EncounterChoice): object {
         zones.push(...clusters(random, width, height, look.ruin === 'industrial' ? ['rubble', 'landing'] : ['rubble'], choice.density, at));
         opened(at, span / 3.5);
     }
+    let riverX: number | null = null;
     if (has('river')) {
         // Down the map, out of the lake where there is one; a road crossing it is bridged (or forded) as asked.
         const x = Math.round(width * (0.35 + random() * 0.3));
+        riverX = x;
         paths.push({
             kind: 'river',
             from: has('lake') ? { zone: 'lake' } : { x, y: -1 },
-            to: { x: x + randomInt(random, -3, 3), y: height + 1 },
+            // Its end drifts toward its own side of the map, away from the bank a crossroads' second road keeps to.
+            to: { x: x + randomInt(random, 0, 3) * (x < width / 2 ? -1 : 1), y: height + 1 },
             width: Math.round((2 + random() * 1.5) * 10) / 10,
             meander: 0.4,
         });
@@ -306,9 +325,16 @@ export function encounterIntent(choice: EncounterChoice): object {
         paths.push(road('west', 'east', campAt ?? clear('y')));
     }
     if (choice.road === 'crossroads') {
-        paths.push(road('south', 'north', clear('x')));
+        // A road down the map beside a river down the map keeps to one bank, its ends pinned on the side with more room:
+        // left to wander it met the river and bridged it at the map's edge (2026-11-04 render, encounter-feudal-forest).
+        const bank = lakeAt === null && riverX !== null ? (riverX < width / 2 ? width * 0.82 : width * 0.18) : null;
+        paths.push(
+            bank === null
+                ? road('south', 'north', clear('x'))
+                : { ...road('south', 'north', null), from: { x: bank, y: height + 1 }, to: { x: bank, y: -1 }, meander: 0.25 },
+        );
     }
-    return { ...base, ground: land.ground, lighting: look.lighting, zones, paths };
+    return { ...base, ground: land.ground, lighting: look.lighting, zones, paths, fixtures };
 }
 
 /** A whole number seed for a fresh layout. */
