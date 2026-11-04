@@ -45,8 +45,12 @@ const MAX_SIDE = z.coerce.number().int().positive().default(DEFAULT_MAX_SIDE).pa
  */
 const MAX_TILE_SIDE = 4096;
 
-/** How long one scene's export may take, in ms: a tower's five levels, drawn in software GL on the build runner, ran past ten minutes. */
-const EXPORT_TIMEOUT_MS = 30 * 60_000;
+/**
+ * How long one scene's export may take, in ms: a tower's five levels, drawn in software GL on the build runner, ran past
+ * ten minutes, and past thirty with the runner loaded (2026-11-04, about seven minutes a level); `EXPORT_TIMEOUT_MIN`
+ * gives such a run longer.
+ */
+const EXPORT_TIMEOUT_MS = z.coerce.number().positive().default(30).parse(process.env['EXPORT_TIMEOUT_MIN']) * 60_000;
 
 /** How long a composed map's images may take to load, in ms. */
 const IMAGES_LOAD_MS = 120_000;
