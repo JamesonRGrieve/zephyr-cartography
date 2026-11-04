@@ -67,6 +67,8 @@ describe('encounter maps', () => {
         expect(bridgeOf('rope')).toEqual(['rope']);
         expect(bridgeOf('ford')).toBe(false);
         expect(bridgeOf('any')).toBeUndefined();
+        // A frontier world draws no bridges: there "any bridge" fords the river.
+        expect(parsed({ setting: 'scifi', bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBe(false);
     });
 
     it('opens a clearing round each feature in a forest, and runs the road through the camp', () => {

@@ -72,14 +72,16 @@ interface SettingLook {
     /** What stands where a place is built up: ruined walls, or a works yard. */
     readonly ruin: 'rubble' | 'industrial';
     readonly lighting: 'day' | 'night';
+    /** Whether its art has a bridge for a road over a river; where not, "any bridge" is a ford. */
+    readonly bridged: boolean;
 }
 
 // The feudal world's woods and stone; the Imperium's works; the warp's corrupted night; a frontier world's works.
 const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
-    feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day' },
-    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day' },
-    warp: { settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'], ruin: 'rubble', lighting: 'night' },
-    scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day' },
+    feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true },
+    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: true },
+    warp: { settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'], ruin: 'rubble', lighting: 'night', bridged: true },
+    scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false },
 };
 
 type Side = 'north' | 'south' | 'east' | 'west';
@@ -279,7 +281,8 @@ export function encounterIntent(choice: EncounterChoice): object {
             meander: 0.4,
         });
     }
-    const bridge = BRIDGE[choice.bridge];
+    // A frontier world has no bridge art: its rivers are forded unless a kind is asked for.
+    const bridge = choice.bridge === 'any' && !look.bridged ? false : BRIDGE[choice.bridge];
     const road = (from: Side, to: Side, via: Point | null): object => ({
         kind: 'road',
         from,
