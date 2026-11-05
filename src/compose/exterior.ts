@@ -596,7 +596,9 @@ function dress(
             standing.push({ x: p.x, y: p.y, r, canopy: true });
         } else if (LITTER_ROLES.includes(dressing.role)) {
             const r = footprintRadius(stamp);
-            if (standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
+            // Its whole footprint off the ways and the water, not just its middle: the zone tested the middle at the
+            // typical piece's size, and a ruin's flagstone floor ran its corner onto a river (2026-11-05 render).
+            if (blocked(p, dressing.role, keepout, r, r) || standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r)) {
                 return [];
             }
             if (dressing.role !== 'flora') {

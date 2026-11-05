@@ -305,6 +305,26 @@ describe('bridges and yard pieces', () => {
         expect(onField).toEqual([]);
     });
 
+    it('keeps a large strewn piece wholly off a river or road, not just its middle', () => {
+        // A ruin's flagstone floor strewn over rubble ran its corner onto the river (2026-11-05 render, feudal forest).
+        const debris = TEST_ROLES.get('debris')?.[0];
+        if (!debris) {
+            throw new Error('the test roles have no debris');
+        }
+        const roles = new Map(TEST_ROLES);
+        roles.set('debris', [{ ...debris, key: 'test:ruin-floor', width: 4, height: 4 }]);
+        const ruins = crossing({ zones: [{ kind: 'rubble', area: { shape: 'everywhere' }, density: 'dense' }], buildings: [] });
+        const river = ruins.paths.find((p) => p.kind === 'river');
+        const road = ruins.paths.find((p) => p.kind === 'road');
+        const { spec } = composeMap(ruins, roles);
+        const floors = spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:ruin-floor');
+        const reach = Math.hypot(4, 4) / 2;
+        expect(floors.length).toBeGreaterThan(0);
+        // The river runs down x 15, the road across y 10, both straight: nothing of a floor over either.
+        expect(floors.filter((f) => f.type === 'stamp' && Math.abs(f.x - 15) < reach + (river?.width ?? 0) / 2)).toEqual([]);
+        expect(floors.filter((f) => f.type === 'stamp' && Math.abs(f.y - 10) < reach + (road?.width ?? 0) / 2)).toEqual([]);
+    });
+
     it('runs a road round a lake in its way, never through the water', () => {
         const pond = crossing({
             zones: [{ kind: 'lake', area: { shape: 'circle', centre: { x: 15, y: 10 }, radius: 3 } }],
