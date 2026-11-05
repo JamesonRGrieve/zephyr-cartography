@@ -11,7 +11,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type JSHandle, type Page } from '@playwright/test';
 
 const PORT_BASE = Number(process.env['FOUNDRY_TEST_PORT'] ?? 30101);
 const MODULE_ID = 'zephyr-cartography';
@@ -206,15 +206,32 @@ async function saveCoverage(page: Page, title: string): Promise<void> {
     writeFileSync(resolve(RAW_COVERAGE_DIR, file), JSON.stringify(entries));
 }
 
+/** Write the stack of every Error among a console message's arguments to the test log. */
+async function logErrorStacks(args: readonly JSHandle[], title: string): Promise<void> {
+    const stacks = await Promise.all(
+        args.map(async (arg) => arg.evaluate((value) => (value instanceof Error ? value.stack ?? value.message : null)).catch(() => null)),
+    );
+    for (const stack of stacks) {
+        if (typeof stack === 'string') {
+            process.stderr.write(`[console error stack] ${title}\n${stack}\n`);
+        }
+    }
+}
+
 export const test = base.extend<{ world: Page }>({
     world: async ({ page }, use, testInfo) => {
         const errors: string[] = [];
         page.on('pageerror', (error) => {
             errors.push(error.message);
+            // Where it was thrown, for the log: the assertion keeps the message alone.
+            process.stderr.write(`[page error] ${testInfo.title}\n${error.stack ?? error.message}\n`);
         });
         page.on('console', (message) => {
             if (message.type() === 'error' && !FOUNDRY_NOISE.some((noise) => noise.test(message.text()))) {
                 errors.push(message.text());
+                // Foundry logs an error it caught with the Error itself among the arguments: print its stack, so a throw
+                // Foundry reports as "[No packages detected]" can still be traced (flows.spec, 2026-11-05).
+                void logErrorStacks(message.args(), testInfo.title);
             }
         });
         await page.coverage.startJSCoverage({ resetOnNavigation: false });
