@@ -5,7 +5,7 @@ import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { StampRole } from '../stamps/schema';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { composeMap } from './compose';
-import { composeExterior, pickDressing, riverWidths, zoneOutline } from './exterior';
+import { composeExterior, footprintClear, pickDressing, riverWidths, zoneOutline } from './exterior';
 import { type MapIntent, parseMapIntent, type ZoneIntent } from './intent';
 import { noiseField } from './noise';
 import { NO_PREFERENCES } from './preferences';
@@ -665,6 +665,31 @@ describe('bridges and yard pieces', () => {
         const bare = new Map([...TEST_ROLES].filter(([role]) => !['storage', 'vehicle', 'enclosure', 'fodder'].includes(role)));
         const plain = composeMap(yard, bare).spec.features.filter((f) => f.type === 'stamp' && outside(f));
         expect(plain.every((f) => f.type === 'stamp' && !['test:storage', 'test:vehicle', 'test:hauler'].includes(f.stamp))).toBe(true);
+    });
+});
+
+describe('footprintClear', () => {
+    it('keeps a long piece clear by a chain of circles along it, never one its whole length across', () => {
+        // A 32-square run of cliff face, a square deep, lying east to west.
+        const chain = footprintClear({ x: 16, y: 5 }, 32, 1, 0);
+        expect(chain).toHaveLength(32);
+        expect(Math.max(...chain.map((c) => c.r))).toBeLessThan(1);
+        expect(chain.every((c) => c.y === 5)).toBe(true);
+        expect(Math.min(...chain.map((c) => c.x))).toBeCloseTo(0.5);
+        expect(Math.max(...chain.map((c) => c.x))).toBeCloseTo(31.5);
+    });
+
+    it('turns the chain with the piece', () => {
+        const chain = footprintClear({ x: 10, y: 10 }, 6, 1, 90);
+        expect(chain.every((c) => Math.abs(c.x - 10) < 1e-9)).toBe(true);
+        expect(Math.min(...chain.map((c) => c.y))).toBeCloseTo(7.5);
+        expect(Math.max(...chain.map((c) => c.y))).toBeCloseTo(12.5);
+    });
+
+    it('keeps one circle round a piece about as long as it is wide', () => {
+        const [one, ...rest] = footprintClear({ x: 3, y: 4 }, 2, 2, 45);
+        expect(rest).toHaveLength(0);
+        expect(one).toEqual({ x: 3, y: 4, r: Math.hypot(2, 2) / 2 });
     });
 });
 

@@ -23,7 +23,7 @@ import { WALL_BAND_SQUARES } from '../tools/materials';
 import { detour, grown } from './detour';
 import type { Anchor, Density, Edge, MapIntent, PathIntent, PropIntent, ZoneIntent, ZoneKind } from './intent';
 import type { PlacedDoor } from './layout';
-import { standingAt } from './named';
+import { FACING_TURN, standingAt } from './named';
 import { noiseField, type NoiseField } from './noise';
 import { isPlaceholder, missing } from './placeholders';
 import { narrowed, type Preferences, zonePlace } from './preferences';
@@ -578,6 +578,27 @@ const footprintRadius = (stamp: RoleStamp): number => Math.hypot(stamp.width, st
 
 /** Squares across the smallest piece a zone's dressing is spaced for. */
 const MIN_DRESSING_SIZE = 1;
+
+/**
+ * The ground a piece standing outside keeps clear, `w` by `h` squares at `at` turned `turn` degrees: a chain of circles
+ * along its length, each over a stretch no longer than it is wide, never one circle its whole length across (2026-11-05:
+ * two 32-square runs of cliff face kept 16-square circles clear and left an encounter's marsh bare). A piece about as
+ * long as it is wide keeps the one circle round its footprint.
+ */
+export function footprintClear(at: Point, w: number, h: number, turn: number): Standing[] {
+    const long = Math.max(w, h);
+    const short = Math.min(w, h);
+    const count = Math.max(1, Math.ceil(long / Math.max(short, MIN_DRESSING_SIZE)));
+    const stretch = long / count;
+    const r = Math.hypot(short, stretch) / 2;
+    const a = (turn * Math.PI) / 180;
+    // Along its length: the image's x axis turned, or its y axis where it is drawn taller than wide.
+    const along = w >= h ? { x: Math.cos(a), y: Math.sin(a) } : { x: -Math.sin(a), y: Math.cos(a) };
+    return Array.from({ length: count }, (_, i) => {
+        const t = -long / 2 + stretch * (i + 0.5);
+        return { x: at.x + along.x * t, y: at.y + along.y * t, r };
+    });
+}
 
 function dress(
     zone: ZoneIntent,
@@ -1328,7 +1349,9 @@ export function composeExterior(
         }
         // A piece on a level below the ground (a cave's lower galleries) stands there, and keeps nothing clear up here.
         if (fixture.storey === 0) {
-            props.push({ ...fixture.at, r: footprintRadius(piece) });
+            // Turned as standingAt turns it: upright art never, else its own angle or its facing's.
+            const turn = piece.upright ? 0 : fixture.angle ?? FACING_TURN[fixture.facing];
+            props.push(...footprintClear(fixture.at, piece.width, piece.height, turn));
         }
         const level = fixture.storey === 0 ? {} : levelOf(fixture.storey);
         features.push(...placed.map((s) => ({ type: 'stamp' as const, ...s, ...level })));
