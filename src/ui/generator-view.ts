@@ -24,7 +24,7 @@ export interface PresetChoice {
 export type ComposeMode = 'algorithmic' | 'assisted';
 
 /** A feature that can be ticked onto an encounter, and whether it is. */
-export interface EncounterFeatureChoice {
+interface EncounterFeatureChoice {
     readonly key: string;
     readonly label: string;
     readonly on: boolean;
