@@ -543,6 +543,34 @@ const LITTER_ROLES: readonly StampRole[] = ['rock', 'log', 'shrub', 'debris', 'f
 /** How far a crown reaches for what lies near it, as a share of its footprint's radius: its leaves' edge, not its box's. */
 const CROWN_REACH = 0.8;
 
+/**
+ * The weight of a tree turned in its colour (tagged `autumn`) against a green one's 1, when a wood picks its trees: a
+ * touch of colour, never most of the wood (2026-11-05 judge census: 191 of the barrow road's 299 trees were red,
+ * orange and yellow crowns, one stamp of each colour against two green; the town, built tree by tree, keeps them a
+ * tenth after its north-west read as all red, 2026-11-03).
+ */
+const ACCENT_TREE_WEIGHT = 0.15;
+
+/** The words that make a tree an accent of colour in a wood. */
+const ACCENT_TREE_TAGS: readonly string[] = ['autumn'];
+
+/** A wood's tree, green ones before those turned in their colour; any other piece, one of its choices alike. */
+export function pickDressing(random: Random, role: StampRole, choices: readonly RoleStamp[]): RoleStamp | undefined {
+    if (role !== 'tree') {
+        return pick(random, choices);
+    }
+    const weight = (stamp: RoleStamp): number => (stamp.tags.some((t) => ACCENT_TREE_TAGS.includes(t)) ? ACCENT_TREE_WEIGHT : 1);
+    const total = choices.reduce((sum, stamp) => sum + weight(stamp), 0);
+    let left = random() * total;
+    for (const stamp of choices) {
+        left -= weight(stamp);
+        if (left < 0) {
+            return stamp;
+        }
+    }
+    return choices.at(-1);
+}
+
 /** The radius of a piece's footprint however it is turned. */
 const footprintRadius = (stamp: RoleStamp): number => Math.hypot(stamp.width, stamp.height) / 2;
 
@@ -578,7 +606,7 @@ function dress(
         Math.min(1, depthInside(p, outline) / EDGE_FADE) >= random() * QUARTER * 2;
     const solid = SOLID_ROLES.includes(dressing.role);
     const stand = (p: Point): FeatureInput[] => {
-        const stamp = pick(random, choices);
+        const stamp = pickDressing(random, dressing.role, choices);
         if (!stamp) {
             return [];
         }

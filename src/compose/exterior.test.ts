@@ -5,7 +5,7 @@ import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import type { StampRole } from '../stamps/schema';
 import { WALL_BAND_SQUARES } from '../tools/materials';
 import { composeMap } from './compose';
-import { composeExterior, riverWidths, zoneOutline } from './exterior';
+import { composeExterior, pickDressing, riverWidths, zoneOutline } from './exterior';
 import { type MapIntent, parseMapIntent, type ZoneIntent } from './intent';
 import { noiseField } from './noise';
 import { NO_PREFERENCES } from './preferences';
@@ -665,5 +665,38 @@ describe('bridges and yard pieces', () => {
         const bare = new Map([...TEST_ROLES].filter(([role]) => !['storage', 'vehicle', 'enclosure', 'fodder'].includes(role)));
         const plain = composeMap(yard, bare).spec.features.filter((f) => f.type === 'stamp' && outside(f));
         expect(plain.every((f) => f.type === 'stamp' && !['test:storage', 'test:vehicle', 'test:hauler'].includes(f.stamp))).toBe(true);
+    });
+});
+
+describe('pickDressing', () => {
+    it('keeps a wood mostly green: a tree turned in its colour is an accent', () => {
+        const base = (TEST_ROLES.get('tree') ?? [])[0];
+        expect(base).toBeDefined();
+        if (!base) {
+            return;
+        }
+        // One green tree against three colours, as the packs hold them (a red, an orange and a yellow crown).
+        const green = { ...base, key: 'test:green', tags: ['forest', 'tree'] };
+        const colours = ['red', 'orange', 'yellow'].map((c) => ({ ...base, key: `test:${c}`, tags: [c, 'autumn', 'tree'] }));
+        const random = seededRandom(7);
+        const picks = Array.from({ length: 2000 }, () => pickDressing(random, 'tree', [green, ...colours])?.key);
+        const autumn = picks.filter((k) => k !== 'test:green').length / picks.length;
+        expect(autumn).toBeGreaterThan(0.2);
+        expect(autumn).toBeLessThan(0.45);
+    });
+
+    it('picks any other piece from its choices alike', () => {
+        const base = (TEST_ROLES.get('rock') ?? [])[0];
+        expect(base).toBeDefined();
+        if (!base) {
+            return;
+        }
+        const a = { ...base, key: 'test:a', tags: ['autumn'] };
+        const b = { ...base, key: 'test:b', tags: ['stone'] };
+        const random = seededRandom(3);
+        const share = Array.from({ length: 2000 }, () => pickDressing(random, 'rock', [a, b])?.key).filter((k) => k === 'test:a').length / 2000;
+        expect(share).toBeGreaterThan(0.4);
+        expect(share).toBeLessThan(0.6);
+        expect(pickDressing(random, 'tree', [])).toBeUndefined();
     });
 });
