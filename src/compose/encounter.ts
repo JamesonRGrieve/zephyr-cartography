@@ -254,7 +254,9 @@ export function encounterIntent(choice: EncounterChoice): object {
         // Each height ends in a cliff face looking down into the pass, laid along its edge as a run of plan-view cliff art
         // (2026-11-04 render: the strips alone drew as flat grey bands, no cliff to them).
         const face = (y: number, facing: 'top' | 'bottom'): object => ({
-            name: 'cliff face',
+            // "run" in its name as in its art's: plain "cliff face" tied the Run with its corner pieces, and the corner won
+            // (2026-11-05 judge census: 44 Earth Cliff Face Outer Corners along a marsh's heights).
+            name: 'cliff face run',
             width,
             height: 1,
             at: { x: width / 2, y },

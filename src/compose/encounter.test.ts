@@ -59,7 +59,7 @@ describe('encounter maps', () => {
         expect(all.zones.some((z) => z.kind === 'fortified')).toBe(true);
         expect(all.zones.filter((z) => z.kind === 'rocky' && z.area.shape === 'edge')).toHaveLength(2);
         // Each height ends in a cliff face along its edge, the face looking into the pass.
-        expect(all.fixtures.filter((f) => f.name === 'cliff face').map((f) => f.facing)).toEqual(['bottom', 'top']);
+        expect(all.fixtures.filter((f) => f.name === 'cliff face run').map((f) => f.facing)).toEqual(['bottom', 'top']);
         expect(parsed({ features: [] }).fixtures).toEqual([]);
     });
 
