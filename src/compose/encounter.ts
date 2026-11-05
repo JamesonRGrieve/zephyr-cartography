@@ -81,6 +81,21 @@ interface SettingLook {
 /** Desert rock is sandstone scree, whatever the world (2026-11-05: rocky zones drew flat grey with no painted rock). */
 const DESERT_ROCK = 'floor.rock-sandstone';
 
+/** The bog's open mud, and how many squares of marsh hold one wallow of it. */
+const MUD = 'floor.mud';
+const MUD_SQUARES = 160;
+
+/**
+ * A road over open country is a worn earth track, through a bog a muddy one, never the set's grey gravel (2026-11-05
+ * preview: a gravel road through a marsh). Other ground keeps the set's road.
+ */
+const TRACK: Partial<Readonly<Record<EncounterLandscape, string>>> = {
+    forest: 'floor.packed-dirt',
+    plains: 'floor.packed-dirt',
+    hills: 'floor.packed-dirt',
+    marsh: MUD,
+};
+
 // The feudal world's woods and stone; the Imperium's works; the warp's corrupted night; a frontier world's works.
 const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
     feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true, rock: null },
@@ -178,6 +193,14 @@ const LANDSCAPES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, Landscape
         covered: true,
         zones: (random, w, h, density) => [
             { kind: 'marsh', area: EVERYWHERE, density },
+            // Wallows of open mud feathered into the bog (2026-11-05 preview: one flat dark green from edge to edge).
+            ...Array.from({ length: Math.max(2, Math.round((w * h) / MUD_SQUARES)) }, () => ({
+                kind: 'paving',
+                soft: true,
+                texture: MUD,
+                blend: 1.5,
+                area: circle(inside(random, w, h, 2), randomInt(random, 1, 3)),
+            })),
             ...Array.from({ length: randomInt(random, 1, 2) }, () => ({ kind: 'lake', area: circle(inside(random, w, h), randomInt(random, 2, 3)) })),
         ],
     },
@@ -260,6 +283,11 @@ export function encounterIntent(choice: EncounterChoice): object {
         // Heights of rock along both long sides, the way between them a pass.
         // Not a boulder field: a band of rock either side (2026-11-04 preview: dense strips swamped a marsh in boulders).
         const depth = Math.round(height * 0.2);
+        // The landscape's own pools and wallows lie in the pass, never across a height (2026-11-05 preview: a marsh's
+        // pool cut in half by the south cliff face).
+        zones.forEach((zone, i) => {
+            zones[i] = intoPass(zone, depth, height);
+        });
         zones.push({ kind: 'rocky', area: edgeStrip('north', depth) });
         zones.push({ kind: 'rocky', area: edgeStrip('south', depth) });
         // Each height ends in a cliff face looking down into the pass, laid along its edge as a run of plan-view cliff art
@@ -318,6 +346,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     }
     // A world with no road bridge art fords its rivers unless a kind is asked for.
     const bridge = choice.bridge === 'any' && !look.bridged ? false : BRIDGE[choice.bridge];
+    const track = TRACK[choice.landscape];
     const road = (from: Side, to: Side, via: Point | null): object => ({
         kind: 'road',
         from,
@@ -325,6 +354,7 @@ export function encounterIntent(choice: EncounterChoice): object {
         ...(via ? { via: [via] } : {}),
         meander: Math.round((0.3 + random() * 0.3) * 100) / 100,
         ...(bridge === undefined ? {} : { bridge }),
+        ...(track === undefined ? {} : { texture: track }),
     });
     // The road runs through the camp's gate where there is one: it is what the camp holds. Round a lake, never over it
     // (2026-11-04 preview: a road ran straight across one): it passes the far side of the map from the water.
@@ -351,6 +381,23 @@ export function encounterIntent(choice: EncounterChoice): object {
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
     const textured = rock === null ? zones : zones.map((z) => (isRocky(z) ? { ...z, texture: rock } : z));
     return { ...base, ground: land.ground, lighting: look.lighting, zones: textured, paths, fixtures };
+}
+
+/**
+ * `zone` moved into the pass between two heights `depth` deep along the north and south edges: a circle (a pool, a
+ * wallow) slid north or south until it clears both by a square, shrunk to fit where the pass is narrower. Anything else
+ * is left as it is.
+ */
+export function intoPass(zone: object, depth: number, height: number): object {
+    if (!('area' in zone) || typeof zone.area !== 'object' || zone.area === null || !('shape' in zone.area) || zone.area.shape !== 'circle') {
+        return zone;
+    }
+    const area = zone.area as CircleArea;
+    const northFoot = depth + 1;
+    const southFoot = height - depth - 1;
+    const radius = Math.max(1, Math.min(area.radius, (southFoot - northFoot) / 2));
+    const y = Math.min(Math.max(area.centre.y, northFoot + radius), southFoot - radius);
+    return { ...zone, area: circle({ x: area.centre.x, y }, radius) };
 }
 
 /** A zone of rocky ground, as the landscapes and the cliffs lay them. */

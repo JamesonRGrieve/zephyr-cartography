@@ -15,6 +15,7 @@ import {
     type EncounterChoice,
     encounterIntent,
     freshSeed,
+    intoPass,
     isEncounterBridge,
     isEncounterDensity,
     isEncounterFeature,
@@ -36,6 +37,30 @@ function parsed(over: Partial<EncounterChoice> = {}): MapIntent {
     }
     return result.intent;
 }
+
+describe('encounter ground', () => {
+    it('lays a marsh road as a muddy track and open country as worn earth, a desert on the set road', () => {
+        const textureOf = (landscape: EncounterChoice['landscape']): string | null | undefined =>
+            parsed({ landscape, road: 'road' }).paths.find((p) => p.kind === 'road')?.texture;
+        expect(textureOf('marsh')).toBe('floor.mud');
+        expect(textureOf('plains')).toBe('floor.packed-dirt');
+        expect(textureOf('desert') ?? null).toBeNull();
+    });
+
+    it('breaks a marsh with soft wallows of open mud', () => {
+        const mud = parsed({ landscape: 'marsh' }).zones.filter((z) => z.kind === 'paving' && z.texture === 'floor.mud');
+        expect(mud.length).toBeGreaterThanOrEqual(2);
+        expect(mud.every((z) => z.soft)).toBe(true);
+    });
+
+    it('slides a pool between cliffs into the pass, shrinking it where the pass is narrow', () => {
+        const pool = { kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 20 }, radius: 3 } };
+        expect(intoPass(pool, 5, 24)).toEqual({ kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 15 }, radius: 3 } });
+        expect(intoPass(pool, 9, 24)).toEqual({ kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 12 }, radius: 2 } });
+        const strip = { kind: 'marsh', area: { shape: 'everywhere' } };
+        expect(intoPass(strip, 5, 24)).toBe(strip);
+    });
+});
 
 describe('encounter maps', () => {
     it('compose every landscape in every setting, every feature ticked, into a valid scene spec', () => {
