@@ -469,6 +469,11 @@ interface Keepout {
     readonly sites: readonly Site[];
     readonly paths: readonly LaidPath[];
     readonly clearings: readonly (readonly number[])[];
+    /**
+     * Hard paving (a crop field's plot, a yard, a street): nothing scattered lies on it, rock and flora included
+     * (2026-11-05 render: the windmill's meadow strewed weeds and stones across its wheat).
+     */
+    readonly hard: readonly (readonly number[])[];
     /** Open water (lakes): nothing stands in it, and a canopy reaches only a little over it. */
     readonly waters: readonly (readonly Point[])[];
     /** Pieces the intent stood outside (a well), kept clear by everything scattered after them. */
@@ -501,6 +506,9 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
     const wet = (outline: readonly Point[]): boolean =>
         pointInPolygon(p, flat(outline)) || distanceToPolyline(p, [...outline, ...outline.slice(0, 1)]) < reach * WATER_OVERHANG;
     if (keepout.waters.some(wet) || keepout.props.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + reach)) {
+        return true;
+    }
+    if (keepout.hard.some((outline) => pointInPolygon(p, outline))) {
         return true;
     }
     return CLEARED.includes(role) && keepout.clearings.some((outline) => pointInPolygon(p, outline));
@@ -1227,6 +1235,7 @@ export function composeExterior(
         sites,
         paths,
         clearings: outlines.filter(({ zone }) => zone.kind === 'clearing' || zone.kind === 'paving').map(({ outline }) => flat(outline)),
+        hard: outlines.filter(({ zone }) => zone.kind === 'paving' && !zone.soft).map(({ outline }) => flat(outline)),
         waters: outlines.filter(({ zone }) => zone.kind === 'lake').map(({ outline }) => outline),
         props,
     };

@@ -275,6 +275,36 @@ describe('bridges and yard pieces', () => {
         }
     });
 
+    it('strews nothing on hard paving, a crop plot or a yard, whatever its role', () => {
+        const field = { x0: 8, y0: 5, x1: 20, y1: 15 };
+        const farm = crossing({
+            zones: [
+                { kind: 'meadow', area: { shape: 'everywhere' }, density: 'dense' },
+                { kind: 'rocky', area: { shape: 'everywhere' }, density: 'dense' },
+                {
+                    kind: 'paving',
+                    texture: 'floor.standing-wheat',
+                    area: {
+                        shape: 'polygon',
+                        points: [
+                            { x: field.x0, y: field.y0 },
+                            { x: field.x1, y: field.y0 },
+                            { x: field.x1, y: field.y1 },
+                            { x: field.x0, y: field.y1 },
+                        ],
+                    },
+                },
+            ],
+            paths: [],
+            buildings: [],
+        });
+        const { spec } = composeMap(farm, TEST_ROLES);
+        // The composer's spec is in grid squares.
+        const onField = spec.features.filter((f) => f.type === 'stamp' && f.x > field.x0 && f.x < field.x1 && f.y > field.y0 && f.y < field.y1);
+        expect(spec.features.some((f) => f.type === 'stamp')).toBe(true);
+        expect(onField).toEqual([]);
+    });
+
     it('runs a road round a lake in its way, never through the water', () => {
         const pond = crossing({
             zones: [{ kind: 'lake', area: { shape: 'circle', centre: { x: 15, y: 10 }, radius: 3 } }],
