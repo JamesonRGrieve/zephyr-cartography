@@ -97,3 +97,30 @@ describe('detour', () => {
         expect(routed.every((p) => distanceToPolyline(p, line) <= block.w / 2)).toBe(true);
     });
 });
+
+describe('detour round open water', () => {
+    const pool = { x: 10, y: 10, w: 6, h: 6, round: true as const };
+    const line = [
+        { x: 0, y: 13 },
+        { x: 30, y: 13 },
+    ];
+
+    it('goes round it in a curve, never inside its ellipse, keeping both ends', () => {
+        const routed = detour(line, [pool]);
+        expect(routed[0]).toEqual(line[0]);
+        expect(routed.at(-1)).toEqual(line[1]);
+        const c = { x: 13, y: 13 };
+        expect(along(routed).every((p) => Math.hypot(p.x - c.x, p.y - c.y) >= 3 - 0.05)).toBe(true);
+        // Round, not by the box's corners: no point of the way round stands at a corner of the box.
+        expect(routed.some((p) => (p.x === 10 || p.x === 16) && (p.y === 10 || p.y === 16))).toBe(false);
+        expect(routed.length).toBeGreaterThan(8);
+    });
+
+    it('leaves a line that only clips the box outside the ellipse as it was', () => {
+        const corner = [
+            { x: 9, y: 10.4 },
+            { x: 10.6, y: 9 },
+        ];
+        expect(detour(corner, [pool])).toEqual(corner);
+    });
+});

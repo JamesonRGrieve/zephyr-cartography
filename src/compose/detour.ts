@@ -84,38 +84,70 @@ function cornersBetween(from: Point, to: Point, r: Rect): Point[] {
         .map((c) => c.p);
 }
 
+/** A footprint a path goes round: a building's box, or open water (`round`), gone round in a curve. */
+export type Block = Rect & { readonly round?: true };
+
+/** Points along the shorter way round a block's ellipse, every this many radians. */
+const ARC_STEP = Math.PI / 10;
+
+const centreOf = (r: Rect): Point => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+
+/** Whether `p` lies inside the ellipse fitted in `r`. */
+function insideEllipse(p: Point, r: Rect): boolean {
+    const c = centreOf(r);
+    return ((p.x - c.x) / (r.w / 2)) ** 2 + ((p.y - c.y) / (r.h / 2)) ** 2 < 1;
+}
+
+const angleOf = (p: Point, r: Rect): number => {
+    const c = centreOf(r);
+    return Math.atan2((p.y - c.y) / (r.h / 2), (p.x - c.x) / (r.w / 2));
+};
+
+const onEllipse = (angle: number, r: Rect): Point => {
+    const c = centreOf(r);
+    return { x: c.x + (Math.cos(angle) * r.w) / 2, y: c.y + (Math.sin(angle) * r.h) / 2 };
+};
+
+/** The points going the shorter way round `r`'s ellipse from angle `from` to angle `to`, both ends included. */
+function arcBetween(from: number, to: number, r: Rect): Point[] {
+    const turn = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+    const steps = Math.max(1, Math.ceil(Math.abs(turn) / ARC_STEP));
+    return Array.from({ length: steps + 1 }, (_, i) => onEllipse(from + (turn * i) / steps, r));
+}
+
 /**
- * `line`, going round each of `blocks` it would cross. A block holding
- * either end of the line is left alone: there is no way round it.
+ * `line`, going round each of `blocks` it would cross: a box by its corners, open water (`round`) along the ellipse
+ * fitted in its box (2026-11-05: a road stepped round a marsh's two pools in square kinks). A block holding either end
+ * of the line is left alone: there is no way round it.
  */
-export function detour(line: readonly Point[], blocks: readonly Rect[]): Point[] {
+export function detour(line: readonly Point[], blocks: readonly Block[]): Point[] {
     return blocks.reduce<Point[]>(
         (current, block) => {
             const samples = sampled(current);
-            const first = samples.findIndex((s) => inside(s.p, block));
-            const last = samples.findLastIndex((s) => inside(s.p, block));
+            const within = (p: Point): boolean => (block.round === true ? insideEllipse(p, block) : inside(p, block));
+            const first = samples.findIndex((s) => within(s.p));
+            const last = samples.findLastIndex((s) => within(s.p));
             const before = samples[first - 1];
             const after = samples[last + 1];
             if (first < 0 || !before || !after) {
                 return current;
             }
+            // The line's own points, and the samples either side of the block, so the line reaches it as it did.
+            const keep = (s: Sample): boolean => s.own || s === before || s === after;
+            const head = samples
+                .slice(0, first)
+                .filter(keep)
+                .map((s) => s.p);
+            const tail = samples
+                .slice(last + 1)
+                .filter(keep)
+                .map((s) => s.p);
+            if (block.round === true) {
+                return [...head, ...arcBetween(angleOf(before.p, block), angleOf(after.p, block), block), ...tail];
+            }
             const enter = onEdge(before.p, block);
             const leave = onEdge(after.p, block);
-            // The line's own points, and the samples either side of the block, so the line reaches it as it did.
-            const kept = (s: Sample): boolean => s.own || s === before || s === after;
-            return [
-                ...samples
-                    .slice(0, first)
-                    .filter(kept)
-                    .map((s) => s.p),
-                enter,
-                ...cornersBetween(enter, leave, block),
-                leave,
-                ...samples
-                    .slice(last + 1)
-                    .filter(kept)
-                    .map((s) => s.p),
-            ];
+            return [...head, enter, ...cornersBetween(enter, leave, block), leave, ...tail];
         },
         [...line],
     );

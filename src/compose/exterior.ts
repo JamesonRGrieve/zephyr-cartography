@@ -1279,7 +1279,11 @@ export function composeExterior(
         const stops = [from, ...path.via, to];
         const bends = stops.slice(1).flatMap((next, i) => meanderLine(stops[i] ?? from, next, path.meander, random).slice(i === 0 ? 0 : 1));
         const line = path.via.length === 0 ? bends : catmullRom(bends, VIA_SAMPLES);
-        const waters = path.kind === 'river' ? [] : lakeBounds.filter((b) => !holds(b, from) && !holds(b, to)).map((b) => grown(b, halfWidth + PATH_MARGIN));
+        // Gone round in a curve, along the ellipse fitted in the lake's box grown by the road's clearance.
+        const waters =
+            path.kind === 'river'
+                ? []
+                : lakeBounds.filter((b) => !holds(b, from) && !holds(b, to)).map((b) => ({ ...grown(b, halfWidth + PATH_MARGIN), round: true as const }));
         return {
             kind: path.kind,
             ...(path.bridge === undefined ? {} : { bridge: path.bridge }),
