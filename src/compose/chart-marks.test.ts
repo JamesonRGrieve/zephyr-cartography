@@ -41,7 +41,7 @@ describe('chartMarks', () => {
             },
             { level: 'ground' },
         );
-        expect(marks).toEqual([{ type: 'pin', x: 30, y: 24, text: 'Market Square', global: true, hidden: false, level: 'ground' }]);
+        expect(marks).toEqual([{ type: 'pin', x: 30, y: 24, text: 'Market Square', global: true, readable: true, size: 3, hidden: false, level: 'ground' }]);
     });
 
     it('breaks an orbit round each world standing on it, never across it, and keeps the star at its centre off it', () => {

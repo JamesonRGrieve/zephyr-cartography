@@ -68,6 +68,12 @@ function orbitLines(orbit: Orbit, bodies: readonly Body[], onLevel: { readonly l
     return runs.map((points): FeatureInput => ({ type: 'shape', kind: 'line', points, stroke, fill: null, ...onLevel }));
 }
 
+/**
+ * Squares across the spot that shows a place's name on hover. A named place's pin is readable: no icon over the art
+ * (2026-11-05 render: the town's five quarter names drew Foundry's book icon as white squares across the map).
+ */
+const LABEL_PIN_SPOT = 3;
+
 /** The intent's labels and orbits as spec features, on `onLevel` (a map's ground). */
 export function chartMarks(intent: Pick<MapIntent, 'labels' | 'orbits' | 'fixtures'>, onLevel: { readonly level?: string }): FeatureInput[] {
     const bodies = bodiesOf(intent.fixtures);
@@ -76,7 +82,17 @@ export function chartMarks(intent: Pick<MapIntent, 'labels' | 'orbits' | 'fixtur
         ...intent.labels.map(
             (label): FeatureInput =>
                 label.pin
-                    ? { type: 'pin', x: label.at.x, y: label.at.y, text: label.text, global: true, hidden: label.hidden, ...onLevel }
+                    ? {
+                          type: 'pin',
+                          x: label.at.x,
+                          y: label.at.y,
+                          text: label.text,
+                          global: true,
+                          readable: true,
+                          size: LABEL_PIN_SPOT,
+                          hidden: label.hidden,
+                          ...onLevel,
+                      }
                     : {
                           type: 'label',
                           x: label.at.x,
