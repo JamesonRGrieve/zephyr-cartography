@@ -74,14 +74,25 @@ interface SettingLook {
     readonly lighting: 'day' | 'night';
     /** Whether its art has a road bridge (only the feudal world's does; the Imperium's is a pipe bridge): where not, "any bridge" is a ford. */
     readonly bridged: boolean;
+    /** The texture its rocky ground is drawn in; null for the set's own `rock`. */
+    readonly rock: string | null;
 }
+
+/** Desert rock is sandstone scree, whatever the world (2026-11-05: rocky zones drew flat grey with no painted rock). */
+const DESERT_ROCK = 'floor.rock-sandstone';
 
 // The feudal world's woods and stone; the Imperium's works; the warp's corrupted night; a frontier world's works.
 const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
-    feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true },
-    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false },
-    warp: { settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'], ruin: 'rubble', lighting: 'night', bridged: false },
-    scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false },
+    feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true, rock: null },
+    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: 'floor.rock-slate' },
+    warp: {
+        settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'],
+        ruin: 'rubble',
+        lighting: 'night',
+        bridged: false,
+        rock: 'floor.rock-slate',
+    },
+    scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: null },
 };
 
 type Side = 'north' | 'south' | 'east' | 'west';
@@ -336,7 +347,15 @@ export function encounterIntent(choice: EncounterChoice): object {
                 : { ...road('south', 'north', null), from: { x: bank, y: height + 1 }, to: { x: bank, y: -1 }, meander: 0.25 },
         );
     }
-    return { ...base, ground: land.ground, lighting: look.lighting, zones, paths, fixtures };
+    // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
+    const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
+    const textured = rock === null ? zones : zones.map((z) => (isRocky(z) ? { ...z, texture: rock } : z));
+    return { ...base, ground: land.ground, lighting: look.lighting, zones: textured, paths, fixtures };
+}
+
+/** A zone of rocky ground, as the landscapes and the cliffs lay them. */
+function isRocky(zone: object): boolean {
+    return 'kind' in zone && zone.kind === 'rocky';
 }
 
 /** A whole number seed for a fresh layout. */

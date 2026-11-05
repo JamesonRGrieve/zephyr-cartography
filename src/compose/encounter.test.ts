@@ -63,6 +63,26 @@ describe('encounter maps', () => {
         expect(parsed({ features: [] }).fixtures).toEqual([]);
     });
 
+    it("draws rocky ground in the world's rock: sandstone in a desert, slate in the Imperium's and the warp's, else the set's own", () => {
+        const rocks = (over: Partial<EncounterChoice>): (string | null)[] => [
+            ...new Set(
+                parsed({ features: ['cliffs'], ...over })
+                    .zones.filter((z) => z.kind === 'rocky')
+                    .map((z) => z.texture),
+            ),
+        ];
+        expect(rocks({ landscape: 'desert', setting: 'feudal' })).toEqual(['floor.rock-sandstone']);
+        expect(rocks({ landscape: 'hills', setting: 'grimdark' })).toEqual(['floor.rock-slate']);
+        expect(rocks({ landscape: 'marsh', setting: 'warp' })).toEqual(['floor.rock-slate']);
+        expect(rocks({ landscape: 'marsh', setting: 'feudal' })).toEqual([null]);
+        // Only rocky ground: the marsh round the heights keeps its own.
+        expect(
+            parsed({ landscape: 'marsh', setting: 'grimdark', features: ['cliffs'] }).zones.filter(
+                (z) => z.kind !== 'rocky' && 'texture' in z && z.texture === 'floor.rock-slate',
+            ),
+        ).toEqual([]);
+    });
+
     it('crosses the river by the bridge asked: a kind, any road bridge, or a ford', () => {
         const bridgeOf = (bridge: (typeof ENCOUNTER_BRIDGES)[number]): readonly string[] | false | undefined =>
             parsed({ bridge }).paths.find((p) => p.kind === 'road')?.bridge;
