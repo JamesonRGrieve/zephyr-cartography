@@ -547,9 +547,11 @@ const CROWN_REACH = 0.8;
  * The weight of a tree turned in its colour (tagged `autumn`) against a green one's 1, when a wood picks its trees: a
  * touch of colour, never most of the wood (2026-11-05 judge census: 191 of the barrow road's 299 trees were red,
  * orange and yellow crowns, one stamp of each colour against two green; the town, built tree by tree, keeps them a
- * tenth after its north-west read as all red, 2026-11-03).
+ * tenth after its north-west read as all red, 2026-11-03). At 0.15 the barrow road still drew 49 of 299 (preview
+ * 2026-11-05): a coloured crown stands out over the green canopy, so each one shows; the reference maps' woods hold
+ * the odd one, about one tree in twenty.
  */
-const ACCENT_TREE_WEIGHT = 0.15;
+const ACCENT_TREE_WEIGHT = 0.05;
 
 /** The words that make a tree an accent of colour in a wood. */
 const ACCENT_TREE_TAGS: readonly string[] = ['autumn'];

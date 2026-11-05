@@ -681,8 +681,9 @@ describe('pickDressing', () => {
         const random = seededRandom(7);
         const picks = Array.from({ length: 2000 }, () => pickDressing(random, 'tree', [green, ...colours])?.key);
         const autumn = picks.filter((k) => k !== 'test:green').length / picks.length;
-        expect(autumn).toBeGreaterThan(0.2);
-        expect(autumn).toBeLessThan(0.45);
+        // Three colours at a twentieth of a green tree's weight each: about 0.13 of the wood.
+        expect(autumn).toBeGreaterThan(0.08);
+        expect(autumn).toBeLessThan(0.2);
     });
 
     it('picks any other piece from its choices alike', () => {
