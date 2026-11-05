@@ -48,6 +48,11 @@ test('a building is given an interior from its panel, its travel set there, and 
         const tile = canvas?.tiles?.placeables[0];
         const hud = canvas?.hud?.tile;
         if (tile && hud) {
+            // Start from a closed HUD and nothing controlled: run after the specs that open the Tile HUD in the same
+            // world, Foundry's own HUD code threw "reading 'style'" (attributed to no package) binding over a HUD
+            // still bound to a tile those specs had since removed. Passing alone, the spec never threw.
+            canvas.tiles.releaseAll();
+            await hud.close();
             tile.control();
             await hud.bind(tile);
         }
