@@ -118,9 +118,11 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         { role: 'flora', spread: 6, clumping: 0.3, patch: [3, 5] },
         { role: 'rock', spread: 8, clumping: 0 },
     ],
+    // A bog in reed beds and thickets with open mire between, never one even dotting (2026-11-05 render, the marsh
+    // encounter: two hundred tufts and seventy lone shrubs covered all but 2 of 70 three-square cells).
     marsh: [
-        { role: 'flora', spread: 3.5, clumping: 0.3, patch: [3, 6] },
-        { role: 'shrub', spread: 3, clumping: 0.3 },
+        { role: 'flora', spread: 5.5, clumping: 0.6, patch: [3, 6] },
+        { role: 'shrub', spread: 8, clumping: 0.55, patch: [2, 4] },
         { role: 'log', spread: 5, clumping: 0 },
     ],
     rocky: [
@@ -625,9 +627,12 @@ function dress(
         }
         return spots.flatMap((spot) => {
             const count = patch[0] + Math.floor(random() * (patch[1] - patch[0] + 1));
+            // A piece that keeps others off its footprint (a shrub, a rock) has its patch-mates at least that footprint away,
+            // or every one is refused and the patch is a lone piece (2026-11-05: a marsh's shrubs, patched, stood alone).
+            const apart = dressing.role === 'flora' ? 0 : Math.SQRT2 * size;
             return Array.from({ length: count }, (_, i) => {
                 // The first at the spot itself, the rest round it at a random bearing and reach.
-                const reach = i === 0 ? 0 : Math.sqrt(random()) * PATCH_REACH * size;
+                const reach = i === 0 ? 0 : apart + Math.sqrt(random()) * PATCH_REACH * size;
                 const bearing = random() * 2 * Math.PI;
                 return { x: spot.x + reach * Math.cos(bearing), y: spot.y + reach * Math.sin(bearing) };
             }).filter(inZone);

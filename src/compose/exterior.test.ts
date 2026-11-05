@@ -305,6 +305,30 @@ describe('bridges and yard pieces', () => {
         expect(onField).toEqual([]);
     });
 
+    it('dresses a dense marsh in thickets and reed beds with open mire between, never one even dotting', () => {
+        // The marsh encounter's render (2026-11-05): lone shrubs and tufts covered all but 2 of 70 three-square cells.
+        const bog = parseMapIntent({
+            schemaVersion: 1,
+            seed: 2,
+            width: 30,
+            height: 20,
+            zones: [{ kind: 'marsh', area: { shape: 'everywhere' }, density: 'dense' }],
+        });
+        if (!bog.ok) {
+            throw new Error(JSON.stringify(bog.issues));
+        }
+        const stamps = composeMap(bog.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' ? [f] : []));
+        // Shrubs (1.2 squares across) stand in thickets: nearly every one has another within a thicket's reach.
+        const shrubs = stamps.filter((f) => f.stamp === 'test:shrub');
+        expect(shrubs.length).toBeGreaterThan(6);
+        const thicketed = shrubs.filter((f) => shrubs.some((g) => g !== f && Math.hypot(g.x - f.x, g.y - f.y) < 3.5));
+        expect(thicketed.length / shrubs.length).toBeGreaterThan(0.8);
+        // And open mire between: at least a fifth of the three-square cells hold nothing.
+        const cells = Array.from({ length: 10 * 7 }, (_, i) => ({ x: (i % 10) * 3, y: Math.floor(i / 10) * 3 }));
+        const mire = cells.filter((c) => !stamps.some((f) => f.x >= c.x && f.x < c.x + 3 && f.y >= c.y && f.y < c.y + 3));
+        expect(mire.length / cells.length).toBeGreaterThan(0.2);
+    });
+
     it('keeps a large strewn piece wholly off a river or road, not just its middle', () => {
         // A ruin's flagstone floor strewn over rubble ran its corner onto the river (2026-11-05 render, feudal forest).
         const debris = TEST_ROLES.get('debris')?.[0];
