@@ -74,8 +74,8 @@ interface SettingLook {
     readonly lighting: 'day' | 'night';
     /** Whether its art has a road bridge (only the feudal world's does; the Imperium's is a pipe bridge): where not, "any bridge" is a ford. */
     readonly bridged: boolean;
-    /** The texture its rocky ground is drawn in; null for the set's own `rock`. */
-    readonly rock: string | null;
+    /** The texture its rocky ground is drawn in. */
+    readonly rock: string;
 }
 
 /** Desert rock is sandstone scree, whatever the world (2026-11-05: rocky zones drew flat grey with no painted rock). */
@@ -83,6 +83,12 @@ const DESERT_ROCK = 'floor.rock-sandstone';
 
 /** A desert's sand in wind ripples, never one flat tone (2026-11-05 preview: bare sand edge to edge). */
 const DESERT_GROUND = 'floor.rippled-sand';
+
+/**
+ * Rocky ground out in the open: rough earth its boulders and scree are strewn over. The set's own rock (granite slabs)
+ * drew every rocky patch as a blob of blue-grey flagstones on the grass (2026-11-06 preview, eight encounters).
+ */
+const OPEN_ROCK = 'floor.rough-packed-earth-2';
 
 /** The dry ground above a marsh: muted olive meadow, never the set's bright lawn grassland (2026-11-06 preview). */
 const MARSH_HEIGHTS = 'floor.olive-meadow';
@@ -119,7 +125,7 @@ const TRACK: Partial<Readonly<Record<EncounterLandscape, string>>> = {
 
 // The feudal world's woods and stone; the Imperium's works; the warp's corrupted night; a frontier world's works.
 const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
-    feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true, rock: null },
+    feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true, rock: OPEN_ROCK },
     grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: 'floor.rock-slate' },
     warp: {
         settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'],
@@ -128,7 +134,7 @@ const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
         bridged: false,
         rock: 'floor.rock-slate',
     },
-    scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: null },
+    scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: OPEN_ROCK },
 };
 
 type Side = 'north' | 'south' | 'east' | 'west';
@@ -413,7 +419,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     }
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
-    const textured = rock === null ? zones : zones.map((z) => (isRocky(z) ? { ...z, texture: rock } : z));
+    const textured = zones.map((z) => (isRocky(z) ? { ...z, texture: rock } : z));
     const groundTexture = groundTextureOf(choice.landscape, choice.setting);
     // The heights are the landscape's own ground raised, strewn with its rocks, never a band of bare rock: in the rock
     // texture they read as flagstone paving either side of the pass (2026-11-06 preview, encounter-feudal-marsh). A

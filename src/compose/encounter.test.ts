@@ -95,7 +95,7 @@ describe('encounter maps', () => {
         expect(parsed({ features: [] }).fixtures).toEqual([]);
     });
 
-    it("draws rocky ground in the world's rock: sandstone in a desert, slate in the Imperium's and the warp's, else the set's own", () => {
+    it("draws rocky ground in the world's rock: sandstone in a desert, slate in the Imperium's and the warp's, else rough earth", () => {
         // Rocky clusters out on the open ground, not the cliffs' heights.
         const rocks = (over: Partial<EncounterChoice>): (string | null)[] => [
             ...new Set(
@@ -107,7 +107,8 @@ describe('encounter maps', () => {
         expect(rocks({ landscape: 'desert', setting: 'feudal' })).toEqual(['floor.rock-sandstone']);
         expect(rocks({ landscape: 'hills', setting: 'grimdark' })).toEqual(['floor.rock-slate']);
         expect(rocks({ landscape: 'tundra', setting: 'warp' })).toEqual(['floor.rock-slate']);
-        expect(rocks({ landscape: 'hills', setting: 'feudal' })).toEqual([null]);
+        expect(rocks({ landscape: 'hills', setting: 'feudal' })).toEqual(['floor.rough-packed-earth-2']);
+        expect(rocks({ landscape: 'hills', setting: 'scifi' })).toEqual(['floor.rough-packed-earth-2']);
         // Only rocky ground: the marsh round the heights keeps its own.
         expect(
             parsed({ landscape: 'marsh', setting: 'grimdark', features: ['cliffs'] }).zones.filter(
