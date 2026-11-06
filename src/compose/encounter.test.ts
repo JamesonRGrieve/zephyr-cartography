@@ -96,23 +96,36 @@ describe('encounter maps', () => {
     });
 
     it("draws rocky ground in the world's rock: sandstone in a desert, slate in the Imperium's and the warp's, else the set's own", () => {
+        // Rocky clusters out on the open ground, not the cliffs' heights.
         const rocks = (over: Partial<EncounterChoice>): (string | null)[] => [
             ...new Set(
-                parsed({ features: ['cliffs'], ...over })
+                parsed({ features: [], ...over })
                     .zones.filter((z) => z.kind === 'rocky')
                     .map((z) => z.texture),
             ),
         ];
         expect(rocks({ landscape: 'desert', setting: 'feudal' })).toEqual(['floor.rock-sandstone']);
         expect(rocks({ landscape: 'hills', setting: 'grimdark' })).toEqual(['floor.rock-slate']);
-        expect(rocks({ landscape: 'marsh', setting: 'warp' })).toEqual(['floor.rock-slate']);
-        expect(rocks({ landscape: 'marsh', setting: 'feudal' })).toEqual([null]);
+        expect(rocks({ landscape: 'tundra', setting: 'warp' })).toEqual(['floor.rock-slate']);
+        expect(rocks({ landscape: 'hills', setting: 'feudal' })).toEqual([null]);
         // Only rocky ground: the marsh round the heights keeps its own.
         expect(
             parsed({ landscape: 'marsh', setting: 'grimdark', features: ['cliffs'] }).zones.filter(
                 (z) => z.kind !== 'rocky' && 'texture' in z && z.texture === 'floor.rock-slate',
             ),
         ).toEqual([]);
+    });
+
+    it("raises the cliffs' heights in the landscape's own ground, a marsh's in olive meadow, never bare rock", () => {
+        const heights = (over: Partial<EncounterChoice>): (string | null)[] => {
+            const zones = parsed({ features: ['cliffs'], ...over }).zones;
+            // The heights are the last two zones, the strips along the long sides.
+            return zones.slice(-2).map((z) => z.texture);
+        };
+        expect(heights({ landscape: 'marsh', setting: 'feudal' })).toEqual(['floor.olive-meadow', 'floor.olive-meadow']);
+        expect(heights({ landscape: 'desert', setting: 'feudal' })).toEqual(['floor.rippled-sand', 'floor.rippled-sand']);
+        expect(heights({ landscape: 'hills', setting: 'warp' })).toEqual(['floor.warp-scarred-earth', 'floor.warp-scarred-earth']);
+        expect(heights({ landscape: 'tundra', setting: 'feudal' })).toEqual(['snow', 'snow']);
     });
 
     it('crosses the river by the bridge asked: a kind, any road bridge, or a ford', () => {

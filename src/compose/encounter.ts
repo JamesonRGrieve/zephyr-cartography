@@ -84,6 +84,9 @@ const DESERT_ROCK = 'floor.rock-sandstone';
 /** A desert's sand in wind ripples, never one flat tone (2026-11-05 preview: bare sand edge to edge). */
 const DESERT_GROUND = 'floor.rippled-sand';
 
+/** The dry ground above a marsh: muted olive meadow, never the set's bright lawn grassland (2026-11-06 preview). */
+const MARSH_HEIGHTS = 'floor.olive-meadow';
+
 /** Ground the warp has scarred, dark soil veined violet, under its grassland and forest (2026-11-05: a warp forest drew as any green wood). */
 const WARP_GROUND = 'floor.warp-scarred-earth';
 
@@ -303,6 +306,8 @@ export function encounterIntent(choice: EncounterChoice): object {
     const zones: object[] = land.zones(random, width, height, choice.density);
     const paths: object[] = [];
     const fixtures: object[] = [];
+    // The cliffs' heights, drawn in the landscape's own ground after the rest (see below).
+    const heights: object[] = [];
     // On covered ground a feature stands in a clearing of its own.
     const opened = (at: Point, radius: number): void => {
         if (land.covered) {
@@ -318,8 +323,7 @@ export function encounterIntent(choice: EncounterChoice): object {
         zones.forEach((zone, i) => {
             zones[i] = intoPass(zone, depth, height);
         });
-        zones.push({ kind: 'rocky', area: edgeStrip('north', depth) });
-        zones.push({ kind: 'rocky', area: edgeStrip('south', depth) });
+        heights.push({ kind: 'rocky', area: edgeStrip('north', depth) }, { kind: 'rocky', area: edgeStrip('south', depth) });
         // Each height ends in a cliff face looking down into the pass, laid along its edge as a run of plan-view cliff art
         // (2026-11-04 render: the strips alone drew as flat grey bands, no cliff to them).
         const face = (y: number, facing: 'top' | 'bottom'): object => ({
@@ -411,7 +415,20 @@ export function encounterIntent(choice: EncounterChoice): object {
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
     const textured = rock === null ? zones : zones.map((z) => (isRocky(z) ? { ...z, texture: rock } : z));
     const groundTexture = groundTextureOf(choice.landscape, choice.setting);
-    return { ...base, ground: land.ground, ...(groundTexture === null ? {} : { groundTexture }), lighting: look.lighting, zones: textured, paths, fixtures };
+    // The heights are the landscape's own ground raised, strewn with its rocks, never a band of bare rock: in the rock
+    // texture they read as flagstone paving either side of the pass (2026-11-06 preview, encounter-feudal-marsh). A
+    // marsh's heights are the dry olive meadow above it.
+    const heightGround = groundTexture ?? (land.ground === 'marsh' ? MARSH_HEIGHTS : land.ground);
+    const raised = heights.map((h) => ({ ...h, texture: heightGround }));
+    return {
+        ...base,
+        ground: land.ground,
+        ...(groundTexture === null ? {} : { groundTexture }),
+        lighting: look.lighting,
+        zones: [...textured, ...raised],
+        paths,
+        fixtures,
+    };
 }
 
 /**
