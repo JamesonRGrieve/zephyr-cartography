@@ -472,30 +472,35 @@ describe('composeMap', () => {
         const fieldTextures = compose(intentOf({ ...fielded, splats })).spec.features.flatMap((f) => (f.type === 'region' ? [f.texture] : []));
         expect(fieldTextures).toEqual(['floor.standing-wheat']);
         // A map of several levels paints its ground on the ground level, not over every level.
-        const layered = composeMap(
-            intentOf({
-                width: 16,
-                height: 16,
-                splats,
-                buildings: [
-                    {
-                        key: 'tower',
-                        at: { x: 4, y: 4 },
-                        width: 8,
-                        height: 8,
-                        rooms: [{ key: 'parlour', purpose: 'hall', entrance: true }],
-                        floors: [{ rooms: [{ key: 'study', purpose: 'office' }] }],
-                    },
-                ],
-            }),
-            TEST_ROLES,
-        ).spec;
+        const layeredIntent = {
+            width: 16,
+            height: 16,
+            splats,
+            buildings: [
+                {
+                    key: 'tower',
+                    at: { x: 4, y: 4 },
+                    width: 8,
+                    height: 8,
+                    rooms: [{ key: 'parlour', purpose: 'hall', entrance: true }],
+                    floors: [{ rooms: [{ key: 'study', purpose: 'office' }] }],
+                },
+            ],
+        };
+        const layered = composeMap(intentOf(layeredIntent), TEST_ROLES).spec;
         expect(layered.splats).toEqual([{ ...splats[0], level: 'ground' }]);
         expect(parseSceneSpec(layered).ok).toBe(true);
         // A one-level map with a backdrop names its own level for the colour, but its blend still lies on every level.
         const backed = compose(intentOf({ ...INN_IN_THE_WOODS, splats, backdrop: '#0c0c0e' })).spec;
         expect(backed.levels.length).toBe(1);
         expect(backed.splats).toEqual(splats);
+        // A layered map with a backdrop: its painted ground level takes no colour (a blend under one exported black), the
+        // floors above keep the backdrop.
+        const backedLevels = composeMap(intentOf({ ...layeredIntent, backdrop: '#0c0c0e' }), TEST_ROLES).spec.levels ?? [];
+        expect(backedLevels.map((l) => [l.key, 'backgroundColor' in l ? l.backgroundColor : null])).toEqual([
+            ['ground', null],
+            ['floor-2', '#0c0c0e'],
+        ]);
     });
 
     it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {

@@ -1006,8 +1006,11 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     const { backdrop } = intent;
     const bare = layered ? levelsFor(intent, depth, height) : backdrop === null ? [] : [{ key: GROUND_LEVEL, name: groundName(intent), existing: true }];
     // A cellar lies in the earth: round its walls is nothing to see, never the scene's grey, whatever the map's backdrop is.
+    // A painted blend covers the whole ground level, so its backdrop is never seen there; and a blend bound to a level
+    // under a background colour exported black (a layered map's ground, 2026-11-06). The other storeys keep the colour.
+    const painted = layered && intent.splats.length > 0;
     const levels = bare.map((l) => {
-        const colour = backdrop ?? (l.key.startsWith(CELLAR_KEY) ? UNDERGROUND : null);
+        const colour = painted && l.key === GROUND_LEVEL ? null : backdrop ?? (l.key.startsWith(CELLAR_KEY) ? UNDERGROUND : null);
         return colour === null ? l : { ...l, backgroundColor: colour };
     });
     const levelOf: LevelOf = (storey) => (layered ? { level: levelKey(storey) } : {});
