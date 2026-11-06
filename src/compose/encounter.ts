@@ -8,6 +8,7 @@
  */
 
 import { randomInt, type Random, seededRandom, shuffled } from '../generate/random';
+import { type EarthCircle, paintGround } from './encounter-ground';
 
 /** The ground the encounter is fought over. */
 export const ENCOUNTER_LANDSCAPES = ['forest', 'plains', 'hills', 'desert', 'marsh', 'tundra', 'wasteland', 'cave'] as const;
@@ -205,6 +206,38 @@ function clusters(random: Random, width: number, height: number, kinds: readonly
 
 /** Squares over which a cluster's ground fades into the ground round it. */
 const CLUSTER_BLEND = 2.5;
+
+/** Each landscape's ground and its patches of another, as its painted blend lays them: the base where nothing else is. */
+const GROUND_ROLES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, readonly [string, string]>> = {
+    forest: ['floor.olive-meadow', 'floor.summer-forest-floor-2'],
+    plains: ['floor.olive-meadow', 'floor.grass-2'],
+    hills: ['floor.olive-meadow', 'floor.dead-grass'],
+    desert: ['floor.rippled-sand', 'sand'],
+    marsh: ['marsh', 'floor.mud-2'],
+    tundra: ['snow', 'tundra'],
+    wasteland: ['ash', 'floor.cracked-hardpan-2'],
+};
+
+/** Zones whose ground is worn to earth or rock in the painted blend: rock fields, ruins, works, camps, landings. */
+const EARTH_KINDS: readonly string[] = ['rocky', 'rubble', 'industrial', 'fortified', 'landing'];
+
+/** A distinct seed for the ground's noise, so painting it never shifts the layout's own random draws. */
+const GROUND_SEED_OFFSET = 1105;
+
+/** The circles of `zones` whose ground is worn to earth or rock. */
+function earthOf(zones: readonly object[]): EarthCircle[] {
+    return zones.flatMap((zone) =>
+        'kind' in zone &&
+        typeof zone.kind === 'string' &&
+        EARTH_KINDS.includes(zone.kind) &&
+        'area' in zone &&
+        typeof zone.area === 'object' &&
+        zone.area !== null &&
+        isCircleArea(zone.area)
+            ? [{ centre: zone.area.centre, radius: zone.area.radius }]
+            : [],
+    );
+}
 
 /** Copses of trees dotted over open ground. */
 function copses(random: Random, width: number, height: number, density: EncounterDensity, count: number): object[] {
@@ -424,19 +457,30 @@ export function encounterIntent(choice: EncounterChoice): object {
     }
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
-    const textured = zones.map((z) => (isRocky(z) ? { ...z, texture: rock } : z));
+    // Rocky ground is painted into the blend as earth or rock under its stones, never laid over it as a patch of its own.
     const groundTexture = groundTextureOf(choice.landscape, choice.setting);
     // The heights are the landscape's own ground raised, strewn with its rocks, never a band of bare rock: in the rock
     // texture they read as flagstone paving either side of the pass (2026-11-06 preview, encounter-feudal-marsh). A
     // marsh's heights are the dry olive meadow above it.
     const heightGround = groundTexture ?? (land.ground === 'marsh' ? MARSH_HEIGHTS : land.ground);
     const raised = heights.map((h) => ({ ...h, texture: heightGround }));
+    // The open ground painted as a blend: the landscape's own, its patches of another, and worn earth or rock under its
+    // stones, ruins and camps (2026-11-06 previews: rocky and earth patches lay as rimmed blobs on the ground).
+    const [baseRole, patchRole] = GROUND_ROLES[choice.landscape];
+    const painted = paintGround({
+        width,
+        height,
+        seed: choice.seed + GROUND_SEED_OFFSET,
+        roles: [groundTexture ?? baseRole, patchRole, rock],
+        earth: earthOf(zones),
+    });
     return {
         ...base,
         ground: land.ground,
         ...(groundTexture === null ? {} : { groundTexture }),
         lighting: look.lighting,
-        zones: [...textured, ...raised],
+        splats: [painted],
+        zones: [...zones, ...raised],
         paths,
         fixtures,
     };
@@ -457,11 +501,6 @@ export function intoPass(zone: object, depth: number, height: number): object {
     const radius = Math.max(1, Math.min(area.radius, (southFoot - northFoot) / 2));
     const y = Math.min(Math.max(area.centre.y, northFoot + radius), southFoot - radius);
     return { ...zone, area: circle({ x: area.centre.x, y }, radius) };
-}
-
-/** A zone of rocky ground, as the landscapes and the cliffs lay them. */
-function isRocky(zone: object): boolean {
-    return 'kind' in zone && zone.kind === 'rocky';
 }
 
 /** A whole number seed for a fresh layout. */

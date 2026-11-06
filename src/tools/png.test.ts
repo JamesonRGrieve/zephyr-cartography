@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { crc32, decodePng, encodePng } from './png';
+import { crc32, decodePng, encodePng, encodeStoredPng } from './png';
 
 /** A 3×2 image whose alpha runs to 0 with colour still in it: what a canvas would destroy. */
 function sample(): { width: number; height: number; pixels: Uint8ClampedArray<ArrayBuffer> } {
@@ -21,6 +21,17 @@ describe('png', () => {
         expect(decoded?.width).toBe(3);
         expect(decoded?.height).toBe(2);
         expect([...(decoded?.pixels ?? [])]).toEqual([...image.pixels]);
+    });
+
+    it('encodes at once in stored deflate blocks, decoding exactly, across more than one block', async () => {
+        const small = sample();
+        expect([...((await decodePng(encodeStoredPng(small)))?.pixels ?? [])]).toEqual([...small.pixels]);
+        // 200×100 RGBA scanlines are 80,100 bytes: two stored blocks.
+        const pixels = new Uint8ClampedArray(200 * 100 * 4).map((_, i) => (i * 7) % 251);
+        const large = { width: 200, height: 100, pixels };
+        const decoded = await decodePng(encodeStoredPng(large));
+        expect([decoded?.width, decoded?.height]).toEqual([200, 100]);
+        expect([...(decoded?.pixels ?? [])]).toEqual([...pixels]);
     });
 
     it('undoes every PNG scanline filter', async () => {

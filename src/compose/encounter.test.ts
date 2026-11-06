@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import { parseSceneSpec } from '../generate/spec';
+import { decodePng } from '../tools/png';
 import { composeMap } from './compose';
 import {
     DEFAULT_ENCOUNTER,
@@ -24,6 +25,7 @@ import {
     isEncounterSetting,
     isEncounterSize,
 } from './encounter';
+import { GROUND_PX } from './encounter-ground';
 import { type MapIntent, parseMapIntent } from './intent';
 import { TEST_ROLES } from './test-roles';
 
@@ -95,26 +97,45 @@ describe('encounter maps', () => {
         expect(parsed({ features: [] }).fixtures).toEqual([]);
     });
 
-    it("draws rocky ground in the world's rock: sandstone in a desert, slate in the Imperium's and the warp's, else rough earth", () => {
-        // Rocky clusters out on the open ground, not the cliffs' heights.
-        const rocks = (over: Partial<EncounterChoice>): (string | null)[] => [
-            ...new Set(
-                parsed({ features: [], ...over })
-                    .zones.filter((z) => z.kind === 'rocky')
-                    .map((z) => z.texture),
-            ),
-        ];
-        expect(rocks({ landscape: 'desert', setting: 'feudal' })).toEqual(['floor.rock-sandstone']);
-        expect(rocks({ landscape: 'hills', setting: 'grimdark' })).toEqual(['floor.rock-slate']);
-        expect(rocks({ landscape: 'tundra', setting: 'warp' })).toEqual(['floor.rock-slate']);
-        expect(rocks({ landscape: 'hills', setting: 'feudal' })).toEqual(['floor.rough-packed-earth-2']);
-        expect(rocks({ landscape: 'hills', setting: 'scifi' })).toEqual(['floor.rough-packed-earth-2']);
-        // Only rocky ground: the marsh round the heights keeps its own.
+    it("paints rocky ground in the world's rock: sandstone in a desert, slate in the Imperium's and the warp's, else rough earth", () => {
+        // The blend's third channel is the earth or rock its stones, ruins and camps stand on; rocky zones lay no patch.
+        const rockOf = (over: Partial<EncounterChoice>): string | null | undefined => parsed({ features: [], ...over }).splats[0]?.roles[2];
+        expect(rockOf({ landscape: 'desert', setting: 'feudal' })).toBe('floor.rock-sandstone');
+        expect(rockOf({ landscape: 'hills', setting: 'grimdark' })).toBe('floor.rock-slate');
+        expect(rockOf({ landscape: 'tundra', setting: 'warp' })).toBe('floor.rock-slate');
+        expect(rockOf({ landscape: 'hills', setting: 'feudal' })).toBe('floor.rough-packed-earth-2');
+        expect(rockOf({ landscape: 'hills', setting: 'scifi' })).toBe('floor.rough-packed-earth-2');
         expect(
-            parsed({ landscape: 'marsh', setting: 'grimdark', features: ['cliffs'] }).zones.filter(
-                (z) => z.kind !== 'rocky' && 'texture' in z && z.texture === 'floor.rock-slate',
-            ),
-        ).toEqual([]);
+            parsed({ landscape: 'hills', features: [] })
+                .zones.filter((z) => z.kind === 'rocky')
+                .map((z) => z.texture),
+        ).not.toContain('floor.rough-packed-earth-2');
+    });
+
+    it('paints the open ground as one blend: its own ground, patches of another, earth under its rocks', async () => {
+        const intent = parsed({ landscape: 'hills', setting: 'feudal', features: [] });
+        expect(intent.splats).toHaveLength(1);
+        const [splat] = intent.splats;
+        expect(splat?.roles).toEqual(['floor.olive-meadow', 'floor.dead-grass', 'floor.rough-packed-earth-2', null]);
+        const prefix = 'data:image/png;base64,';
+        expect(splat?.mask.startsWith(prefix)).toBe(true);
+        const bytes = Uint8Array.from(Buffer.from((splat?.mask ?? '').slice(prefix.length), 'base64'));
+        const mask = await decodePng(bytes);
+        expect([mask?.width, mask?.height]).toEqual([intent.width * GROUND_PX, intent.height * GROUND_PX]);
+        // Every pixel's weights sum to a whole: no backdrop shows through.
+        const pixels = mask?.pixels ?? new Uint8ClampedArray(0);
+        const sums = new Set<number>();
+        for (let i = 0; i < pixels.length; i += 4) {
+            sums.add((pixels[i] ?? 0) + (pixels[i + 1] ?? 0) + (pixels[i + 2] ?? 0));
+        }
+        expect([...sums]).toEqual([255]);
+        // At the middle of a rock field the ground is worn well toward earth (never wholly bare).
+        const rocky = intent.zones.find((z) => z.kind === 'rocky');
+        const centre = rocky?.area.shape === 'circle' ? rocky.area.centre : { x: 0, y: 0 };
+        const at = (Math.floor(centre.y * GROUND_PX) * (mask?.width ?? 0) + Math.floor(centre.x * GROUND_PX)) * 4;
+        expect(pixels[at + 2] ?? 0).toBeGreaterThan(80);
+        // The same checklist paints the same ground.
+        expect(parsed({ landscape: 'hills', setting: 'feudal', features: [] }).splats).toEqual(intent.splats);
     });
 
     it("raises the cliffs' heights in the landscape's own ground, a marsh's in olive meadow, never bare rock", () => {

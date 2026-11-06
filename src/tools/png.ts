@@ -70,8 +70,8 @@ function chunk(type: string, data: Uint8Array): Uint8Array<ArrayBuffer> {
     return out;
 }
 
-/** Encode RGBA pixels as a PNG file. */
-export async function encodePng(image: RgbaImage): Promise<Uint8Array<ArrayBuffer>> {
+/** The IHDR of an 8-bit RGBA image and its unfiltered scanlines, each led by filter type 0 (none). */
+function scanlines(image: RgbaImage): { header: Uint8Array; raw: Uint8Array<ArrayBuffer> } {
     const { width, height, pixels } = image;
     const header = new Uint8Array(HEADER_BYTES);
     const headerView = new DataView(header.buffer);
@@ -83,10 +83,13 @@ export async function encodePng(image: RgbaImage): Promise<Uint8Array<ArrayBuffe
     const stride = width * RGBA_BYTES;
     const raw = new Uint8Array((stride + 1) * height);
     for (let y = 0; y < height; y += 1) {
-        // Each scanline starts with its filter type: 0, none.
         raw.set(pixels.subarray(y * stride, (y + 1) * stride), y * (stride + 1) + 1);
     }
-    const data = await transform(raw, new CompressionStream('deflate'));
+    return { header, raw };
+}
+
+/** The PNG file of `header` and its zlib-wrapped image `data`. */
+function assemble(header: Uint8Array, data: Uint8Array): Uint8Array<ArrayBuffer> {
     const parts = [SIGNATURE, chunk('IHDR', header), chunk('IDAT', data), chunk('IEND', new Uint8Array(0))];
     const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
     parts.reduce((at, part) => {
@@ -94,6 +97,53 @@ export async function encodePng(image: RgbaImage): Promise<Uint8Array<ArrayBuffe
         return at + part.length;
     }, 0);
     return out;
+}
+
+/** Encode RGBA pixels as a PNG file. */
+export async function encodePng(image: RgbaImage): Promise<Uint8Array<ArrayBuffer>> {
+    const { header, raw } = scanlines(image);
+    return assemble(header, await transform(raw, new CompressionStream('deflate')));
+}
+
+/** The largest deflate stored block. */
+const STORED_BLOCK = 0xffff;
+const ADLER_MOD = 65521;
+
+/** zlib's Adler-32 over `bytes`. */
+function adler32(bytes: Uint8Array): number {
+    let a = 1;
+    let b = 0;
+    for (const byte of bytes) {
+        a = (a + byte) % ADLER_MOD;
+        b = (b + a) % ADLER_MOD;
+    }
+    return ((b << 16) | a) >>> 0;
+}
+
+/**
+ * Encode RGBA pixels as a PNG file at once, its scanlines in deflate's stored (uncompressed) blocks: for a composer,
+ * which is synchronous, to hand a mask it painted to a scene spec. Larger than `encodePng`'s, as exact.
+ */
+export function encodeStoredPng(image: RgbaImage): Uint8Array<ArrayBuffer> {
+    const { header, raw } = scanlines(image);
+    const blocks = Math.max(1, Math.ceil(raw.length / STORED_BLOCK));
+    // zlib: CMF 0x78 (deflate, 32K window), FLG 0x01 (no dictionary, fastest; 0x7801 a multiple of 31).
+    const data = new Uint8Array(2 + blocks * 5 + raw.length + 4);
+    const view = new DataView(data.buffer);
+    data[0] = 0x78;
+    data[1] = 0x01;
+    let at = 2;
+    for (let i = 0; i < blocks; i += 1) {
+        const part = raw.subarray(i * STORED_BLOCK, (i + 1) * STORED_BLOCK);
+        // BFINAL on the last block, BTYPE 00 (stored); then LEN and its one's complement, little-endian.
+        data[at] = i === blocks - 1 ? 1 : 0;
+        view.setUint16(at + 1, part.length, true);
+        view.setUint16(at + 3, ~part.length & 0xffff, true);
+        data.set(part, at + 5);
+        at += 5 + part.length;
+    }
+    view.setUint32(at, adler32(raw));
+    return assemble(header, data);
 }
 
 function paeth(left: number, up: number, upLeft: number): number {
