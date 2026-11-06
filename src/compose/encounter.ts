@@ -81,6 +81,24 @@ interface SettingLook {
 /** Desert rock is sandstone scree, whatever the world (2026-11-05: rocky zones drew flat grey with no painted rock). */
 const DESERT_ROCK = 'floor.rock-sandstone';
 
+/** A desert's sand in wind ripples, never one flat tone (2026-11-05 preview: bare sand edge to edge). */
+const DESERT_GROUND = 'floor.rippled-sand';
+
+/** Ground the warp has scarred, dark soil veined violet, under its grassland and forest (2026-11-05: a warp forest drew as any green wood). */
+const WARP_GROUND = 'floor.warp-scarred-earth';
+
+/**
+ * The ground texture a landscape is drawn in, where it is not its biome's own: rippled sand in any world's desert, the
+ * warp's scarred earth under its woods and plains. Null keeps the biome's. A role the active set lacks draws as the
+ * biome's own, so a texture still to come falls back cleanly.
+ */
+export function groundTextureOf(landscape: Exclude<EncounterLandscape, 'cave'>, setting: EncounterSetting): string | null {
+    if (landscape === 'desert') {
+        return DESERT_GROUND;
+    }
+    return setting === 'warp' && (landscape === 'forest' || landscape === 'plains' || landscape === 'hills') ? WARP_GROUND : null;
+}
+
 /** The bog's open mud, and how many squares of marsh hold one wallow of it. */
 const MUD = 'floor.mud';
 const MUD_SQUARES = 160;
@@ -380,7 +398,8 @@ export function encounterIntent(choice: EncounterChoice): object {
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
     const textured = rock === null ? zones : zones.map((z) => (isRocky(z) ? { ...z, texture: rock } : z));
-    return { ...base, ground: land.ground, lighting: look.lighting, zones: textured, paths, fixtures };
+    const groundTexture = groundTextureOf(choice.landscape, choice.setting);
+    return { ...base, ground: land.ground, ...(groundTexture === null ? {} : { groundTexture }), lighting: look.lighting, zones: textured, paths, fixtures };
 }
 
 /**

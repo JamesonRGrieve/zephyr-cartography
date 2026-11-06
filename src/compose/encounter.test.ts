@@ -53,6 +53,13 @@ describe('encounter ground', () => {
         expect(mud.every((z) => z.soft)).toBe(true);
     });
 
+    it("lays a desert in rippled sand in any world, and the warp's woods and plains on scarred earth", () => {
+        expect(parsed({ landscape: 'desert', setting: 'scifi' }).groundTexture).toBe('floor.rippled-sand');
+        expect(parsed({ landscape: 'forest', setting: 'warp' }).groundTexture).toBe('floor.warp-scarred-earth');
+        expect(parsed({ landscape: 'forest', setting: 'feudal' }).groundTexture ?? null).toBeNull();
+        expect(parsed({ landscape: 'marsh', setting: 'warp' }).groundTexture ?? null).toBeNull();
+    });
+
     it('slides a pool between cliffs into the pass, shrinking it where the pass is narrow', () => {
         const pool = { kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 20 }, radius: 3 } };
         expect(intoPass(pool, 5, 24)).toEqual({ kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 15 }, radius: 3 } });
