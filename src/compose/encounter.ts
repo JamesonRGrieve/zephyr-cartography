@@ -92,7 +92,7 @@ const WARP_GROUND = 'floor.warp-scarred-earth';
  * warp's scarred earth under its woods and plains. Null keeps the biome's. A role the active set lacks draws as the
  * biome's own, so a texture still to come falls back cleanly.
  */
-export function groundTextureOf(landscape: Exclude<EncounterLandscape, 'cave'>, setting: EncounterSetting): string | null {
+function groundTextureOf(landscape: Exclude<EncounterLandscape, 'cave'>, setting: EncounterSetting): string | null {
     if (landscape === 'desert') {
         return DESERT_GROUND;
     }
@@ -146,6 +146,18 @@ interface EdgeArea {
     readonly depth: number;
 }
 const circle = (centre: Point, radius: number): CircleArea => ({ shape: 'circle', centre, radius });
+
+/** Whether `area` is a circle area: a centre point and a radius. */
+function isCircleArea(area: object): area is CircleArea {
+    if (!('shape' in area) || area.shape !== 'circle') {
+        return false;
+    }
+    if (!('radius' in area) || typeof area.radius !== 'number' || !('centre' in area)) {
+        return false;
+    }
+    const { centre } = area;
+    return typeof centre === 'object' && centre !== null && 'x' in centre && typeof centre.x === 'number' && 'y' in centre && typeof centre.y === 'number';
+}
 const edgeStrip = (side: Side, depth: number): EdgeArea => ({ shape: 'edge', side, depth });
 const EVERYWHERE = { shape: 'everywhere' } as const;
 
@@ -408,10 +420,10 @@ export function encounterIntent(choice: EncounterChoice): object {
  * is left as it is.
  */
 export function intoPass(zone: object, depth: number, height: number): object {
-    if (!('area' in zone) || typeof zone.area !== 'object' || zone.area === null || !('shape' in zone.area) || zone.area.shape !== 'circle') {
+    if (!('area' in zone) || typeof zone.area !== 'object' || zone.area === null || !isCircleArea(zone.area)) {
         return zone;
     }
-    const area = zone.area as CircleArea;
+    const { area } = zone;
     const northFoot = depth + 1;
     const southFoot = height - depth - 1;
     const radius = Math.max(1, Math.min(area.radius, (southFoot - northFoot) / 2));
