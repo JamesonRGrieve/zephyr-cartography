@@ -198,8 +198,13 @@ function clusters(random: Random, width: number, height: number, kinds: readonly
         kind: kinds[i % kinds.length] ?? 'rubble',
         area: circle(i === 0 && near ? near : spot(), Math.max(2, largest * (i === 0 ? 1 : 0.45 + random() * 0.4))),
         density: i === 0 ? density : 'sparse',
+        // Feathered wide into the ground round it, never a round blob with a crisp rim (2026-11-06 preview).
+        blend: CLUSTER_BLEND,
     }));
 }
+
+/** Squares over which a cluster's ground fades into the ground round it. */
+const CLUSTER_BLEND = 2.5;
 
 /** Copses of trees dotted over open ground. */
 function copses(random: Random, width: number, height: number, density: EncounterDensity, count: number): object[] {
