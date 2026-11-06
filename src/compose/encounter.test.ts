@@ -97,12 +97,16 @@ describe('encounter maps', () => {
         expect(parsed({ features: [] }).fixtures).toEqual([]);
     });
 
-    it("paints rocky ground in the world's rock: sandstone in a desert, slate in the Imperium's and the warp's, else rough earth", () => {
+    it("paints rocky ground in the world's earth: sandstone in a desert, churned earth in the Imperium's, scarred in the warp's, else rough earth", () => {
         // The blend's third channel is the earth or rock its stones, ruins and camps stand on; rocky zones lay no patch.
         const rockOf = (over: Partial<EncounterChoice>): string | null | undefined => parsed({ features: [], ...over }).splats[0]?.roles[2];
         expect(rockOf({ landscape: 'desert', setting: 'feudal' })).toBe('floor.rock-sandstone');
-        expect(rockOf({ landscape: 'hills', setting: 'grimdark' })).toBe('floor.rock-slate');
-        expect(rockOf({ landscape: 'tundra', setting: 'warp' })).toBe('floor.rock-slate');
+        expect(rockOf({ landscape: 'hills', setting: 'grimdark' })).toBe('floor.shell-churned-earth');
+        expect(rockOf({ landscape: 'tundra', setting: 'warp' })).toBe('floor.warp-scarred-earth');
+        // A wasteland in one brown family: rough earth, scorched patches, its own ground and heights the same earth.
+        const waste = parsed({ landscape: 'wasteland', setting: 'grimdark', features: [] });
+        expect(waste.splats[0]?.roles.slice(0, 2)).toEqual(['floor.rough-packed-earth-2', 'floor.scorched-earth-2']);
+        expect(waste.groundTexture).toBe('floor.rough-packed-earth-2');
         expect(rockOf({ landscape: 'hills', setting: 'feudal' })).toBe('floor.rough-packed-earth-2');
         expect(rockOf({ landscape: 'hills', setting: 'scifi' })).toBe('floor.rough-packed-earth-2');
         expect(

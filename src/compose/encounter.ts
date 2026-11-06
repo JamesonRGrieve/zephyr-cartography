@@ -91,6 +91,20 @@ const DESERT_GROUND = 'floor.rippled-sand';
  */
 const OPEN_ROCK = 'floor.rough-packed-earth-2';
 
+/**
+ * The Imperium's and the warp's worn ground under their stones, ruins and camps: shell-churned earth and warp-scarred
+ * earth. Their set's slate slabs drew every patch as a dark blob of flagstone on the open ground (2026-11-06 previews,
+ * encounter-grimdark-wasteland and -desert, warp-forest).
+ */
+const GRIMDARK_ROCK = 'floor.shell-churned-earth';
+const WARP_ROCK = 'floor.warp-scarred-earth';
+
+/**
+ * A wasteland's open ground: rough brown earth, its patches scorched (2026-11-06: grey pebble ash under tan hardpan
+ * read as two maps pasted together).
+ */
+const WASTELAND_GROUND = 'floor.rough-packed-earth-2';
+
 /** The dry ground above a marsh: muted olive meadow, never the set's bright lawn grassland (2026-11-06 preview). */
 const MARSH_HEIGHTS = 'floor.olive-meadow';
 
@@ -105,6 +119,10 @@ const WARP_GROUND = 'floor.warp-scarred-earth';
 function groundTextureOf(landscape: Exclude<EncounterLandscape, 'cave'>, setting: EncounterSetting): string | null {
     if (landscape === 'desert') {
         return DESERT_GROUND;
+    }
+    // Its heights and base in the same brown earth as its blend, never the set's grey ash.
+    if (landscape === 'wasteland') {
+        return WASTELAND_GROUND;
     }
     return setting === 'warp' && (landscape === 'forest' || landscape === 'plains' || landscape === 'hills') ? WARP_GROUND : null;
 }
@@ -127,13 +145,13 @@ const TRACK: Partial<Readonly<Record<EncounterLandscape, string>>> = {
 // The feudal world's woods and stone; the Imperium's works; the warp's corrupted night; a frontier world's works.
 const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
     feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true, rock: OPEN_ROCK },
-    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: 'floor.rock-slate' },
+    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: GRIMDARK_ROCK },
     warp: {
         settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'],
         ruin: 'rubble',
         lighting: 'night',
         bridged: false,
-        rock: 'floor.rock-slate',
+        rock: WARP_ROCK,
     },
     scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: OPEN_ROCK },
 };
@@ -216,7 +234,7 @@ const GROUND_ROLES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, readonl
     // Drier olive hummocks through the bog (its mud wallows are zones of their own): all bog read as a black mat.
     marsh: ['marsh', 'floor.olive-meadow'],
     tundra: ['snow', 'tundra'],
-    wasteland: ['ash', 'floor.cracked-hardpan-2'],
+    wasteland: [WASTELAND_GROUND, 'floor.scorched-earth-2'],
 };
 
 /** Zones whose ground is worn to earth or rock in the painted blend: rock fields, ruins, works, camps, landings. */
