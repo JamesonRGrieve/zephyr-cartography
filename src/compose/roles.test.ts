@@ -226,6 +226,16 @@ describe('roleIndex factions', () => {
         expect(keys(['setting-grimdark-human'])).toEqual(['pack:human-bed']);
         expect(keys(['setting-grimdark-human', 'setting-grimdark-orcish'])).toEqual(['pack:human-bed', 'pack:orcish-bunk']);
     });
+
+    it('keeps each demon power’s art to maps that name that power, though it also carries the chaotic setting', () => {
+        const pack = stamps([
+            stampDef('cult-altar', { role: 'altar', tags: ['setting-grimdark-chaotic'] }),
+            stampDef('violent-altar', { role: 'altar', tags: ['setting-grimdark-chaotic', 'setting-demon-violent'] }),
+        ]);
+        const keys = (settings: readonly string[]): string[] => (roleIndex(pack, settings).get('altar') ?? []).map((s) => s.key);
+        expect(keys(['setting-grimdark-chaotic'])).toEqual(['pack:cult-altar']);
+        expect(keys(['setting-grimdark-chaotic', 'setting-demon-violent'])).toEqual(['pack:cult-altar', 'pack:violent-altar']);
+    });
 });
 
 describe('roleIndex fittings', () => {

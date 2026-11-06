@@ -281,6 +281,12 @@ const FACTION_SETTINGS: readonly string[] = [
     'setting-grimdark-elven',
     'setting-grimdark-orcish',
 ];
+/**
+ * Each demon power is a faction of its own: its art (`setting-demon-<power>`) also carries the chaotic setting, so a
+ * map naming chaos for a cult's room took every power's altars, trees and lamps too (wizard's tower, 2026-11-06).
+ */
+const DEMON_SETTING_PREFIX = 'setting-demon-';
+const isFaction = (tag: string): boolean => FACTION_SETTINGS.includes(tag) || tag.startsWith(DEMON_SETTING_PREFIX);
 
 /**
  * The role `stamp` is composed in: its pack's, else its tags'; none where
@@ -340,7 +346,7 @@ export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly st
         const role = composedRole(stamp, mapScale);
         // A faction's own art (communist, chaotic, orcish...) is in a map only where the map names that faction, whatever broader
         // setting it also carries: a human fortress never climbs orcish stairs.
-        const factionless = stamp.tags.every((tag) => !FACTION_SETTINGS.includes(tag) || settings.includes(tag));
+        const factionless = stamp.tags.every((tag) => !isFaction(tag) || settings.includes(tag));
         const inSetting = (settings.length === 0 || stamp.tags.some((tag) => settings.includes(tag))) && factionless;
         // A stair joins floors only if it carries a transition.
         if (role === undefined || variant === undefined || !suitsScale(role, stamp.scale, mapScale) || (role === 'stairs' && stamp.transition === undefined)) {
