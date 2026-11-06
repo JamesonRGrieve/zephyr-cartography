@@ -213,7 +213,8 @@ const GROUND_ROLES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, readonl
     plains: ['floor.olive-meadow', 'floor.grass-2'],
     hills: ['floor.olive-meadow', 'floor.dead-grass'],
     desert: ['floor.rippled-sand', 'sand'],
-    marsh: ['marsh', 'floor.mud-2'],
+    // Drier olive hummocks through the bog (its mud wallows are zones of their own): all bog read as a black mat.
+    marsh: ['marsh', 'floor.olive-meadow'],
     tundra: ['snow', 'tundra'],
     wasteland: ['ash', 'floor.cracked-hardpan-2'],
 };
