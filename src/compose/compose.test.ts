@@ -428,6 +428,10 @@ describe('composeMap', () => {
         ).spec;
         expect(layered.splats).toEqual([{ ...splats[0], level: 'ground' }]);
         expect(parseSceneSpec(layered).ok).toBe(true);
+        // A one-level map with a backdrop names its own level for the colour, but its blend still lies on every level.
+        const backed = compose(intentOf({ ...INN_IN_THE_WOODS, splats, backdrop: '#0c0c0e' })).spec;
+        expect(backed.levels.length).toBe(1);
+        expect(backed.splats).toEqual(splats);
     });
 
     it('by night darkens the scene and lights a room by its hearth and lamps, keeping the light of a room with neither', () => {

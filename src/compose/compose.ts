@@ -1092,10 +1092,10 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
             features,
             ...(scene === null ? {} : { scene }),
             ...(intent.sceneFlags === undefined ? {} : { sceneFlags: intent.sceneFlags }),
-            // The ground's painted blend lies on the ground level, under everything else.
-            ...(intent.splats.length === 0
-                ? {}
-                : { splats: intent.splats.map((s) => (levels.some((l) => l.key === GROUND_LEVEL) ? { ...s, level: GROUND_LEVEL } : s)) }),
+            // The ground's painted blend lies on the ground level, under everything else, on a map of several levels. A map
+            // of one has nothing to keep it off, so it lies on every level: a backdrop alone names the scene's own level,
+            // and a blend bound to it exported black under the level's background colour (renders 2026-11-06).
+            ...(intent.splats.length === 0 ? {} : { splats: layered ? intent.splats.map((s) => ({ ...s, level: GROUND_LEVEL })) : intent.splats }),
         },
         problems: distinctProblems([...exterior.problems, ...streetBoxes, ...composed.flatMap((c) => c.problems), ...platforms.problems]),
     };
