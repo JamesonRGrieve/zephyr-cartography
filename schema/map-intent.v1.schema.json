@@ -1544,6 +1544,15 @@
                                         "description": "A named piece a room holds, placed as asked before anything its purpose adds."
                                     }
                                 },
+                                "factions": {
+                                    "default": [],
+                                    "description": "Faction settings of the map’s (`setting-grimdark-chaotic`, a `setting-demon-…` power) kept to the rooms naming them: art of a faction any room names is strewn only in those rooms, never in the others or out of doors. Named pieces draw it anywhere.",
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    }
+                                },
                                 "furnish": {
                                     "default": "purpose",
                                     "description": "What furnishes it: its fixtures, then what its purpose adds; or its fixtures alone, as a map drawn to a brief is.",
@@ -2281,6 +2290,15 @@
                                                     ],
                                                     "additionalProperties": false,
                                                     "description": "A named piece a room holds, placed as asked before anything its purpose adds."
+                                                }
+                                            },
+                                            "factions": {
+                                                "default": [],
+                                                "description": "Faction settings of the map’s (`setting-grimdark-chaotic`, a `setting-demon-…` power) kept to the rooms naming them: art of a faction any room names is strewn only in those rooms, never in the others or out of doors. Named pieces draw it anywhere.",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "minLength": 1
                                                 }
                                             },
                                             "furnish": {
@@ -3035,6 +3053,15 @@
                                                     ],
                                                     "additionalProperties": false,
                                                     "description": "A named piece a room holds, placed as asked before anything its purpose adds."
+                                                }
+                                            },
+                                            "factions": {
+                                                "default": [],
+                                                "description": "Faction settings of the map’s (`setting-grimdark-chaotic`, a `setting-demon-…` power) kept to the rooms naming them: art of a faction any room names is strewn only in those rooms, never in the others or out of doors. Named pieces draw it anywhere.",
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string",
+                                                    "minLength": 1
                                                 }
                                             },
                                             "furnish": {

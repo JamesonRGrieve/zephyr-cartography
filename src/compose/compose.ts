@@ -33,7 +33,7 @@ import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders
 import { platformFeatures } from './platform';
 import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './preferences';
 import { type ComposeProblem, distinctProblems } from './problems';
-import { drawnAs, type RoleIndex, type RoleStamp } from './roles';
+import { drawnAs, type RoleIndex, type RoleStamp, withoutFactions } from './roles';
 import { flawsOf, layOutStoreys, type Storeys, type Well, type Wells } from './storeys';
 import { tokenFeatures } from './tokens';
 import { windowSlots } from './windows';
@@ -127,6 +127,8 @@ interface StoreyContext {
     readonly onLevel: { level?: string };
     readonly night: boolean;
     readonly preferences: Preferences;
+    /** Faction settings kept to the rooms naming them (`withoutFactions`): strewn in no other room. */
+    readonly confined: readonly string[];
     /** Under a roof on a map out of doors: the day kept out but through windows and outer doors. */
     readonly indoors: boolean;
     /** Windows in its outer walls (above ground, where the building has them). */
@@ -146,7 +148,7 @@ const LIGHT_SOURCES: readonly StampRole[] = ['light', 'hearth'];
 
 /** One storey's rooms and furniture. */
 function composeStorey(layout: BuildingLayout, context: StoreyContext): { features: FeatureInput[]; problems: ComposeProblem[] } {
-    const { building, called, footprint, stamps, random, reserved, onLevel, night, preferences, indoors, windowed } = context;
+    const { building, called, footprint, stamps, random, reserved, onLevel, night, preferences, confined, indoors, windowed } = context;
     const roleOf = new Map([...stamps.values()].flat().map((s) => [s.key, s.role]));
     const problems: ComposeProblem[] = layout.unmet.map(([room, other]) => ({ kind: 'not-beside', building: called, room, other }));
     const rooms: FeatureInput[] = [];
@@ -188,7 +190,13 @@ function composeStorey(layout: BuildingLayout, context: StoreyContext): { featur
         };
         const cut = chamferCorners(room.rect, chamfer, room.intent.chamferAt);
         const corners = cut.filter(enclosed);
-        const furnished = furnishRoom(floor, narrowedIndex(stamps, preferences.get(roomPlace(called, room.key))), random, [...reserved, ...cut.map(boundsOf)]);
+        const preferred = narrowedIndex(stamps, preferences.get(roomPlace(called, room.key)));
+        // A faction kept to its own rooms is strewn only in them; the room's named pieces still draw it.
+        const strewn = withoutFactions(
+            preferred,
+            confined.filter((faction) => !room.intent.factions.includes(faction)),
+        );
+        const furnished = furnishRoom(floor, strewn, random, [...reserved, ...cut.map(boundsOf)], preferred);
         const glows = furnished.stamps.some((s) => LIGHT_SOURCES.some((role) => roleOf.get(s.stamp) === role));
         // Its own doorways, and each neighbour's into it as an opening in its side of the wall: the door is the neighbour's to draw.
         const slots = layout.doors.flatMap((d) => {
@@ -381,6 +389,8 @@ interface MapContext {
     readonly levelOf: LevelOf;
     readonly night: boolean;
     readonly preferences: Preferences;
+    /** Faction settings kept to the rooms naming them. */
+    readonly confined: readonly string[];
     /** The map's cellar levels: the deepest building's cellars. */
     readonly depth: number;
     /** The map is out of doors (a battlemap with ground): its buildings keep the day out but through windows and outer doors. */
@@ -584,7 +594,7 @@ function composeBuilding(
     footprint: Rect,
     map: MapContext,
 ): { features: FeatureInput[]; problems: ComposeProblem[]; ground: BuildingLayout | null; annexes: Rect[]; clear: Rect[] } {
-    const { stamps, random, levelOf, night, preferences, depth, outdoor } = map;
+    const { stamps, random, levelOf, night, preferences, confined, depth, outdoor } = map;
     // Windows in a building's outer walls out of doors, where it has them; cellars are below ground, with none.
     const windowedOn = (storey: number): boolean => outdoor && building.windows && storey >= 0;
     const ways = withStairTags(stamps, building.stairTags);
@@ -645,6 +655,7 @@ function composeBuilding(
             onLevel: levelOf(storey),
             night,
             preferences,
+            confined,
             indoors: outdoor,
             windowed: windowedOn(storey),
         });
@@ -680,7 +691,9 @@ function composeBuilding(
     }
     const porch = building.porch === null ? null : porchOf(storeys.ground, footprint, building.porch);
     if (porch) {
-        const furnished = furnishRoom(porch.floor, narrowedIndex(stamps, preferences.get(roomPlace(called, PORCH))), random);
+        const preferred = narrowedIndex(stamps, preferences.get(roomPlace(called, PORCH)));
+        // A porch is out of doors: no faction kept to its rooms is strewn on it.
+        const furnished = furnishRoom(porch.floor, withoutFactions(preferred, confined), random, [], preferred);
         features.push(boardsOver(porch.floor.rect, levelOf(0)), ...furnished.stamps.map((s) => ({ ...stampFeature(s), ...levelOf(0) })));
         problems.push(...furnished.missing.flatMap((role) => missing(role, `${called}/${PORCH}`, stamps.get(role)?.[0]) ?? []));
         problems.push(...furnished.boxed.map((piece) => ({ kind: 'placeholder' as const, piece, wantedIn: `${called}/${PORCH}` })));
@@ -976,6 +989,13 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     const random = seededRandom(intent.seed);
     // A role no loaded stamp fills still stands where it is wanted, as a labelled box its size.
     const stamps = withPlaceholders(loaded);
+    // Factions some room keeps to itself (a tower's sanctum naming chaos): strewn in those rooms alone, never outside.
+    const confined = [
+        ...new Set(
+            intent.buildings.flatMap((b) => [b.rooms, ...b.floors.map((f) => f.rooms), ...b.cellars.map((c) => c.rooms)].flat().flatMap((r) => r.factions)),
+        ),
+    ];
+    const outdoors = withoutFactions(stamps, confined);
     // Levels below the ground: a building's cellars, or a cave cut on storeys below it.
     const depth = mapDepth(intent);
     // A raised platform stands on the level above the ground.
@@ -999,7 +1019,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
         return {
             building,
             footprint,
-            ...composeBuilding(building, buildingName(building, i), footprint, { stamps, random, levelOf, night, preferences, depth, outdoor }),
+            ...composeBuilding(building, buildingName(building, i), footprint, { stamps, random, levelOf, night, preferences, confined, depth, outdoor }),
         };
     });
     // Raised platforms over the ground, each with its stair up from it: after the buildings, so they move nothing in them.
@@ -1032,6 +1052,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
         seededRandom(intent.seed + OUTDOOR_STREAM),
         preferences,
         levelOf,
+        confined,
     );
     // Out of doors is the ground level's, but for a piece set on a level below it (a cave's lower galleries).
     const outside = layered
@@ -1059,7 +1080,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
         ...intent.props.flatMap((p) => ('at' in p ? [squareAround(p.at, PROP_CLEARANCE)] : [])),
     ];
     const districts = intent.districts.map((d, i) =>
-        districtFeatures(d, stamps, random, levelOf(0), {
+        districtFeatures(d, outdoors, random, levelOf(0), {
             boxes: [...standing, ...intent.districts.slice(0, i).map((earlier) => earlier.area)],
             paths: exterior.paths,
         }),

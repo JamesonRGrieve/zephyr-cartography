@@ -58,6 +58,70 @@ function compose(intent: MapIntent): { spec: SceneSpec; problems: readonly Compo
 }
 
 describe('composeMap', () => {
+    it('strews a faction a room keeps to itself only in that room, never in the others or outside, but draws it where named', () => {
+        const chaotic = 'setting-grimdark-chaotic';
+        const warp = (role: StampRole, id: string): RoleStamp => {
+            const [base] = TEST_ROLES.get(role) ?? [];
+            if (base === undefined) {
+                throw new Error(`fixture: no ${role}`);
+            }
+            return { ...base, key: `test:${id}`, tags: [chaotic] };
+        };
+        const roles: RoleIndex = new Map([
+            ...TEST_ROLES,
+            ['storage', [warp('storage', 'warp-urn')]],
+            ['tree', [...(TEST_ROLES.get('tree') ?? []), warp('tree', 'warp-tree')]],
+        ]);
+        const tower = (factions: readonly string[]): object => ({
+            seed: 5,
+            width: 30,
+            height: 24,
+            zones: [{ kind: 'woodland', area: { shape: 'everywhere' }, density: 'dense' }],
+            buildings: [
+                {
+                    key: 'tower',
+                    at: { x: 9, y: 8 },
+                    width: 10,
+                    height: 6,
+                    rooms: [
+                        {
+                            key: 'study',
+                            purpose: 'storage',
+                            entrance: true,
+                            opensTo: ['sanctum'],
+                            fixtures: [{ name: 'urn', role: 'storage', width: 0.8, height: 0.8, place: { centre: true } }],
+                        },
+                        { key: 'sanctum', purpose: 'storage', factions },
+                    ],
+                },
+            ],
+        });
+        const keysIn = (given: object, room: string | null): string[] => {
+            const { spec } = composeMap(intentOf(given), roles);
+            const rooms = spec.features.flatMap((f) => (f.type === 'room' ? [f] : []));
+            const within = (r: (typeof rooms)[number], f: { x: number; y: number }): boolean => {
+                const xs = r.points.map((p) => p.x);
+                const ys = r.points.map((p) => p.y);
+                return f.x > Math.min(...xs) && f.x < Math.max(...xs) && f.y > Math.min(...ys) && f.y < Math.max(...ys);
+            };
+            const box = room === null ? null : rooms.find((r) => r.key === `tower:${room}`);
+            return spec.features.flatMap((f) => {
+                if (f.type !== 'stamp') {
+                    return [];
+                }
+                const here = box === null ? !rooms.some((r) => within(r, f)) : box !== undefined && within(box, f);
+                return here ? [f.stamp] : [];
+            });
+        };
+        // Named on the sanctum, chaos is strewn there alone; the study holds the one urn it names, none strewn.
+        const confined = { ...tower([chaotic]), settings: [chaotic] };
+        expect(keysIn(confined, null)).not.toContain('test:warp-tree');
+        expect(keysIn(confined, 'study').filter((key) => key === 'test:warp-urn')).toHaveLength(1);
+        expect(keysIn(confined, 'sanctum')).toContain('test:warp-urn');
+        // No room naming it: the map's faction is strewn everywhere, as before.
+        expect(keysIn({ ...tower([]), settings: [chaotic] }, null)).toContain('test:warp-tree');
+    });
+
     it('composes a valid spec with nothing it could not do', () => {
         const { problems, spec } = compose(INN_IN_THE_WOODS);
         expect(problems).toEqual([]);

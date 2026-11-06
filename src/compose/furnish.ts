@@ -1213,8 +1213,11 @@ export function furnishRoom(
     given: RoleIndex,
     random: Random,
     reserved: readonly Box[] = [],
+    byName: RoleIndex = given,
 ): { stamps: ComposedStamp[]; missing: StampRole[]; borrowed: StampRole[]; boxed: string[]; crowded: string[] } {
     const stamps = withStandIns(forPurpose(given, room.purpose));
+    // Named pieces draw from `byName`: what the intent asks for by name stands whatever this room may strew (a faction's art).
+    const nameable = byName === given ? stamps : withStandIns(forPurpose(byName, room.purpose));
     const floor = new Floor(room, [...doorApproaches(room), ...reserved]);
     // The room's named pieces first, each where asked: in its role's art where a pack draws it, else a box with its name;
     // those with no room even for their box are left off, and said so.
@@ -1225,7 +1228,7 @@ export function furnishRoom(
     for (const fixture of room.fixtures ?? []) {
         const from = floor.stood.length;
         // Art asked for by its tags is what the intent named, whatever room its tags would keep it to.
-        const piece = namedArt(fixture, fixture.tags.length > 0 ? given : stamps);
+        const piece = namedArt(fixture, fixture.tags.length > 0 ? byName : nameable);
         const stood = piece === undefined ? 0 : placeFixture(floor, fixture, piece, named, random);
         // Art that stands nowhere it is asked (isometric, it cannot turn to a side wall) gives way to its box.
         const boxes = stood === 0 ? placeFixture(floor, fixture, namedBox(fixture), named, random) : 0;

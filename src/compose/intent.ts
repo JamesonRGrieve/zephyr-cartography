@@ -475,6 +475,12 @@ const room = z
             .default([...CORNERS])
             .describe('Which corners its chamfer cuts: all four (an octagonal chamber), or some (a hull tapering to its bow, a blunt stern).'),
         fixtures: z.array(fixture).default([]).describe('Named pieces it holds, placed first, each where asked.'),
+        factions: z
+            .array(text)
+            .default([])
+            .describe(
+                'Faction settings of the map’s (`setting-grimdark-chaotic`, a `setting-demon-…` power) kept to the rooms naming them: art of a faction any room names is strewn only in those rooms, never in the others or out of doors. Named pieces draw it anywhere.',
+            ),
         furnish: z
             .enum(['purpose', 'fixtures'])
             .default('purpose')

@@ -28,7 +28,7 @@ import { noiseField, type NoiseField } from './noise';
 import { isPlaceholder, missing } from './placeholders';
 import { narrowed, type Preferences, zonePlace } from './preferences';
 import type { ComposeProblem } from './problems';
-import { drawnAs, type RoleIndex, type RoleStamp, soundFirst } from './roles';
+import { drawnAs, type RoleIndex, type RoleStamp, soundFirst, withoutFactions } from './roles';
 import { poissonDisc } from './scatter';
 
 type FeatureInput = SceneSpecInput['features'][number];
@@ -1238,6 +1238,7 @@ export function composeExterior(
     random: Random,
     preferences: Preferences,
     levelOf: (storey: number) => { readonly level?: string },
+    confined: readonly string[] = [],
 ): { features: FeatureInput[]; problems: ComposeProblem[]; paths: readonly LaidPath[] } {
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
@@ -1363,18 +1364,20 @@ export function composeExterior(
     if (charted) {
         return { features, problems, paths };
     }
+    // Everything strewn out of doors keeps off the factions kept to their own rooms (a sanctum's warp flora in the garden).
+    const strewn = withoutFactions(stamps, confined);
     const placedProps = placeProps(intent.props, sites, stamps, keepout, props, random);
     features.push(...placedProps.features);
     problems.push(...placedProps.problems);
     // Yards next: their stores against the walls, a cart standing by, before anything grows round them.
     for (const site of sites.filter((s) => s.yard)) {
-        features.push(...yardOf(site, stamps, keepout, props, random));
+        features.push(...yardOf(site, strewn, keepout, props, random));
     }
     // Solid pieces of every zone keep clear of one another; each zone's dressing lists its largest works first, so they stand first.
     const standing: Standing[] = [];
     outlines.forEach(({ zone, outline }, i) => {
         for (const dressing of ZONE_DRESSING[zone.kind]) {
-            const choices = narrowed(inHabitat(stamps, dressing.role, ZONE_HABITATS[zone.kind]), preferences.get(zonePlace(i))?.get(dressing.role));
+            const choices = narrowed(inHabitat(strewn, dressing.role, ZONE_HABITATS[zone.kind]), preferences.get(zonePlace(i))?.get(dressing.role));
             const lacking = !dressing.optional && choices.every((s) => isPlaceholder(s.key)) ? missing(dressing.role, zone.kind, choices[0]) : null;
             if (lacking) {
                 problems.push(lacking);
@@ -1388,14 +1391,14 @@ export function composeExterior(
     });
     for (const { zone, outline } of outlines) {
         if (zone.kind === 'lake') {
-            features.push(...shore(outline, keepout, stamps, random));
+            features.push(...shore(outline, keepout, strewn, random));
         }
     }
-    features.push(...banks(paths, keepout, stamps, random));
-    const crossed = bridges(paths, stamps, random);
+    features.push(...banks(paths, keepout, strewn, random));
+    const crossed = bridges(paths, strewn, random);
     features.push(...crossed.features);
     problems.push(...crossed.problems);
     const leads = intent.paths.map((p) => typeof p.to === 'object' && 'building' in p.to);
-    features.push(...waymarks(paths, leads, stamps, keepout, random));
+    features.push(...waymarks(paths, leads, strewn, keepout, random));
     return { features, problems, paths };
 }

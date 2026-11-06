@@ -289,6 +289,18 @@ const DEMON_SETTING_PREFIX = 'setting-demon-';
 const isFaction = (tag: string): boolean => FACTION_SETTINGS.includes(tag) || tag.startsWith(DEMON_SETTING_PREFIX);
 
 /**
+ * `index` without the art of any of `factions` (setting tags): what a place strews where a faction the map names is
+ * kept to its own rooms. A wizard's tower names chaos for its sanctum, and its garden, study and cellar were strewn with
+ * warp flora and altars too (2026-11-06); named pieces still draw from the whole index.
+ */
+export function withoutFactions(index: RoleIndex, factions: readonly string[]): RoleIndex {
+    if (factions.length === 0) {
+        return index;
+    }
+    return new Map([...index].map(([role, list]) => [role, list.filter((s) => !s.tags.some((tag) => factions.includes(tag)))]));
+}
+
+/**
  * The role `stamp` is composed in: its pack's, else its tags'; none where
  * its pack says null. Art drawn at a scale its role never takes (a room's
  * horse stall, a street stall's counter out on a promenade) cannot furnish
