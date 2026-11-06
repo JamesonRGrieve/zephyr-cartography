@@ -63,7 +63,9 @@ const READY_TIMEOUT_MS = (Number(process.env['E2E_READY_TIMEOUT_S']) || 60) * 10
 export const SCENE = { width: 2000, height: 1500, gridSize: 100 } as const;
 
 /** Console errors Foundry itself logs on a bare test world, unrelated to the module. */
-const FOUNDRY_NOISE = [/Failed to load resource/, /favicon/];
+// Foundry's minimum-screen notice: the export sizes the viewport to each picture's tile, under 1366×768 for a narrow map
+// (a vehicle's interior, 900×1400, failed its export on it, 2026-11-06), and nothing in the scene is wrong.
+const FOUNDRY_NOISE = [/Failed to load resource/, /favicon/, /requires a screen resolution of \d+px by \d+px or greater/];
 
 /** This worker's own server. */
 function serverUrl(): string {
