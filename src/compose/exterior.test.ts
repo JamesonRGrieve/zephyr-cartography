@@ -726,3 +726,40 @@ describe('pickDressing', () => {
         expect(pickDressing(random, 'tree', [])).toBeUndefined();
     });
 });
+
+describe('a piece kept clear', () => {
+    it('moves off a road to the nearest free spot, and stands exactly where asked when nothing is in the way', () => {
+        const fitting = TEST_ROLES.get('fitting')?.[0];
+        if (!fitting) {
+            throw new Error('the test roles have no fitting');
+        }
+        const intentOf = (at: { x: number; y: number }, clear: boolean): MapIntent => {
+            const parsed = parseMapIntent({
+                schemaVersion: 1,
+                seed: 4,
+                width: 30,
+                height: 20,
+                ground: 'grassland',
+                paths: [{ kind: 'road', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, meander: 0 }],
+                fixtures: [{ name: 'shrub', role: 'fitting', tags: fitting.tags.slice(0, 1), width: 1, height: 1, at, clear }],
+            });
+            if (!parsed.ok) {
+                throw new Error(JSON.stringify(parsed.issues));
+            }
+            return parsed.intent;
+        };
+        const standing = (intent: MapIntent) =>
+            composeMap(intent, TEST_ROLES, NO_PREFERENCES).spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp === fitting.key ? [f] : []));
+        // On the road, kept clear: moved off it, near where asked.
+        const [moved] = standing(intentOf({ x: 15, y: 10 }, true));
+        expect(moved).toBeDefined();
+        expect(Math.abs((moved?.y ?? 10) - 10)).toBeGreaterThan(1);
+        expect(Math.hypot((moved?.x ?? 0) - 15, (moved?.y ?? 0) - 10)).toBeLessThan(4);
+        // On the road, not kept clear: stands exactly where asked (named pieces stand where asked).
+        const [asked] = standing(intentOf({ x: 15, y: 10 }, false));
+        expect(asked?.y).toBe(10);
+        // In open ground, kept clear: never moved.
+        const [inOpen] = standing(intentOf({ x: 5, y: 4 }, true));
+        expect({ x: inOpen?.x, y: inOpen?.y }).toEqual({ x: 5, y: 4 });
+    });
+});

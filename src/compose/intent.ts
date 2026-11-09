@@ -393,6 +393,12 @@ const outdoorFixture = z
     .object({
         ...namedPiece,
         at: point.describe('Its centre, in grid squares from the map’s top-left corner.'),
+        clear: z
+            .boolean()
+            .default(false)
+            .describe(
+                'Kept clear of roads, rivers, water and buildings: moved to the nearest free spot round `at` where it would stand on one (a warp shrub strewn by a generator), never left on a road.',
+            ),
         angle: z
             .number()
             .min(0)

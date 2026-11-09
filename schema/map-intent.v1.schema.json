@@ -3546,6 +3546,11 @@
                         "additionalProperties": false,
                         "description": "Its centre, in grid squares from the map’s top-left corner."
                     },
+                    "clear": {
+                        "default": false,
+                        "description": "Kept clear of roads, rivers, water and buildings: moved to the nearest free spot round `at` where it would stand on one (a warp shrub strewn by a generator), never left on a road.",
+                        "type": "boolean"
+                    },
                     "angle": {
                         "description": "Degrees clockwise it lies turned, in place of its `facing`: wreckage strewn at any angle across open ground, never squared to the grid.",
                         "type": "number",
@@ -4434,6 +4439,11 @@
                                     ],
                                     "additionalProperties": false,
                                     "description": "Its centre, in grid squares from the map’s top-left corner."
+                                },
+                                "clear": {
+                                    "default": false,
+                                    "description": "Kept clear of roads, rivers, water and buildings: moved to the nearest free spot round `at` where it would stand on one (a warp shrub strewn by a generator), never left on a road.",
+                                    "type": "boolean"
                                 },
                                 "angle": {
                                     "description": "Degrees clockwise it lies turned, in place of its `facing`: wreckage strewn at any angle across open ground, never squared to the grid.",

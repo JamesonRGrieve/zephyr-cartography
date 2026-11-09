@@ -406,6 +406,113 @@ const BRIDGE: Readonly<Record<EncounterBridge, readonly string[] | false | undef
     ford: false,
 };
 
+/**
+ * Where a road down the map is pinned, or null to let it wander: beside a river down the map it keeps to one bank, on
+ * the side with more room (2026-11-04 render, encounter-feudal-forest: left to wander it met the river and bridged it at
+ * the map's edge); through cliffs it is pinned too, so the faces can leave it a pass (2026-11-09 render,
+ * encounter-grimdark-marsh: an unpinned road ran straight through both faces).
+ */
+function downRoadX(at: {
+    readonly lakeAt: Point | null;
+    readonly riverX: number | null;
+    readonly cliffDepth: number | null;
+    readonly clearX: number | null;
+    readonly width: number;
+    readonly random: Random;
+}): number | null {
+    const { lakeAt, riverX, cliffDepth, clearX, width, random } = at;
+    if (lakeAt === null && riverX !== null) {
+        return riverX < width / 2 ? width * 0.82 : width * 0.18;
+    }
+    return cliffDepth === null ? null : clearX ?? Math.round(width * (0.35 + random() * 0.3));
+}
+
+/** Squares the roads keep inside the pass from a height's face, and how far a road pinned through cliffs may wander. */
+const CLIFF_CLEARANCE = 2;
+const CLIFF_ROAD_MEANDER = 0.2;
+/** Squares either side of a road's line a cliff face leaves open for its pass. */
+const CLIFF_PASS = 3;
+
+/**
+ * Each height's cliff face looking down into the pass, laid along its edge as a run of plan-view cliff art (2026-11-04
+ * render: the strips alone drew as flat grey bands, no cliff to them), broken for a pass where a road runs down the map
+ * through the heights at `passX`; none where the map has no cliffs (`depth` null).
+ */
+function cliffFaces(depth: number | null, width: number, height: number, passX: number | null): object[] {
+    if (depth === null) {
+        return [];
+    }
+    const run = (y: number, facing: 'top' | 'bottom', x0: number, x1: number): object => ({
+        // "run" in its name as in its art's: plain "cliff face" tied the Run with its corner pieces, and the corner won
+        // (2026-11-05 judge census: 44 Earth Cliff Face Outer Corners along a marsh's heights).
+        name: 'cliff face run',
+        width: Math.round((x1 - x0) * 10) / 10,
+        height: 1,
+        at: { x: Math.round(((x0 + x1) / 2) * 10) / 10, y },
+        role: 'fitting',
+        tags: ['cliff', 'face', 'run'],
+        state: 'only cliff face',
+        facing,
+        fixed: true,
+    });
+    const spans: [number, number][] =
+        passX === null
+            ? [[0, width]]
+            : [
+                  [0, passX - CLIFF_PASS],
+                  [passX + CLIFF_PASS, width],
+              ];
+    const kept = spans.filter(([x0, x1]) => x1 - x0 >= 1);
+    return kept.flatMap(([x0, x1]) => [run(depth, 'bottom', x0, x1), run(height - depth, 'top', x0, x1)]);
+}
+
+/**
+ * What the warp leaves on any ground (2026-11-09 renders: a warp desert, marsh or tundra read as any other, its corruption
+ * only in a forest's or plain's soil): rifts torn in the ground, corrupted shrubs and a twisted tree or two, scattered
+ * over the map by its area and kept clear of the roads, rivers and water (the composer moves each to a free spot).
+ * Warp flora is drawn only where named, so each is named here.
+ */
+const WARP_GROWTH: readonly { name: string; width: number; height: number; role: string; tags: readonly string[]; states: readonly string[]; per: number }[] = [
+    { name: 'hell rift', width: 2.4, height: 1.2, role: 'fitting', tags: ['hell', 'rift'], states: ['short', 'longer', 'long cracked'], per: 500 },
+    {
+        name: 'corrupted shrub',
+        width: 1.2,
+        height: 1.2,
+        role: 'fitting',
+        tags: ['corrupted', 'shrub'],
+        states: ['black brush', 'teal thorns', 'violet flowering'],
+        per: 160,
+    },
+    {
+        name: 'hell-twisted tree',
+        width: 2.4,
+        height: 2.4,
+        role: 'fitting',
+        // A fitting, the pack's own role for it, by its own tags: as a tree any tree matched, an autumn one winning (judge
+        // WRONG ART, 2026-11-09).
+        tags: ['hell', 'twisted', 'tree'],
+        states: ['black spirals', 'violet veined', 'thorny tendrils'],
+        per: 600,
+    },
+];
+
+function warpGrowth(random: Random, width: number, height: number): object[] {
+    return WARP_GROWTH.flatMap((kind) =>
+        Array.from({ length: Math.max(1, Math.round((width * height) / kind.per)) }, () => ({
+            name: kind.name,
+            width: kind.width,
+            height: kind.height,
+            role: kind.role,
+            tags: [...kind.tags],
+            state: kind.states[randomInt(random, 0, kind.states.length - 1)],
+            at: inside(random, width, height, 2),
+            angle: randomInt(random, 0, 359),
+            fixed: true,
+            clear: true,
+        })),
+    );
+}
+
 /** The map intent for an encounter, as a preset's is: an object the GM edits as JSON and the composer builds. */
 export function encounterIntent(choice: EncounterChoice): object {
     const look = LOOKS[choice.setting];
@@ -431,6 +538,8 @@ export function encounterIntent(choice: EncounterChoice): object {
             zones.push({ kind: 'clearing', area: circle(at, radius + 1) });
         }
     };
+    // The heights' depth where the map has cliffs: their faces are laid once the roads are known, broken where one crosses.
+    let cliffDepth: number | null = null;
     if (has('cliffs')) {
         // Heights of rock along both long sides, the way between them a pass.
         // Not a boulder field: a band of rock either side (2026-11-04 preview: dense strips swamped a marsh in boulders).
@@ -441,22 +550,7 @@ export function encounterIntent(choice: EncounterChoice): object {
             zones[i] = intoPass(zone, depth, height);
         });
         heights.push({ kind: 'rocky', area: edgeStrip('north', depth) }, { kind: 'rocky', area: edgeStrip('south', depth) });
-        // Each height ends in a cliff face looking down into the pass, laid along its edge as a run of plan-view cliff art
-        // (2026-11-04 render: the strips alone drew as flat grey bands, no cliff to them).
-        const face = (y: number, facing: 'top' | 'bottom'): object => ({
-            // "run" in its name as in its art's: plain "cliff face" tied the Run with its corner pieces, and the corner won
-            // (2026-11-05 judge census: 44 Earth Cliff Face Outer Corners along a marsh's heights).
-            name: 'cliff face run',
-            width,
-            height: 1,
-            at: { x: width / 2, y },
-            role: 'fitting',
-            tags: ['cliff', 'face', 'run'],
-            state: 'only cliff face',
-            facing,
-            fixed: true,
-        });
-        fixtures.push(face(depth, 'bottom'), face(height - depth, 'top'));
+        cliffDepth = depth;
     }
     let lakeAt: Point | null = null;
     if (has('lake')) {
@@ -509,25 +603,33 @@ export function encounterIntent(choice: EncounterChoice): object {
     });
     // The road runs through the camp's gate where there is one: it is what the camp holds. Round a lake, never over it
     // (2026-11-04 preview: a road ran straight across one): it passes the far side of the map from the water.
+    // A y held inside the pass, clear of both heights, where the map has cliffs.
+    const intoPassY = (y: number): number =>
+        cliffDepth === null ? y : Math.min(height - cliffDepth - CLIFF_CLEARANCE, Math.max(cliffDepth + CLIFF_CLEARANCE, y));
     const clear = (along: 'x' | 'y'): Point | null =>
         lakeAt === null
             ? null
             : along === 'y'
-            ? { x: width / 2, y: lakeAt.y < height / 2 ? height * 0.82 : height * 0.18 }
+            ? // Inside the pass where the map has cliffs: at 0.82 or 0.18 of the map the road climbed over a height's face
+              // round a lake (2026-11-09 render, encounter-scifi-marsh).
+              { x: width / 2, y: intoPassY(lakeAt.y < height / 2 ? height * 0.82 : height * 0.18) }
             : { x: lakeAt.x < width / 2 ? width * 0.82 : width * 0.18, y: height / 2 };
     if (choice.road !== 'none') {
         paths.push(road('west', 'east', campAt ?? clear('y')));
     }
+    // Where a road runs down the map through the heights, its x: the faces break there for a pass.
+    let passX: number | null = null;
     if (choice.road === 'crossroads') {
-        // A road down the map beside a river down the map keeps to one bank, its ends pinned on the side with more room:
-        // left to wander it met the river and bridged it at the map's edge (2026-11-04 render, encounter-feudal-forest).
-        const bank = lakeAt === null && riverX !== null ? (riverX < width / 2 ? width * 0.82 : width * 0.18) : null;
+        // Pinned beside a river or through cliffs (downRoadX), else free to wander.
+        const pinned = downRoadX({ lakeAt, riverX, cliffDepth, clearX: clear('x')?.x ?? null, width, random });
+        passX = pinned;
         paths.push(
-            bank === null
+            pinned === null
                 ? road('south', 'north', clear('x'))
-                : { ...road('south', 'north', null), from: { x: bank, y: height + 1 }, to: { x: bank, y: -1 }, meander: 0.25 },
+                : { ...road('south', 'north', null), from: { x: pinned, y: height + 1 }, to: { x: pinned, y: -1 }, meander: CLIFF_ROAD_MEANDER },
         );
     }
+    fixtures.push(...cliffFaces(cliffDepth, width, height, passX), ...(choice.setting === 'warp' ? warpGrowth(random, width, height) : []));
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
     // Rocky ground is painted into the blend as earth or rock under its stones, never laid over it as a patch of its own.

@@ -166,6 +166,25 @@ describe('encounter maps', () => {
         expect(parsed({ landscape: 'hills', setting: 'feudal', features: [] }).splats).toEqual(intent.splats);
     });
 
+    it('leaves the cliffs a pass where a road runs down the map through them, and keeps a road round a lake inside the pass', () => {
+        const cut = parsed({ features: ['cliffs'], road: 'crossroads' });
+        const down = cut.paths.find((p) => p.kind === 'road' && typeof p.from === 'object' && 'y' in p.from && p.from.y > cut.height);
+        const x = down && typeof down.from === 'object' && 'x' in down.from ? down.from.x : null;
+        expect(x).not.toBeNull();
+        const faces = cut.fixtures.filter((f) => f.name === 'cliff face run');
+        // Two runs either side of the pass on each height, none spanning the road's line.
+        expect(faces).toHaveLength(4);
+        expect(faces.every((f) => Math.abs(f.at.x - (x ?? 0)) > f.width / 2)).toBe(true);
+        // Round a lake, the road across the map passes inside the pass, never over a height.
+        const lake = parsed({ features: ['cliffs', 'lake'], road: 'road' });
+        const across = lake.paths.find((p) => p.kind === 'road');
+        const depth = Math.round(lake.height * 0.2);
+        for (const via of across?.via ?? []) {
+            expect(via.y).toBeGreaterThan(depth);
+            expect(via.y).toBeLessThan(lake.height - depth);
+        }
+    });
+
     it("raises the cliffs' heights in the landscape's own ground, a marsh's in olive meadow, never bare rock", () => {
         const heights = (over: Partial<EncounterChoice>): (string | null)[] => {
             const zones = parsed({ features: ['cliffs'], ...over }).zones;

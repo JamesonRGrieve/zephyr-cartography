@@ -516,6 +516,28 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
     return CLEARED.includes(role) && keepout.clearings.some((outline) => pointInPolygon(p, outline));
 }
 
+/** Squares out from its point a piece kept clear looks for a free spot, and the step between the rings it tries. */
+const CLEAR_SEARCH = 6;
+const CLEAR_STEP = 0.5;
+
+/**
+ * The free spot nearest `at` for a piece of `reach` (half its longest side) and `role`: `at` itself where nothing blocks
+ * it, else the first clear point on rings round it a step apart, out to CLEAR_SEARCH; null where none is.
+ */
+function clearSpot(at: Point, reach: number, role: StampRole, keepout: Keepout): Point | null {
+    for (let r = 0; r <= CLEAR_SEARCH; r += CLEAR_STEP) {
+        const steps = r === 0 ? 1 : Math.max(8, Math.round((2 * Math.PI * r) / CLEAR_STEP));
+        for (let i = 0; i < steps; i++) {
+            const turn = (2 * Math.PI * i) / steps;
+            const p = { x: Math.round((at.x + r * Math.cos(turn)) * 100) / 100, y: Math.round((at.y + r * Math.sin(turn)) * 100) / 100 };
+            if (!blocked(p, role, keepout, reach)) {
+                return p;
+            }
+        }
+    }
+    return null;
+}
+
 /** How far `p` lies inside `outline` (0 at or outside its edge). */
 function depthInside(p: Point, outline: readonly Point[]): number {
     return distanceToPolyline(p, [...outline, ...outline.slice(0, 1)]);
@@ -1347,7 +1369,14 @@ export function composeExterior(
         });
     }
     // The intent's own pieces stand first, its named ones exactly where asked; everything scattered after keeps clear of them.
-    for (const fixture of intent.fixtures) {
+    for (const asked of intent.fixtures) {
+        // A piece asked to keep clear moves off a road, the water or a building to the nearest free spot round its point.
+        const at = asked.clear ? clearSpot(asked.at, Math.max(asked.width, asked.height) / 2, asked.role ?? 'fitting', keepout) : asked.at;
+        if (at === null) {
+            problems.push({ kind: 'no-room', piece: asked.name, wantedIn: OUTSIDE_PLACE });
+            continue;
+        }
+        const fixture = { ...asked, at };
         const { placed, piece, boxed } = standingAt(fixture, stamps);
         if (boxed) {
             problems.push({ kind: 'placeholder', piece: fixture.name, wantedIn: OUTSIDE_PLACE });
