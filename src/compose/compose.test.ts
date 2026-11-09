@@ -725,6 +725,30 @@ describe('composeMap', () => {
         ).toEqual([]);
     });
 
+    it('lays that roof in the building’s own roof texture where it names one, else in its wall material', () => {
+        const keep = (roof?: string) =>
+            intentOf({
+                ground: null,
+                buildings: [
+                    {
+                        key: 'keep',
+                        width: 10,
+                        height: 8,
+                        wall: 'wall.dark-stone',
+                        ...(roof === undefined ? {} : { roof }),
+                        rooms: [{ key: 'hall', purpose: 'hall', entrance: true, rect: { x: 0, y: 0, w: 10, h: 8 } }],
+                        floors: [{ name: 'Office', rooms: [{ key: 'office', purpose: 'office', rect: { x: 5, y: 0, w: 5, h: 4 } }] }],
+                    },
+                ],
+            });
+        const roofTexture = (intent: MapIntent) =>
+            compose(intent)
+                .spec.features.filter((f) => f.type === 'region' && f.level === 'floor-2' && f.sharp)
+                .map((f) => (f.type === 'region' ? f.texture : null));
+        expect(roofTexture(keep('floor.rusted-grating'))).toEqual(['floor.rusted-grating']);
+        expect(roofTexture(keep())).toEqual(['wall.dark-stone']);
+    });
+
     it('roofs a tapered hull as tapered: the storey below’s cut corners stay open void, never roofed', () => {
         const hull = intentOf({
             ground: null,

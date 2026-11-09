@@ -365,6 +365,9 @@ function roofOf(
     );
 }
 
+/** The texture of a building's flat roof under a partial storey: its own `roof`, else its wall material. */
+const roofTextureOf = (building: { readonly roof?: string | undefined; readonly wall: string }): string => building.roof ?? building.wall;
+
 /** The layout of the storey under an upper `storey`; null for the ground, a cellar, or one that did not fit. */
 const storeyBelow = (storeys: Storeys, storey: number): BuildingLayout | null =>
     storey === 1 ? storeys.ground : storey > 1 ? storeys.floors[storey - 2] ?? null : null;
@@ -644,7 +647,7 @@ function composeBuilding(
         }
         const below = storeyBelow(storeys, storey);
         const build = { floor: building.floor, wall: building.wall, wallKind: building.wallKind, ceiling: true };
-        features.push(...roofOf(layout, below, { footprint, texture: building.wall, onLevel: levelOf(storey), build }));
+        features.push(...roofOf(layout, below, { footprint, texture: roofTextureOf(building), onLevel: levelOf(storey), build }));
         const composed = composeStorey(layout, {
             building,
             called: storeyCalled,

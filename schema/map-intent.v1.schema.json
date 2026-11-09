@@ -722,6 +722,11 @@
                         "type": "string",
                         "minLength": 1
                     },
+                    "roof": {
+                        "description": "Texture role of the flat roof an upper storey sees over the rooms below that it does not cover (a ship’s hold under its bridge deck). Omitted: its wall material.",
+                        "type": "string",
+                        "minLength": 1
+                    },
                     "wallKind": {
                         "default": "solid",
                         "type": "string",

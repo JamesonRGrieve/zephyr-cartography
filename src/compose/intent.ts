@@ -510,6 +510,11 @@ const building = z
         height: z.number().int().min(3),
         floor: text.default('floor.wooden-planks').describe('Floor texture role (a biome or a pack floor.*).'),
         wall: text.default('wall.stone').describe('Wall texture role (a pack wall.*), drawn along every wall.'),
+        roof: text
+            .optional()
+            .describe(
+                'Texture role of the flat roof an upper storey sees over the rooms below that it does not cover (a ship’s hold under its bridge deck). Omitted: its wall material.',
+            ),
         wallKind: z.enum(WALL_PRESETS).default(DEFAULT_WALL_PRESET),
         wallBand: squares
             .nullable()

@@ -1486,7 +1486,9 @@ or a tavern is. Composition is the layer above them (operator decisions,
     direction and source (a spiral stair), kept where that lays better.
   - **Partial storeys.** A storey whose rooms (each given a `rect`) cover
     only part of the footprint (a commander's office over its stair core)
-    has flat roof over the rest, in the building's wall texture, laid under
+    has flat roof over the rest, in the building's `roof` texture (its wall
+    texture where it names none: a ship's hold under its bridge deck in
+    tread plate, not a block of hull wall), laid under
     its rooms on its level: never a view down into the rooms below. The
     roof follows the storey below room by room, cut corners cut, so the
     void beside a tapered hull's bow stays void.
