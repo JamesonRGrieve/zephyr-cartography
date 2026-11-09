@@ -133,12 +133,15 @@ const MUD_SQUARES = 160;
 
 /**
  * A road over open country is a worn earth track, through a bog a muddy one, never the set's grey gravel (2026-11-05
- * preview: a gravel road through a marsh). Other ground keeps the set's road.
+ * preview: a gravel road through a marsh; 2026-11-09 renders: grey gravel over sand, snow and the wasteland's earth).
  */
-const TRACK: Partial<Readonly<Record<EncounterLandscape, string>>> = {
+const TRACK: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, string>> = {
     forest: 'floor.packed-dirt',
     plains: 'floor.packed-dirt',
     hills: 'floor.packed-dirt',
+    desert: 'floor.packed-dirt',
+    tundra: 'floor.packed-dirt',
+    wasteland: 'floor.rough-packed-earth-2',
     marsh: MUD,
 };
 
@@ -308,25 +311,76 @@ const LANDSCAPES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, Landscape
     wasteland: { ground: 'ash', covered: false, zones: (random, w, h, density) => clusters(random, w, h, ['rubble', 'rocky'], density) },
 };
 
-/** A cave's chambers: how many, and their size range in squares. */
-const CAVE_CHAMBERS = { min: 4, max: 7, smallest: 4, largest: 8 } as const;
+/** A cave's chambers: their size range in squares, and the squares of map each cell of their grid takes. */
+const CAVE_CHAMBERS = { smallest: 6, largest: 11, cell: 12 } as const;
 const CAVE_BACKDROP = '#0c0b0a';
+/** A passage's width in squares. */
+const CAVE_PASSAGE = 2.5;
+/** Spots tried for a chamber's dressing, and the squares kept between two pieces of it. */
+const CAVE_DRESSING_TRIES = 24;
+const CAVE_DRESSING_GAP = 0.3;
 
-/** Chambers cut through rock, each joined to the one before, the first opening off the map. */
+/**
+ * A cave's dressing, as the Dunmarch caves dress theirs (2026-11-09 renders: every encounter cave a bare floor):
+ * boulders, loose stones, stalagmites, mushrooms and roots, each by the role its art's tags derive.
+ */
+const CAVE_DRESSING: readonly { name: string; width: number; height: number; role: string; tags: readonly string[] }[] = [
+    { name: 'cave boulder', width: 1.6, height: 1.4, role: 'rock', tags: ['cave', 'boulder'] },
+    { name: 'loose stones', width: 0.8, height: 0.65, role: 'debris', tags: ['rubble', 'bits', 'debris'] },
+    { name: 'stalagmite cluster', width: 1.2, height: 1.2, role: 'fitting', tags: ['stalagmite', 'cluster'] },
+    { name: 'mushroom cluster', width: 1.2, height: 1.2, role: 'flora', tags: ['mushroom', 'cluster'] },
+    { name: 'cave roots', width: 1.6, height: 1.4, role: 'flora', tags: ['cave', 'roots'] },
+];
+
+/**
+ * Chambers cut through rock, one in each cell of a grid over the map, jittered, so the cave fills it (2026-11-09:
+ * chambers at random bunched in a corner, the rest of the map void); each joined to the one before, the first opening
+ * off the map, and dressed in the middle half of its floor, clear of its walls.
+ */
 function cave(random: Random, width: number, height: number): object {
-    const count = randomInt(random, CAVE_CHAMBERS.min, CAVE_CHAMBERS.max);
-    const chambers = Array.from({ length: count }, () => ({
-        centre: inside(random, width, height),
-        width: randomInt(random, CAVE_CHAMBERS.smallest, CAVE_CHAMBERS.largest),
-        height: randomInt(random, CAVE_CHAMBERS.smallest, CAVE_CHAMBERS.largest),
-    }));
-    const passages = chambers.slice(1).map((chamber, i) => ({ points: [chambers[i]?.centre ?? chamber.centre, chamber.centre], width: 2 }));
+    const columns = Math.max(2, Math.round(width / CAVE_CHAMBERS.cell));
+    const rows = Math.max(1, Math.round(height / CAVE_CHAMBERS.cell));
+    const cells = Array.from({ length: columns * rows }, (_, i) => ({ column: i % columns, row: Math.floor(i / columns) }));
+    // Snaking through the grid, row by row, so each chamber's passage reaches its neighbour.
+    const ordered = cells.sort((a, b) => a.row - b.row || (a.row % 2 === 0 ? a.column - b.column : b.column - a.column));
+    const round = (v: number): number => Math.round(v * 10) / 10;
+    const chambers = ordered.map(({ column, row }) => {
+        const cellWidth = width / columns;
+        const cellHeight = height / rows;
+        const size = (cell: number): number => Math.min(cell - 2, randomInt(random, CAVE_CHAMBERS.smallest, CAVE_CHAMBERS.largest));
+        return {
+            centre: { x: round((column + 0.3 + random() * 0.4) * cellWidth), y: round((row + 0.3 + random() * 0.4) * cellHeight) },
+            width: size(cellWidth),
+            height: size(cellHeight),
+        };
+    });
+    const passages = chambers.slice(1).map((chamber, i) => ({ points: [chambers[i]?.centre ?? chamber.centre, chamber.centre], width: CAVE_PASSAGE }));
+    const dressing: object[] = [];
     const first = chambers[0]?.centre ?? { x: width / 2, y: height / 2 };
-    const exit = { points: [first, { x: -1, y: first.y }], width: 2 };
+    const exit = { points: [first, { x: -1, y: first.y }], width: CAVE_PASSAGE };
+    // Each chamber's pieces apart from one another: a spot tried a few times, kept only clear of those already there
+    // (2026-11-09 judge: boulders and stalagmites heaped on one another).
+    for (const chamber of chambers) {
+        const placed: { at: Point; reach: number }[] = [];
+        const wanted = randomInt(random, 2, 4);
+        for (let tries = 0; tries < CAVE_DRESSING_TRIES && placed.length < wanted; tries++) {
+            const piece = CAVE_DRESSING[randomInt(random, 0, CAVE_DRESSING.length - 1)] ?? CAVE_DRESSING[0];
+            const reach = Math.max(piece?.width ?? 1, piece?.height ?? 1) / 2;
+            const at = {
+                x: round(chamber.centre.x + (random() - 0.5) * chamber.width * 0.5),
+                y: round(chamber.centre.y + (random() - 0.5) * chamber.height * 0.5),
+            };
+            if (piece && placed.every((other) => Math.hypot(other.at.x - at.x, other.at.y - at.y) > other.reach + reach + CAVE_DRESSING_GAP)) {
+                placed.push({ at, reach });
+                dressing.push({ ...piece, tags: [...piece.tags], at });
+            }
+        }
+    }
     return {
         ground: null,
         backdrop: CAVE_BACKDROP,
         hewn: [{ floor: 'floor.cave-floor', wall: 'wall.rock', roughness: 0.5, chambers, passages: [exit, ...passages] }],
+        fixtures: dressing,
     };
 }
 
@@ -451,7 +505,7 @@ export function encounterIntent(choice: EncounterChoice): object {
         ...(via ? { via: [via] } : {}),
         meander: Math.round((0.3 + random() * 0.3) * 100) / 100,
         ...(bridge === undefined ? {} : { bridge }),
-        ...(track === undefined ? {} : { texture: track }),
+        texture: track,
     });
     // The road runs through the camp's gate where there is one: it is what the camp holds. Round a lake, never over it
     // (2026-11-04 preview: a road ran straight across one): it passes the far side of the map from the water.

@@ -41,12 +41,36 @@ function parsed(over: Partial<EncounterChoice> = {}): MapIntent {
 }
 
 describe('encounter ground', () => {
-    it('lays a marsh road as a muddy track and open country as worn earth, a desert on the set road', () => {
+    it("lays a marsh road as a muddy track and every other open country as worn earth, never the set's grey gravel", () => {
         const textureOf = (landscape: EncounterChoice['landscape']): string | null | undefined =>
             parsed({ landscape, road: 'road' }).paths.find((p) => p.kind === 'road')?.texture;
         expect(textureOf('marsh')).toBe('floor.mud');
         expect(textureOf('plains')).toBe('floor.packed-dirt');
-        expect(textureOf('desert') ?? null).toBeNull();
+        expect(textureOf('desert')).toBe('floor.packed-dirt');
+        expect(textureOf('tundra')).toBe('floor.packed-dirt');
+        expect(textureOf('wasteland')).toBe('floor.rough-packed-earth-2');
+    });
+
+    it('cuts a cave over the whole map, a chamber to each cell of its grid, each dressed inside its own floor', () => {
+        const intent = parsed({ landscape: 'cave', size: 'large' });
+        const [network] = intent.hewn;
+        const chambers = network?.chambers ?? [];
+        expect(chambers.length).toBeGreaterThanOrEqual(4);
+        // Chambers reach every quarter of the map, never bunched in one corner.
+        const left = chambers.some((c) => c.centre.x < intent.width / 2);
+        const right = chambers.some((c) => c.centre.x > intent.width / 2);
+        expect(left && right).toBe(true);
+        expect(intent.fixtures.length).toBeGreaterThanOrEqual(chambers.length);
+        // No two pieces of dressing heaped on one another.
+        const apart = intent.fixtures.every((a, i) => intent.fixtures.slice(i + 1).every((b) => Math.hypot(a.at.x - b.at.x, a.at.y - b.at.y) > 0.6));
+        expect(apart).toBe(true);
+        // Every piece of dressing stands within the middle half of some chamber.
+        for (const piece of intent.fixtures) {
+            const inChamber = chambers.some(
+                (c) => Math.abs(piece.at.x - c.centre.x) <= c.width / 4 + 0.05 && Math.abs(piece.at.y - c.centre.y) <= c.height / 4 + 0.05,
+            );
+            expect(inChamber).toBe(true);
+        }
     });
 
     it('breaks a marsh with soft wallows of open mud', () => {
