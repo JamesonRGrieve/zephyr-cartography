@@ -26,7 +26,7 @@ import { districtFeatures } from './district';
 import { composeExterior, type LaidPath } from './exterior';
 import { type Box, type ComposedStamp, furnishRoom, type RoomFloor } from './furnish';
 import { hewnFeatures } from './hewn';
-import { type BuildingIntent, type FixtureIntent, type MapIntent, mapDepth, WALL_SIDES, type ZoneIntent } from './intent';
+import { type BuildingIntent, type FixtureIntent, type MapIntent, mapDepth, mapHeight, WALL_SIDES, type ZoneIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
 import { type LinkPlaces, linkFeatures } from './links';
 import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders } from './placeholders';
@@ -1002,7 +1002,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     // Levels below the ground: a building's cellars, or a cave cut on storeys below it.
     const depth = mapDepth(intent);
     // A raised platform stands on the level above the ground.
-    const height = Math.max(intent.platforms.length > 0 ? 1 : 0, ...intent.buildings.map((b) => b.floors.length));
+    const height = mapHeight(intent);
     // A map with a building of more than one storey puts everything on levels: outside and the ground floors on the ground level.
     const layered = depth + height > 0;
     // A backdrop is each level's colour; a map of one storey then names the scene's own floor to carry it.

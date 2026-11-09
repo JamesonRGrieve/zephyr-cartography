@@ -165,6 +165,22 @@ describe('parseMapIntent', () => {
             }).ok;
         expect(deep(-1)).toBe(true);
         expect(deep(-2)).toBe(false);
+        // A piece above the ground needs a level a building's floors make there: a vent on the roof round an upper office.
+        const high = (storey: number): boolean =>
+            parseMapIntent({
+                schemaVersion: 1,
+                buildings: [
+                    {
+                        width: 6,
+                        height: 6,
+                        rooms: [{ key: 'hall', purpose: 'hall' }],
+                        floors: [{ rooms: [{ key: 'office', purpose: 'office', rect: { x: 0, y: 0, w: 3, h: 3 } }] }],
+                    },
+                ],
+                fixtures: [{ name: 'roof vent', role: 'fitting', width: 1, height: 1, at: { x: 5, y: 5 }, storey }],
+            }).ok;
+        expect(high(1)).toBe(true);
+        expect(high(2)).toBe(false);
         expect(refused({ hewn: [{ passages: [{ points: [{ x: 0, y: 0 }], width: 2 }] }] })).toHaveLength(1);
     });
 });

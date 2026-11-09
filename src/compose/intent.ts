@@ -404,9 +404,10 @@ const outdoorFixture = z
         storey: z
             .number()
             .int()
-            .max(0)
             .default(0)
-            .describe('The level it stands on: 0 the ground, -1 the level below (a cave’s lower galleries, reached by `hewn` at that storey).'),
+            .describe(
+                'The level it stands on: 0 the ground, -1 the level below (a cave’s lower galleries, reached by `hewn` at that storey), 1 and up a storey a building’s floors make (a vent on the flat roof round an upper office).',
+            ),
     })
     .strict()
     .superRefine(checkOpenEnds)
@@ -989,9 +990,10 @@ export const mapIntentSchema = z
                 ctx.addIssue({ code: 'custom', path: ['links', i, 'at', 'storey'], message: `no level at storey ${String(l.at.storey)}` });
             }
         });
-        // A piece below the ground stands on a level a cave or a cellar makes; none is made for it alone.
+        // A piece stands on a level a cave, a cellar or a building's floors make; none is made for it alone.
+        const tallest = mapHeight(intent);
         intent.fixtures.forEach((f, i) => {
-            if (f.storey < -deepest) {
+            if (f.storey < -deepest || f.storey > tallest) {
                 ctx.addIssue({ code: 'custom', path: ['fixtures', i, 'storey'], message: `no level at storey ${String(f.storey)}` });
             }
         });
@@ -1019,6 +1021,11 @@ export type BuildingIntent = MapIntent['buildings'][number];
 export type RoomIntent = BuildingIntent['rooms'][number];
 export type FixtureIntent = RoomIntent['fixtures'][number];
 export type HewnIntent = MapIntent['hewn'][number];
+
+/** How many levels stand above the ground: the tallest building's floors, else one for a map's platforms. */
+export function mapHeight(intent: Pick<MapIntent, 'buildings' | 'platforms'>): number {
+    return Math.max(intent.platforms.length > 0 ? 1 : 0, ...intent.buildings.map((b) => b.floors.length));
+}
 
 /** How many levels lie below the ground: the deepest of a building's cellars and a cave network's storey. */
 export function mapDepth(intent: Pick<MapIntent, 'buildings' | 'hewn'>): number {

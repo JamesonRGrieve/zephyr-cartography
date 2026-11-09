@@ -749,6 +749,30 @@ describe('composeMap', () => {
         expect(roofTexture(keep())).toEqual(['wall.dark-stone']);
     });
 
+    it('stands a piece asked for a storey above the ground on that storey’s level: a vent on the roof round an upper office', () => {
+        const fitting = TEST_ROLES.get('fitting')?.[0];
+        if (!fitting) {
+            throw new Error('the test roles have no fitting');
+        }
+        const keep = intentOf({
+            ground: null,
+            buildings: [
+                {
+                    key: 'keep',
+                    at: { x: 2, y: 2 },
+                    width: 10,
+                    height: 8,
+                    rooms: [{ key: 'hall', purpose: 'hall', entrance: true, rect: { x: 0, y: 0, w: 10, h: 8 } }],
+                    floors: [{ name: 'Office', rooms: [{ key: 'office', purpose: 'office', rect: { x: 5, y: 0, w: 5, h: 4 } }] }],
+                },
+            ],
+            fixtures: [{ name: 'roof vent', role: 'fitting', tags: fitting.tags.slice(0, 1), width: 1, height: 1, at: { x: 4, y: 7 }, storey: 1 }],
+        });
+        const vents = compose(keep).spec.features.filter((f) => f.type === 'stamp' && f.x === 4 && f.y === 7);
+        expect(vents.length).toBeGreaterThan(0);
+        expect(vents.every((f) => f.level === 'floor-2')).toBe(true);
+    });
+
     it('roofs a tapered hull as tapered: the storey below’s cut corners stay open void, never roofed', () => {
         const hull = intentOf({
             ground: null,
