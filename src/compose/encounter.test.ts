@@ -228,6 +228,40 @@ describe('encounter maps', () => {
         expect(seeds.some((seed) => parsed({ seed, landscape: 'cave', setting: 'feudal' }).fixtures.some((f) => WARP.includes(f.name)))).toBe(false);
     });
 
+    it('gathers an open landscape into clusters of features, none in a forest or a cave, each clear of the ways', () => {
+        const FEATURE_NAMES: Readonly<Record<string, readonly string[]>> = {
+            plains: ['outcrop boulder', 'outcrop scree', 'outcrop bush', 'thicket bush'],
+            tundra: ['frozen boulder', 'frost scree'],
+            wasteland: ['broken rock', 'broken scree', 'bone cairn'],
+        };
+        for (const [landscape, names] of Object.entries(FEATURE_NAMES)) {
+            const pieces = parsed({ landscape: landscape as EncounterChoice['landscape'], seed: 4 }).fixtures.filter((f) => names.includes(f.name));
+            // At least three clusters' worth, every piece moved off roads, water and camp by the composer.
+            expect(pieces.length).toBeGreaterThanOrEqual(6);
+            expect(pieces.every((f) => f.clear && f.fixed)).toBe(true);
+            // No two pieces stacked on one spot, none off the map.
+            const spots = new Set(pieces.map((f) => `${String(f.at.x)},${String(f.at.y)}`));
+            expect(spots.size).toBe(pieces.length);
+            const intent = parsed({ landscape: landscape as EncounterChoice['landscape'], seed: 4 });
+            expect(pieces.every((f) => f.at.x >= f.width / 2 && f.at.x <= intent.width - f.width / 2)).toBe(true);
+        }
+        // The battlefield's leavings are drawn only where the setting's packs have them: grimdark, not feudal.
+        const LEAVINGS = ['blast crater', 'scattered wreckage', 'spent casings'];
+        expect(parsed({ landscape: 'wasteland', setting: 'grimdark', seed: 4 }).fixtures.some((f) => LEAVINGS.includes(f.name))).toBe(true);
+        expect(parsed({ landscape: 'wasteland', setting: 'feudal', seed: 4 }).fixtures.some((f) => LEAVINGS.includes(f.name))).toBe(false);
+        const all = Object.values(FEATURE_NAMES).flat();
+        for (const landscape of ['forest', 'cave'] as const) {
+            expect(parsed({ landscape, seed: 4 }).fixtures.some((f) => all.includes(f.name))).toBe(false);
+        }
+    });
+
+    it('lays no woodland on a tundra and no rubble on a wasteland (their habitats strewed ferns and drain grates)', () => {
+        for (const seed of [1, 2, 3, 4, 5]) {
+            expect(parsed({ landscape: 'tundra', seed }).zones.some((z) => z.kind === 'woodland')).toBe(false);
+            expect(parsed({ landscape: 'wasteland', seed }).zones.some((z) => z.kind === 'rubble')).toBe(false);
+        }
+    });
+
     it("raises the cliffs' heights in the landscape's own ground, a marsh's in olive meadow, never bare rock", () => {
         const heights = (over: Partial<EncounterChoice>): (string | null)[] => {
             const zones = parsed({ features: ['cliffs'], ...over }).zones;

@@ -489,7 +489,7 @@ interface Keepout {
  * far of it must also stay off roads and water (a bunker may not stand on
  * one); a canopy leans only a little over either.
  */
-function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths = 0): boolean {
+function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths = 0, overhang = WATER_OVERHANG): boolean {
     const { map } = keepout;
     if (p.x < map.x || p.y < map.y || p.x > map.x + map.w || p.y > map.y + map.h) {
         return true;
@@ -501,12 +501,12 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
         return true;
     }
     // A canopy reaches over a road or a river only as far as over a lake: the way is seen running through, never roofed over.
-    const off = (): number => Math.max(onPaths, reach * WATER_OVERHANG);
+    const off = (): number => Math.max(onPaths, reach * overhang);
     if (keepout.paths.some((path) => distanceToPolyline(p, path.points) < path.halfWidth + PATH_MARGIN + off())) {
         return true;
     }
     const wet = (outline: readonly Point[]): boolean =>
-        pointInPolygon(p, flat(outline)) || distanceToPolyline(p, [...outline, ...outline.slice(0, 1)]) < reach * WATER_OVERHANG;
+        pointInPolygon(p, flat(outline)) || distanceToPolyline(p, [...outline, ...outline.slice(0, 1)]) < reach * overhang;
     if (keepout.waters.some(wet) || keepout.props.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + reach)) {
         return true;
     }
@@ -530,7 +530,12 @@ function clearSpot(at: Point, reach: number, role: StampRole, keepout: Keepout):
         for (let i = 0; i < steps; i++) {
             const turn = (2 * Math.PI * i) / steps;
             const p = { x: Math.round((at.x + r * Math.cos(turn)) * 100) / 100, y: Math.round((at.y + r * Math.sin(turn)) * 100) / 100 };
-            if (!blocked(p, role, keepout, reach)) {
+            // Only a tree's crown may reach over a river or a lake; anything else kept clear stands wholly off the water
+            // (2026-11-10: encounter feature boulders stood a quarter in a river, bushes in a hill lake's edge).
+            // Moved, a piece stays wholly on the map (2026-11-10: a scree fan moved off a road hung over the map's edge).
+            const { map } = keepout;
+            const onMap = p.x - reach >= map.x && p.y - reach >= map.y && p.x + reach <= map.x + map.w && p.y + reach <= map.y + map.h;
+            if ((r === 0 || onMap) && !blocked(p, role, keepout, reach, 0, role === 'tree' ? WATER_OVERHANG : 1)) {
                 return p;
             }
         }

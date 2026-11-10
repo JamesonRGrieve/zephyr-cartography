@@ -32,6 +32,22 @@ const DAYLIGHT_COLOUR = '#fff1d6';
 /** How much of its reach daylight lights brightly, nearest the opening. */
 const DAYLIGHT_BRIGHT_FRACTION = 0.35;
 
+/**
+ * Daylight's full strength, shared out between a room's openings so a room of many windows is lit no brighter than one
+ * of a few (2026-11-09: the Dunmarch farmstead's barn blew out white, twenty openings' lights each reaching its far side
+ * with a bright core, all stacking; operator: "Bruh what the fuck is this farmhouse").
+ */
+const DAYLIGHT_ALPHA = 0.5;
+
+/** The least share one opening's light keeps, however many the room has. */
+const DAYLIGHT_ALPHA_FLOOR = 0.12;
+
+/** How far into a room an opening's daylight reaches, in widths of the opening: a window lights the floor before it. */
+const DAYLIGHT_REACH_WIDTHS = 4;
+
+/** Openings beyond which a room's daylight has no bright core: many stacked cores wash the floor white. */
+const DAYLIGHT_MAX_BRIGHT_OPENINGS = 2;
+
 /** Foundry points a light's cone at its rotation plus a quarter turn (0 faces down the canvas). */
 const CONE_ZERO_DEGREES = 90;
 
@@ -63,6 +79,9 @@ function inward(a: Point, b: Point, room: readonly Point[]): Point {
 /** The daylight shining into `room` through each of its daylight openings, on its floor. */
 export function daylightLights(room: RoomFeature, floor: { readonly level: string | null; readonly elevation: number }): LightDoc[] {
     const sides = perimeterSegments(room.points);
+    const openings = room.daylight.length;
+    const alpha = Math.max(DAYLIGHT_ALPHA_FLOOR, DAYLIGHT_ALPHA / Math.sqrt(Math.max(1, openings)));
+    const brightFraction = openings > DAYLIGHT_MAX_BRIGHT_OPENINGS ? 0 : DAYLIGHT_BRIGHT_FRACTION;
     return room.daylight.flatMap((segment) => {
         const side = sides[segment];
         const width = side ? Math.hypot(side.b.x - side.a.x, side.b.y - side.a.y) : 0;
@@ -72,15 +91,17 @@ export function daylightLights(room: RoomFeature, floor: { readonly level: strin
         const into = inward(side.a, side.b, room.points);
         const mid = { x: (side.a.x + side.b.x) / 2, y: (side.a.y + side.b.y) / 2 };
         const at = { x: mid.x - into.x * width * OUTSIDE_FRACTION, y: mid.y - into.y * width * OUTSIDE_FRACTION };
-        // It reaches the far side of the room.
-        const dim = room.points.reduce((far, p) => Math.max(far, Math.hypot(p.x - at.x, p.y - at.y)), 0);
+        // It reaches the far side of the room, or its own stretch of floor in a big room.
+        const far = room.points.reduce((most, p) => Math.max(most, Math.hypot(p.x - at.x, p.y - at.y)), 0);
+        const dim = Math.min(far, width * DAYLIGHT_REACH_WIDTHS);
         const light: LightDoc = {
             source: { kind: 'daylight' },
             x: at.x,
             y: at.y,
             dim,
-            bright: dim * DAYLIGHT_BRIGHT_FRACTION,
+            bright: dim * brightFraction,
             color: DAYLIGHT_COLOUR,
+            alpha,
             angle: DAYLIGHT_ANGLE,
             rotation: Math.atan2(into.y, into.x) * DEGREES_PER_RADIAN - CONE_ZERO_DEGREES,
             technique: { walls: true, vision: false, darkness: { min: 0, max: DAYLIGHT_MAX_DARKNESS } },

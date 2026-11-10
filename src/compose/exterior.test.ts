@@ -762,4 +762,29 @@ describe('a piece kept clear', () => {
         const [inOpen] = standing(intentOf({ x: 5, y: 4 }, true));
         expect({ x: inOpen?.x, y: inOpen?.y }).toEqual({ x: 5, y: 4 });
     });
+
+    it('stands wholly off a river, where only a tree’s crown may reach over it', () => {
+        const fitting = TEST_ROLES.get('fitting')?.[0];
+        if (!fitting) {
+            throw new Error('the test roles have no fitting');
+        }
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            seed: 4,
+            width: 30,
+            height: 20,
+            ground: 'grassland',
+            paths: [{ kind: 'river', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, width: 2, meander: 0 }],
+            fixtures: [{ name: 'boulder', role: 'fitting', tags: fitting.tags.slice(0, 1), width: 3, height: 3, at: { x: 15, y: 10 }, clear: true }],
+        });
+        if (!parsed.ok) {
+            throw new Error(JSON.stringify(parsed.issues));
+        }
+        const [moved] = composeMap(parsed.intent, TEST_ROLES, NO_PREFERENCES).spec.features.flatMap((f) =>
+            f.type === 'stamp' && f.stamp === fitting.key ? [f] : [],
+        );
+        expect(moved).toBeDefined();
+        // Its whole half-width (1.5) clear of the river's (1): its centre at least 2.5 off the river's line.
+        expect(Math.abs((moved?.y ?? 10) - 10)).toBeGreaterThanOrEqual(2.5);
+    });
 });

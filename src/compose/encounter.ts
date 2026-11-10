@@ -306,9 +306,13 @@ const LANDSCAPES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, Landscape
     tundra: {
         ground: 'snow',
         covered: false,
-        zones: (random, w, h, density) => [...clusters(random, w, h, ['rocky'], 'sparse'), ...copses(random, w, h, density, randomInt(random, 1, 2))],
+        // No woodland zones on snow: they strewed ferns, bracken and broadleaf (48ca867 census); its trees are the
+        // dead-pine feature clusters.
+        zones: (random, w, h) => clusters(random, w, h, ['rocky'], 'sparse'),
     },
-    wasteland: { ground: 'ash', covered: false, zones: (random, w, h, density) => clusters(random, w, h, ['rubble', 'rocky'], density) },
+    // No rubble zones: rubble dresses as urban ruin (street drain grates on open waste, 48ca867 census); its debris is the
+    // crater debris-field feature clusters.
+    wasteland: { ground: 'ash', covered: false, zones: (random, w, h, density) => clusters(random, w, h, ['rocky'], density) },
 };
 
 /** A cave's chambers: their size range in squares, and the squares of map each cell of their grid takes. */
@@ -578,6 +582,136 @@ function warpGrowth(random: Random, width: number, height: number): object[] {
     );
 }
 
+/** A piece of a landscape feature: its art (role, tags, picture), its size, how many and how far from the centre. */
+interface FeaturePart {
+    readonly name: string;
+    readonly role: string;
+    readonly tags: readonly string[];
+    readonly size: readonly [number, number];
+    readonly count: readonly [number, number];
+    readonly spread: number; // squares from the cluster's centre
+    /** Only in these settings, where its art is drawn (omitted: every setting). */
+    readonly settings?: readonly EncounterSetting[];
+}
+
+/** The settings whose packs draw battlefield leavings (craters, wreckage, casings), and the rest. */
+const GRIMDARK_ONLY: readonly EncounterSetting[] = ['grimdark', 'warp'];
+const OPEN_ONLY: readonly EncounterSetting[] = ['feudal', 'scifi'];
+
+/**
+ * What gathers on each open landscape, a few clusters a map (2026-11-10 review of the goal32 renders: rocks scattered
+ * evenly over one flat ground read as empty against the reference maps, which gather their dressing into outcrops,
+ * thickets and debris fields with quiet ground between).
+ */
+const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (readonly FeaturePart[])[]>>> = {
+    plains: [
+        // A boulder outcrop with its scree apron and scrub in its lee.
+        [
+            { name: 'outcrop boulder', role: 'rock', tags: ['boulder'], size: [1.6, 1.4], count: [3, 5], spread: 1.6 },
+            { name: 'outcrop scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.4 },
+            { name: 'outcrop bush', role: 'shrub', tags: ['bush'], size: [1, 1], count: [2, 4], spread: 2.8 },
+        ],
+        // A thicket.
+        [{ name: 'thicket bush', role: 'shrub', tags: ['bush'], size: [1.1, 1.1], count: [5, 8], spread: 2.2 }],
+    ],
+    hills: [
+        [
+            { name: 'knoll boulder', role: 'rock', tags: ['boulder'], size: [1.8, 1.5], count: [4, 6], spread: 2 },
+            { name: 'knoll scree', role: 'debris', tags: ['scree'], size: [2.2, 1.8], count: [2, 3], spread: 2.8 },
+        ],
+        [{ name: 'hillside bush', role: 'shrub', tags: ['bush'], size: [1, 1], count: [4, 7], spread: 2.4 }],
+    ],
+    desert: [
+        [
+            { name: 'outcrop boulder', role: 'rock', tags: ['boulder'], size: [1.8, 1.5], count: [3, 5], spread: 1.8 },
+            { name: 'outcrop scree', role: 'debris', tags: ['scree'], size: [2.2, 1.8], count: [1, 3], spread: 2.6 },
+        ],
+        [{ name: 'desert scrub', role: 'shrub', tags: ['scrub'], size: [0.9, 0.9], count: [3, 6], spread: 2.4 }],
+        [{ name: 'bleached bones', role: 'debris', tags: ['bone', 'cairn'], size: [1, 0.85], count: [1, 2], spread: 1.2 }],
+    ],
+    tundra: [
+        [
+            { name: 'frozen boulder', role: 'rock', tags: ['boulder'], size: [1.6, 1.4], count: [3, 5], spread: 1.8 },
+            { name: 'frost scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.4 },
+        ],
+        // No dead pines yet: the pack's only trees are broadleaf, fruit and forest (a 'dead tree' drew an apple tree).
+    ],
+    wasteland: [
+        // A debris field round a crater: its art is the grimdark's alone, so elsewhere a field of broken rock.
+        [
+            { name: 'blast crater', role: 'crater', tags: ['impact', 'crater'], size: [2.2, 2.2], count: [1, 1], spread: 0, settings: GRIMDARK_ONLY },
+            { name: 'scattered wreckage', role: 'debris', tags: ['wreckage', 'plates'], size: [1.2, 1], count: [3, 5], spread: 3, settings: GRIMDARK_ONLY },
+            { name: 'spent casings', role: 'debris', tags: ['spent', 'casings'], size: [0.8, 0.8], count: [2, 3], spread: 3.4, settings: GRIMDARK_ONLY },
+        ],
+        [
+            { name: 'broken rock', role: 'rock', tags: ['boulder'], size: [1.4, 1.2], count: [4, 6], spread: 2.4, settings: OPEN_ONLY },
+            { name: 'broken scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.8, settings: OPEN_ONLY },
+        ],
+        // No dead trees yet, as on the tundra.
+        [{ name: 'bone cairn', role: 'debris', tags: ['bone', 'cairn'], size: [1, 0.85], count: [1, 2], spread: 1.4 }],
+    ],
+};
+/** Clusters a map gets for every this many squares of it, and the least and most. */
+const FEATURE_SQUARES = 160;
+const FEATURE_CLUSTERS = { least: 3, most: 8 } as const;
+/** How near two pieces of one cluster may stand, as a share of their mean size. */
+const FEATURE_GAP = 1;
+/** The features' own random stream, off the map's seed, so roads and zones keep their layout. */
+const FEATURE_SEED_OFFSET = 7;
+
+const round1 = (v: number): number => Math.round(v * 10) / 10;
+
+/**
+ * The landscape's features: clusters at seeded spots over the map, each piece around its cluster's centre at its own
+ * size, turn and distance, all kept clear of the roads, water and camp (`clear`: the composer moves them off).
+ */
+function landscapeFeatures(landscape: EncounterLandscape, setting: EncounterSetting, random: Random, width: number, height: number): object[] {
+    const kinds = LANDSCAPE_FEATURES[landscape]
+        ?.map((kind) => kind.filter((part) => part.settings?.includes(setting) ?? true))
+        .filter((kind) => kind.length > 0);
+    if (!kinds || kinds.length === 0) {
+        return [];
+    }
+    const count = Math.max(FEATURE_CLUSTERS.least, Math.min(FEATURE_CLUSTERS.most, Math.round((width * height) / FEATURE_SQUARES)));
+    const out: object[] = [];
+    // Every piece laid so far, across clusters: none piles on another (judge CROWDED, OVERLAP).
+    const laid: { x: number; y: number; size: number }[] = [];
+    for (let c = 0; c < count; c++) {
+        const kind = kinds[c % kinds.length] ?? [];
+        const centre = inside(random, width, height, 3);
+        for (const part of kind) {
+            const n = randomInt(random, part.count[0], part.count[1]);
+            for (let i = 0; i < n; i++) {
+                const angle = random() * Math.PI * 2;
+                const r = part.spread * Math.sqrt(random());
+                const k = 0.8 + random() * 0.4;
+                const at = { x: round1(centre.x + Math.cos(angle) * r), y: round1(centre.y + Math.sin(angle) * r) };
+                const size = Math.max(part.size[0], part.size[1]) * k;
+                // A spot off the map's edge, or too near a piece laid, is skipped.
+                // Turned, a piece reaches out to half its diagonal.
+                const reach = Math.hypot(part.size[0], part.size[1]) * k * 0.5;
+                const off = at.x < reach || at.y < reach || at.x > width - reach || at.y > height - reach;
+                if (off || laid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < ((p.size + size) / 2) * FEATURE_GAP)) {
+                    continue;
+                }
+                laid.push({ ...at, size });
+                out.push({
+                    name: part.name,
+                    role: part.role,
+                    tags: [...part.tags],
+                    width: round1(part.size[0] * k),
+                    height: round1(part.size[1] * k),
+                    at,
+                    angle: randomInt(random, 0, 359),
+                    fixed: true,
+                    clear: true,
+                });
+            }
+        }
+    }
+    return out;
+}
+
 /** The map intent for an encounter, as a preset's is: an object the GM edits as JSON and the composer builds. */
 export function encounterIntent(choice: EncounterChoice): object {
     const look = LOOKS[choice.setting];
@@ -682,6 +816,7 @@ export function encounterIntent(choice: EncounterChoice): object {
         paths.push(throughPass(road('south', 'north', pinned === null ? clear('x') : null), pinned, height));
     }
     fixtures.push(...cliffFaces(cliffDepth, width, height, passX), ...warpGrowthOf(choice.setting, random, width, height));
+    fixtures.push(...landscapeFeatures(choice.landscape, choice.setting, seededRandom(choice.seed + FEATURE_SEED_OFFSET), width, height));
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
     // Rocky ground is painted into the blend as earth or rock under its stones, never laid over it as a patch of its own.
