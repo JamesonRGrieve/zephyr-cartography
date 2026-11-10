@@ -36,6 +36,16 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     // ground (it was scattered through woods and scree as rock); goods under a tarp are a store's.
     ['shelf', [['deposit', 'box']]],
     ['storage', [['tarp', 'covered']]],
+    // A tree's trunk lying fallen or burnt is a log on the ground, never a storage trunk (the burnt woodland's Fallen
+    // Burnt Trunk derived `chest`; only its pack role masked it).
+    [
+        'log',
+        [
+            ['fallen', 'trunk'],
+            ['burnt', 'trunk'],
+            ['tree', 'trunk'],
+        ],
+    ],
     ['chest', ['chest', 'trunk', 'footlocker', 'strongbox']],
     ['enclosure', ['pen', 'corral', 'paddock', 'stable']],
     ['fodder', ['hay', 'straw', 'fodder']],

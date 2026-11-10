@@ -18,6 +18,9 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['wine', 'barrel'])).toBe('storage');
         // A bank's wall of deposit boxes is shelving, never a mineral deposit strewn as rock; goods under a tarp are stores.
         expect(roleFromTags(['deposit', 'box', 'wall', 'setting-fantasy'])).toBe('shelf');
+        // A fallen or burnt tree trunk is a log, never a chest; a trunk alone is still a chest.
+        expect(roleFromTags(['fallen', 'burnt', 'trunk', 'setting-generic'])).toBe('log');
+        expect(roleFromTags(['trunk', 'setting-fantasy'])).toBe('chest');
         expect(roleFromTags(['crystal', 'deposit'])).toBe('rock');
         expect(roleFromTags(['tarp', 'covered', 'goods'])).toBe('storage');
         // Steps cut through a cliff are the hillside's, set where a map draws its edge: never a building's stair.

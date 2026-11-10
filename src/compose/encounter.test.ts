@@ -245,6 +245,10 @@ describe('encounter maps', () => {
             const intent = parsed({ landscape: landscape as EncounterChoice['landscape'], seed: 4 });
             expect(pieces.every((f) => f.at.x >= f.width / 2 && f.at.x <= intent.width - f.width / 2)).toBe(true);
         }
+        // Burnt-out trees stand on a grimdark tundra, never a feudal one: the burnt woodland's art has no feudal setting.
+        const DEAD = ['dead tree', 'dead stump', 'fallen dead trunk'];
+        expect(parsed({ landscape: 'tundra', setting: 'grimdark', seed: 4 }).fixtures.some((f) => DEAD.includes(f.name))).toBe(true);
+        expect(parsed({ landscape: 'tundra', setting: 'feudal', seed: 4 }).fixtures.some((f) => DEAD.includes(f.name))).toBe(false);
         // The battlefield's leavings are drawn only where the setting's packs have them: grimdark, not feudal.
         const LEAVINGS = ['blast crater', 'scattered wreckage', 'spent casings'];
         expect(parsed({ landscape: 'wasteland', setting: 'grimdark', seed: 4 }).fixtures.some((f) => LEAVINGS.includes(f.name))).toBe(true);

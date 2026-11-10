@@ -597,6 +597,8 @@ interface FeaturePart {
 /** The settings whose packs draw battlefield leavings (craters, wreckage, casings), and the rest. */
 const GRIMDARK_ONLY: readonly EncounterSetting[] = ['grimdark', 'warp'];
 const OPEN_ONLY: readonly EncounterSetting[] = ['feudal', 'scifi'];
+/** The settings whose packs draw the burnt woodland (generic, modern and sci-fi art: no feudal). */
+const NOT_FEUDAL: readonly EncounterSetting[] = ['grimdark', 'warp', 'scifi'];
 
 /**
  * What gathers on each open landscape, a few clusters a map (2026-11-10 review of the goal32 renders: rocks scattered
@@ -634,7 +636,12 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
             { name: 'frozen boulder', role: 'rock', tags: ['boulder'], size: [1.6, 1.4], count: [3, 5], spread: 1.8 },
             { name: 'frost scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.4 },
         ],
-        // No dead pines yet: the pack's only trees are broadleaf, fruit and forest (a 'dead tree' drew an apple tree).
+        // Dead trees standing in the snow (the pack's burnt woodland: no plan-view snow-laden pine exists yet). Its art is
+        // generic, modern and sci-fi, so a feudal tundra has none.
+        [
+            { name: 'dead tree', role: 'fitting', tags: ['burnt', 'tree'], size: [2.2, 2.2], count: [2, 4], spread: 2.6, settings: NOT_FEUDAL },
+            { name: 'dead stump', role: 'fitting', tags: ['charred', 'stump'], size: [0.9, 0.9], count: [1, 3], spread: 3, settings: NOT_FEUDAL },
+        ],
     ],
     wasteland: [
         // A debris field round a crater: its art is the grimdark's alone, so elsewhere a field of broken rock.
@@ -647,7 +654,20 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
             { name: 'broken rock', role: 'rock', tags: ['boulder'], size: [1.4, 1.2], count: [4, 6], spread: 2.4, settings: OPEN_ONLY },
             { name: 'broken scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.8, settings: OPEN_ONLY },
         ],
-        // No dead trees yet, as on the tundra.
+        // A stand of burnt-out trees round a fallen trunk, as on the tundra.
+        [
+            { name: 'dead tree', role: 'fitting', tags: ['burnt', 'tree'], size: [2.2, 2.2], count: [2, 3], spread: 2.4, settings: NOT_FEUDAL },
+            {
+                name: 'fallen dead trunk',
+                role: 'fitting',
+                tags: ['fallen', 'burnt', 'trunk'],
+                size: [3, 0.8],
+                count: [0, 1],
+                spread: 2.4,
+                settings: NOT_FEUDAL,
+            },
+            { name: 'dead stump', role: 'fitting', tags: ['charred', 'stump'], size: [0.9, 0.9], count: [1, 3], spread: 3, settings: NOT_FEUDAL },
+        ],
         [{ name: 'bone cairn', role: 'debris', tags: ['bone', 'cairn'], size: [1, 0.85], count: [1, 2], spread: 1.4 }],
     ],
 };
