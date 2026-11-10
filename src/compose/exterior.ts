@@ -95,6 +95,12 @@ interface Dressing {
      * and nothing is reported (2026-11-04: a feudal ruin or a frontier camp reported its missing shell craters).
      */
     readonly optional?: true;
+    /**
+     * Stood in groves with open glades between: where the clump noise is under `clumping` none stands at all, rather
+     * than a few fewer. Thinning an even scatter leaves what stays evenly spaced (2026-11-10 render, grimdark forest: the
+     * trees stood like an orchard; quadrat counts' variance over mean 0.24, where groves score above 1).
+     */
+    readonly groves?: true;
 }
 
 /** How far a patch's pieces lie from its middle, in the pieces' typical size. */
@@ -102,7 +108,7 @@ const PATCH_REACH = 1.1;
 
 const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
     woodland: [
-        { role: 'tree', spread: 0.75, clumping: 0.35 },
+        { role: 'tree', spread: 0.75, clumping: 0.5, groves: true },
         { role: 'shrub', spread: 2, clumping: 0.3 },
         { role: 'log', spread: 4, clumping: 0 },
         { role: 'rock', spread: 6, clumping: 0 },
@@ -652,8 +658,8 @@ function dress(
     const inZone = (p: Point): boolean => pointInPolygon(p, polygon) && !blocked(p, dressing.role, keepout, size / 2);
     const accept = (p: Point): boolean =>
         inZone(p) &&
-        // Clumped: where the noise is low, fewer stand.
-        clump(p.x, p.y) >= dressing.clumping * random() &&
+        // Clumped: where the noise is low, fewer stand; in groves, none.
+        clump(p.x, p.y) >= dressing.clumping * (dressing.groves ? 1 : random()) &&
         // Thinning towards the zone's edge.
         Math.min(1, depthInside(p, outline) / EDGE_FADE) >= random() * QUARTER * 2;
     const solid = SOLID_ROLES.includes(dressing.role);

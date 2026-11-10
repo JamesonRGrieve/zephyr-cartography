@@ -242,6 +242,31 @@ describe('bridges and yard pieces', () => {
         expect(mean / random).toBeLessThan(0.9);
     });
 
+    it('stands a wood’s trees in groves with open glades between, never as an orchard', () => {
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            seed: 5,
+            width: 40,
+            height: 30,
+            zones: [{ kind: 'woodland', area: { shape: 'everywhere' }, density: 'normal' }],
+        });
+        if (!parsed.ok) {
+            throw new Error(JSON.stringify(parsed.issues));
+        }
+        const treeKeys = new Set((TEST_ROLES.get('tree') ?? []).map((s) => s.key));
+        const trees = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && treeKeys.has(f.stamp) ? [f] : []));
+        expect(trees.length).toBeGreaterThan(30);
+        // Index of dispersion: the trees counted in each 5-square quadrat, their variance over their mean. An even
+        // scatter scores under 1 (the old wood: 0.24); groves and glades score about 1 and above.
+        const counts = Array.from(
+            { length: 48 },
+            (_, i) => trees.filter((f) => Math.floor(f.x / 5) === i % 8 && Math.floor(f.y / 5) === Math.floor(i / 8)).length,
+        );
+        const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
+        const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / counts.length;
+        expect(variance / mean).toBeGreaterThan(0.9);
+    });
+
     it('strews crates over open ground but never storage that stands against a wall', () => {
         const crate = (TEST_ROLES.get('storage') ?? [])[0];
         expect(crate).toBeDefined();
