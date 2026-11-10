@@ -134,6 +134,8 @@ const MUD_SQUARES = 160;
 /**
  * A road over open country is a worn earth track, through a bog a muddy one, never the set's grey gravel (2026-11-05
  * preview: a gravel road through a marsh; 2026-11-09 renders: grey gravel over sand, snow and the wasteland's earth).
+ * Never the ground's own texture either: drawn along the road at its own scale, the wasteland's earth road vanished but
+ * for straight seams down its edges where its pebbles changed size (2026-11-10 render, feudal wasteland).
  */
 const TRACK: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, string>> = {
     forest: 'floor.packed-dirt',
@@ -141,7 +143,7 @@ const TRACK: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, string>> = {
     hills: 'floor.packed-dirt',
     desert: 'floor.packed-dirt',
     tundra: 'floor.packed-dirt',
-    wasteland: 'floor.rough-packed-earth-2',
+    wasteland: 'floor.packed-dirt',
     marsh: MUD,
 };
 

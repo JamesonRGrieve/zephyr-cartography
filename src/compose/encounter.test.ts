@@ -48,7 +48,13 @@ describe('encounter ground', () => {
         expect(textureOf('plains')).toBe('floor.packed-dirt');
         expect(textureOf('desert')).toBe('floor.packed-dirt');
         expect(textureOf('tundra')).toBe('floor.packed-dirt');
-        expect(textureOf('wasteland')).toBe('floor.rough-packed-earth-2');
+        expect(textureOf('wasteland')).toBe('floor.packed-dirt');
+        // Never the ground's own texture, whose road shows only as seams at its edges.
+        for (const landscape of ENCOUNTER_LANDSCAPES.filter((l) => l !== 'cave')) {
+            const intent = parsed({ landscape, road: 'road' });
+            const ground = [intent.groundTexture, intent.splats[0]?.roles[0]];
+            expect(ground).not.toContain(intent.paths.find((p) => p.kind === 'road')?.texture);
+        }
     });
 
     it('cuts a cave over the whole map, a chamber to each cell of its grid, each dressed inside its own floor', () => {
