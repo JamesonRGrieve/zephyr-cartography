@@ -274,8 +274,13 @@ interface Landscape {
     readonly zones: (random: Random, width: number, height: number, density: EncounterDensity) => object[];
 }
 
+/** One step denser, for a forest's own woodland. */
+const DENSER: Readonly<Record<EncounterDensity, EncounterDensity>> = { sparse: 'normal', normal: 'dense', dense: 'dense' };
+
 const LANDSCAPES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, Landscape>> = {
-    forest: { ground: 'grassland', covered: true, zones: (_random, _w, _h, density) => [{ kind: 'woodland', area: EVERYWHERE, density }] },
+    // A forest a step denser than the checklist's cover: its woodland stands in groves with glades between (228641d), and
+    // at the cover's own density a forest read as parkland round one great glade (2026-11-10 render, feudal forest).
+    forest: { ground: 'grassland', covered: true, zones: (_random, _w, _h, density) => [{ kind: 'woodland', area: EVERYWHERE, density: DENSER[density] }] },
     plains: {
         ground: 'grassland',
         covered: false,
@@ -736,7 +741,7 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
     hills: [
         [
             { name: 'knoll boulder', role: 'rock', tags: ['boulder'], size: [1.8, 1.5], count: [4, 6], spread: 2 },
-            { name: 'knoll scree', role: 'debris', tags: ['scree'], size: [2.2, 1.8], count: [2, 3], spread: 2.8 },
+            { name: 'knoll scree', role: 'debris', tags: ['scree'], size: [2.2, 1.8], count: [1, 2], spread: 3.4 },
         ],
         [{ name: 'hillside bush', role: 'shrub', tags: ['bush'], size: [1, 1], count: [4, 7], spread: 2.4 }],
     ],
@@ -788,15 +793,62 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
         [{ name: 'bone cairn', role: 'debris', tags: ['bone', 'cairn'], size: [1, 0.85], count: [1, 2], spread: 1.4 }],
     ],
 };
-/** Clusters a map gets for every this many squares of it, and the least and most. */
-const FEATURE_SQUARES = 160;
-const FEATURE_CLUSTERS = { least: 3, most: 8 } as const;
+/**
+ * Clusters a map gets for every this many squares of it, and the least and most (2026-11-10 render, encounter
+ * scifi-desert: at one per 160 squares a 24 by 18 map held three, most of it bare sand).
+ */
+const FEATURE_SQUARES = 100;
+const FEATURE_CLUSTERS = { least: 4, most: 10 } as const;
 /** How near two pieces of one cluster may stand, as a share of their mean size. */
 const FEATURE_GAP = 1;
 /** The features' own random stream, off the map's seed, so roads and zones keep their layout. */
 const FEATURE_SEED_OFFSET = 7;
 
 const round1 = (v: number): number => Math.round(v * 10) / 10;
+
+/** Tries a feature piece takes for a spot, each a little further out (2026-11-10: one try a piece left a desert's
+ * clusters a third full, its boulders too close in their tight spread to stand apart). */
+const FEATURE_TRIES = 8;
+const FEATURE_SPILL = 0.15;
+
+/** One piece of a feature cluster round `centre`, clear of the map's edge, the ruins and those laid; null if no spot. */
+function featurePiece(
+    part: FeaturePart,
+    centre: Point,
+    random: Random,
+    width: number,
+    height: number,
+    avoid: readonly Point[],
+    laid: { x: number; y: number; size: number }[],
+): object | null {
+    for (let attempt = 0; attempt < FEATURE_TRIES; attempt++) {
+        const angle = random() * Math.PI * 2;
+        const r = part.spread * (1 + attempt * FEATURE_SPILL) * Math.sqrt(random());
+        const k = 0.8 + random() * 0.4;
+        const at = { x: round1(centre.x + Math.cos(angle) * r), y: round1(centre.y + Math.sin(angle) * r) };
+        const size = Math.max(part.size[0], part.size[1]) * k;
+        // Turned, a piece reaches out to half its diagonal: none off the map's edge, near a ruin or on a piece laid.
+        const reach = Math.hypot(part.size[0], part.size[1]) * k * 0.5;
+        const off = at.x < reach || at.y < reach || at.x > width - reach || at.y > height - reach;
+        const crowded = avoid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < RUIN_CLEARANCE);
+        if (off || crowded || laid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < ((p.size + size) / 2) * FEATURE_GAP)) {
+            continue;
+        }
+        laid.push({ ...at, size });
+        return {
+            name: part.name,
+            role: part.role,
+            tags: [...part.tags],
+            width: round1(part.size[0] * k),
+            height: round1(part.size[1] * k),
+            at,
+            angle: randomInt(random, 0, 359),
+            fixed: true,
+            clear: true,
+        };
+    }
+    return null;
+}
 
 /**
  * The landscape's features: clusters at seeded spots over the map, each piece around its cluster's centre at its own
@@ -826,31 +878,10 @@ function landscapeFeatures(
         for (const part of kind) {
             const n = randomInt(random, part.count[0], part.count[1]);
             for (let i = 0; i < n; i++) {
-                const angle = random() * Math.PI * 2;
-                const r = part.spread * Math.sqrt(random());
-                const k = 0.8 + random() * 0.4;
-                const at = { x: round1(centre.x + Math.cos(angle) * r), y: round1(centre.y + Math.sin(angle) * r) };
-                const size = Math.max(part.size[0], part.size[1]) * k;
-                // A spot off the map's edge, or too near a piece laid, is skipped.
-                // Turned, a piece reaches out to half its diagonal.
-                const reach = Math.hypot(part.size[0], part.size[1]) * k * 0.5;
-                const off = at.x < reach || at.y < reach || at.x > width - reach || at.y > height - reach;
-                const crowded = avoid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < RUIN_CLEARANCE);
-                if (off || crowded || laid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < ((p.size + size) / 2) * FEATURE_GAP)) {
-                    continue;
+                const laidPiece = featurePiece(part, centre, random, width, height, avoid, laid);
+                if (laidPiece) {
+                    out.push(laidPiece);
                 }
-                laid.push({ ...at, size });
-                out.push({
-                    name: part.name,
-                    role: part.role,
-                    tags: [...part.tags],
-                    width: round1(part.size[0] * k),
-                    height: round1(part.size[1] * k),
-                    at,
-                    angle: randomInt(random, 0, 359),
-                    fixed: true,
-                    clear: true,
-                });
             }
         }
     }

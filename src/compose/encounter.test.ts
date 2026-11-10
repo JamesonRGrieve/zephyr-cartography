@@ -373,7 +373,16 @@ describe('encounter maps', () => {
 
     it('dresses its ground as thickly as asked, and narrows every picker value', () => {
         for (const density of ENCOUNTER_DENSITIES) {
-            expect(parsed({ density }).zones.some((z) => z.density === density)).toBe(true);
+            expect(parsed({ density, landscape: 'plains' }).zones.some((z) => z.density === density)).toBe(true);
+        }
+        // A forest stands a step denser than its cover asks: its woodland is in groves, so at the cover's own density it
+        // read as parkland.
+        for (const [asked, laid] of [
+            ['sparse', 'normal'],
+            ['normal', 'dense'],
+            ['dense', 'dense'],
+        ] as const) {
+            expect(parsed({ density: asked, landscape: 'forest' }).zones.find((z) => z.kind === 'woodland')?.density).toBe(laid);
         }
         expect(Number.isInteger(freshSeed(seededRandom(2)))).toBe(true);
         expect([isEncounterLandscape('forest'), isEncounterLandscape('volcano')]).toEqual([true, false]);

@@ -948,7 +948,9 @@ function bridgeRotation(stamp: RoleStamp, along: Point): number | null {
 const ROAD_BRIDGE_TAGS: readonly string[] = ['road'];
 
 /** The gravel bar a ford is waded over, and how far past each bank it runs, in squares. */
-const FORD_TEXTURE = 'floor.pebble-beach';
+// Gravel, near the earth's own tone (luminance 111 against 94): pebble beach (136) read as a pale patch, near snow
+// (2026-11-10 render, grimdark wasteland).
+const FORD_TEXTURE = 'floor.gravel';
 const FORD_OVERRUN = 0.6;
 /** How wide its edge feathers into the water and the road, in squares. */
 const FORD_BLEND = 0.5;
