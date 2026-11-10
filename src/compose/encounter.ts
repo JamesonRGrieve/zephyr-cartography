@@ -961,6 +961,109 @@ function ruinStanding(at: Point, random: Random, width: number, height: number):
     ];
 }
 
+/** A feudal camp's pieces, on a stream of their own so the map keeps its layout. */
+const CAMP_SEED_OFFSET = 13;
+/** A feudal camp's radius in squares, its palisade's step round it, and how far off true the whole camp stands. */
+const CAMP_RADIUS = 6;
+const CAMP_STAKE_STEP = 3.3;
+const CAMP_SKEW = 7;
+/**
+ * A feudal camp's tents, fire and bedrolls (dx, dy from its centre), north and south of the road that runs through it
+ * west to east: the fire and two tents to the north, a tent and two bedrolls to the south.
+ */
+const CAMP_PIECES = [
+    { name: 'camp fire', role: 'fitting', tags: ['campfire', 'spit'], size: [1.2, 1.2], at: [0, -2.4] },
+    { name: 'camp tent', role: 'structure', tags: ['camp', 'tent'], size: [3, 1.8], at: [-2.8, -3.1] },
+    { name: 'camp tent', role: 'structure', tags: ['camp', 'tent'], size: [3, 1.8], at: [2.8, -3.1] },
+    { name: 'camp tent', role: 'structure', tags: ['camp', 'tent'], size: [3, 1.8], at: [0, 3.4] },
+    { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [-2.7, 3.3] },
+    { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [2.7, 3.3] },
+] as const;
+/** Where the road enters and leaves a camp: no stakes within this sine of its west and east points. */
+const CAMP_GATE = 0.4;
+
+/**
+ * A feudal camp is tents round a fire inside a ring of stakes (2026-11-10 render, encounter feudal desert: the fortified
+ * zone's own dressing stood a modern floodlight tower, a ship's deck cannon and stray barrels, and no tent). The camp
+ * stands a few degrees off true; its stake runs lie along the ring, broken where the road comes in and goes out and
+ * wherever the ring runs off the map.
+ */
+function campStanding(at: Point, random: Random, width: number, height: number): object[] {
+    const skew = ((random() * 2 - 1) * CAMP_SKEW * Math.PI) / 180;
+    const turned = (dx: number, dy: number): Point => ({
+        x: round1(at.x + dx * Math.cos(skew) - dy * Math.sin(skew)),
+        y: round1(at.y + dx * Math.sin(skew) + dy * Math.cos(skew)),
+    });
+    const degrees = Math.round((skew * 180) / Math.PI);
+    const pieces = CAMP_PIECES.map((part) => ({
+        name: part.name,
+        role: part.role,
+        tags: [...part.tags],
+        width: part.size[0],
+        height: part.size[1],
+        at: turned(part.at[0], part.at[1]),
+        angle: (degrees + 360) % 360,
+        fixed: true,
+        clear: true,
+    }));
+    const ring = CAMP_RADIUS - 0.4;
+    const count = Math.floor((2 * Math.PI * ring) / CAMP_STAKE_STEP);
+    const stakes = Array.from({ length: count }, (_, i) => (i / count) * Math.PI * 2 + skew).flatMap((bearing) => {
+        const p = { x: round1(at.x + Math.cos(bearing) * ring), y: round1(at.y + Math.sin(bearing) * ring) };
+        const gate = Math.abs(Math.sin(bearing)) < CAMP_GATE;
+        const off = p.x < 2 || p.y < 2 || p.x > width - 2 || p.y > height - 2;
+        return gate || off
+            ? []
+            : [
+                  {
+                      name: 'camp stakes',
+                      role: 'barricade',
+                      tags: ['stake', 'barricade', 'run'],
+                      width: 3,
+                      height: 0.3,
+                      at: p,
+                      // Along the ring, its points facing out.
+                      angle: (Math.round((bearing * 180) / Math.PI) + 90 + 360) % 360,
+                      fixed: true,
+                      clear: true,
+                  },
+              ];
+    });
+    return [...pieces, ...stakes];
+}
+
+/** A camp's zones, worn earth and pieces, and the spot the landscape's features keep their distance from. */
+interface Camp {
+    readonly zones: readonly object[];
+    readonly earth: readonly EarthCircle[];
+    readonly fixtures: readonly object[];
+    readonly keptFrom: readonly Point[];
+}
+
+/**
+ * The camp at `at`: a feudal one stands as tents round a fire on worn earth (`campStanding`); any other is a fortified
+ * zone, in a clearing of its own on covered ground (`opened`).
+ */
+function campOf(
+    choice: EncounterChoice,
+    at: Point,
+    map: { readonly width: number; readonly height: number },
+    opened: (at: Point, radius: number) => void,
+): Camp {
+    const span = Math.min(map.width, map.height);
+    if (choice.setting !== 'feudal') {
+        opened(at, span / 4);
+        return { zones: [{ kind: 'fortified', area: circle(at, span / 4), density: choice.density }], earth: [], fixtures: [], keptFrom: [] };
+    }
+    const radius = Math.max(CAMP_RADIUS, span / 4);
+    return {
+        zones: [{ kind: 'clearing', area: circle(at, radius) }],
+        earth: [{ centre: at, radius }],
+        fixtures: campStanding(at, seededRandom(choice.seed + CAMP_SEED_OFFSET), map.width, map.height),
+        keptFrom: [at],
+    };
+}
+
 /** The map intent for an encounter, as a preset's is: an object the GM edits as JSON and the composer builds. */
 export function encounterIntent(choice: EncounterChoice): object {
     const look = LOOKS[choice.setting];
@@ -1008,10 +1111,15 @@ export function encounterIntent(choice: EncounterChoice): object {
         ruinSites.push(at);
     }
     let campAt: Point | null = null;
+    // Worn earth under a feudal camp, which stands as pieces of its own rather than a fortified zone's dressing.
+    const campEarth: EarthCircle[] = [];
     if (has('camp')) {
         campAt = take();
-        zones.push({ kind: 'fortified', area: circle(campAt, span / 4), density: choice.density });
-        opened(campAt, span / 4);
+        const camp = campOf(choice, campAt, { width, height }, opened);
+        zones.push(...camp.zones);
+        campEarth.push(...camp.earth);
+        fixtures.push(...camp.fixtures);
+        ruinSites.push(...camp.keptFrom);
     }
     if (has('wreck')) {
         const at = take();
@@ -1087,7 +1195,7 @@ export function encounterIntent(choice: EncounterChoice): object {
         height,
         seed: choice.seed + GROUND_SEED_OFFSET,
         roles: [groundTexture ?? baseRole, patchRole, rock],
-        earth: earthOf(zones),
+        earth: [...earthOf(zones), ...campEarth],
     });
     return {
         ...base,

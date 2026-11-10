@@ -129,7 +129,8 @@ describe('encounter maps', () => {
         expect(withLake.zones.some((z) => z.kind === 'lake' && z.key === 'lake')).toBe(true);
         expect(withLake.paths.find((p) => p.kind === 'river')?.from).toEqual({ zone: 'lake' });
         const all = parsed({ features: ['ruins', 'camp', 'wreck', 'cliffs'] });
-        expect(all.zones.some((z) => z.kind === 'fortified')).toBe(true);
+        expect(all.fixtures.some((f) => f.name === 'camp tent')).toBe(true);
+        expect(parsed({ features: ['camp'], setting: 'grimdark' }).zones.some((z) => z.kind === 'fortified')).toBe(true);
         expect(all.zones.filter((z) => z.kind === 'rocky' && z.area.shape === 'edge')).toHaveLength(2);
         // Each height ends in a cliff face along its edge, the face looking into the pass.
         expect(all.fixtures.filter((f) => f.name === 'cliff face run').map((f) => f.facing)).toEqual(['bottom', 'top']);
@@ -337,12 +338,26 @@ describe('encounter maps', () => {
     });
 
     it('opens a clearing round each feature in a forest, and runs the road through the camp', () => {
-        const forest = parsed({ landscape: 'forest', features: ['camp', 'ruins'] });
+        const forest = parsed({ landscape: 'forest', features: ['camp', 'ruins'], setting: 'grimdark' });
         expect(forest.zones.filter((z) => z.kind === 'clearing')).toHaveLength(2);
         const camp = forest.zones.find((z) => z.kind === 'fortified');
         const road = forest.paths.find((p) => p.kind === 'road');
         expect(camp?.area.shape === 'circle' && road?.via[0]).toEqual(camp?.area.shape === 'circle' ? camp.area.centre : null);
-        expect(parsed({ landscape: 'plains', features: ['camp'] }).zones.some((z) => z.kind === 'clearing')).toBe(false);
+        expect(parsed({ landscape: 'plains', features: ['ruins'] }).zones.some((z) => z.kind === 'clearing')).toBe(false);
+    });
+
+    it('stands a feudal camp as tents round a fire inside a ring of stakes, open where the road runs through it', () => {
+        const intent = parsed({ landscape: 'plains', features: ['camp'], setting: 'feudal', size: 'large' });
+        const ground = intent.zones.find((z) => z.kind === 'clearing');
+        expect(intent.zones.some((z) => z.kind === 'fortified')).toBe(false);
+        const centre = ground?.area.shape === 'circle' ? ground.area.centre : { x: 0, y: 0 };
+        expect(intent.paths.find((p) => p.kind === 'road')?.via[0]).toEqual(centre);
+        const named = (piece: string): readonly { at?: { x: number; y: number } | null }[] => intent.fixtures.filter((f) => f.name === piece);
+        expect([named('camp fire').length, named('camp tent').length, named('camp bedroll').length]).toEqual([1, 3, 2]);
+        const stakes = named('camp stakes').map((f) => f.at ?? centre);
+        expect(stakes.length).toBeGreaterThanOrEqual(6);
+        // No stake across the road's way in or out, to the camp's west and east.
+        expect(stakes.every((p) => Math.abs(p.y - centre.y) > 1.5)).toBe(true);
     });
 
     it('gives the same map for the same checklist and seed, another layout for another seed, sized and lit by its choices', () => {
