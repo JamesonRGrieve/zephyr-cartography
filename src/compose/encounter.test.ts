@@ -61,6 +61,11 @@ describe('encounter ground', () => {
         const right = chambers.some((c) => c.centre.x > intent.width / 2);
         expect(left && right).toBe(true);
         expect(intent.fixtures.length).toBeGreaterThanOrEqual(chambers.length);
+        // Dressed by theme, never alike: at least three of a pool, fungus, bones, a cave-in, crystals or roots.
+        const themed = ['cave pool', 'mushrooms', 'old bones', 'bone cairn', 'cave-in rubble', 'crystals', 'roots through the rock'];
+        expect(new Set(intent.fixtures.map((f) => f.name).filter((n) => themed.includes(n))).size).toBeGreaterThanOrEqual(3);
+        // Every chamber's floor broken by rubble, puddles and stains, more than a token piece or two each.
+        expect(intent.fixtures.length).toBeGreaterThanOrEqual(chambers.length * 4);
         // No two pieces of dressing heaped on one another.
         const apart = intent.fixtures.every((a, i) => intent.fixtures.slice(i + 1).every((b) => Math.hypot(a.at.x - b.at.x, a.at.y - b.at.y) > 0.6));
         expect(apart).toBe(true);

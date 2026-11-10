@@ -325,18 +325,6 @@ const CAVE_DRESSING_TRIES = 24;
 const CAVE_DRESSING_GAP = 0.3;
 
 /**
- * A cave's dressing, as the Dunmarch caves dress theirs (2026-11-09 renders: every encounter cave a bare floor):
- * boulders, loose stones, stalagmites, mushrooms and roots, each by the role its art's tags derive.
- */
-const CAVE_DRESSING: readonly { name: string; width: number; height: number; role: string; tags: readonly string[] }[] = [
-    { name: 'cave boulder', width: 1.6, height: 1.4, role: 'rock', tags: ['cave', 'boulder'] },
-    { name: 'loose stones', width: 0.8, height: 0.65, role: 'debris', tags: ['rubble', 'bits', 'debris'] },
-    { name: 'stalagmite cluster', width: 1.2, height: 1.2, role: 'fitting', tags: ['stalagmite', 'cluster'] },
-    { name: 'mushroom cluster', width: 1.2, height: 1.2, role: 'flora', tags: ['mushroom', 'cluster'] },
-    { name: 'cave roots', width: 1.6, height: 1.4, role: 'flora', tags: ['cave', 'roots'] },
-];
-
-/**
  * What the warp leaves in a cave, dressed among its rocks (2026-11-09 preview: a warp cave read as any other): a rift
  * in the floor, black thorns and a cult's candle-lit bones. The near-black scorch mark is left out: it is lost on a cave
  * floor.
@@ -347,12 +335,112 @@ const WARP_CAVE_DRESSING: readonly { name: string; width: number; height: number
     { name: 'chaos bone pile', width: 1.4, height: 1.4, role: 'fitting', tags: ['bone', 'pile'], state: 'pile candle stubs' },
 ];
 
+/** A cave piece: its name, size, role, tags and the plan-view pictures it is drawn in. */
+interface CavePiece {
+    readonly name: string;
+    readonly size: readonly [number, number];
+    readonly role: string;
+    readonly tags: readonly string[];
+    readonly states: readonly string[];
+}
+
+const piece = (label: string, size: readonly [number, number], role: string, tags: readonly string[], states: readonly string[]): CavePiece => ({
+    name: label,
+    size,
+    role,
+    tags,
+    states,
+});
+// The Dunmarch caves brief's own pieces, their roles and plan-view pictures as judged there (make-dunmarch-caves.py).
+const BOULDER = piece('cave boulder', [2, 1.7], 'rock', ['cave', 'boulder'], ['jagged boulder', 'rounded boulder', 'split boulder', 'moss-covered boulder']);
+const DEBRIS = piece('loose stones', [1.1, 0.9], 'debris', ['cave', 'debris'], ['loose stones', 'rubble pile', 'muddy debris']);
+const FALL = piece('rock fall', [1.8, 1.4], 'debris', ['cave', 'debris'], ['collapsed rock pile']);
+const FUNGUS = piece('mushrooms', [1.3, 1.3], 'flora', ['mushroom', 'cluster'], ['tiny mushrooms', 'poisonous-looking mushrooms', 'scattered mushroom ring']);
+const ROOTS = piece('roots through the rock', [2, 1.8], 'flora', ['cave', 'roots'], ['exposed roots', 'tangled roots', 'thick roots']);
+const BONES = piece('old bones', [1.2, 1], 'fitting', ['picked', 'bones'], ['scatter large old', 'few bones', 'heap old bones']);
+const CAIRNS = piece('bone cairn', [1, 0.85], 'debris', ['bone', 'cairn'], ['bleached animal bone']);
+const CRYSTALS = piece('crystals', [0.8, 0.8], 'rock', ['crystal', 'cluster'], ['cluster glowing blue', 'cluster violet crystals', 'cluster green crystals']);
+const STALAGMITES = piece('stalagmites', [1, 0.95], 'fitting', ['stalagmite', 'cluster'], ['cluster five round']);
+const POOL = piece('cave pool', [3.4, 3], 'fitting', ['cave', 'pool'], ['still dark pool', 'clear pool pale', 'pool glowing blue-green']);
+const CAVE_IN = piece('cave-in rubble', [2.6, 2.4], 'fitting', ['cave', 'rubble', 'spread'], ['irregular spread broken', 'small spread one']);
+// What breaks up every chamber's floor, never one flat floor between the pieces: one of each.
+const FLOOR_BREAKUP: readonly CavePiece[] = [
+    piece('cave rubble spread', [2, 1.6], 'fitting', ['cave', 'rubble', 'spread'], ['irregular spread broken']),
+    piece('cave puddle', [1.2, 0.95], 'fitting', ['cave', 'puddle'], ['small puddle few', 'two small puddles']),
+    piece('moss stain', [1.6, 1.4], 'decal', ['moss', 'stain'], ['']),
+];
+
+/** How far from a chamber's centre its pieces stand, as a share of its size: its middle half, as its ragged walls allow. */
+const CAVE_SPREAD = 0.5;
+
+/**
+ * What each chamber is (2026-11-10 render, encounter caves: three or four pieces a chamber, every chamber alike, where
+ * the Dunmarch caves theme theirs): its centrepiece, if any, then its pieces and how many for every 10 squares of floor.
+ */
+const CAVE_THEMES: readonly { readonly centre?: CavePiece; readonly pieces: readonly (readonly [CavePiece, number])[]; readonly feudal?: boolean }[] = [
+    {
+        centre: POOL,
+        pieces: [
+            [BOULDER, 0.6],
+            [STALAGMITES, 0.6],
+        ],
+    },
+    {
+        pieces: [
+            [FUNGUS, 1.4],
+            [ROOTS, 0.3],
+        ],
+    },
+    {
+        pieces: [
+            [BONES, 1],
+            [DEBRIS, 0.6],
+        ],
+        feudal: true,
+    },
+    // Elsewhere the old bones are cairns: the picked bones are drawn for the feudal world alone.
+    {
+        pieces: [
+            [CAIRNS, 0.8],
+            [DEBRIS, 0.6],
+        ],
+        feudal: false,
+    },
+    {
+        centre: CAVE_IN,
+        pieces: [
+            [FALL, 0.6],
+            [BOULDER, 0.6],
+        ],
+    },
+    {
+        pieces: [
+            [CRYSTALS, 1.4],
+            [BOULDER, 0.3],
+        ],
+        feudal: true,
+    },
+    {
+        pieces: [
+            [ROOTS, 0.6],
+            [FUNGUS, 0.6],
+        ],
+    },
+    {
+        pieces: [
+            [BOULDER, 0.8],
+            [DEBRIS, 0.6],
+            [STALAGMITES, 0.4],
+        ],
+    },
+];
+
 /**
  * Chambers cut through rock, one in each cell of a grid over the map, jittered, so the cave fills it (2026-11-09:
  * chambers at random bunched in a corner, the rest of the map void); each joined to the one before, the first opening
  * off the map, and dressed in the middle half of its floor, clear of its walls; a `warp` cave with the warp's marks too.
  */
-function cave(random: Random, width: number, height: number, warp: boolean): object {
+function cave(random: Random, width: number, height: number, warp: boolean, feudal: boolean): object {
     const columns = Math.max(2, Math.round(width / CAVE_CHAMBERS.cell));
     const rows = Math.max(1, Math.round(height / CAVE_CHAMBERS.cell));
     const cells = Array.from({ length: columns * rows }, (_, i) => ({ column: i % columns, row: Math.floor(i / columns) }));
@@ -374,24 +462,53 @@ function cave(random: Random, width: number, height: number, warp: boolean): obj
     const first = chambers[0]?.centre ?? { x: width / 2, y: height / 2 };
     const exit = { points: [first, { x: -1, y: first.y }], width: CAVE_PASSAGE };
     // Each chamber's pieces apart from one another: a spot tried a few times, kept only clear of those already there
-    // (2026-11-09 judge: boulders and stalagmites heaped on one another). A warp cave's table holds the warp's too.
-    const table = warp ? [...CAVE_DRESSING, ...WARP_CAVE_DRESSING] : CAVE_DRESSING;
-    for (const chamber of chambers) {
+    // (2026-11-09 judge: boulders and stalagmites heaped on one another). Each chamber takes the next theme of a
+    // shuffled deal, so neighbours differ; a warp cave strews the warp's marks in every chamber too.
+    // A theme marked for the feudal world (its art drawn there alone: crystal clusters, picked bones) or for elsewhere.
+    const themes = shuffled(
+        random,
+        CAVE_THEMES.filter((theme) => theme.feudal === undefined || theme.feudal === feudal),
+    );
+    chambers.forEach((chamber, index) => {
+        const theme = themes[index % themes.length] ?? CAVE_THEMES[0];
         const placed: { at: Point; reach: number }[] = [];
-        const wanted = randomInt(random, 2, 4);
-        for (let tries = 0; tries < CAVE_DRESSING_TRIES && placed.length < wanted; tries++) {
-            const piece = table[randomInt(random, 0, table.length - 1)] ?? table[0];
-            const reach = Math.max(piece?.width ?? 1, piece?.height ?? 1) / 2;
-            const at = {
-                x: round(chamber.centre.x + (random() - 0.5) * chamber.width * 0.5),
-                y: round(chamber.centre.y + (random() - 0.5) * chamber.height * 0.5),
-            };
-            if (piece && placed.every((other) => Math.hypot(other.at.x - at.x, other.at.y - at.y) > other.reach + reach + CAVE_DRESSING_GAP)) {
-                placed.push({ at, reach });
-                dressing.push({ ...piece, tags: [...piece.tags], at });
+        const lay = (item: CavePiece | (typeof WARP_CAVE_DRESSING)[number], spread: number, exact = false): boolean => {
+            const [w, h] = 'size' in item ? item.size : [item.width, item.height];
+            const reach = Math.max(w, h) / 2;
+            for (let tries = 0; tries < CAVE_DRESSING_TRIES; tries++) {
+                const at = exact
+                    ? chamber.centre
+                    : {
+                          x: round(chamber.centre.x + (random() - 0.5) * chamber.width * spread),
+                          y: round(chamber.centre.y + (random() - 0.5) * chamber.height * spread),
+                      };
+                if (placed.every((other) => Math.hypot(other.at.x - at.x, other.at.y - at.y) > other.reach + reach + CAVE_DRESSING_GAP)) {
+                    placed.push({ at, reach });
+                    const state = 'states' in item ? item.states[randomInt(random, 0, item.states.length - 1)] ?? '' : item.state;
+                    dressing.push({ name: item.name, width: w, height: h, role: item.role, tags: [...item.tags], ...(state === '' ? {} : { state }), at });
+                    return true;
+                }
+                if (exact) {
+                    return false;
+                }
+            }
+            return false;
+        };
+        const area = chamber.width * chamber.height;
+        if (theme?.centre) {
+            lay(theme.centre, 0, true);
+        }
+        // The warp's marks before the rest, so a crowded chamber never leaves them out.
+        if (warp) {
+            WARP_CAVE_DRESSING.forEach((mark) => lay(mark, CAVE_SPREAD));
+        }
+        FLOOR_BREAKUP.forEach((item) => lay(item, CAVE_SPREAD));
+        for (const [item, per10] of theme?.pieces ?? []) {
+            for (let n = Math.max(1, Math.round((area / 10) * per10)); n > 0; n--) {
+                lay(item, CAVE_SPREAD);
             }
         }
-    }
+    });
     return {
         ground: null,
         backdrop: CAVE_BACKDROP,
@@ -814,7 +931,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     const random = seededRandom(choice.seed);
     const base = { schemaVersion: 1, seed: choice.seed, width, height, settings: [...look.settings] };
     if (choice.landscape === 'cave') {
-        return { ...base, lighting: 'dim', ...cave(random, width, height, choice.setting === 'warp') };
+        return { ...base, lighting: 'dim', ...cave(random, width, height, choice.setting === 'warp', choice.setting === 'feudal') };
     }
     const land = LANDSCAPES[choice.landscape];
     const has = (feature: EncounterFeature): boolean => choice.features.includes(feature);
