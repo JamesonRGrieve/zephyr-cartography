@@ -933,6 +933,34 @@ function bridgeRotation(stamp: RoleStamp, along: Point): number | null {
 /** Tags of a bridge built to carry a road (a timber or stone road bridge), before a footbridge or a rope span. */
 const ROAD_BRIDGE_TAGS: readonly string[] = ['road'];
 
+/** The gravel bar a ford is waded over, and how far past each bank it runs, in squares. */
+const FORD_TEXTURE = 'floor.pebble-beach';
+const FORD_OVERRUN = 0.6;
+/** How wide its edge feathers into the water and the road, in squares. */
+const FORD_BLEND = 0.5;
+
+/**
+ * A ford's way across (2026-11-10 render, grimdark forest and wasteland: the road ran into the river and out the far
+ * side with nothing in the water, reading as cut): a gravel bar the road's width laid along it, bank to bank and a
+ * little past each, feathered into the water.
+ */
+function fordAt(at: Point, along: Point, roadHalf: number, riverHalf: number): FeatureInput {
+    const half = riverHalf + FORD_OVERRUN;
+    const across = { x: -along.y, y: along.x };
+    const corner = (s: number, t: number): Point => ({
+        x: at.x + along.x * half * s + across.x * roadHalf * t,
+        y: at.y + along.y * half * s + across.y * roadHalf * t,
+    });
+    return {
+        type: 'region',
+        biome: LAKE_BED,
+        points: [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)],
+        sharp: false,
+        blend: FORD_BLEND,
+        texture: FORD_TEXTURE,
+    };
+}
+
 /**
  * A bridge wherever a road crosses a river, laid along the road, sound, and
  * built for a road where any such is loaded; a problem when a road needs one
@@ -946,8 +974,11 @@ function bridges(paths: readonly LaidPath[], stamps: RoleIndex, random: Random):
     const problems: ComposeProblem[] = [];
     for (const road of paths.filter((p) => p.kind === 'road')) {
         const wanted = road.bridge;
-        // A ford: waded, no bridge, nothing reported.
+        // A ford: waded, no bridge, nothing reported; the way across drawn as shallows over a gravel bar.
         if (wanted === false) {
+            for (const river of paths.filter((p) => p.kind === 'river')) {
+                features.push(...crossings(road.points, river.points).map(({ at, along }) => fordAt(at, along, road.halfWidth, river.halfWidth)));
+            }
             continue;
         }
         // Art of the kind asked (the first tag any loaded art carries), else any road bridge.

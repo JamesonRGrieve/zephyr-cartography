@@ -148,6 +148,11 @@ describe('bridges and yard pieces', () => {
         const ford = composeMap(crossing(road(false)), roles);
         expect(stampsOf(ford.spec, 'test:timber-bridge') + stampsOf(ford.spec, 'test:stone-bridge')).toBe(0);
         expect(ford.problems.filter((p) => 'role' in p && p.role === 'bridge')).toEqual([]);
+        // The ford's way across is drawn: a gravel bar over the water, along the road, not the road cut by the river.
+        const bars = ford.spec.features.filter((f) => f.type === 'region' && f.texture === 'floor.pebble-beach');
+        expect(bars).toHaveLength(1);
+        const bridged = composeMap(crossing(road(['rope'])), roles).spec;
+        expect(bridged.features.filter((f) => f.type === 'region' && f.texture === 'floor.pebble-beach')).toEqual([]);
     });
 
     it('lays a bridge drawn with depth only where the road runs across it as drawn, and says when a road crossing has none', () => {
