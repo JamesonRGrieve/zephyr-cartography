@@ -361,6 +361,13 @@ describe('encounter maps', () => {
         expect(parsed({ landscape: 'tundra' }).ground).toBe('snow');
     });
 
+    it('strews stones thinly over the whole of a desert beneath its outcrops, never bare sand between four clusters', () => {
+        const [all, ...outcrops] = parsed({ landscape: 'desert', features: [] }).zones;
+        expect(all).toMatchObject({ kind: 'rocky', area: { shape: 'everywhere' }, density: 'sparse' });
+        expect(outcrops.length).toBeGreaterThanOrEqual(3);
+        expect(outcrops.every((zone) => zone.kind === 'rocky' && zone.area.shape === 'circle')).toBe(true);
+    });
+
     it('cuts a cave as one network of chambers through rock, opening off the map, in the dark', () => {
         const intent = parsed({ landscape: 'cave' });
         const [network] = intent.hewn;

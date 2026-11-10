@@ -291,7 +291,13 @@ const LANDSCAPES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, Landscape
         covered: false,
         zones: (random, w, h, density) => [{ kind: 'meadow', area: EVERYWHERE, density: 'sparse' }, ...clusters(random, w, h, ['rocky'], density)],
     },
-    desert: { ground: 'sand', covered: false, zones: (random, w, h) => clusters(random, w, h, ['rocky'], 'sparse') },
+    // Stones and scrub thinly over all the sand beneath its outcrops (2026-11-10 render, feudal desert: bare sand between
+    // four clusters). The map's ground is a blend, so the zone lays pieces and no ground of its own.
+    desert: {
+        ground: 'sand',
+        covered: false,
+        zones: (random, w, h) => [{ kind: 'rocky', area: EVERYWHERE, density: 'sparse' }, ...clusters(random, w, h, ['rocky'], 'sparse')],
+    },
     marsh: {
         ground: 'marsh',
         covered: true,
