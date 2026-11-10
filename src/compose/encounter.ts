@@ -333,11 +333,22 @@ const CAVE_DRESSING: readonly { name: string; width: number; height: number; rol
 ];
 
 /**
+ * What the warp leaves in a cave, dressed among its rocks (2026-11-09 preview: a warp cave read as any other): a rift
+ * in the floor, black thorns and a cult's candle-lit bones. The near-black scorch mark is left out: it is lost on a cave
+ * floor.
+ */
+const WARP_CAVE_DRESSING: readonly { name: string; width: number; height: number; role: string; tags: readonly string[]; state: string }[] = [
+    { name: 'hell rift', width: 2.4, height: 0.9, role: 'fitting', tags: ['hell', 'rift'], state: 'long cracked' },
+    { name: 'thorn growth', width: 1.6, height: 1.6, role: 'fitting', tags: ['thorn', 'growth'], state: 'spreading' },
+    { name: 'chaos bone pile', width: 1.4, height: 1.4, role: 'fitting', tags: ['bone', 'pile'], state: 'pile candle stubs' },
+];
+
+/**
  * Chambers cut through rock, one in each cell of a grid over the map, jittered, so the cave fills it (2026-11-09:
  * chambers at random bunched in a corner, the rest of the map void); each joined to the one before, the first opening
- * off the map, and dressed in the middle half of its floor, clear of its walls.
+ * off the map, and dressed in the middle half of its floor, clear of its walls; a `warp` cave with the warp's marks too.
  */
-function cave(random: Random, width: number, height: number): object {
+function cave(random: Random, width: number, height: number, warp: boolean): object {
     const columns = Math.max(2, Math.round(width / CAVE_CHAMBERS.cell));
     const rows = Math.max(1, Math.round(height / CAVE_CHAMBERS.cell));
     const cells = Array.from({ length: columns * rows }, (_, i) => ({ column: i % columns, row: Math.floor(i / columns) }));
@@ -359,12 +370,13 @@ function cave(random: Random, width: number, height: number): object {
     const first = chambers[0]?.centre ?? { x: width / 2, y: height / 2 };
     const exit = { points: [first, { x: -1, y: first.y }], width: CAVE_PASSAGE };
     // Each chamber's pieces apart from one another: a spot tried a few times, kept only clear of those already there
-    // (2026-11-09 judge: boulders and stalagmites heaped on one another).
+    // (2026-11-09 judge: boulders and stalagmites heaped on one another). A warp cave's table holds the warp's too.
+    const table = warp ? [...CAVE_DRESSING, ...WARP_CAVE_DRESSING] : CAVE_DRESSING;
     for (const chamber of chambers) {
         const placed: { at: Point; reach: number }[] = [];
         const wanted = randomInt(random, 2, 4);
         for (let tries = 0; tries < CAVE_DRESSING_TRIES && placed.length < wanted; tries++) {
-            const piece = CAVE_DRESSING[randomInt(random, 0, CAVE_DRESSING.length - 1)] ?? CAVE_DRESSING[0];
+            const piece = table[randomInt(random, 0, table.length - 1)] ?? table[0];
             const reach = Math.max(piece?.width ?? 1, piece?.height ?? 1) / 2;
             const at = {
                 x: round(chamber.centre.x + (random() - 0.5) * chamber.width * 0.5),
@@ -432,6 +444,54 @@ const CLIFF_CLEARANCE = 2;
 const CLIFF_ROAD_MEANDER = 0.2;
 /** Squares either side of a road's line a cliff face leaves open for its pass. */
 const CLIFF_PASS = 3;
+/** Squares either side of a road's line along a pass that its pools keep clear: its half width, its bends and a step. */
+const ROAD_BAND = 2.75;
+
+/**
+ * Where a road along a pass runs, with nothing else to steer it: a step clear of one face's foot, north or south as
+ * seeded, so the rest of the pass is the pools' (2026-11-09 preview, encounter-scifi-marsh: a road free to wander
+ * went round a pool the short way, over a height).
+ */
+function passRoadY(random: Random, depth: number, height: number): number {
+    const off = depth + CLIFF_CLEARANCE + 1;
+    return random() < 0.5 ? off : height - off;
+}
+
+/**
+ * The road across the map along a pass where the cliffs fixed its line (`roadY`): its ends held there and its bends kept
+ * low, or a free edge end and a wide meander climb it over a face (2026-11-09 preview, encounter-scifi-marsh). Elsewhere
+ * the road as it is.
+ */
+function alongPass(across: object, roadY: number | null, width: number): object {
+    return roadY === null ? across : { ...across, from: { x: -1, y: roadY }, to: { x: width + 1, y: roadY }, meander: CLIFF_ROAD_MEANDER };
+}
+
+/** The road down the map pinned at `x` (through a pass, or beside a river), its bends kept low; free where none is. */
+function throughPass(down: object, x: number | null, height: number): object {
+    return x === null ? down : { ...down, from: { x, y: height + 1 }, to: { x, y: -1 }, meander: CLIFF_ROAD_MEANDER };
+}
+
+/**
+ * The heights of rock along both long sides, the way between them a pass (not a boulder field: a band of rock either
+ * side; 2026-11-04 preview: dense strips swamped a marsh in boulders). The landscape's own pools and wallows are moved
+ * into the pass, never across a height (2026-11-05 preview: a marsh's pool cut in half by the south cliff face), and
+ * clear of the road along it where one runs there (`roadAlong`). Pushes the heights' strips; returns their depth and
+ * the road's line along the pass (null where no road runs along it).
+ */
+function cliffs(at: { readonly random: Random; readonly height: number; readonly zones: object[]; readonly heights: object[]; readonly roadAlong: boolean }): {
+    readonly depth: number;
+    readonly roadY: number | null;
+} {
+    const { random, height, zones, heights, roadAlong } = at;
+    const depth = Math.round(height * 0.2);
+    const roadY = roadAlong ? passRoadY(random, depth, height) : null;
+    const band = roadY === null ? null : { y0: roadY - ROAD_BAND, y1: roadY + ROAD_BAND };
+    zones.forEach((zone, i) => {
+        zones[i] = intoPass(zone, depth, height, band);
+    });
+    heights.push({ kind: 'rocky', area: edgeStrip('north', depth) }, { kind: 'rocky', area: edgeStrip('south', depth) });
+    return { depth, roadY };
+}
 
 /**
  * Each height's cliff face looking down into the pass, laid along its edge as a run of plan-view cliff art (2026-11-04
@@ -496,6 +556,11 @@ const WARP_GROWTH: readonly { name: string; width: number; height: number; role:
     },
 ];
 
+/** The warp's growth on a warp-touched map's open ground; none in any other setting. */
+function warpGrowthOf(setting: EncounterSetting, random: Random, width: number, height: number): object[] {
+    return setting === 'warp' ? warpGrowth(random, width, height) : [];
+}
+
 function warpGrowth(random: Random, width: number, height: number): object[] {
     return WARP_GROWTH.flatMap((kind) =>
         Array.from({ length: Math.max(1, Math.round((width * height) / kind.per)) }, () => ({
@@ -520,7 +585,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     const random = seededRandom(choice.seed);
     const base = { schemaVersion: 1, seed: choice.seed, width, height, settings: [...look.settings] };
     if (choice.landscape === 'cave') {
-        return { ...base, lighting: 'dim', ...cave(random, width, height) };
+        return { ...base, lighting: 'dim', ...cave(random, width, height, choice.setting === 'warp') };
     }
     const land = LANDSCAPES[choice.landscape];
     const has = (feature: EncounterFeature): boolean => choice.features.includes(feature);
@@ -538,20 +603,11 @@ export function encounterIntent(choice: EncounterChoice): object {
             zones.push({ kind: 'clearing', area: circle(at, radius + 1) });
         }
     };
-    // The heights' depth where the map has cliffs: their faces are laid once the roads are known, broken where one crosses.
-    let cliffDepth: number | null = null;
-    if (has('cliffs')) {
-        // Heights of rock along both long sides, the way between them a pass.
-        // Not a boulder field: a band of rock either side (2026-11-04 preview: dense strips swamped a marsh in boulders).
-        const depth = Math.round(height * 0.2);
-        // The landscape's own pools and wallows lie in the pass, never across a height (2026-11-05 preview: a marsh's
-        // pool cut in half by the south cliff face).
-        zones.forEach((zone, i) => {
-            zones[i] = intoPass(zone, depth, height);
-        });
-        heights.push({ kind: 'rocky', area: edgeStrip('north', depth) }, { kind: 'rocky', area: edgeStrip('south', depth) });
-        cliffDepth = depth;
-    }
+    // The heights' depth where the map has cliffs (their faces are laid once the roads are known, broken where one
+    // crosses), and where the road across runs along the pass when nothing else steers it.
+    const { depth: cliffDepth, roadY } = has('cliffs')
+        ? cliffs({ random, height, zones, heights, roadAlong: choice.road !== 'none' && !has('camp') && !has('lake') })
+        : { depth: null, roadY: null };
     let lakeAt: Point | null = null;
     if (has('lake')) {
         const at = take();
@@ -615,7 +671,7 @@ export function encounterIntent(choice: EncounterChoice): object {
               { x: width / 2, y: intoPassY(lakeAt.y < height / 2 ? height * 0.82 : height * 0.18) }
             : { x: lakeAt.x < width / 2 ? width * 0.82 : width * 0.18, y: height / 2 };
     if (choice.road !== 'none') {
-        paths.push(road('west', 'east', campAt ?? clear('y')));
+        paths.push(alongPass(road('west', 'east', campAt ?? clear('y')), roadY, width));
     }
     // Where a road runs down the map through the heights, its x: the faces break there for a pass.
     let passX: number | null = null;
@@ -623,13 +679,9 @@ export function encounterIntent(choice: EncounterChoice): object {
         // Pinned beside a river or through cliffs (downRoadX), else free to wander.
         const pinned = downRoadX({ lakeAt, riverX, cliffDepth, clearX: clear('x')?.x ?? null, width, random });
         passX = pinned;
-        paths.push(
-            pinned === null
-                ? road('south', 'north', clear('x'))
-                : { ...road('south', 'north', null), from: { x: pinned, y: height + 1 }, to: { x: pinned, y: -1 }, meander: CLIFF_ROAD_MEANDER },
-        );
+        paths.push(throughPass(road('south', 'north', pinned === null ? clear('x') : null), pinned, height));
     }
-    fixtures.push(...cliffFaces(cliffDepth, width, height, passX), ...(choice.setting === 'warp' ? warpGrowth(random, width, height) : []));
+    fixtures.push(...cliffFaces(cliffDepth, width, height, passX), ...warpGrowthOf(choice.setting, random, width, height));
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
     // Rocky ground is painted into the blend as earth or rock under its stones, never laid over it as a patch of its own.
@@ -663,19 +715,44 @@ export function encounterIntent(choice: EncounterChoice): object {
 
 /**
  * `zone` moved into the pass between two heights `depth` deep along the north and south edges: a circle (a pool, a
- * wallow) slid north or south until it clears both by a square, shrunk to fit where the pass is narrower. Anything else
- * is left as it is.
+ * wallow) slid north or south until it clears both by a square, shrunk to fit where the pass is narrower. Where a road
+ * runs along the pass (`road`, the band it keeps), the circle keeps to one side of it, shrunk to fit there, so the road
+ * never has to go round it over a height (2026-11-09 preview, encounter-scifi-marsh). Anything else is left as it is.
  */
-export function intoPass(zone: object, depth: number, height: number): object {
+export function intoPass(zone: object, depth: number, height: number, road: Band | null = null): object {
     if (!('area' in zone) || typeof zone.area !== 'object' || zone.area === null || !isCircleArea(zone.area)) {
         return zone;
     }
     const { area } = zone;
-    const northFoot = depth + 1;
-    const southFoot = height - depth - 1;
-    const radius = Math.max(1, Math.min(area.radius, (southFoot - northFoot) / 2));
-    const y = Math.min(Math.max(area.centre.y, northFoot + radius), southFoot - radius);
+    const feet = passFeet(depth, height, road, area.centre.y);
+    const radius = Math.max(1, Math.min(area.radius, (feet.south - feet.north) / 2));
+    const y = Math.min(Math.max(area.centre.y, feet.north + radius), feet.south - radius);
     return { ...zone, area: circle({ x: area.centre.x, y }, radius) };
+}
+
+/** A band of the map's height, from `y0` down to `y1`. */
+interface Band {
+    readonly y0: number;
+    readonly y1: number;
+}
+
+/** Squares across the least room either side of a road a pool keeps to (a pool a square across). */
+const POOL_ROOM = 2;
+
+/**
+ * The part of the pass a pool at `y` may lie in: between the faces' feet, a square clear of each, and where a road runs
+ * along the pass, on the pool's own side of the road's band while that side has room, else on the side with more.
+ */
+function passFeet(depth: number, height: number, road: Band | null, y: number): { readonly north: number; readonly south: number } {
+    const north = depth + 1;
+    const south = height - depth - 1;
+    if (road === null) {
+        return { north, south };
+    }
+    const above = road.y0 - north;
+    const below = south - road.y1;
+    const keepsAbove = (y < (road.y0 + road.y1) / 2 && above >= POOL_ROOM) || (below < POOL_ROOM && above > below);
+    return keepsAbove ? { north, south: road.y0 } : { north: road.y1, south };
 }
 
 /** A whole number seed for a fresh layout. */

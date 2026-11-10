@@ -689,6 +689,15 @@ test('the Map builder rolls the encounter ticked on its checklist, composes it, 
     await expect(intent).toHaveValue(/"bridge": false/u);
     await expect(report).toContainText('Built', { timeout: 120_000 });
 
+    // Warp-touched between cliffs: the faces leave a pass where the road runs down through them, and the warp's growth
+    // stands kept clear of the roads.
+    await panel.getByLabel('Setting', { exact: true }).selectOption({ label: 'Warp-touched' });
+    await panel.getByLabel('Cliffs').check();
+    await panel.getByRole('button', { name: 'Generate encounter' }).click();
+    await expect(intent).toHaveValue(/"cliff face run"/u);
+    await expect(intent).toHaveValue(/"clear": true/u);
+    await expect(report).toContainText('Built', { timeout: 120_000 });
+
     // A cave instead: its ragged chambers walled in native walls; Reroll keeps it and gives it another seed.
     await panel.getByLabel('Landscape').selectOption({ label: 'Cave' });
     await panel.getByRole('button', { name: 'Generate encounter' }).click();

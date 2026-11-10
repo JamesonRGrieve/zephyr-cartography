@@ -93,6 +93,16 @@ describe('encounter ground', () => {
         const strip = { kind: 'marsh', area: { shape: 'everywhere' } };
         expect(intoPass(strip, 5, 24)).toBe(strip);
     });
+
+    it('keeps a pool between cliffs to one side of a road along the pass, shrinking it to fit there', () => {
+        const pool = { kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 9 }, radius: 3 } };
+        // The road along the north face's foot (its band 5.25 to 10.75): the pool goes below it, whole.
+        expect(intoPass(pool, 5, 24, { y0: 5.25, y1: 10.75 })).toEqual({ kind: 'lake', area: { shape: 'circle', centre: { x: 9, y: 13.75 }, radius: 3 } });
+        // Along the south face's foot (13.25 to 18.75): the pool keeps above it, where it already lies.
+        expect(intoPass(pool, 5, 24, { y0: 13.25, y1: 18.75 })).toEqual(pool);
+        // A band leaving less than a pool's room either side: it shrinks to its least, on the side with more.
+        expect(intoPass(pool, 9, 24, { y0: 10.5, y1: 13.5 })).toMatchObject({ area: { radius: 1 } });
+    });
 });
 
 describe('encounter maps', () => {
@@ -183,6 +193,39 @@ describe('encounter maps', () => {
             expect(via.y).toBeGreaterThan(depth);
             expect(via.y).toBeLessThan(lake.height - depth);
         }
+    });
+
+    it('runs a road along a pass between cliffs, clear of both faces and of its pools', () => {
+        for (let seed = 1; seed <= 30; seed++) {
+            const intent = parsed({ seed, landscape: 'marsh', features: ['cliffs'], road: 'road' });
+            const depth = Math.round(intent.height * 0.2);
+            const across = intent.paths.find((p) => p.kind === 'road');
+            const from = across && typeof across.from === 'object' && 'y' in across.from ? across.from : null;
+            const to = across && typeof across.to === 'object' && 'y' in across.to ? across.to : null;
+            const y = from?.y ?? Number.NaN;
+            // Pinned along one face's foot, its bends kept low.
+            expect(to?.y).toBe(y);
+            expect(across?.meander).toBe(0.2);
+            expect(y).toBeGreaterThanOrEqual(depth + 2);
+            expect(y).toBeLessThanOrEqual(intent.height - depth - 2);
+            // Every pool lies off the road's band and between the faces' feet.
+            for (const zone of intent.zones) {
+                if (zone.kind !== 'lake' || zone.area.shape !== 'circle') {
+                    continue;
+                }
+                const { centre, radius } = zone.area;
+                expect(centre.y + radius <= y - 2.75 + 1e-9 || centre.y - radius >= y + 2.75 - 1e-9).toBe(true);
+                expect(centre.y - radius).toBeGreaterThanOrEqual(depth + 1 - 1e-9);
+                expect(centre.y + radius).toBeLessThanOrEqual(intent.height - depth - 1 + 1e-9);
+            }
+        }
+    });
+
+    it('lays the warp in a warp cave, and none in any other', () => {
+        const WARP = ['hell rift', 'thorn growth', 'chaos bone pile'];
+        const seeds = Array.from({ length: 10 }, (_, i) => i + 1);
+        expect(seeds.every((seed) => parsed({ seed, landscape: 'cave', setting: 'warp' }).fixtures.some((f) => WARP.includes(f.name)))).toBe(true);
+        expect(seeds.some((seed) => parsed({ seed, landscape: 'cave', setting: 'feudal' }).fixtures.some((f) => WARP.includes(f.name)))).toBe(false);
     });
 
     it("raises the cliffs' heights in the landscape's own ground, a marsh's in olive meadow, never bare rock", () => {
