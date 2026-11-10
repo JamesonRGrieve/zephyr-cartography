@@ -192,6 +192,27 @@ describe('bridges and yard pieces', () => {
         expect(composed.spec.features.filter((f) => f.type === 'stamp').length).toBeGreaterThan(5);
     });
 
+    it("closes a round camp's line with barricades end to end between its guns, all the way round", () => {
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            width: 30,
+            height: 20,
+            zones: [{ kind: 'fortified', area: { shape: 'circle', centre: { x: 15, y: 10 }, radius: 6 } }],
+        });
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) {
+            return;
+        }
+        const { spec } = composeMap(parsed.intent, TEST_ROLES);
+        const line = spec.features.flatMap((f) => (f.type === 'stamp' && (f.stamp === 'test:barricade' || f.stamp === 'test:emplacement') ? [f] : []));
+        // About 34 squares round inside the edge, three guns each keeping about 5 of it, a barricade 2 long at a step of 2.1
+        // in the rest: seven (carried only from a side a piece stood on, the line stopped after its first short side).
+        expect(stampsOf(spec, 'test:barricade')).toBeGreaterThanOrEqual(6);
+        // Round the whole ring, not one side of it: pieces in every quarter.
+        const quarters = new Set(line.map((f) => `${Math.sign(Math.round(f.x - 15))},${Math.sign(Math.round(f.y - 10))}`));
+        expect(quarters.size).toBeGreaterThanOrEqual(4);
+    });
+
     it('never lays rocks, logs or shrubs on a tree crown or on each other', () => {
         const parsed = parseMapIntent({
             schemaVersion: 1,

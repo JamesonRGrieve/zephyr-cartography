@@ -779,27 +779,40 @@ function perimeter(
     const centre = centreOf(outline);
     const ring = [...outline, ...outline.slice(0, 1)];
     const out: FeatureInput[] = [];
+    // What stood before this line keeps its pieces off by their whole reach; its own pieces only abut, end to end.
+    const others = [...standing];
+    const own: Standing[] = [];
     let carry = 0;
     let stamp = pick(random, choices);
     ring.reduce((a, b) => {
         const span = Math.hypot(b.x - a.x, b.y - a.y);
-        for (let t = carry; stamp && t < span; ) {
-            const step = dressing.spread * Math.max(stamp.width, stamp.height);
+        let t = carry;
+        for (; stamp && t < span; ) {
             const edge = { x: a.x + ((b.x - a.x) * t) / span, y: a.y + ((b.y - a.y) * t) / span };
             const toCentre = { x: centre.x - edge.x, y: centre.y - edge.y };
             const distance = Math.hypot(toCentre.x, toCentre.y) || 1;
             const inset = stamp.height / 2 + PERIMETER_INSET;
+            const half = Math.max(stamp.width, stamp.height) / 2;
+            // Stepped along the edge, spaced along the line drawn inside it, which runs shorter round a curve.
+            const step = (dressing.spread * half * 2 * distance) / Math.max(distance - inset, half);
             const p = { x: edge.x + (toCentre.x / distance) * inset, y: edge.y + (toCentre.y / distance) * inset };
             const r = footprintRadius(stamp);
-            const clear = !blocked(p, dressing.role, keepout, r, r) && !standing.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r);
+            const clear =
+                !blocked(p, dressing.role, keepout, r, r) &&
+                !others.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + r) &&
+                !own.some((s) => Math.hypot(s.x - p.x, s.y - p.y) < s.r + half);
             if (clear) {
-                standing.push({ x: p.x, y: p.y, r: Math.max(stamp.width, stamp.height) / 2 });
+                own.push({ x: p.x, y: p.y, r: half });
+                standing.push({ x: p.x, y: p.y, r: half });
                 out.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: facing({ x: -toCentre.x, y: -toCentre.y }, stamp.turn) });
                 stamp = pick(random, choices);
             }
             t += step;
-            carry = t - span;
         }
+        // Carried on round the ring: an outline's sides are shorter than a step, so a step left over on one runs into the
+        // next (2026-11-10 render, encounter feudal desert: carried only from a side a piece stood on, it never ran on past
+        // the first short side, and a round camp stood one cannon and no palisade).
+        carry = t - span;
         return b;
     });
     return out;
