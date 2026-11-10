@@ -98,7 +98,8 @@ interface Dressing {
     /**
      * Stood in groves with open glades between: where the clump noise is under `clumping` none stands at all, rather
      * than a few fewer. Thinning an even scatter leaves what stays evenly spaced (2026-11-10 render, grimdark forest: the
-     * trees stood like an orchard; quadrat counts' variance over mean 0.24, where groves score above 1).
+     * trees stood like an orchard; quadrat counts' variance over mean 0.24). Woodland takes it at 0.4, which keeps most
+     * of a wood (at 0.5 the woods round a ruin went thin).
      */
     readonly groves?: true;
 }
@@ -108,7 +109,7 @@ const PATCH_REACH = 1.1;
 
 const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
     woodland: [
-        { role: 'tree', spread: 0.75, clumping: 0.5, groves: true },
+        { role: 'tree', spread: 0.75, clumping: 0.4, groves: true },
         { role: 'shrub', spread: 2, clumping: 0.3 },
         { role: 'log', spread: 4, clumping: 0 },
         { role: 'rock', spread: 6, clumping: 0 },

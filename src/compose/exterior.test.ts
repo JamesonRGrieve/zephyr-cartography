@@ -260,16 +260,18 @@ describe('bridges and yard pieces', () => {
         }
         const treeKeys = new Set((TEST_ROLES.get('tree') ?? []).map((s) => s.key));
         const trees = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && treeKeys.has(f.stamp) ? [f] : []));
-        expect(trees.length).toBeGreaterThan(30);
+        // Still a wood: at threshold 0.5 a normal wood kept 63 trees of the even scatter's 115 and the woods round a
+        // ruin went thin (render goal43, abandoned manufactorum); at 0.4 it keeps about 90.
+        expect(trees.length).toBeGreaterThan(80);
         // Index of dispersion: the trees counted in each 5-square quadrat, their variance over their mean. An even
-        // scatter scores under 1 (the old wood: 0.24); groves and glades score about 1 and above.
+        // scatter scores well under 1 (the old wood: 0.24); groves with glades score higher (0.66 here, about 1 dense).
         const counts = Array.from(
             { length: 48 },
             (_, i) => trees.filter((f) => Math.floor(f.x / 5) === i % 8 && Math.floor(f.y / 5) === Math.floor(i / 8)).length,
         );
         const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
         const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / counts.length;
-        expect(variance / mean).toBeGreaterThan(0.9);
+        expect(variance / mean).toBeGreaterThan(0.55);
     });
 
     it('strews crates over open ground but never storage that stands against a wall', () => {
