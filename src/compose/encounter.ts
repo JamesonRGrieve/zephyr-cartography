@@ -685,7 +685,14 @@ const round1 = (v: number): number => Math.round(v * 10) / 10;
  * The landscape's features: clusters at seeded spots over the map, each piece around its cluster's centre at its own
  * size, turn and distance, all kept clear of the roads, water and camp (`clear`: the composer moves them off).
  */
-function landscapeFeatures(landscape: EncounterLandscape, setting: EncounterSetting, random: Random, width: number, height: number): object[] {
+function landscapeFeatures(
+    landscape: EncounterLandscape,
+    setting: EncounterSetting,
+    random: Random,
+    width: number,
+    height: number,
+    avoid: readonly Point[] = [],
+): object[] {
     const kinds = LANDSCAPE_FEATURES[landscape]
         ?.map((kind) => kind.filter((part) => part.settings?.includes(setting) ?? true))
         .filter((kind) => kind.length > 0);
@@ -711,7 +718,8 @@ function landscapeFeatures(landscape: EncounterLandscape, setting: EncounterSett
                 // Turned, a piece reaches out to half its diagonal.
                 const reach = Math.hypot(part.size[0], part.size[1]) * k * 0.5;
                 const off = at.x < reach || at.y < reach || at.x > width - reach || at.y > height - reach;
-                if (off || laid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < ((p.size + size) / 2) * FEATURE_GAP)) {
+                const crowded = avoid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < RUIN_CLEARANCE);
+                if (off || crowded || laid.some((p) => Math.hypot(p.x - at.x, p.y - at.y) < ((p.size + size) / 2) * FEATURE_GAP)) {
                     continue;
                 }
                 laid.push({ ...at, size });
@@ -730,6 +738,73 @@ function landscapeFeatures(landscape: EncounterLandscape, setting: EncounterSett
         }
     }
     return out;
+}
+
+/** A ruin's standing remains, on a stream of their own so the map keeps its layout. */
+const RUIN_SEED_OFFSET = 11;
+
+/** The shells a ruin's site keeps standing: a house or a two-room building, in a picture of its own (plan view). */
+const RUIN_SHELLS = [
+    {
+        name: 'ruined house',
+        tags: ['ruined', 'house', 'shell'],
+        size: [4.4, 4.1],
+        states: ['walls standing waist', 'one corner blown', 'overgrown weeds', 'burnt black inside'],
+    },
+    {
+        name: 'ruined two-room house',
+        tags: ['ruined', 'two-room', 'shell'],
+        size: [5.6, 4.3],
+        states: ['walls mostly standing', 'far wall collapsed', 'half buried rubble'],
+    },
+] as const;
+const RUIN_CORNER_STATES = ['tall jagged corner', 'low stub corner', 'corner doorway gap', 'scorched corner'] as const;
+/** How far a ruin's broken wall corners stand from its shell, in squares. */
+const RUIN_CORNER_REACH = 4;
+/** How far a landscape's feature clusters keep from a ruin's site, in squares. */
+const RUIN_CLEARANCE = 8;
+
+/**
+ * A ruin is walls still standing among its rubble (2026-11-10 render, encounter-feudal-plains: "ruins" were a rubble
+ * field with nothing standing): one shell at the site, turned off true, and two broken wall corners round it, each kept
+ * clear of the roads and water.
+ */
+function ruinStanding(at: Point, random: Random, width: number, height: number): object[] {
+    const shell = RUIN_SHELLS[randomInt(random, 0, RUIN_SHELLS.length - 1)] ?? RUIN_SHELLS[0];
+    const corners = [0, 1].map((i) => {
+        const bearing = random() * Math.PI * 2 + i * Math.PI;
+        return {
+            name: 'broken wall corner',
+            role: 'fitting',
+            tags: ['ruined', 'wall', 'corner'],
+            width: 1.8,
+            height: 2,
+            state: RUIN_CORNER_STATES[randomInt(random, 0, RUIN_CORNER_STATES.length - 1)],
+            // Kept wholly on the map, its reach (half its diagonal) in from every edge.
+            at: {
+                x: round1(Math.min(width - 2, Math.max(2, at.x + Math.cos(bearing) * RUIN_CORNER_REACH))),
+                y: round1(Math.min(height - 2, Math.max(2, at.y + Math.sin(bearing) * RUIN_CORNER_REACH))),
+            },
+            angle: randomInt(random, 0, 359),
+            fixed: true,
+            clear: true,
+        };
+    });
+    return [
+        {
+            name: shell.name,
+            role: 'fitting',
+            tags: [...shell.tags],
+            width: shell.size[0],
+            height: shell.size[1],
+            state: shell.states[randomInt(random, 0, shell.states.length - 1)],
+            at,
+            angle: randomInt(random, 0, 359),
+            fixed: true,
+            clear: true,
+        },
+        ...corners,
+    ];
 }
 
 /** The map intent for an encounter, as a preset's is: an object the GM edits as JSON and the composer builds. */
@@ -763,6 +838,8 @@ export function encounterIntent(choice: EncounterChoice): object {
         ? cliffs({ random, height, zones, heights, roadAlong: choice.road !== 'none' && !has('camp') && !has('lake') })
         : { depth: null, roadY: null };
     let lakeAt: Point | null = null;
+    // Where a ruin stands: the landscape's features keep their distance from it.
+    const ruinSites: Point[] = [];
     if (has('lake')) {
         const at = take();
         lakeAt = at;
@@ -773,6 +850,8 @@ export function encounterIntent(choice: EncounterChoice): object {
         const at = take();
         zones.push(...clusters(random, width, height, ['rubble', look.ruin], choice.density, at));
         opened(at, span / 3.5);
+        fixtures.push(...ruinStanding(at, seededRandom(choice.seed + RUIN_SEED_OFFSET), width, height));
+        ruinSites.push(at);
     }
     let campAt: Point | null = null;
     if (has('camp')) {
@@ -836,7 +915,7 @@ export function encounterIntent(choice: EncounterChoice): object {
         paths.push(throughPass(road('south', 'north', pinned === null ? clear('x') : null), pinned, height));
     }
     fixtures.push(...cliffFaces(cliffDepth, width, height, passX), ...warpGrowthOf(choice.setting, random, width, height));
-    fixtures.push(...landscapeFeatures(choice.landscape, choice.setting, seededRandom(choice.seed + FEATURE_SEED_OFFSET), width, height));
+    fixtures.push(...landscapeFeatures(choice.landscape, choice.setting, seededRandom(choice.seed + FEATURE_SEED_OFFSET), width, height, ruinSites));
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
     const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
     // Rocky ground is painted into the blend as earth or rock under its stones, never laid over it as a patch of its own.

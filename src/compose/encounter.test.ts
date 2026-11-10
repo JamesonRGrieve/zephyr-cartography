@@ -245,6 +245,17 @@ describe('encounter maps', () => {
             const intent = parsed({ landscape: landscape as EncounterChoice['landscape'], seed: 4 });
             expect(pieces.every((f) => f.at.x >= f.width / 2 && f.at.x <= intent.width - f.width / 2)).toBe(true);
         }
+        // A ruin keeps walls standing among its rubble: a shell and two broken corners, all on the map, and the
+        // landscape's own features keep their distance from it.
+        const ruined = parsed({ landscape: 'plains', features: ['ruins'], seed: 4 });
+        const shells = ruined.fixtures.filter((f) => f.name.startsWith('ruined'));
+        const corners = ruined.fixtures.filter((f) => f.name === 'broken wall corner');
+        expect(shells).toHaveLength(1);
+        expect(corners).toHaveLength(2);
+        expect(corners.every((f) => f.at.x >= 1 && f.at.y >= 1 && f.at.x <= ruined.width - 1 && f.at.y <= ruined.height - 1)).toBe(true);
+        const site = shells[0]?.at ?? { x: 0, y: 0 };
+        const outcrop = ruined.fixtures.filter((f) => f.name.startsWith('outcrop') || f.name.startsWith('thicket'));
+        expect(outcrop.every((f) => Math.hypot(f.at.x - site.x, f.at.y - site.y) >= 8)).toBe(true);
         // Burnt-out trees stand on a grimdark tundra, never a feudal one: the burnt woodland's art has no feudal setting.
         const DEAD = ['dead tree', 'dead stump', 'fallen dead trunk'];
         expect(parsed({ landscape: 'tundra', setting: 'grimdark', seed: 4 }).fixtures.some((f) => DEAD.includes(f.name))).toBe(true);

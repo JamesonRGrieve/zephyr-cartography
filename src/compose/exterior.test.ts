@@ -219,6 +219,29 @@ describe('bridges and yard pieces', () => {
         expect(onOther).toEqual([]);
     });
 
+    it('gathers a rocky zone’s stones into piles with open ground between, never at even steps', () => {
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            seed: 3,
+            width: 40,
+            height: 30,
+            zones: [{ kind: 'rocky', area: { shape: 'everywhere' }, density: 'dense' }],
+        });
+        if (!parsed.ok) {
+            throw new Error(JSON.stringify(parsed.issues));
+        }
+        const rockKeys = new Set((TEST_ROLES.get('rock') ?? []).map((s) => s.key));
+        const rocks = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && rockKeys.has(f.stamp) ? [f] : []));
+        expect(rocks.length).toBeGreaterThan(10);
+        // Clark-Evans: the mean distance to each stone's nearest neighbour over what scattering at random gives
+        // (half the square root of the area per stone). Even steps (a lattice, Poisson disc) score above 1 (the old
+        // strewing: 1.63); piles with open ground between score under it, stones being no closer than their footprints.
+        const nearest = rocks.map((a) => Math.min(...rocks.filter((b) => b !== a).map((b) => Math.hypot(a.x - b.x, a.y - b.y))));
+        const mean = nearest.reduce((t, d) => t + d, 0) / nearest.length;
+        const random = 0.5 * Math.sqrt((40 * 30) / rocks.length);
+        expect(mean / random).toBeLessThan(0.9);
+    });
+
     it('strews crates over open ground but never storage that stands against a wall', () => {
         const crate = (TEST_ROLES.get('storage') ?? [])[0];
         expect(crate).toBeDefined();

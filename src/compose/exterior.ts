@@ -126,9 +126,11 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         { role: 'log', spread: 5, clumping: 0 },
     ],
     rocky: [
-        { role: 'rock', spread: 1.5, clumping: 0.35 },
+        // Stones gather in piles with open ground between, never strewn at even steps (2026-11-10 render, encounter
+        // hills: small field stones dotted over the bare earth read as a lattice).
+        { role: 'rock', spread: 12, clumping: 0.6, patch: [4, 8] },
         { role: 'shrub', spread: 4, clumping: 0.2 },
-        { role: 'debris', spread: 5, clumping: 0 },
+        { role: 'debris', spread: 5, clumping: 0.35 },
     ],
     rubble: [
         { role: 'debris', spread: 1.6, clumping: 0.4 },
