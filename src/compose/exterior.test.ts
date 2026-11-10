@@ -433,6 +433,8 @@ describe('bridges and yard pieces', () => {
         if (river?.type !== 'path' || waters.length !== 2) {
             throw new Error('no river between two lakes');
         }
+        // A ragged shore of many points: at 28, drawn crisp, a pond read as a polygon with straight sides.
+        expect(waters.every((w) => w.type === 'region' && w.points.length >= 60)).toBe(true);
         // Crisp-edged, so no fading band of lake draws the shore across the river leaving it.
         expect(
             spec.features

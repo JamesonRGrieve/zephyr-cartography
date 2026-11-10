@@ -254,6 +254,12 @@ const EDGE_WANDER = { circle: 0.25, strip: 2 } as const;
  * as a multiple of the edge's.
  */
 const SHORE_WANDER = { share: 0.12, frequency: 2.5 } as const;
+/**
+ * A third, finest octave on a lake's shore, and the points its outline takes: drawn crisp, a pool of 28 points read as
+ * a polygon, its sides straight (2026-11-10 render, encounter marshes and hills: octagonal ponds).
+ */
+const SHORE_FINE = { share: 0.05, frequency: 7 } as const;
+const SHORE_POINTS = 72;
 
 /** Points round a circular zone's edge, and the step along a strip's inner edge (squares). */
 const CIRCLE_POINTS = 28;
@@ -298,18 +304,17 @@ export function zoneOutline(zone: ZoneIntent, size: Size, noise: NoiseField): Po
     const { area } = zone;
     const m = GROUND_MARGIN;
     if (area.shape === 'circle') {
-        return Array.from({ length: CIRCLE_POINTS }, (_, i) => {
-            const a = (i / CIRCLE_POINTS) * 2 * Math.PI;
-            const ragged =
-                zone.kind === 'lake'
-                    ? SHORE_WANDER.share *
-                      (noise(
-                          area.centre.x + Math.cos(a) * EDGE_SCALE * SHORE_WANDER.frequency,
-                          area.centre.y + Math.sin(a) * EDGE_SCALE * SHORE_WANDER.frequency,
-                      ) *
-                          2 -
-                          1)
-                    : 0;
+        const lake = zone.kind === 'lake';
+        const points = lake ? SHORE_POINTS : CIRCLE_POINTS;
+        // An octave's wander either way, or (`outward`) only outward: the finest roughens the shore without narrowing the
+        // pool, so a river out of it still starts deep enough inside.
+        const octave = (a: number, { share, frequency }: { share: number; frequency: number }, outward = false): number => {
+            const n = noise(area.centre.x + Math.cos(a) * EDGE_SCALE * frequency, area.centre.y + Math.sin(a) * EDGE_SCALE * frequency);
+            return share * (outward ? n : n * 2 - 1);
+        };
+        return Array.from({ length: points }, (_, i) => {
+            const a = (i / points) * 2 * Math.PI;
+            const ragged = lake ? octave(a, SHORE_WANDER) + octave(a, SHORE_FINE, true) : 0;
             const r = area.radius * (1 + EDGE_WANDER.circle * (noise(Math.cos(a) * EDGE_SCALE, Math.sin(a) * EDGE_SCALE) * 2 - 1) + ragged);
             return { x: area.centre.x + Math.cos(a) * r, y: area.centre.y + Math.sin(a) * r };
         });
@@ -365,15 +370,24 @@ function fixedPoint(anchor: Anchor, size: Size, sites: readonly Site[], random: 
  * across the shore.
  */
 const ZONE_END_INSET = 1;
+/** The step a zone end moves further in by, until clear of a ragged shore. */
+const ZONE_END_STEP = 0.1;
 
 /** A zone end: the point of its outline nearest `toward`, far enough inside it to hide a path `halfWidth` wide ending there. */
 function zoneEnd(outline: readonly Point[], toward: Point, halfWidth: number): Point {
     const centre = centreOf(outline);
     const nearest = outline.reduce((best, p) => (Math.hypot(p.x - toward.x, p.y - toward.y) < Math.hypot(best.x - toward.x, best.y - toward.y) ? p : best));
     const span = Math.hypot(centre.x - nearest.x, centre.y - nearest.y) || 1;
-    // Never past the zone's middle, however wide the path.
-    const inset = Math.min(ZONE_END_INSET + 2 * halfWidth, span);
-    return { x: nearest.x + ((centre.x - nearest.x) / span) * inset, y: nearest.y + ((centre.y - nearest.y) / span) * inset };
+    // Far enough in that the whole shore is that far off (a ragged shore bends in beside the nearest point), never past
+    // the zone's middle, however wide the path.
+    const wanted = ZONE_END_INSET + 2 * halfWidth;
+    const ring = [...outline, ...outline.slice(0, 1)];
+    const at = (depth: number): Point => ({ x: nearest.x + ((centre.x - nearest.x) / span) * depth, y: nearest.y + ((centre.y - nearest.y) / span) * depth });
+    let inset = Math.min(wanted, span);
+    while (inset < span && distanceToPolyline(at(inset), ring) < wanted) {
+        inset = Math.min(span, inset + ZONE_END_STEP);
+    }
+    return at(inset);
 }
 
 /** Both ends of `path`: its fixed ends first, then any at a zone, at the edge nearest the other end. */
