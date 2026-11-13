@@ -991,6 +991,19 @@ function fordAt(at: Point, along: Point, roadHalf: number, riverHalf: number): F
     };
 }
 
+/** How many times longer than wide a bridge's art must be to span a river with a road's width of deck. */
+const SPANNING = 2;
+
+/**
+ * The bridges long enough to span a river where any is loaded, else all (operator 2026-11-12, of the encounter maps'
+ * squat stone and timber slabs, a deck half again as long as wide and twice the road's width: "That bridge is still all
+ * fucked up").
+ */
+function spanning(kinds: readonly RoleStamp[]): readonly RoleStamp[] {
+    const long = kinds.filter((art) => Math.max(art.width, art.height) >= SPANNING * Math.min(art.width, art.height));
+    return long.length > 0 ? long : kinds;
+}
+
 /**
  * A bridge wherever a road crosses a river, laid along the road, sound, and
  * built for a road where any such is loaded; a problem when a road needs one
@@ -1013,7 +1026,7 @@ function bridges(paths: readonly LaidPath[], stamps: RoleIndex, random: Random):
         }
         // Art of the kind asked (the first tag any loaded art carries), else any road bridge.
         const asked: readonly RoleStamp[] = (wanted ?? []).map((tag) => sound.filter((art) => art.tags.includes(tag))).find((a) => a.length > 0) ?? [];
-        const kinds = asked.length > 0 ? asked : choices;
+        const kinds = spanning(asked.length > 0 ? asked : choices);
         for (const river of paths.filter((p) => p.kind === 'river')) {
             for (const { at, along } of crossings(road.points, river.points)) {
                 const fits = kinds.flatMap((stamp) => {

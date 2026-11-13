@@ -73,7 +73,10 @@ interface SettingLook {
     /** What stands where a place is built up: ruined walls, or a works yard. */
     readonly ruin: 'rubble' | 'industrial';
     readonly lighting: 'day' | 'night';
-    /** Whether its art has a road bridge (only the feudal world's does; the Imperium's is a pipe bridge): where not, "any bridge" is a ford. */
+    /**
+     * Whether its art has a road bridge (the feudal world's stone, timber and log; the Imperium's ferrocrete, 2026-11-13,
+     * which the warp's ruined Imperium shares): where not, "any bridge" is a ford.
+     */
     readonly bridged: boolean;
     /** The texture its rocky ground is drawn in. */
     readonly rock: string;
@@ -150,12 +153,12 @@ const TRACK: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, string>> = {
 // The feudal world's woods and stone; the Imperium's works; the warp's corrupted night; a frontier world's works.
 const LOOKS: Readonly<Record<EncounterSetting, SettingLook>> = {
     feudal: { settings: ['setting-fantasy', 'setting-generic'], ruin: 'rubble', lighting: 'day', bridged: true, rock: OPEN_ROCK },
-    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: GRIMDARK_ROCK },
+    grimdark: { settings: ['setting-grimdark-human', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: true, rock: GRIMDARK_ROCK },
     warp: {
         settings: ['setting-grimdark-chaotic', 'setting-grimdark-human', 'setting-generic'],
         ruin: 'rubble',
         lighting: 'night',
-        bridged: false,
+        bridged: true,
         rock: WARP_ROCK,
     },
     scifi: { settings: ['setting-scifi', 'setting-generic'], ruin: 'industrial', lighting: 'day', bridged: false, rock: OPEN_ROCK },

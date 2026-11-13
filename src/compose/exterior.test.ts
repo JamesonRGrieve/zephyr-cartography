@@ -155,6 +155,37 @@ describe('bridges and yard pieces', () => {
         expect(bridged.features.filter((f) => f.type === 'region' && f.texture === 'floor.gravel')).toEqual([]);
     });
 
+    it('takes a bridge long enough to span the river over a squat slab, where one is loaded', () => {
+        const base = (TEST_ROLES.get('bridge') ?? [])[0];
+        expect(base).toBeDefined();
+        if (!base) {
+            return;
+        }
+        const roles: RoleIndex = new Map([
+            ...TEST_ROLES,
+            [
+                'bridge',
+                [
+                    { ...base, key: 'test:slab-bridge', width: 3, height: 2, tags: ['stone', 'road', 'bridge'] },
+                    { ...base, key: 'test:long-bridge', width: 6, height: 2.2, tags: ['stone', 'road', 'bridge'] },
+                ],
+            ],
+        ]);
+        const intent = crossing({
+            paths: [
+                { kind: 'road', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, meander: 0 },
+                { kind: 'river', from: { x: 15, y: -1 }, to: { x: 15, y: 21 }, meander: 0 },
+            ],
+        });
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const { spec } = composeMap({ ...intent, seed }, roles);
+            expect([stampsOf(spec, 'test:long-bridge'), stampsOf(spec, 'test:slab-bridge')]).toEqual([1, 0]);
+        }
+        // With only slabs loaded, a slab still bridges the road.
+        const slabs: RoleIndex = new Map([...roles, ['bridge', (roles.get('bridge') ?? []).filter((s) => s.key === 'test:slab-bridge')]]);
+        expect(stampsOf(composeMap(intent, slabs).spec, 'test:slab-bridge')).toBe(1);
+    });
+
     it('lays a bridge drawn with depth only where the road runs across it as drawn, and says when a road crossing has none', () => {
         const upright = (roles: RoleIndex): RoleIndex => new Map([...roles, ['bridge', (roles.get('bridge') ?? []).map((s) => ({ ...s, upright: true }))]]);
         // An east–west road runs along the art's length: it carries it as drawn.

@@ -308,11 +308,12 @@ describe('encounter maps', () => {
         expect(bridgeOf('rope')).toEqual(['rope']);
         expect(bridgeOf('ford')).toBe(false);
         expect(bridgeOf('any')).toBeUndefined();
-        // Only the feudal world draws road bridges: elsewhere "any bridge" fords the river.
-        for (const setting of ['grimdark', 'warp', 'scifi'] as const) {
-            expect(parsed({ setting, bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBe(false);
+        // The feudal world and the Imperium's (and the warp's, which shares its art) draw road bridges: a frontier world
+        // fords the river.
+        expect(parsed({ setting: 'scifi', bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBe(false);
+        for (const setting of ['feudal', 'grimdark', 'warp'] as const) {
+            expect(parsed({ setting, bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBeUndefined();
         }
-        expect(parsed({ setting: 'feudal', bridge: 'any' }).paths.find((p) => p.kind === 'road')?.bridge).toBeUndefined();
     });
 
     it('runs the roads round a lake, on the far side of the map from it', () => {
