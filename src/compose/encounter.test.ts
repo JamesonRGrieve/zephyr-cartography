@@ -366,6 +366,18 @@ describe('encounter maps', () => {
         expect(parsed({ landscape: 'plains', features: ['ruins'] }).zones.some((z) => z.kind === 'clearing')).toBe(false);
     });
 
+    it("runs a crossroads' second road past a camp, never through it", () => {
+        for (const seed of [1, 2, 3, 4]) {
+            const intent = parsed({ landscape: 'desert', features: ['camp'], road: 'crossroads', seed });
+            const ground = intent.zones.find((z) => z.kind === 'clearing' || z.kind === 'fortified');
+            const centre = ground?.area.shape === 'circle' ? ground.area.centre : { x: 0, y: 0 };
+            const down = intent.paths.find((p) => p.kind === 'road' && typeof p.from === 'string' && p.from === 'south');
+            const via = down?.via[0];
+            expect(via).toBeDefined();
+            expect(Math.abs((via?.x ?? centre.x) - centre.x)).toBeGreaterThan(intent.width / 4);
+        }
+    });
+
     it('stands a feudal camp as tents round a fire inside a ring of stakes, open where the road runs through it', () => {
         const intent = parsed({ landscape: 'plains', features: ['camp'], setting: 'feudal', size: 'large' });
         const ground = intent.zones.find((z) => z.kind === 'clearing');

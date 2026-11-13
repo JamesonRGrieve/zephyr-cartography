@@ -1004,6 +1004,12 @@ function ruinStanding(at: Point, random: Random, width: number, height: number):
     ];
 }
 
+/** `p` moved in from the map's edges by `reach`: a camp by an edge keeps its pieces on the map. */
+function onMap(p: Point, reach: number, width: number, height: number): Point {
+    const clamp = (v: number, size: number): number => Math.round(Math.min(size - reach, Math.max(reach, v)) * 10) / 10;
+    return { x: clamp(p.x, width), y: clamp(p.y, height) };
+}
+
 /** A feudal camp's pieces, on a stream of their own so the map keeps its layout. */
 const CAMP_SEED_OFFSET = 13;
 /** A feudal camp's radius in squares, its palisade's step round it, and how far off true the whole camp stands. */
@@ -1019,9 +1025,33 @@ const CAMP_PIECES = [
     { name: 'camp tent', role: 'structure', tags: ['camp', 'tent'], size: [3, 1.8], at: [-2.8, -3.1] },
     { name: 'camp tent', role: 'structure', tags: ['camp', 'tent'], size: [3, 1.8], at: [2.8, -3.1] },
     { name: 'camp tent', role: 'structure', tags: ['camp', 'tent'], size: [3, 1.8], at: [0, 3.4] },
-    { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [-2.7, 3.3] },
-    { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [2.7, 3.3] },
+    // Beside the south tent, clear of its footprint (render goal45: set against it, the bedrolls were moved off to the
+    // map's edge).
+    { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [-3.1, 4.4] },
+    { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [3.1, 4.4] },
 ] as const;
+/** Where across the map a crossroads' second road runs past a camp: this share of the width from the camp's far side. */
+const CAMP_BYPASS = 0.78;
+/**
+ * Where a crossroads' second road runs, where nothing pins it: clear of a lake (`clearX`), else past a camp, never through
+ * it, since the road across already runs through its gate (2026-11-13 render, feudal desert: a second road through the
+ * camp pushed its tents and bedrolls out to the map's edge); else free.
+ */
+function downVia(clearX: Point | null, campAt: Point | null, width: number, height: number): Point | null {
+    if (clearX !== null || campAt === null) {
+        return clearX;
+    }
+    return { x: campAt.x < width / 2 ? width * CAMP_BYPASS : width * (1 - CAMP_BYPASS), y: height / 2 };
+}
+
+/** The ground under a landscape's stones, ruins and camps: a desert's sandstone, a tundra's frozen earth, else its world's. */
+function rockOf(landscape: EncounterLandscape, look: SettingLook): string {
+    if (landscape === 'desert') {
+        return DESERT_ROCK;
+    }
+    return landscape === 'tundra' ? TUNDRA_ROCK : look.rock;
+}
+
 /** Where the road enters and leaves a camp: no stakes within this sine of its west and east points. */
 const CAMP_GATE = 0.4;
 
@@ -1044,7 +1074,7 @@ function campStanding(at: Point, random: Random, width: number, height: number):
         tags: [...part.tags],
         width: part.size[0],
         height: part.size[1],
-        at: turned(part.at[0], part.at[1]),
+        at: onMap(turned(part.at[0], part.at[1]), Math.hypot(part.size[0], part.size[1]) / 2, width, height),
         angle: (degrees + 360) % 360,
         fixed: true,
         clear: true,
@@ -1217,12 +1247,12 @@ export function encounterIntent(choice: EncounterChoice): object {
         // Pinned beside a river or through cliffs (downRoadX), else free to wander.
         const pinned = downRoadX({ lakeAt, riverX, cliffDepth, clearX: clear('x')?.x ?? null, width, random });
         passX = pinned;
-        paths.push(throughPass(road('south', 'north', pinned === null ? clear('x') : null), pinned, height));
+        paths.push(throughPass(road('south', 'north', pinned === null ? downVia(clear('x'), campAt, width, height) : null), pinned, height));
     }
     fixtures.push(...cliffFaces(cliffDepth, width, height, passX), ...warpGrowthOf(choice.setting, random, width, height));
     fixtures.push(...landscapeFeatures(choice.landscape, choice.setting, seededRandom(choice.seed + FEATURE_SEED_OFFSET), width, height, ruinSites));
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
-    const rock = { desert: DESERT_ROCK, tundra: TUNDRA_ROCK }[choice.landscape as string] ?? look.rock;
+    const rock = rockOf(choice.landscape, look);
     // Rocky ground is painted into the blend as earth or rock under its stones, never laid over it as a patch of its own.
     const groundTexture = groundTextureOf(choice.landscape, choice.setting);
     // The heights are the landscape's own ground raised, strewn with its rocks, never a band of bare rock: in the rock
