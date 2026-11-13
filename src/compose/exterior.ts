@@ -196,8 +196,10 @@ const ZONE_HABITATS: Readonly<Record<ZoneKind, readonly StampHabitat[]>> = {
     clearing: ['forest', 'grassland'],
     marsh: ['marsh'],
     rocky: ['rocky'],
-    // A ruin's rocks are any open ground's: boulders and broken stone as well as the city's own wreckage.
-    rubble: ['ruin', 'urban', 'rocky'],
+    // A ruin's rocks are any open ground's: boulders and broken stone as well as its own wreckage. Not the street's: a
+    // drain grate, street clutter and street fixtures belong to a street (render goal72: a drain grate in a tundra's
+    // wreckage); debris of no stated habitat is a ruin's as much as a street's, so it stays.
+    rubble: ['ruin', 'rocky'],
     industrial: ['urban'],
     fortified: ['ruin', 'urban', 'rocky'],
     landing: ['urban'],
@@ -853,9 +855,13 @@ function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, 
                 const uy = (b.y - a.y) / span;
                 // Uneven steps and a wandering distance from the water: strewn along the bank, never a row.
                 for (let t = random() * BANK.step; t < span; t += BANK.step * (QUARTER * 2 + random())) {
-                    const aside = (river.halfWidth + BANK.offset * (QUARTER * 2 + random() * 2)) * (random() < QUARTER * 2 ? 1 : -1);
-                    const p = { x: a.x + ux * t - uy * aside, y: a.y + uy * t + ux * aside };
+                    // Out from the water's edge by the rock's own reach, so it lies on the bank, never in the river
+                    // (2026-11-13 judge, sci-fi wasteland: a bank boulder set out by the water's half-width alone stood 15% in it).
+                    const offset = BANK.offset * (QUARTER * 2 + random() * 2);
+                    const side = random() < QUARTER * 2 ? 1 : -1;
                     const stamp = pick(random, rocks);
+                    const aside = (river.halfWidth + (stamp ? Math.max(stamp.width, stamp.height) / 2 : 0) + offset) * side;
+                    const p = { x: a.x + ux * t - uy * aside, y: a.y + uy * t + ux * aside };
                     const clearOfBuildings = !blocked(p, 'rock', { ...keepout, paths: [] });
                     if (stamp && clearOfBuildings && random() < BANK.chance) {
                         out.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: Math.floor(random() * FULL_TURN) });

@@ -312,6 +312,29 @@ describe('bridges and yard pieces', () => {
         expect(composed.spec.features.filter((f) => f.type === 'stamp').length).toBeGreaterThan(5);
     });
 
+    it('strews a ruin’s rubble with its own debris, never the street’s', () => {
+        // Debris drawn for a street alone (a drain grate) and debris of any ground (broken stone).
+        const debris = TEST_ROLES.get('debris')?.[0];
+        if (debris === undefined) {
+            throw new Error('the test roles have no debris');
+        }
+        const street: RoleStamp = { ...debris, key: 'test:drain-grate', habitats: ['urban'] };
+        const stone: RoleStamp = { ...debris, key: 'test:broken-stone', habitats: ['urban', 'ruin'] };
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['debris', [street, stone]]]);
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            width: 30,
+            height: 20,
+            zones: [{ kind: 'rubble', area: { shape: 'everywhere' }, density: 'dense' }],
+        });
+        if (!parsed.ok) {
+            throw new Error(JSON.stringify(parsed.issues));
+        }
+        const { spec } = composeMap(parsed.intent, roles);
+        expect(stampsOf(spec, 'test:broken-stone')).toBeGreaterThan(5);
+        expect(stampsOf(spec, 'test:drain-grate')).toBe(0);
+    });
+
     it("closes a round camp's line with barricades end to end between its guns, all the way round", () => {
         const parsed = parseMapIntent({
             schemaVersion: 1,
@@ -782,6 +805,27 @@ describe('bridges and yard pieces', () => {
         expect(flowers.length).toBeGreaterThan(6);
         const neighboured = flowers.filter((f) => flowers.some((g) => g !== f && Math.hypot(g.x - f.x, g.y - f.y) < 1.5));
         expect(neighboured.length / flowers.length).toBeGreaterThan(0.6);
+    });
+
+    it('lays its bank rocks on the bank, every one wholly out of the water', () => {
+        const rockKeys = new Set((TEST_ROLES.get('rock') ?? []).map((r) => r.key));
+        const reachOf = new Map((TEST_ROLES.get('rock') ?? []).map((r) => [r.key, Math.max(r.width, r.height) / 2]));
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const { spec } = composeMap(
+                { ...crossing({ paths: [{ kind: 'river', from: { x: -1, y: 10 }, to: { x: 31, y: 10 }, width: 2.6 }], buildings: [] }), seed },
+                TEST_ROLES,
+            );
+            const river = spec.features.find((f) => f.type === 'path' && f.kind === 'river');
+            if (river?.type !== 'path') {
+                throw new Error('no river');
+            }
+            const rocks = spec.features.flatMap((f) => (f.type === 'stamp' && rockKeys.has(f.stamp) ? [f] : []));
+            expect(rocks.length).toBeGreaterThan(0);
+            for (const rock of rocks) {
+                // Its whole footprint clear of the water: the river's half-width plus the rock's reach from its line.
+                expect(distanceToPolyline(rock, river.points)).toBeGreaterThanOrEqual(1.3 + (reachOf.get(rock.stamp) ?? 0) - 1e-6);
+            }
+        }
     });
 
     it('winds a river through the points it is asked to pass, and lays the bed it is asked for along its banks', () => {
