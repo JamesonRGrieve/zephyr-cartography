@@ -137,7 +137,10 @@ describe('encounter maps', () => {
         expect(withLake.paths.find((p) => p.kind === 'river')?.from).toEqual({ zone: 'lake' });
         const all = parsed({ features: ['ruins', 'camp', 'wreck', 'cliffs'] });
         expect(all.fixtures.some((f) => f.name === 'camp tent')).toBe(true);
-        expect(parsed({ features: ['camp'], setting: 'grimdark' }).zones.some((z) => z.kind === 'fortified')).toBe(true);
+        expect(parsed({ features: ['camp'], setting: 'scifi' }).zones.some((z) => z.kind === 'fortified')).toBe(true);
+        // The Imperium's camp is its command tent and container inside a ring of checkpoint barriers.
+        const imperial = parsed({ features: ['camp'], setting: 'grimdark' }).fixtures.map((f) => f.name);
+        expect(['command tent', 'cargo container', 'checkpoint barrier'].every((n) => imperial.includes(n))).toBe(true);
         expect(all.zones.filter((z) => z.kind === 'rocky' && z.area.shape === 'edge')).toHaveLength(2);
         // Each height ends in a cliff face along its edge, the face looking into the pass.
         const faces = all.fixtures.filter((f) => f.name === 'cliff face run');
@@ -358,7 +361,7 @@ describe('encounter maps', () => {
     });
 
     it('opens a clearing round each feature in a forest, and runs the road through the camp', () => {
-        const forest = parsed({ landscape: 'forest', features: ['camp', 'ruins'], setting: 'grimdark' });
+        const forest = parsed({ landscape: 'forest', features: ['camp', 'ruins'], setting: 'scifi' });
         expect(forest.zones.filter((z) => z.kind === 'clearing')).toHaveLength(2);
         const camp = forest.zones.find((z) => z.kind === 'fortified');
         const road = forest.paths.find((p) => p.kind === 'road');

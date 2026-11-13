@@ -1035,6 +1035,38 @@ const CAMP_PIECES = [
     { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [-3.1, 4.4] },
     { name: 'camp bedroll', role: 'fitting', tags: ['camp', 'bedroll'], size: [1.8, 0.8], at: [3.1, 4.4] },
 ] as const;
+/** A camp's pieces (dx, dy from its centre) and the run its ring is lined with. */
+interface CampKit {
+    readonly pieces: readonly { name: string; role: string; tags: readonly string[]; size: readonly [number, number]; at: readonly [number, number] }[];
+    readonly line: { readonly name: string; readonly tags: readonly string[]; readonly size: readonly [number, number]; readonly step: number };
+}
+
+const IMPERIAL_CAMP: CampKit = {
+    pieces: [
+        // At its art's own 128 px no larger than 2.3 squares, or it blurs (judge LOW RES); a sharper tent is asked of Assets.
+        { name: 'command tent', role: 'structure', tags: ['command', 'tent'], size: [2.3, 2.2], at: [0, -2.6] },
+        { name: 'camp generator', role: 'structure', tags: ['generator', 'unit'], size: [2, 1.66], at: [3.3, -2.2] },
+        { name: 'camp watch post', role: 'structure', tags: ['watch', 'post'], size: [1.3, 2], at: [-3.4, -2.4] },
+        { name: 'cargo container', role: 'storage', tags: ['cargo', 'container'], size: [4, 2.35], at: [0, 3.3] },
+        { name: 'ammunition crates', role: 'storage', tags: ['ammo', 'crate'], size: [0.6, 0.38], at: [-3, 2.6] },
+        { name: 'ammunition crates', role: 'storage', tags: ['ammo', 'crate'], size: [0.6, 0.38], at: [-3.4, 3.3] },
+    ],
+    line: { name: 'checkpoint barrier', tags: ['checkpoint', 'barrier'], size: [2.4, 0.44], step: 2.8 },
+};
+
+/**
+ * Each world's camp: the feudal world's tents round a fire inside a ring of stakes; the Imperium's (and the warp's, which
+ * shares its art) a command tent with its generator and watch post north of the road, a cargo container and ammunition
+ * south of it, inside a ring of checkpoint barriers (2026-11-13 render, grimdark desert: the fortified zone's dressing
+ * left a broken arc of barriers round nothing, and its structures could be a cooling tower or a gantry crane). A frontier
+ * world keeps the fortified zone.
+ */
+const CAMP_KITS: Partial<Record<EncounterSetting, CampKit>> = {
+    feudal: { pieces: CAMP_PIECES, line: { name: 'camp stakes', tags: ['stake', 'barricade', 'run'], size: [3, 0.3], step: CAMP_STAKE_STEP } },
+    grimdark: IMPERIAL_CAMP,
+    warp: IMPERIAL_CAMP,
+};
+
 /** Where across the map a crossroads' second road runs past a camp: this share of the width from the camp's far side. */
 const CAMP_BYPASS = 0.78;
 /**
@@ -1066,14 +1098,15 @@ const CAMP_GATE = 0.4;
  * stands a few degrees off true; its stake runs lie along the ring, broken where the road comes in and goes out and
  * wherever the ring runs off the map.
  */
-function campStanding(at: Point, random: Random, width: number, height: number): object[] {
+function campStanding(at: Point, random: Random, map: { readonly width: number; readonly height: number }, kit: CampKit): object[] {
+    const { width, height } = map;
     const skew = ((random() * 2 - 1) * CAMP_SKEW * Math.PI) / 180;
     const turned = (dx: number, dy: number): Point => ({
         x: round1(at.x + dx * Math.cos(skew) - dy * Math.sin(skew)),
         y: round1(at.y + dx * Math.sin(skew) + dy * Math.cos(skew)),
     });
     const degrees = Math.round((skew * 180) / Math.PI);
-    const pieces = CAMP_PIECES.map((part) => ({
+    const pieces = kit.pieces.map((part) => ({
         name: part.name,
         role: part.role,
         tags: [...part.tags],
@@ -1085,7 +1118,7 @@ function campStanding(at: Point, random: Random, width: number, height: number):
         clear: true,
     }));
     const ring = CAMP_RADIUS - 0.4;
-    const count = Math.floor((2 * Math.PI * ring) / CAMP_STAKE_STEP);
+    const count = Math.floor((2 * Math.PI * ring) / kit.line.step);
     const stakes = Array.from({ length: count }, (_, i) => (i / count) * Math.PI * 2 + skew).flatMap((bearing) => {
         const p = { x: round1(at.x + Math.cos(bearing) * ring), y: round1(at.y + Math.sin(bearing) * ring) };
         const gate = Math.abs(Math.sin(bearing)) < CAMP_GATE;
@@ -1094,11 +1127,11 @@ function campStanding(at: Point, random: Random, width: number, height: number):
             ? []
             : [
                   {
-                      name: 'camp stakes',
+                      name: kit.line.name,
                       role: 'barricade',
-                      tags: ['stake', 'barricade', 'run'],
-                      width: 3,
-                      height: 0.3,
+                      tags: [...kit.line.tags],
+                      width: kit.line.size[0],
+                      height: kit.line.size[1],
                       at: p,
                       // Along the ring, its points facing out.
                       angle: (Math.round((bearing * 180) / Math.PI) + 90 + 360) % 360,
@@ -1129,7 +1162,8 @@ function campOf(
     opened: (at: Point, radius: number) => void,
 ): Camp {
     const span = Math.min(map.width, map.height);
-    if (choice.setting !== 'feudal') {
+    const kit = CAMP_KITS[choice.setting];
+    if (kit === undefined) {
         opened(at, span / 4);
         return { zones: [{ kind: 'fortified', area: circle(at, span / 4), density: choice.density }], earth: [], fixtures: [], keptFrom: [] };
     }
@@ -1137,7 +1171,7 @@ function campOf(
     return {
         zones: [{ kind: 'clearing', area: circle(at, radius) }],
         earth: [{ centre: at, radius }],
-        fixtures: campStanding(at, seededRandom(choice.seed + CAMP_SEED_OFFSET), map.width, map.height),
+        fixtures: campStanding(at, seededRandom(choice.seed + CAMP_SEED_OFFSET), map, kit),
         keptFrom: [at],
     };
 }
