@@ -681,8 +681,12 @@ function cliffFaces(depth: number | null, width: number, height: number, passX: 
     return kept.flatMap(([x0, x1]) => jogs(x0, x1).flatMap(([a, b, dy]) => [run(depth + dy, 'bottom', a, b), run(height - depth - dy, 'top', a, b)]));
 }
 
-/** A cliff's segments' length, how far each steps in or out, and how far each runs past the next so no gap shows. */
-const CLIFF_JOG_LENGTH = 5;
+/**
+ * A cliff's segments' least length, how far each steps in or out, and how far each runs past the next so no gap shows.
+ * Over twice its art's three-square module, so each segment draws as a closed run of it (render goal45: at five squares
+ * one module fitted each segment and stood alone, a row of short bars with gaps between).
+ */
+const CLIFF_JOG_LENGTH = 7;
 const CLIFF_JOG_STEPS = [0, -0.5, 0.3, -0.2, 0.5, -0.4, 0.2] as const;
 const CLIFF_JOG_OVERLAP = 0.3;
 
@@ -692,7 +696,7 @@ const CLIFF_JOG_OVERLAP = 0.3;
  * layout; each segment runs a little into the next, so the face stays closed.
  */
 function jogs(x0: number, x1: number): [number, number, number][] {
-    const count = Math.max(1, Math.round((x1 - x0) / CLIFF_JOG_LENGTH));
+    const count = Math.max(1, Math.floor((x1 - x0) / CLIFF_JOG_LENGTH));
     const step = (x1 - x0) / count;
     return Array.from({ length: count }, (_, i) => [
         Math.max(x0, x0 + i * step - (i > 0 ? CLIFF_JOG_OVERLAP : 0)),
