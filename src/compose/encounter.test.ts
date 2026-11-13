@@ -161,8 +161,8 @@ describe('encounter maps', () => {
         expect(rockOf({ landscape: 'desert', setting: 'feudal' })).toBe('floor.rock-sandstone');
         expect(rockOf({ landscape: 'hills', setting: 'grimdark' })).toBe('floor.shell-churned-earth');
         // A tundra's in frozen churned earth in any world: a world's own earth lay on the snow as brown smudges.
-        expect(rockOf({ landscape: 'tundra', setting: 'warp' })).toBe('floor.frozen-churned-earth');
-        expect(rockOf({ landscape: 'tundra', setting: 'grimdark' })).toBe('floor.frozen-churned-earth');
+        expect(rockOf({ landscape: 'tundra', setting: 'warp' })).toBe('floor.frozen-churned-earth-large');
+        expect(rockOf({ landscape: 'tundra', setting: 'grimdark' })).toBe('floor.frozen-churned-earth-large');
         // A wasteland in one brown family: rough earth, scorched patches, its own ground and heights the same earth.
         const waste = parsed({ landscape: 'wasteland', setting: 'grimdark', features: [] });
         expect(waste.splats[0]?.roles.slice(0, 2)).toEqual(['floor.rough-packed-earth-2', 'floor.scorched-earth-2']);

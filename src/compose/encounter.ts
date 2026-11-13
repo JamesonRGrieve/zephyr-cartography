@@ -86,9 +86,10 @@ interface SettingLook {
 const DESERT_ROCK = 'floor.rock-sandstone';
 /**
  * A tundra's worn ground under its stones, ruins and camps in any world: frozen churned earth under rime (Assets
- * 2026-11-13). Every world's own earth lay on the snow as big brown smudges (render goal44, grimdark and sci-fi tundra).
+ * 2026-11-13), in its large tile (eight squares: the two-square one repeated plainly over a big patch, render goal45).
+ * Every world's own earth lay on the snow as big brown smudges (render goal44, grimdark and sci-fi tundra).
  */
-const TUNDRA_ROCK = 'floor.frozen-churned-earth';
+const TUNDRA_ROCK = 'floor.frozen-churned-earth-large';
 
 /** A desert's sand in wind ripples, never one flat tone (2026-11-05 preview: bare sand edge to edge). */
 const DESERT_GROUND = 'floor.rippled-sand';
