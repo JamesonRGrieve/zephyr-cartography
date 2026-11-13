@@ -1060,6 +1060,15 @@ function bridgeGround(paths: readonly LaidPath[], stamps: RoleIndex, charted: bo
         );
 }
 
+/**
+ * A perimeter's barricades: the map's own setting's art drawn as a line (twice as long as deep or more) where any is
+ * loaded (2026-11-13 render, grimdark desert: a camp's line drew deep sandbag and picket blocks as a few scattered
+ * L-shapes, and a generic feudal stake run beside them). Its guns, and every other role, are drawn from all their art.
+ */
+function lineArt(choices: readonly RoleStamp[], role: StampRole, settings: readonly string[]): readonly RoleStamp[] {
+    return role === 'barricade' ? spanning(ownSetting(choices, settings)) : choices;
+}
+
 /** How many times longer than wide a bridge's art must be to span a river with a road's width of deck. */
 const SPANNING = 2;
 
@@ -1579,7 +1588,7 @@ export function composeExterior(
             }
             features.push(
                 ...(dressing.perimeter
-                    ? perimeter(outline, dressing, keepout, choices, standing, random)
+                    ? perimeter(outline, dressing, keepout, lineArt(choices, dressing.role, intent.settings), standing, random)
                     : dress(zone, outline, dressing, keepout, choices, standing, random)),
             );
         }

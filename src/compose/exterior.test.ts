@@ -271,6 +271,39 @@ describe('bridges and yard pieces', () => {
         expect(quarters.size).toBeGreaterThanOrEqual(4);
     });
 
+    it("lines a camp with its own setting's barricades drawn as a line, never deep blocks or another world's", () => {
+        const base = (TEST_ROLES.get('barricade') ?? [])[0];
+        expect(base).toBeDefined();
+        if (!base) {
+            return;
+        }
+        const roles: RoleIndex = new Map([
+            ...TEST_ROLES,
+            [
+                'barricade',
+                [
+                    { ...base, key: 'test:block', width: 2, height: 1.8, tags: ['sandbag', 'setting-own'] },
+                    { ...base, key: 'test:foreign-run', width: 3, height: 0.2, tags: ['stake', 'run', 'setting-generic'] },
+                    { ...base, key: 'test:own-run', width: 2.4, height: 0.44, tags: ['barrier', 'setting-own'] },
+                ],
+            ],
+        ]);
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            width: 30,
+            height: 20,
+            settings: ['setting-own', 'setting-generic'],
+            zones: [{ kind: 'fortified', area: { shape: 'circle', centre: { x: 15, y: 10 }, radius: 6 } }],
+        });
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) {
+            return;
+        }
+        const { spec } = composeMap(parsed.intent, roles);
+        expect(stampsOf(spec, 'test:own-run')).toBeGreaterThanOrEqual(4);
+        expect(stampsOf(spec, 'test:block') + stampsOf(spec, 'test:foreign-run')).toBe(0);
+    });
+
     it('never lays rocks, logs or shrubs on a tree crown or on each other', () => {
         const parsed = parseMapIntent({
             schemaVersion: 1,
