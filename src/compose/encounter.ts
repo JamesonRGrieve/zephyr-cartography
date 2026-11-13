@@ -787,10 +787,11 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
         [
             { name: 'outcrop boulder', role: 'rock', tags: ['boulder'], size: [1.6, 1.4], count: [3, 5], spread: 1.6 },
             { name: 'outcrop scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.4 },
-            { name: 'outcrop bush', role: 'shrub', tags: ['bush'], size: [1, 1], count: [2, 4], spread: 2.8 },
+            { name: 'outcrop bush', role: 'shrub', tags: ['bush'], size: [1, 1], count: [1, 3], spread: 2.2 },
         ],
-        // A thicket.
-        [{ name: 'thicket bush', role: 'shrub', tags: ['bush'], size: [1.1, 1.1], count: [5, 8], spread: 2.2 }],
+        // A thicket: a few bushes packed close, open meadow round it (render goal53: five to eight over 2.2 squares spilled
+        // apart and, with the outcrops' scrub, dotted the plain evenly).
+        [{ name: 'thicket bush', role: 'shrub', tags: ['bush'], size: [1.1, 1.1], count: [4, 6], spread: 1.5 }],
     ],
     hills: [
         [
