@@ -428,6 +428,12 @@ const CAVE_DENSITY = 1.5;
  * What each chamber is (2026-11-10 render, encounter caves: three or four pieces a chamber, every chamber alike, where
  * the Dunmarch caves theme theirs): its centrepiece, if any, then its pieces and how many for every 10 squares of floor.
  */
+// A feudal smugglers' hideaway (render goal68: the feudal cave held rocks and fungus alone).
+const CAMPFIRE = piece('campfire ring', [1.3, 1.3], 'fitting', ['campfire', 'ring'], ['ring round glowing', 'ring stones round', 'ring round cold']);
+const BEDROLL = piece('bedroll', [1.8, 0.9], 'fitting', ['camp', 'bedroll'], ['unrolled bedroll blanket', 'rolled bedroll', 'two bedrolls side']);
+const CRATES = piece('smuggled crates', [1.6, 1.2], 'storage', ['crate', 'stack'], ['four crates square', 'two crates as', 'crates tied sack']);
+const PACK = piece('dropped pack', [0.8, 0.7], 'fitting', ['dropped', 'pack'], ['brown leather backpack', 'pack bedroll still', 'pack few belongings']);
+
 // Pieces of the grimdark and sci-fi worlds' caves (render goal64: their caves held nothing a feudal cave did not).
 const BURN_BARREL = piece('burn barrel', [0.9, 0.9], 'light', ['burn', 'barrel'], ['lit', 'lit grille', 'cold ash']);
 const LAMP_PACK = piece('lamp pack', [0.5, 0.5], 'light', ['lamp', 'pack'], ['stablight', 'glow-globe', 'dead lamp']);
@@ -436,7 +442,7 @@ const OIL_BARREL = piece('oil barrel', [0.7, 0.75], 'storage', ['oil', 'barrel']
 const SEVERED_CABLE = piece('severed cable', [2.4, 0.6], 'fitting', ['severed', 'cable'], ['burnt bare wires', 'frayed sparking', 'torn strands']);
 const CABLE_BUNDLE = piece('cable bundle', [2.2, 1.2], 'fitting', ['floor', 'cable', 'bundle'], ['long loops thick', 'tangled bundle cables']);
 // The sci-fi camp's portable generator (a structure: exterior art), cold, as a camp left behind leaves it.
-const WRECKAGE = piece('fallen wreckage', [2.4, 2], 'debris', ['hull', 'wreckage'], ['heap girders', 'scatter dark plates']);
+const WRECKAGE = piece('fallen wreckage', [3.2, 2.6], 'debris', ['hull', 'wreckage'], ['heap girders', 'scatter dark plates']);
 const SCRAP = piece('scrap heap', [1.4, 1.2], 'fitting', ['scrap', 'pile'], ['rusted', 'burnt', 'half sorted']);
 const GENERATOR = piece('power generator', [1.4, 1.1], 'structure', ['portable', 'generator'], ['cold', 'dented warning']);
 
@@ -502,6 +508,16 @@ const CAVE_THEMES: readonly {
             [STALAGMITES, 0.4],
             [VEIN, 0.3],
         ],
+    },
+    // A smugglers' hideaway: a fire, bedrolls and their goods.
+    {
+        centre: CAMPFIRE,
+        pieces: [
+            [BEDROLL, 0.4],
+            [CRATES, 0.4],
+            [PACK, 0.3],
+        ],
+        feudal: true,
     },
     // A gangers' hole: a fire, lamps and looted stores.
     {

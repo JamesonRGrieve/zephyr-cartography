@@ -268,6 +268,10 @@ describe('encounter maps', () => {
         expect(seeds.every((seed) => holds('grimdark', GRIMDARK, seed))).toBe(true);
         expect(seeds.every((seed) => holds('scifi', SCIFI, seed))).toBe(true);
         expect(seeds.some((seed) => holds('feudal', OTHER_WORLDS, seed))).toBe(false);
+        // The smugglers' hideaway is the feudal world's.
+        const SMUGGLERS = ['campfire ring', 'bedroll', 'smuggled crates', 'dropped pack'];
+        expect(seeds.filter((seed) => holds('feudal', SMUGGLERS, seed)).length).toBeGreaterThanOrEqual(5);
+        expect(seeds.some((seed) => holds('grimdark', SMUGGLERS, seed))).toBe(false);
         // The gangers' fire is the grimdark world's alone.
         expect(seeds.some((seed) => holds('scifi', ['burn barrel'], seed))).toBe(false);
     });
