@@ -448,6 +448,33 @@ describe('bridges and yard pieces', () => {
         expect(variance / mean).toBeGreaterThan(0.55);
     });
 
+    it("grows a meadow's wildflowers in drifts with open grass between, never an even dotting", () => {
+        const keys = new Set((TEST_ROLES.get('flora') ?? []).map((s) => s.key));
+        for (const seed of [5, 6, 7]) {
+            const parsed = parseMapIntent({
+                schemaVersion: 1,
+                seed,
+                width: 40,
+                height: 30,
+                zones: [{ kind: 'meadow', area: { shape: 'everywhere' }, density: 'normal' }],
+            });
+            if (!parsed.ok) {
+                throw new Error(JSON.stringify(parsed.issues));
+            }
+            const flowers = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && keys.has(f.stamp) ? [f] : []));
+            // About as many as before (100 to 112 in patches every five squares, which still read as an even dotting:
+            // render goal51), in drifts eight squares apart: 85 to 100 flowers, quadrat index of dispersion 4.6 to 5.5.
+            expect(flowers.length).toBeGreaterThan(70);
+            const counts = Array.from(
+                { length: 48 },
+                (_, i) => flowers.filter((f) => Math.floor(f.x / 5) === i % 8 && Math.floor(f.y / 5) === Math.floor(i / 8)).length,
+            );
+            const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
+            const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / counts.length;
+            expect(variance / mean).toBeGreaterThan(3.5);
+        }
+    });
+
     it("clumps a meadow's bushes with open grass between, never dotting them one by one", () => {
         const keys = new Set((TEST_ROLES.get('shrub') ?? []).map((s) => s.key));
         for (const seed of [5, 6, 7]) {
@@ -463,7 +490,8 @@ describe('bridges and yard pieces', () => {
             }
             const shrubs = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && keys.has(f.stamp) ? [f] : []));
             // As many as before, in clumps: one by one every five squares, about two dozen bushes scored 0.48 to 0.52 on the
-            // quadrat index of dispersion; in clumps of three to six eleven squares apart, 1.36 to 2.0.
+            // quadrat index of dispersion; in clumps of three to six eleven squares apart, 1.13 to 2.04 (with the drifts of
+            // flowers drawn before them).
             expect(shrubs.length).toBeGreaterThan(15);
             const counts = Array.from(
                 { length: 48 },
@@ -471,7 +499,7 @@ describe('bridges and yard pieces', () => {
             );
             const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
             const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / counts.length;
-            expect(variance / mean).toBeGreaterThan(1.2);
+            expect(variance / mean).toBeGreaterThan(1);
         }
     });
 

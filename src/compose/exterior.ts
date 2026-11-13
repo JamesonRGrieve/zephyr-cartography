@@ -116,7 +116,9 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         { role: 'flora', spread: 6, clumping: 0.2, patch: [2, 4] },
     ],
     meadow: [
-        { role: 'flora', spread: 5, clumping: 0.4, patch: [3, 6] },
+        // Wildflowers in drifts of six to twelve with open grass between (render goal51: patches of three to six every five
+        // squares still dotted the whole meadow evenly; operator 2026-11-13: "More realistic distribution").
+        { role: 'flora', spread: 8, clumping: 0.55, patch: [6, 12] },
         // Bushes in clumps of three to six with open grass between, as the reference maps draw them, never dotted one by
         // one over the meadow (operator 2026-11-13: "More realistic distribution"; encounter plains read as an even dotting,
         // and clumps of two to four eight squares apart still read as one in render goal49).
