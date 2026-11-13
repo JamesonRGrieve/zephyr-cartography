@@ -1548,7 +1548,11 @@ export function composeExterior(
     // On a chart a river broadens and narrows along its run, as a painted one does; on a battlemap it keeps the one width
     // its bridges are built across. Its own stream from the seed, so nothing else on the map moves.
     const widthNoise = noiseField(seededRandom(intent.seed + RIVER_WIDTH_STREAM), RIVER_WIDTH_SCALE);
-    intent.paths.forEach((path, i) => {
+    // Roads first, rivers over them: where a road fords, the water runs over it with the ford's stones on top (2026-11-13
+    // render, sci-fi forest: a road listed after its river was drawn over the water and cut the river in two). A bridge
+    // stands over both.
+    const drawOrder = intent.paths.map((path, i) => ({ path, i })).sort((a, b) => Number(a.path.kind === 'river') - Number(b.path.kind === 'river'));
+    drawOrder.forEach(({ path, i }) => {
         const laid = paths[i];
         if (laid) {
             const wanders = charted && path.kind === 'river';

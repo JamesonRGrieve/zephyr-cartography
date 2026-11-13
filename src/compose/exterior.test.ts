@@ -148,6 +148,10 @@ describe('bridges and yard pieces', () => {
         const ford = composeMap(crossing(road(false)), roles);
         expect(stampsOf(ford.spec, 'test:timber-bridge') + stampsOf(ford.spec, 'test:stone-bridge')).toBe(0);
         expect(ford.problems.filter((p) => 'role' in p && p.role === 'bridge')).toEqual([]);
+        // The river is drawn over the road it fords, whatever order the intent lists them in: the water runs on unbroken.
+        const riverFirst = composeMap(crossing({ paths: [...(road(false) as { paths: object[] }).paths].reverse() }), roles);
+        const kinds = riverFirst.spec.features.flatMap((f) => (f.type === 'path' ? [f.kind] : []));
+        expect(kinds).toEqual(['road', 'river']);
         // The ford's way across is drawn: stepping stones along the road's line over the water, never a pale bar across it.
         const stones = ford.spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:rock' && Math.abs(f.x - 15) < 2 && Math.abs(f.y - 10) < 1);
         expect(stones.length).toBeGreaterThanOrEqual(3);
