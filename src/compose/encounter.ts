@@ -336,8 +336,11 @@ const LANDSCAPES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, Landscape
     wasteland: { ground: 'ash', covered: false, zones: (random, w, h, density) => clusters(random, w, h, ['rocky'], density) },
 };
 
-/** A cave's chambers: their size range in squares, and the squares of map each cell of their grid takes. */
-const CAVE_CHAMBERS = { smallest: 6, largest: 11, cell: 12 } as const;
+/**
+ * A cave's chambers: their size range in squares, and the squares of map each cell of their grid takes (2026-11-13
+ * review: at twelve-square cells a small map held four chambers in a line, a corridor rather than a cave).
+ */
+const CAVE_CHAMBERS = { smallest: 5, largest: 9, cell: 9 } as const;
 const CAVE_BACKDROP = '#0c0b0a';
 /** A passage's width in squares. */
 const CAVE_PASSAGE = 2.5;
@@ -478,7 +481,17 @@ function cave(random: Random, width: number, height: number, warp: boolean, feud
             height: size(cellHeight),
         };
     });
-    const passages = chambers.slice(1).map((chamber, i) => ({ points: [chambers[i]?.centre ?? chamber.centre, chamber.centre], width: CAVE_PASSAGE }));
+    const chain = chambers.slice(1).map((chamber, i) => ({ points: [chambers[i]?.centre ?? chamber.centre, chamber.centre], width: CAVE_PASSAGE }));
+    // Loops between the rows, every other column, so the cave is a web with more than one way round, never one corridor
+    // snaking chamber to chamber.
+    const centreAt = (column: number, row: number): Point | undefined => chambers[ordered.findIndex((c) => c.column === column && c.row === row)]?.centre;
+    const loops = ordered.flatMap(({ column, row }) => {
+        const here = centreAt(column, row);
+        const below = centreAt(column, row + 1);
+        const turn = row % 2 === 0 ? columns - 1 : 0;
+        return here && below && column % 2 === 1 && column !== turn ? [{ points: [here, below], width: CAVE_PASSAGE }] : [];
+    });
+    const passages = [...chain, ...loops];
     const dressing: object[] = [];
     const first = chambers[0]?.centre ?? { x: width / 2, y: height / 2 };
     const exit = { points: [first, { x: -1, y: first.y }], width: CAVE_PASSAGE };

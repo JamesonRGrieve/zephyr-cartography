@@ -70,8 +70,9 @@ describe('encounter ground', () => {
         // Dressed by theme, never alike: at least three of a pool, fungus, bones, a cave-in, crystals or roots.
         const themed = ['cave pool', 'mushrooms', 'old bones', 'bone cairn', 'cave-in rubble', 'crystals', 'roots through the rock'];
         expect(new Set(intent.fixtures.map((f) => f.name).filter((n) => themed.includes(n))).size).toBeGreaterThanOrEqual(3);
-        // Every chamber's floor broken by rubble, puddles and stains, more than a token piece or two each.
-        expect(intent.fixtures.length).toBeGreaterThanOrEqual(chambers.length * 4);
+        // Every chamber's floor broken by rubble, puddles and stains, more than a token piece or two each (three on
+        // average since 2026-11-13: the smaller chambers of a denser web hold as much dressing over the whole cave).
+        expect(intent.fixtures.length).toBeGreaterThanOrEqual(chambers.length * 3);
         // No two pieces of dressing heaped on one another.
         const apart = intent.fixtures.every((a, i) => intent.fixtures.slice(i + 1).every((b) => Math.hypot(a.at.x - b.at.x, a.at.y - b.at.y) > 0.6));
         expect(apart).toBe(true);
@@ -407,8 +408,10 @@ describe('encounter maps', () => {
         const [network] = intent.hewn;
         expect(intent.ground).toBeNull();
         expect(intent.lighting).toBe('dim');
-        expect(network?.chambers.length).toBeGreaterThanOrEqual(4);
-        expect(network?.passages.length).toBe(network?.chambers.length);
+        // A web: a small map's six chambers or more, joined chamber to chamber and looped between rows (2026-11-13
+        // review: four chambers in a line).
+        expect(network?.chambers.length).toBeGreaterThanOrEqual(6);
+        expect(network?.passages.length).toBeGreaterThan(network?.chambers.length ?? 0);
         expect(network?.passages.some((p) => p.points.some((pt) => pt.x < 0))).toBe(true);
     });
 
