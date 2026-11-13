@@ -665,7 +665,27 @@ function cliffFaces(depth: number | null, width: number, height: number, passX: 
                   [passX + CLIFF_PASS, width],
               ];
     const kept = spans.filter(([x0, x1]) => x1 - x0 >= 1);
-    return kept.flatMap(([x0, x1]) => [run(depth, 'bottom', x0, x1), run(height - depth, 'top', x0, x1)]);
+    return kept.flatMap(([x0, x1]) => jogs(x0, x1).flatMap(([a, b, dy]) => [run(depth + dy, 'bottom', a, b), run(height - depth - dy, 'top', a, b)]));
+}
+
+/** A cliff's segments' length, how far each steps in or out, and how far each runs past the next so no gap shows. */
+const CLIFF_JOG_LENGTH = 5;
+const CLIFF_JOG_STEPS = [0, -0.5, 0.3, -0.2, 0.5, -0.4, 0.2] as const;
+const CLIFF_JOG_OVERLAP = 0.3;
+
+/**
+ * A cliff face from `x0` to `x1` as segments stepping in and out of its line (2026-11-13 review, marsh encounters: each
+ * face a dead-straight bar the map's whole width). Stepped by place, never by the random stream, so the map keeps its
+ * layout; each segment runs a little into the next, so the face stays closed.
+ */
+function jogs(x0: number, x1: number): [number, number, number][] {
+    const count = Math.max(1, Math.round((x1 - x0) / CLIFF_JOG_LENGTH));
+    const step = (x1 - x0) / count;
+    return Array.from({ length: count }, (_, i) => [
+        Math.max(x0, x0 + i * step - (i > 0 ? CLIFF_JOG_OVERLAP : 0)),
+        Math.min(x1, x0 + (i + 1) * step),
+        CLIFF_JOG_STEPS[(i + Math.round(x0)) % CLIFF_JOG_STEPS.length] ?? 0,
+    ]);
 }
 
 /**

@@ -139,7 +139,18 @@ describe('encounter maps', () => {
         expect(parsed({ features: ['camp'], setting: 'grimdark' }).zones.some((z) => z.kind === 'fortified')).toBe(true);
         expect(all.zones.filter((z) => z.kind === 'rocky' && z.area.shape === 'edge')).toHaveLength(2);
         // Each height ends in a cliff face along its edge, the face looking into the pass.
-        expect(all.fixtures.filter((f) => f.name === 'cliff face run').map((f) => f.facing)).toEqual(['bottom', 'top']);
+        const faces = all.fixtures.filter((f) => f.name === 'cliff face run');
+        expect(new Set(faces.map((f) => f.facing))).toEqual(new Set(['bottom', 'top']));
+        // Each face jogs in and out along its height, never one straight bar the map's width (2026-11-13 review).
+        const north = faces.filter((f) => f.facing === 'bottom');
+        expect(north.length).toBeGreaterThan(2);
+        expect(new Set(north.map((f) => f.at.y)).size).toBeGreaterThan(1);
+        // And stays closed: each segment meets the next.
+        const sorted = [...north].sort((a, b) => a.at.x - b.at.x);
+        sorted.slice(1).forEach((f, i) => {
+            const prev = sorted[i];
+            expect(f.at.x - f.width / 2).toBeLessThanOrEqual((prev?.at.x ?? 0) + (prev?.width ?? 0) / 2 + 0.11);
+        });
         expect(parsed({ features: [] }).fixtures).toEqual([]);
     });
 
@@ -196,8 +207,7 @@ describe('encounter maps', () => {
         const x = down && typeof down.from === 'object' && 'x' in down.from ? down.from.x : null;
         expect(x).not.toBeNull();
         const faces = cut.fixtures.filter((f) => f.name === 'cliff face run');
-        // Two runs either side of the pass on each height, none spanning the road's line.
-        expect(faces).toHaveLength(4);
+        // Runs either side of the pass on each height, none spanning the road's line.
         expect(faces.every((f) => Math.abs(f.at.x - (x ?? 0)) > f.width / 2)).toBe(true);
         // Round a lake, the road across the map passes inside the pass, never over a height.
         const lake = parsed({ features: ['cliffs', 'lake'], road: 'road' });
