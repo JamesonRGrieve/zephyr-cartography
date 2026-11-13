@@ -1026,6 +1026,45 @@ function ownSetting(kinds: readonly RoleStamp[], settings: readonly string[]): r
 
 const GENERIC_SETTING = 'setting-generic';
 
+/** Squares a road runs straight on past each end of its bridge before it bends again. */
+const BRIDGE_APPROACH = 1.5;
+
+/**
+ * Each bridged road run dead straight through its crossing, along the bridge and a little past each end (operator
+ * 2026-11-13: "Road isn't square with the end of the bridge"; the bridge lay along the road only at the crossing, and
+ * the road's curve left each end at an angle). A chart lays no bridges of its own; a ford keeps its road as it runs.
+ */
+function squaredAtBridges(paths: readonly LaidPath[], stamps: RoleIndex, charted: boolean): LaidPath[] {
+    const reach = charted ? 0 : Math.max(0, ...spanning(roadBridges(stamps)).map((art) => Math.max(art.width, art.height) / 2));
+    if (reach === 0) {
+        return [...paths];
+    }
+    const rivers = paths.filter((p) => p.kind === 'river');
+    return paths.map((path) => {
+        if (path.kind !== 'road' || path.bridge === false) {
+            return path;
+        }
+        const points = rivers.reduce<readonly Point[]>(
+            (line, river) => crossings(line, river.points).reduce((each, { at, along }) => straightThrough(each, at, along, reach + BRIDGE_APPROACH), line),
+            path.points,
+        );
+        return { ...path, points };
+    });
+}
+
+/** `line` with its points within `run` of `at` replaced by a straight run along `along` through it, `run` each way. */
+function straightThrough(line: readonly Point[], at: Point, along: Point, run: number): readonly Point[] {
+    const near = (q: Point): boolean => Math.hypot(q.x - at.x, q.y - at.y) <= run;
+    const first = line.findIndex(near);
+    const last = line.length - 1 - [...line].reverse().findIndex(near);
+    // A crossing on a segment longer than the run has no point near it: the segment either side is cut at the crossing.
+    const cut = first === -1 ? line.findIndex((q, i) => i > 0 && (q.x - at.x) * along.x + (q.y - at.y) * along.y > 0) : first;
+    const before = line.slice(0, cut === -1 ? line.length : cut);
+    const after = first === -1 ? line.slice(cut === -1 ? line.length : cut) : line.slice(last + 1);
+    const step = (t: number): Point => ({ x: at.x + along.x * t, y: at.y + along.y * t });
+    return [...before, step(-run), step(-run / 2), at, step(run / 2), step(run), ...after];
+}
+
 /** How much wider than the deck each circle of a bridge's kept ground is, to cover its corners. */
 const BRIDGE_GROUND_WIDEN = 1.2;
 
@@ -1468,7 +1507,7 @@ export function composeExterior(
     // through both of a marsh's pools). A river runs out of its lake, and a road ending in one is meant to.
     const lakeBounds: readonly Rect[] = outlines.filter(isLake).map(({ outline }) => boundsOf(outline));
     const holds = (b: Rect, p: Point): boolean => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
-    const paths: LaidPath[] = intent.paths.map((path) => {
+    const laidPaths: LaidPath[] = intent.paths.map((path) => {
         const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
         const [from, to] = pathEnds(path, intent, sites, keyed, random);
         // Through each point it is asked to pass, in a smooth curve, winding between them: never turning at a corner.
@@ -1487,6 +1526,7 @@ export function composeExterior(
             points: toDoors(detour(line, [...sites.map((site) => aroundSite(site, path, halfWidth)), ...waters]), path, sites),
         };
     });
+    const paths = squaredAtBridges(laidPaths, stamps, intent.scale !== 'battlemap');
     const props: Standing[] = [];
     const keepout: Keepout = {
         map: { x: 0, y: 0, w: intent.width, h: intent.height },

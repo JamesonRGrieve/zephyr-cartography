@@ -213,6 +213,42 @@ describe('bridges and yard pieces', () => {
         expect(stampsOf(composeMap(intent, slabs).spec, 'test:slab-bridge')).toBe(1);
     });
 
+    it('runs a bridged road dead straight along its bridge and on past each end (operator: road not square with it)', () => {
+        const base = (TEST_ROLES.get('bridge') ?? [])[0];
+        expect(base).toBeDefined();
+        if (!base) {
+            return;
+        }
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['bridge', [{ ...base, key: 'test:long-bridge', width: 6, height: 2.2, tags: ['road', 'bridge'] }]]]);
+        for (const seed of [1, 2, 3, 4]) {
+            const intent = crossing({
+                seed,
+                paths: [
+                    { kind: 'road', from: { x: -1, y: 8 }, to: { x: 31, y: 12 }, meander: 0.6 },
+                    { kind: 'river', from: { x: 15, y: -1 }, to: { x: 15, y: 21 }, meander: 0 },
+                ],
+            });
+            const { spec } = composeMap(intent, roles);
+            const bridge = spec.features.find((f) => f.type === 'stamp' && f.stamp === 'test:long-bridge');
+            const road = spec.features.find((f) => f.type === 'path' && f.kind === 'road');
+            expect(bridge?.type === 'stamp' && road?.type === 'path').toBe(true);
+            if (bridge?.type !== 'stamp' || road?.type !== 'path') {
+                return;
+            }
+            // Every road point within the bridge's half length and the approach of its centre lies on one straight line
+            // through that centre.
+            const near = road.points.filter((p) => Math.hypot(p.x - bridge.x, p.y - bridge.y) <= 3 + 1.5 + 0.01);
+            expect(near.length).toBeGreaterThanOrEqual(4);
+            const [a, b] = [near[0], near[near.length - 1]];
+            if (!a || !b) {
+                return;
+            }
+            const len = Math.hypot(b.x - a.x, b.y - a.y);
+            const off = (p: { x: number; y: number }): number => Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / len;
+            expect(Math.max(...near.map(off), off(bridge))).toBeLessThan(0.05);
+        }
+    });
+
     it('lays a bridge drawn with depth only where the road runs across it as drawn, and says when a road crossing has none', () => {
         const upright = (roles: RoleIndex): RoleIndex => new Map([...roles, ['bridge', (roles.get('bridge') ?? []).map((s) => ({ ...s, upright: true }))]]);
         // An east–west road runs along the art's length: it carries it as drawn.
