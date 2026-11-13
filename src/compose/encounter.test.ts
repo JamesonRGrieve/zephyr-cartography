@@ -258,6 +258,20 @@ describe('encounter maps', () => {
         expect(seeds.some((seed) => parsed({ seed, landscape: 'cave', setting: 'feudal' }).fixtures.some((f) => WARP.includes(f.name)))).toBe(false);
     });
 
+    it("dresses a grimdark or sci-fi cave with its own world's leavings, and a feudal cave with none of them", () => {
+        const GRIMDARK = ['burn barrel', 'ration crate', 'lamp pack', 'severed cable', 'cable bundle'];
+        const SCIFI = ['power generator', 'severed cable', 'cable bundle'];
+        const OTHER_WORLDS = [...new Set([...GRIMDARK, ...SCIFI, 'oil barrel'])];
+        const seeds = Array.from({ length: 10 }, (_, i) => i + 1);
+        const holds = (setting: 'grimdark' | 'scifi' | 'feudal', names: readonly string[], seed: number): boolean =>
+            parsed({ seed, landscape: 'cave', setting, size: 'large' }).fixtures.some((f) => names.includes(f.name));
+        expect(seeds.every((seed) => holds('grimdark', GRIMDARK, seed))).toBe(true);
+        expect(seeds.every((seed) => holds('scifi', SCIFI, seed))).toBe(true);
+        expect(seeds.some((seed) => holds('feudal', OTHER_WORLDS, seed))).toBe(false);
+        // The gangers' fire is the grimdark world's alone.
+        expect(seeds.some((seed) => holds('scifi', ['burn barrel'], seed))).toBe(false);
+    });
+
     it('gathers an open landscape into clusters of features, none in a forest or a cave, each clear of the ways', () => {
         const FEATURE_NAMES: Readonly<Record<string, readonly string[]>> = {
             plains: ['outcrop boulder', 'outcrop scree', 'outcrop bush', 'thicket bush'],

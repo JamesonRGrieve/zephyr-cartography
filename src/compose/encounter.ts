@@ -423,7 +423,23 @@ const CAVE_SPREAD = 0.5;
  * What each chamber is (2026-11-10 render, encounter caves: three or four pieces a chamber, every chamber alike, where
  * the Dunmarch caves theme theirs): its centrepiece, if any, then its pieces and how many for every 10 squares of floor.
  */
-const CAVE_THEMES: readonly { readonly centre?: CavePiece; readonly pieces: readonly (readonly [CavePiece, number])[]; readonly feudal?: boolean }[] = [
+// Pieces of the grimdark and sci-fi worlds' caves (render goal64: their caves held nothing a feudal cave did not).
+const BURN_BARREL = piece('burn barrel', [0.9, 0.9], 'light', ['burn', 'barrel'], ['lit', 'lit grille', 'cold ash']);
+const LAMP_PACK = piece('lamp pack', [0.5, 0.5], 'light', ['lamp', 'pack'], ['stablight', 'glow-globe', 'dead lamp']);
+const RATION_CRATE = piece('ration crate', [1, 0.8], 'storage', ['ration', 'crate'], ['closed olive-drab ration', 'broken crate tins', 'two crates stacked']);
+const OIL_BARREL = piece('oil barrel', [0.7, 0.75], 'storage', ['oil', 'barrel'], ['oil barrel dark', 'oil barrel tipped', 'two oil barrels']);
+const SEVERED_CABLE = piece('severed cable', [2.4, 0.6], 'fitting', ['severed', 'cable'], ['burnt bare wires', 'frayed sparking', 'torn strands']);
+const CABLE_BUNDLE = piece('cable bundle', [2.2, 1.2], 'fitting', ['floor', 'cable', 'bundle'], ['long loops thick', 'tangled bundle cables']);
+// The sci-fi camp's portable generator (a structure: exterior art), cold, as a camp left behind leaves it.
+const GENERATOR = piece('power generator', [1.4, 1.1], 'structure', ['portable', 'generator'], ['cold', 'dented warning']);
+
+const CAVE_THEMES: readonly {
+    readonly centre?: CavePiece;
+    readonly pieces: readonly (readonly [CavePiece, number])[];
+    readonly feudal?: boolean;
+    /** The settings whose caves alone it dresses, where its art is drawn for them alone. */
+    readonly only?: readonly EncounterSetting[];
+}[] = [
     {
         centre: POOL,
         pieces: [
@@ -480,6 +496,34 @@ const CAVE_THEMES: readonly { readonly centre?: CavePiece; readonly pieces: read
             [VEIN, 0.3],
         ],
     },
+    // A gangers' hole: a fire, lamps and looted stores.
+    {
+        centre: BURN_BARREL,
+        pieces: [
+            [RATION_CRATE, 0.5],
+            [OIL_BARREL, 0.4],
+            [LAMP_PACK, 0.4],
+        ],
+        only: ['grimdark'],
+    },
+    // A power line run down through the rock, cut.
+    {
+        pieces: [
+            [SEVERED_CABLE, 0.4],
+            [CABLE_BUNDLE, 0.3],
+            [DEBRIS, 0.4],
+        ],
+        only: ['grimdark', 'scifi'],
+    },
+    // A survey party's camp, left.
+    {
+        centre: GENERATOR,
+        pieces: [
+            [OIL_BARREL, 0.5],
+            [SEVERED_CABLE, 0.3],
+        ],
+        only: ['scifi'],
+    },
 ];
 
 /**
@@ -487,7 +531,9 @@ const CAVE_THEMES: readonly { readonly centre?: CavePiece; readonly pieces: read
  * chambers at random bunched in a corner, the rest of the map void); each joined to the one before, the first opening
  * off the map, and dressed in the middle half of its floor, clear of its walls; a `warp` cave with the warp's marks too.
  */
-function cave(random: Random, width: number, height: number, warp: boolean, feudal: boolean): object {
+function cave(random: Random, width: number, height: number, setting: EncounterSetting): object {
+    const warp = setting === 'warp';
+    const feudal = setting === 'feudal';
     const columns = Math.max(2, Math.round(width / CAVE_CHAMBERS.cell));
     const rows = Math.max(1, Math.round(height / CAVE_CHAMBERS.cell));
     const cells = Array.from({ length: columns * rows }, (_, i) => ({ column: i % columns, row: Math.floor(i / columns) }));
@@ -525,7 +571,7 @@ function cave(random: Random, width: number, height: number, warp: boolean, feud
     // A theme marked for the feudal world (its art drawn there alone: crystal clusters, picked bones) or for elsewhere.
     const themes = shuffled(
         random,
-        CAVE_THEMES.filter((theme) => theme.feudal === undefined || theme.feudal === feudal),
+        CAVE_THEMES.filter((theme) => (theme.feudal === undefined || theme.feudal === feudal) && (theme.only === undefined || theme.only.includes(setting))),
     );
     chambers.forEach((chamber, index) => {
         const theme = themes[index % themes.length] ?? CAVE_THEMES[0];
@@ -1263,7 +1309,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     const random = seededRandom(choice.seed);
     const base = { schemaVersion: 1, seed: choice.seed, width, height, settings: [...look.settings] };
     if (choice.landscape === 'cave') {
-        return { ...base, lighting: 'dim', ...cave(random, width, height, choice.setting === 'warp', choice.setting === 'feudal') };
+        return { ...base, lighting: 'dim', ...cave(random, width, height, choice.setting) };
     }
     const land = LANDSCAPES[choice.landscape];
     const has = (feature: EncounterFeature): boolean => choice.features.includes(feature);
