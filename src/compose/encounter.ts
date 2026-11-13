@@ -398,7 +398,9 @@ const CAVE_IN = piece('cave-in rubble', [2.6, 2.4], 'fitting', ['cave', 'rubble'
 // chamber's theme: pieces laid further out, towards its ragged walls, stood half in the rock (judge, 2026-11-13).
 const FLOOR_BREAKUP: readonly CavePiece[] = [
     piece('damp patch', [1.8, 1.6], 'decal', ['water', 'stain'], ['damp patch', 'pale water stain']),
-    piece('cave rubble spread', [2, 1.6], 'fitting', ['cave', 'rubble', 'spread'], ['irregular spread broken']),
+    // Its three grey pictures in turn (render goal64: one picture in every chamber); not the cream limestone, off the
+    // grey-brown rock.
+    piece('cave rubble spread', [2, 1.6], 'fitting', ['cave', 'rubble', 'spread'], ['irregular spread broken', 'long narrow spread', 'small spread one']),
     piece('cave puddle', [1.2, 0.95], 'fitting', ['cave', 'puddle'], ['small puddle few', 'two small puddles']),
     piece('moss stain', [1.6, 1.4], 'decal', ['moss', 'stain'], ['']),
     piece('drip marks', [1.1, 1], 'fitting', ['stalactite', 'drip'], ['scatter small wet', 'denser scatter', 'few faint spots']),
