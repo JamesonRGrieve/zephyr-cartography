@@ -426,6 +426,33 @@ describe('bridges and yard pieces', () => {
         expect(variance / mean).toBeGreaterThan(0.55);
     });
 
+    it("clumps a meadow's bushes with open grass between, never dotting them one by one", () => {
+        const keys = new Set((TEST_ROLES.get('shrub') ?? []).map((s) => s.key));
+        for (const seed of [5, 6, 7]) {
+            const parsed = parseMapIntent({
+                schemaVersion: 1,
+                seed,
+                width: 40,
+                height: 30,
+                zones: [{ kind: 'meadow', area: { shape: 'everywhere' }, density: 'normal' }],
+            });
+            if (!parsed.ok) {
+                throw new Error(JSON.stringify(parsed.issues));
+            }
+            const shrubs = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && keys.has(f.stamp) ? [f] : []));
+            // As many as before, in clumps: one by one every five squares, about two dozen bushes scored 0.48 to 0.52 on the
+            // quadrat index of dispersion; in clumps of two to four, 0.84 to 1.45.
+            expect(shrubs.length).toBeGreaterThan(15);
+            const counts = Array.from(
+                { length: 48 },
+                (_, i) => shrubs.filter((f) => Math.floor(f.x / 5) === i % 8 && Math.floor(f.y / 5) === Math.floor(i / 8)).length,
+            );
+            const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
+            const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / counts.length;
+            expect(variance / mean).toBeGreaterThan(0.75);
+        }
+    });
+
     it('strews crates over open ground but never storage that stands against a wall', () => {
         const crate = (TEST_ROLES.get('storage') ?? [])[0];
         expect(crate).toBeDefined();
