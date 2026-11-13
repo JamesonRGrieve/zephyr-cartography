@@ -405,6 +405,15 @@ const FLOOR_BREAKUP: readonly CavePiece[] = [
 ];
 const VEIN = piece('mineral vein', [1.8, 1.8], 'fitting', ['mineral', 'vein'], ['winding line gleaming', 'vein copper-green ore', 'vein silver-grey ore']);
 
+/**
+ * A chamber's floor patches (render goal62: damp-patch decals were too pale to show on the cracked rock): one or two
+ * soft patches of other ground, each PATCH_RADIUS squares across its middle, feathered PATCH_BLEND into the rock: damp
+ * hollows and loose grit. Not mossy stone: it is laid as square flagstones and read as paving (goal63).
+ */
+const PATCH_TEXTURES = ['floor.mud', 'floor.gravel'] as const;
+const PATCH_RADIUS = { least: 1.2, most: 2.2 } as const;
+const PATCH_BLEND = 1.2;
+
 /** How far from a chamber's centre its pieces stand, as a share of its size: its middle half, as its ragged walls allow. */
 const CAVE_SPREAD = 0.5;
 
@@ -556,13 +565,25 @@ function cave(random: Random, width: number, height: number, warp: boolean, feud
             }
         }
     });
+    // The floor's patches, drawn after the dressing so its random stream stays as it was.
+    const patches = chambers.flatMap((chamber) =>
+        Array.from({ length: randomInt(random, 1, 2) }, () => ({
+            centre: {
+                x: round(chamber.centre.x + (random() - 0.5) * chamber.width * CAVE_SPREAD),
+                y: round(chamber.centre.y + (random() - 0.5) * chamber.height * CAVE_SPREAD),
+            },
+            radius: round(PATCH_RADIUS.least + random() * (PATCH_RADIUS.most - PATCH_RADIUS.least)),
+            texture: PATCH_TEXTURES[randomInt(random, 0, PATCH_TEXTURES.length - 1)] ?? PATCH_TEXTURES[0],
+            blend: PATCH_BLEND,
+        })),
+    );
     return {
         ground: null,
         backdrop: CAVE_BACKDROP,
         // The large cracked cave floor (Assets 3848d767d), so the small floor's four-square repeat no longer shows in a
         // chamber. The first large one (a8f5a2226) drew the chambers as flat beige (render goal54); the second
         // (6ac5070b7) drew near-black cracks that hid the tar pits and stains (goal59, goal60).
-        hewn: [{ floor: CAVE_FLOOR, wall: 'wall.rock', roughness: 0.5, chambers, passages: [exit, ...passages] }],
+        hewn: [{ floor: CAVE_FLOOR, wall: 'wall.rock', roughness: 0.5, chambers, passages: [exit, ...passages], patches }],
         fixtures: dressing,
     };
 }

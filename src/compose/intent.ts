@@ -291,6 +291,20 @@ const hewn = z
                     .describe('An irregular chamber roughly this size (a cistern, a collapsed hall).'),
             )
             .default([]),
+        patches: z
+            .array(
+                z
+                    .object({
+                        centre: point,
+                        radius: squares,
+                        texture: text.describe('Ground texture role of the patch (`floor.mud` for a damp hollow, `floor.gravel` for loose grit).'),
+                        blend: z.number().positive().max(4).optional().describe('How wide its edge fades into the floor, in squares.'),
+                    })
+                    .strict()
+                    .describe('A soft patch of other ground on its floor, its edge irregular and feathered.'),
+            )
+            .default([])
+            .describe('Patches of other ground over its floor (damp, grit, moss), laid over the cut floor so it is never one even tone.'),
     })
     .strict()
     .describe(

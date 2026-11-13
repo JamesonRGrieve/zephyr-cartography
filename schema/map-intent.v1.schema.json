@@ -3693,6 +3693,55 @@
                             "additionalProperties": false,
                             "description": "An irregular chamber roughly this size (a cistern, a collapsed hall)."
                         }
+                    },
+                    "patches": {
+                        "default": [],
+                        "description": "Patches of other ground over its floor (damp, grit, moss), laid over the cut floor so it is never one even tone.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "centre": {
+                                    "type": "object",
+                                    "properties": {
+                                        "x": {
+                                            "type": "number"
+                                        },
+                                        "y": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": [
+                                        "x",
+                                        "y"
+                                    ],
+                                    "additionalProperties": false,
+                                    "description": "In grid squares from the map’s top-left corner."
+                                },
+                                "radius": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                "texture": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Ground texture role of the patch (`floor.mud` for a damp hollow, `floor.gravel` for loose grit)."
+                                },
+                                "blend": {
+                                    "description": "How wide its edge fades into the floor, in squares.",
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 4
+                                }
+                            },
+                            "required": [
+                                "centre",
+                                "radius",
+                                "texture"
+                            ],
+                            "additionalProperties": false,
+                            "description": "A soft patch of other ground on its floor, its edge irregular and feathered."
+                        }
                     }
                 },
                 "additionalProperties": false,

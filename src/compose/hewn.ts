@@ -43,6 +43,20 @@ const MIN_AREA = 0.75;
 /** A keyhole's bridge, the way through the cut's floor to a pillar it holds: an opening, neither wall nor door. */
 const BRIDGE: RoomDoor = { segment: 0, type: 'opening', state: 'open', sound: null, animation: null };
 
+/**
+ * A floor patch's outline: points round it, and how far its edge wanders in and out, as a share of its radius. Each
+ * point is drawn in by PATCH_STEP squares until it and its feathered edge past it lie on the cut floor (render goal63:
+ * patches near a chamber's ragged wall glowed over the dark rock beyond it); a patch with no point left on the floor is
+ * dropped.
+ */
+const PATCH_POINTS = 14;
+const PATCH_WANDER = 0.3;
+const PATCH_STEP = 0.1;
+/** The feather a patch with none given is drawn with, in squares (the scene spec's default, under a square). */
+const PATCH_FEATHER = 0.75;
+/** Patches whose points drew in to less than this share of their radius are too small to read: left out. */
+const PATCH_LEAST = 0.4;
+
 /** Times a traced outline's corners are cut: the marching squares' steps and the jag's teeth round into a worn curve. */
 const ROUNDING = 2;
 
@@ -93,7 +107,7 @@ export function hewnFeatures(
     const shapes = traceShapes((p) => cut(network, p, swell, jag), box, { cellsPerSquare: CELLS_PER_SQUARE, tolerance: OUTLINE_TOLERANCE, minArea: MIN_AREA });
     // Rock left standing inside the cut is keyholed out of its floor: unfloored like the rock round it, walled round,
     // the bridges out to it openings, no wall at all.
-    return shapes.map(({ outline, holes }): FeatureInput => {
+    const rooms = shapes.map(({ outline, holes }): FeatureInput => {
         const { points, bridges } = keyhole(smoothed(outline), holes.map(smoothed));
         return {
             ...outlineRoomSpec(
@@ -104,4 +118,37 @@ export function hewnFeatures(
             ...level,
         };
     });
+    if (network.patches.length === 0) {
+        return rooms;
+    }
+    // Its floor's patches after the rooms, so they lie over the cut floor; their noise drawn only where there are any,
+    // so a network without them keeps the random stream every map composed before them had.
+    const wander = noiseField(random, 1);
+    const onFloor = (p: Point): boolean => cut(network, p, swell, jag);
+    const patches = network.patches.flatMap(({ centre, radius, texture, blend }): FeatureInput[] => {
+        const feather = blend ?? PATCH_FEATHER;
+        const reaches = Array.from({ length: PATCH_POINTS }, (_, i) => {
+            const turn = (i / PATCH_POINTS) * 2 * Math.PI;
+            const along = (r: number): Point => ({ x: centre.x + Math.cos(turn) * r, y: centre.y + Math.sin(turn) * r });
+            let reach = radius * (1 + centred(wander, along(2)) * PATCH_WANDER);
+            while (reach > 0 && !(onFloor(along(reach)) && onFloor(along(reach + feather)))) {
+                reach -= PATCH_STEP;
+            }
+            return { turn, reach };
+        });
+        if (Math.min(...reaches.map((r) => r.reach)) < radius * PATCH_LEAST) {
+            return [];
+        }
+        return [
+            {
+                type: 'region',
+                biome: 'rock',
+                texture,
+                points: reaches.map(({ turn, reach }) => ({ x: centre.x + Math.cos(turn) * reach, y: centre.y + Math.sin(turn) * reach })),
+                ...(blend === undefined ? {} : { blend }),
+                ...level,
+            },
+        ];
+    });
+    return [...rooms, ...patches];
 }

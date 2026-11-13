@@ -448,6 +448,11 @@ describe('encounter maps', () => {
         expect(count('damp patch')).toBeGreaterThanOrEqual(chambers / 3);
         expect(count('drip marks')).toBeGreaterThanOrEqual(chambers / 3);
         expect(intent.fixtures.find((f) => f.name === 'damp patch')).toMatchObject({ role: 'decal', tags: ['water', 'stain'] });
+        // Each chamber's floor patched with other ground, one or two to a chamber.
+        const patches = network?.patches ?? [];
+        expect(patches.length).toBeGreaterThanOrEqual(chambers);
+        expect(patches.length).toBeLessThanOrEqual(chambers * 2);
+        expect(new Set(patches.map((p) => p.texture)).size).toBeGreaterThan(1);
     });
 
     it('dresses its ground as thickly as asked, and narrows every picker value', () => {

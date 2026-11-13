@@ -14,6 +14,7 @@ const network = (over: Partial<HewnIntent>): HewnIntent => ({
     roughness: 0.4,
     passages: [],
     chambers: [],
+    patches: [],
     ...over,
 });
 
@@ -103,5 +104,29 @@ describe('hewn passages', () => {
         const [first] = hewnFeatures(network({ chambers: [{ centre: { x: 15, y: 10 }, width: 6, height: 6 }] }), MAP, seededRandom(1), { level: 'cellar-1' });
         expect(first).toMatchObject({ type: 'room', level: 'cellar-1', wall: 'wall.rock' });
         expect(hewnFeatures(network({}), MAP, seededRandom(1), {})).toEqual([]);
+    });
+
+    it('lays its floor patches over its rooms, soft and ragged round their centres, and draws nothing for them when it has none', () => {
+        const chambers = [{ centre: { x: 15, y: 10 }, width: 8, height: 6 }];
+        const patch = { centre: { x: 15, y: 10 }, radius: 2, texture: 'floor.mud', blend: 1.5 };
+        const features = hewnFeatures(network({ chambers, patches: [patch] }), MAP, seededRandom(4), { level: 'cellar-1' });
+        const last = features.at(-1);
+        expect(features.findIndex((f) => f.type === 'region')).toBeGreaterThan(features.findIndex((f) => f.type === 'room'));
+        expect(last).toMatchObject({ type: 'region', biome: 'rock', texture: 'floor.mud', blend: 1.5, level: 'cellar-1' });
+        const reaches = last?.type === 'region' ? last.points.map((p) => Math.hypot(p.x - 15, p.y - 10)) : [];
+        // Drawn in where its feather would reach the wall, never below PATCH_LEAST of its radius.
+        expect(Math.min(...reaches)).toBeGreaterThanOrEqual(2 * 0.4 - 1e-9);
+        expect(Math.max(...reaches)).toBeLessThanOrEqual(2 * 1.3 + 1e-9);
+        expect(new Set(reaches.map((r) => r.toFixed(3))).size).toBeGreaterThan(1);
+        // A patch reaching past the chamber's wall is drawn in to the floor, feather and all; one with no floor is dropped.
+        const edge = { centre: { x: 17, y: 10 }, radius: 2, texture: 'floor.gravel', blend: 1 };
+        const off = { centre: { x: 2, y: 2 }, radius: 1.5, texture: 'floor.mud' };
+        const drawnIn = hewnFeatures(network({ chambers, patches: [edge, off] }), MAP, seededRandom(4), {}).filter((f) => f.type === 'region');
+        expect(drawnIn).toHaveLength(1);
+        const right = drawnIn[0]?.type === 'region' ? Math.max(...drawnIn[0].points.map((p) => p.x)) : Infinity;
+        expect(right).toBeLessThan(15 + 4 + 1.2 - 1);
+        // A network without patches draws exactly what it drew before patches existed.
+        const plain = hewnFeatures(network({ chambers }), MAP, seededRandom(4), {});
+        expect(plain.every((f) => f.type === 'room')).toBe(true);
     });
 });
