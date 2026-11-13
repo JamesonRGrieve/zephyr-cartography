@@ -1065,8 +1065,8 @@ interface CampKit {
 /**
  * A frontier world's open field camp (Assets 7f3b5f801, plan view, sci-fi): a large modular tent with its generator north
  * of the road, a modular tent and crate stacks south of it, no ring (the world has no barricade art; its camp was a
- * fortified zone's dressing). Its lamp posts and cots wait on a fitting role: their names make them a light and a bed,
- * roles drawn only indoors, so as named pieces outdoors they stood as placeholder boxes.
+ * fortified zone's dressing). Its lamp posts and cot are fittings (Assets 06a914458): their names made them a light and a
+ * bed, roles drawn only indoors, so outdoors they stood as placeholder boxes.
  */
 const FRONTIER_CAMP: CampKit = {
     pieces: [
@@ -1082,6 +1082,9 @@ const FRONTIER_CAMP: CampKit = {
             at: [2.4, 3.9],
             state: 'three strapped',
         },
+        { name: 'camp lamp post', role: 'fitting', tags: ['camp', 'lamp', 'post'], size: [0.6, 0.6], at: [-3.4, -1.5], state: 'white light' },
+        { name: 'camp lamp post', role: 'fitting', tags: ['camp', 'lamp', 'post'], size: [0.6, 0.6], at: [3.4, 1.5], state: 'white light' },
+        { name: 'field cot', role: 'fitting', tags: ['field', 'cot'], size: [1.4, 0.65], at: [-1.8, 4.8], state: 'blanket and kit bag' },
     ],
     line: null,
 };
