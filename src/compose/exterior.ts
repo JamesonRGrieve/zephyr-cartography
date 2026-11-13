@@ -1026,8 +1026,9 @@ function ownSetting(kinds: readonly RoleStamp[], settings: readonly string[]): r
 
 const GENERIC_SETTING = 'setting-generic';
 
-/** Squares a road runs straight on past each end of its bridge before it bends again. */
+/** Squares a road runs straight on past each end of its bridge before it bends again, and over which it eases back. */
 const BRIDGE_APPROACH = 1.5;
+const BRIDGE_EASE = 4;
 
 /**
  * Each bridged road run dead straight through its crossing, along the bridge and a little past each end (operator
@@ -1054,7 +1055,9 @@ function squaredAtBridges(paths: readonly LaidPath[], stamps: RoleIndex, charted
 
 /** `line` with its points within `run` of `at` replaced by a straight run along `along` through it, `run` each way. */
 function straightThrough(line: readonly Point[], at: Point, along: Point, run: number): readonly Point[] {
-    const near = (q: Point): boolean => Math.hypot(q.x - at.x, q.y - at.y) <= run;
+    // Its bends dropped further out than the straight run, so the road eases onto it: a bend kept just past the run
+    // jogged the road sideways into the bridge's end (2026-11-13 render goal46, grimdark forest and wasteland).
+    const near = (q: Point): boolean => Math.hypot(q.x - at.x, q.y - at.y) <= run + BRIDGE_EASE;
     const first = line.findIndex(near);
     const last = line.length - 1 - [...line].reverse().findIndex(near);
     // A crossing on a segment longer than the run has no point near it: the segment either side is cut at the crossing.
@@ -1062,7 +1065,32 @@ function straightThrough(line: readonly Point[], at: Point, along: Point, run: n
     const before = line.slice(0, cut === -1 ? line.length : cut);
     const after = first === -1 ? line.slice(cut === -1 ? line.length : cut) : line.slice(last + 1);
     const step = (t: number): Point => ({ x: at.x + along.x * t, y: at.y + along.y * t });
-    return [...before, step(-run), step(-run / 2), at, step(run / 2), step(run), ...after];
+    // A point in line a square past each end, so the curve drawn through the road's points (a spline, whose direction at
+    // a point is set by its neighbours) leaves the straight run along it, not already turning towards the next bend.
+    // And one point between the run and the road's own next bend, halfway between the axis carried on and that bend, so
+    // the road turns back to its course gently, never in an elbow at the run's end.
+    const eased = (bend: Point | undefined, sign: number): Point[] => {
+        if (!bend) {
+            return [];
+        }
+        const out = step(sign * (run + 1));
+        const onAxis = step(sign * (run + 1 + Math.hypot(bend.x - out.x, bend.y - out.y) / 2));
+        const half = { x: (bend.x + out.x) / 2, y: (bend.y + out.y) / 2 };
+        return [{ x: (onAxis.x + half.x) / 2, y: (onAxis.y + half.y) / 2 }];
+    };
+    return [
+        ...before,
+        ...eased(before[before.length - 1], -1),
+        step(-run - 1),
+        step(-run),
+        step(-run / 2),
+        at,
+        step(run / 2),
+        step(run),
+        step(run + 1),
+        ...eased(after[0], 1),
+        ...after,
+    ];
 }
 
 /** How much wider than the deck each circle of a bridge's kept ground is, to cover its corners. */
