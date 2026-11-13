@@ -181,6 +181,28 @@ describe('bridges and yard pieces', () => {
             const { spec } = composeMap({ ...intent, seed }, roles);
             expect([stampsOf(spec, 'test:long-bridge'), stampsOf(spec, 'test:slab-bridge')]).toEqual([1, 0]);
         }
+        // The map's own setting's bridge over generic art: the Imperium's span, not a feudal one tagged generic.
+        const mixed: RoleIndex = new Map([
+            ...roles,
+            [
+                'bridge',
+                [
+                    { ...base, key: 'test:generic-bridge', width: 6, height: 2.2, tags: ['timber', 'road', 'bridge', 'setting-generic'] },
+                    { ...base, key: 'test:own-bridge', width: 6, height: 2.2, tags: ['plate', 'road', 'bridge', 'setting-own'] },
+                ],
+            ],
+        ]);
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const { spec } = composeMap({ ...intent, seed, settings: ['setting-own', 'setting-generic'] }, mixed);
+            expect([stampsOf(spec, 'test:own-bridge'), stampsOf(spec, 'test:generic-bridge')]).toEqual([1, 0]);
+        }
+        // A piece asked to keep clear never stands on a bridge's ground: moved off it, not only off the road and water.
+        const post = { name: 'waymark post', role: 'fitting', tags: ['post'], width: 0.3, height: 0.3, at: { x: 16.6, y: 11.2 }, fixed: true, clear: true };
+        const kept = composeMap(crossing({ fixtures: [post] }), roles).spec;
+        const posts = kept.features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:post' ? [Math.hypot(f.x - 15, f.y - 10)] : []));
+        // Half the long bridge's 6 squares, round the crossing at (15, 10).
+        expect(posts).toHaveLength(1);
+        expect(posts[0]).toBeGreaterThanOrEqual(3);
         // With only slabs loaded, a slab still bridges the road.
         const slabs: RoleIndex = new Map([...roles, ['bridge', (roles.get('bridge') ?? []).filter((s) => s.key === 'test:slab-bridge')]]);
         expect(stampsOf(composeMap(intent, slabs).spec, 'test:slab-bridge')).toBe(1);

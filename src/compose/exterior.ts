@@ -991,6 +991,41 @@ function fordAt(at: Point, along: Point, roadHalf: number, riverHalf: number): F
     };
 }
 
+/** The sound bridges for a road, else any sound bridge. */
+function roadBridges(stamps: RoleIndex): readonly RoleStamp[] {
+    const sound = soundFirst(stamps.get('bridge') ?? []);
+    const forRoads = sound.filter((art) => art.tags.some((tag) => ROAD_BRIDGE_TAGS.includes(tag)));
+    return forRoads.length > 0 ? forRoads : sound;
+}
+
+/**
+ * The art of the map's own setting where any is loaded, else all: a generic-tagged feudal timber bridge stood over a
+ * grimdark wasteland's river beside the Imperium's own ferrocrete span (2026-11-13).
+ */
+function ownSetting(kinds: readonly RoleStamp[], settings: readonly string[]): readonly RoleStamp[] {
+    const own = kinds.filter((art) => art.tags.some((tag) => tag !== GENERIC_SETTING && settings.includes(tag)));
+    return own.length > 0 ? own : kinds;
+}
+
+const GENERIC_SETTING = 'setting-generic';
+
+/**
+ * Ground kept for each bridge a road will take over a river, laid before anything else stands: the named pieces moved
+ * off roads and water were set down on the far side of a bridge's end (2026-11-13, warp wasteland: a hell rift on the
+ * ferrocrete bridge's ramp). As far round each crossing as the longest bridge that could be drawn there reaches.
+ */
+function bridgeGround(paths: readonly LaidPath[], stamps: RoleIndex, charted: boolean): Standing[] {
+    // A chart lays no bridges of its own.
+    const reach = charted ? 0 : Math.max(0, ...spanning(roadBridges(stamps)).map((art) => Math.max(art.width, art.height) / 2));
+    if (reach === 0) {
+        return [];
+    }
+    const rivers = paths.filter((p) => p.kind === 'river');
+    return paths
+        .filter((p) => p.kind === 'road' && p.bridge !== false)
+        .flatMap((road) => rivers.flatMap((river) => crossings(road.points, river.points).map(({ at }) => ({ x: at.x, y: at.y, r: reach }))));
+}
+
 /** How many times longer than wide a bridge's art must be to span a river with a road's width of deck. */
 const SPANNING = 2;
 
@@ -1009,10 +1044,14 @@ function spanning(kinds: readonly RoleStamp[]): readonly RoleStamp[] {
  * built for a road where any such is loaded; a problem when a road needs one
  * and no stamp is a bridge.
  */
-function bridges(paths: readonly LaidPath[], stamps: RoleIndex, random: Random): { features: FeatureInput[]; problems: ComposeProblem[] } {
+function bridges(
+    paths: readonly LaidPath[],
+    stamps: RoleIndex,
+    random: Random,
+    settings: readonly string[],
+): { features: FeatureInput[]; problems: ComposeProblem[] } {
     const sound = soundFirst(stamps.get('bridge') ?? []);
-    const forRoads = sound.filter((art) => art.tags.some((tag) => ROAD_BRIDGE_TAGS.includes(tag)));
-    const choices = forRoads.length > 0 ? forRoads : sound;
+    const choices = ownSetting(roadBridges(stamps), settings);
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     for (const road of paths.filter((p) => p.kind === 'road')) {
@@ -1455,6 +1494,8 @@ export function composeExterior(
             ...textured(zone.texture),
         });
     }
+    // The bridges' ground is kept before anything stands; the bridges themselves are laid last, over it.
+    props.push(...bridgeGround(paths, stamps, charted));
     // The intent's own pieces stand first, its named ones exactly where asked; everything scattered after keeps clear of them.
     for (const asked of intent.fixtures) {
         // A piece asked to keep clear moves off a road, the water or a building to the nearest free spot round its point.
@@ -1511,7 +1552,7 @@ export function composeExterior(
         }
     }
     features.push(...banks(paths, keepout, strewn, random));
-    const crossed = bridges(paths, strewn, random);
+    const crossed = bridges(paths, strewn, random, intent.settings);
     features.push(...crossed.features);
     problems.push(...crossed.problems);
     const leads = intent.paths.map((p) => typeof p.to === 'object' && 'building' in p.to);
