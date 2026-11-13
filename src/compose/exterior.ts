@@ -508,6 +508,12 @@ interface Keepout {
     readonly waters: readonly (readonly Point[])[];
     /** Pieces the intent stood outside (a well), kept clear by everything scattered after them. */
     readonly props: readonly Standing[];
+    /**
+     * Ground kept for a camp (a zone keyed `camp…`): no zone strews anything on it, rocks and debris included, while the
+     * camp's own named pieces stand there (2026-11-13 render, sci-fi desert: the desert's boulders and scree lay among
+     * the tents, a clearing keeping out only trees, bushes and logs).
+     */
+    readonly camps: readonly (readonly number[])[];
 }
 
 /** Whether nothing of `role` may stand at `p`; `reach` is how far (squares) what stands there spreads round it. */
@@ -680,7 +686,8 @@ function dress(
     const size = typicalSize(choices);
     // Spaced as for a piece at least a square across: small art (a tuft of sedge) never packs a zone by the hundred.
     const spacing = dressing.spread * Math.max(size, MIN_DRESSING_SIZE) * DENSITY_SPACING[zone.density];
-    const inZone = (p: Point): boolean => pointInPolygon(p, polygon) && !blocked(p, dressing.role, keepout, size / 2);
+    const inZone = (p: Point): boolean =>
+        pointInPolygon(p, polygon) && !blocked(p, dressing.role, keepout, size / 2) && !keepout.camps.some((camp) => pointInPolygon(p, camp));
     const accept = (p: Point): boolean =>
         inZone(p) &&
         // Clumped: where the noise is low, fewer stand; in groves, none.
@@ -1100,6 +1107,9 @@ function straightThrough(line: readonly Point[], at: Point, along: Point, run: n
         ...after,
     ];
 }
+
+/** The key prefix of a zone kept for a camp (`Keepout.camps`). */
+const CAMP_KEY = 'camp';
 
 /** How much wider than the deck each circle of a bridge's kept ground is, to cover its corners. */
 const BRIDGE_GROUND_WIDEN = 1.2;
@@ -1572,6 +1582,7 @@ export function composeExterior(
         hard: outlines.filter(({ zone }) => zone.kind === 'paving' && !zone.soft).map(({ outline }) => flat(outline)),
         waters: outlines.filter(({ zone }) => zone.kind === 'lake').map(({ outline }) => outline),
         props,
+        camps: outlines.filter(({ zone }) => zone.key?.startsWith(CAMP_KEY) === true).map(({ outline }) => flat(outline)),
     };
     // A chart (a region, a world, a system) is its ground, zones, paths and the places it names: nothing scattered or worn.
     const charted = intent.scale !== 'battlemap';

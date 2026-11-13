@@ -448,6 +448,26 @@ describe('bridges and yard pieces', () => {
         expect(variance / mean).toBeGreaterThan(0.55);
     });
 
+    it("keeps every zone's strewing off a camp's ground, rocks and debris included", () => {
+        const parsed = parseMapIntent({
+            schemaVersion: 1,
+            seed: 3,
+            width: 40,
+            height: 30,
+            zones: [
+                { kind: 'rocky', area: { shape: 'everywhere' }, density: 'dense' },
+                { kind: 'clearing', key: 'camp', area: { shape: 'circle', centre: { x: 20, y: 15 }, radius: 6 } },
+            ],
+        });
+        if (!parsed.ok) {
+            throw new Error(JSON.stringify(parsed.issues));
+        }
+        const strewn = new Set([...(TEST_ROLES.get('rock') ?? []), ...(TEST_ROLES.get('debris') ?? [])].map((s) => s.key));
+        const pieces = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && strewn.has(f.stamp) ? [f] : []));
+        expect(pieces.length).toBeGreaterThan(10);
+        expect(pieces.filter((f) => Math.hypot(f.x - 20, f.y - 15) < 5.5)).toEqual([]);
+    });
+
     it("grows a meadow's wildflowers in drifts with open grass between, never an even dotting", () => {
         const keys = new Set((TEST_ROLES.get('flora') ?? []).map((s) => s.key));
         for (const seed of [5, 6, 7]) {

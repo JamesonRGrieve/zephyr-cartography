@@ -1212,7 +1212,8 @@ function campOf(choice: EncounterChoice, at: Point, map: { readonly width: numbe
     const kit = CAMP_KITS[choice.setting];
     const radius = Math.max(CAMP_RADIUS, span / 4);
     return {
-        zones: [{ kind: 'clearing', area: circle(at, radius) }],
+        // Keyed a camp's ground, which the zones' strewing keeps off (exterior Keepout.camps).
+        zones: [{ kind: 'clearing', key: 'camp', area: circle(at, radius) }],
         earth: [{ centre: at, radius }],
         fixtures: campStanding(at, seededRandom(choice.seed + CAMP_SEED_OFFSET), map, kit),
         keptFrom: [at],
