@@ -798,7 +798,8 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
             { name: 'knoll boulder', role: 'rock', tags: ['boulder'], size: [1.8, 1.5], count: [4, 6], spread: 2 },
             { name: 'knoll scree', role: 'debris', tags: ['scree'], size: [2.2, 1.8], count: [1, 2], spread: 3.4 },
         ],
-        [{ name: 'hillside bush', role: 'shrub', tags: ['bush'], size: [1, 1], count: [4, 7], spread: 2.4 }],
+        // Packed close as the plains' thickets are (render goal53: spread wide, a hill's bushes dotted it evenly).
+        [{ name: 'hillside bush', role: 'shrub', tags: ['bush'], size: [1, 1], count: [3, 5], spread: 1.5 }],
     ],
     desert: [
         [

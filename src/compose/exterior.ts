@@ -546,10 +546,11 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
 
 /**
  * Squares out from its point a piece kept clear looks for a free spot, and the step between the rings it tries. Nine
- * since a bridge's ground is kept (2026-11-13: at six, knoll boulders by a warp hills' crossing found no room). The
+ * since a bridge's ground is kept (2026-11-13: at six, knoll boulders by a warp hills' crossing found no room), fourteen
+ * since its ways and clearances covered two thirds of that small map (a knoll scree found no room within nine). The
  * judge-map checker mirrors it.
  */
-const CLEAR_SEARCH = 9;
+const CLEAR_SEARCH = 14;
 const CLEAR_STEP = 0.5;
 
 /**
