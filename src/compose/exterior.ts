@@ -117,9 +117,10 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
     ],
     meadow: [
         { role: 'flora', spread: 5, clumping: 0.4, patch: [3, 6] },
-        // Bushes in clumps of two to four with open grass between, as the reference maps draw them, never dotted one by
-        // one over the meadow (operator 2026-11-13: "More realistic distribution"; encounter plains read as an even dotting).
-        { role: 'shrub', spread: 8, clumping: 0.5, patch: [2, 4] },
+        // Bushes in clumps of three to six with open grass between, as the reference maps draw them, never dotted one by
+        // one over the meadow (operator 2026-11-13: "More realistic distribution"; encounter plains read as an even dotting,
+        // and clumps of two to four eight squares apart still read as one in render goal49).
+        { role: 'shrub', spread: 11, clumping: 0.6, patch: [3, 6] },
         { role: 'tree', spread: 3, clumping: 0.4 },
         { role: 'rock', spread: 8, clumping: 0 },
     ],

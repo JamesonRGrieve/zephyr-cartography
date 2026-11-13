@@ -463,7 +463,7 @@ describe('bridges and yard pieces', () => {
             }
             const shrubs = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && keys.has(f.stamp) ? [f] : []));
             // As many as before, in clumps: one by one every five squares, about two dozen bushes scored 0.48 to 0.52 on the
-            // quadrat index of dispersion; in clumps of two to four, 0.84 to 1.45.
+            // quadrat index of dispersion; in clumps of three to six eleven squares apart, 1.36 to 2.0.
             expect(shrubs.length).toBeGreaterThan(15);
             const counts = Array.from(
                 { length: 48 },
@@ -471,7 +471,7 @@ describe('bridges and yard pieces', () => {
             );
             const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
             const variance = counts.reduce((a, b) => a + (b - mean) ** 2, 0) / counts.length;
-            expect(variance / mean).toBeGreaterThan(0.75);
+            expect(variance / mean).toBeGreaterThan(1.2);
         }
     });
 
