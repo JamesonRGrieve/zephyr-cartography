@@ -1037,14 +1037,22 @@ const CAMP_PIECES = [
 ] as const;
 /** A camp's pieces (dx, dy from its centre) and the run its ring is lined with. */
 interface CampKit {
-    readonly pieces: readonly { name: string; role: string; tags: readonly string[]; size: readonly [number, number]; at: readonly [number, number] }[];
+    readonly pieces: readonly {
+        name: string;
+        role: string;
+        tags: readonly string[];
+        size: readonly [number, number];
+        at: readonly [number, number];
+        state?: string;
+    }[];
     readonly line: { readonly name: string; readonly tags: readonly string[]; readonly size: readonly [number, number]; readonly step: number };
 }
 
 const IMPERIAL_CAMP: CampKit = {
     pieces: [
-        // At its art's own 128 px no larger than 2.3 squares, or it blurs (judge LOW RES); a sharper tent is asked of Assets.
-        { name: 'command tent', role: 'structure', tags: ['command', 'tent'], size: [2.3, 2.2], at: [0, -2.6] },
+        // The Grimdark Command Tent with its comms mast (Assets 2026-11-13, ~800 px: sharp at four squares, where the old
+        // 128 px Command Tent Roof blurred past 2.3).
+        { name: 'command tent', role: 'structure', tags: ['grimdark', 'command', 'tent'], size: [4, 4], at: [0, -3], state: 'mast olive' },
         { name: 'camp generator', role: 'structure', tags: ['generator', 'unit'], size: [2, 1.66], at: [3.3, -2.2] },
         { name: 'camp watch post', role: 'structure', tags: ['watch', 'post'], size: [1.3, 2], at: [-3.4, -2.4] },
         { name: 'cargo container', role: 'storage', tags: ['cargo', 'container'], size: [4, 2.35], at: [0, 3.3] },
@@ -1112,6 +1120,7 @@ function campStanding(at: Point, random: Random, map: { readonly width: number; 
         tags: [...part.tags],
         width: part.size[0],
         height: part.size[1],
+        ...(part.state === undefined ? {} : { state: part.state }),
         at: onMap(turned(part.at[0], part.at[1]), Math.hypot(part.size[0], part.size[1]) / 2, width, height),
         angle: (degrees + 360) % 360,
         fixed: true,
