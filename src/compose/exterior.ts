@@ -1059,9 +1059,11 @@ function squaredAtBridges(paths: readonly LaidPath[], stamps: RoleIndex, charted
 function straightThrough(line: readonly Point[], at: Point, along: Point, run: number): readonly Point[] {
     // Its bends dropped further out than the straight run, so the road eases onto it: a bend kept just past the run
     // jogged the road sideways into the bridge's end (2026-11-13 render goal46, grimdark forest and wasteland).
-    const near = (q: Point): boolean => Math.hypot(q.x - at.x, q.y - at.y) <= run + BRIDGE_EASE;
+    // Never a road's own ends: they are where it leaves the map or reaches a door (2026-11-13: a crossing near the top edge
+    // of the roadside tavern's map dropped the road's start, and the road stopped short of the edge).
+    const near = (q: Point, i: number): boolean => i > 0 && i < line.length - 1 && Math.hypot(q.x - at.x, q.y - at.y) <= run + BRIDGE_EASE;
     const first = line.findIndex(near);
-    const last = line.length - 1 - [...line].reverse().findIndex(near);
+    const last = line.length - 1 - [...line].reverse().findIndex((q, j) => near(q, line.length - 1 - j));
     // A crossing on a segment longer than the run has no point near it: the segment either side is cut at the crossing.
     const cut = first === -1 ? line.findIndex((q, i) => i > 0 && (q.x - at.x) * along.x + (q.y - at.y) * along.y > 0) : first;
     const before = line.slice(0, cut === -1 ? line.length : cut);

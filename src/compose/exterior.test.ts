@@ -217,6 +217,28 @@ describe('bridges and yard pieces', () => {
         expect(stampsOf(composeMap(intent, slabs).spec, 'test:slab-bridge')).toBe(1);
     });
 
+    it("keeps a bridged road's ends where it leaves the map, however near the edge its crossing", () => {
+        const base = (TEST_ROLES.get('bridge') ?? [])[0];
+        expect(base).toBeDefined();
+        if (!base) {
+            return;
+        }
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['bridge', [{ ...base, key: 'test:long-bridge', width: 9, height: 3, tags: ['road', 'bridge'] }]]]);
+        // The river three squares in from the top edge the road leaves by.
+        const { spec } = composeMap(
+            crossing({
+                paths: [
+                    { kind: 'road', from: { x: 15, y: -1 }, to: { x: 15, y: 21 }, meander: 0.3 },
+                    { kind: 'river', from: { x: -1, y: 3 }, to: { x: 31, y: 3 }, meander: 0 },
+                ],
+            }),
+            roles,
+        );
+        const road = spec.features.find((f) => f.type === 'path' && f.kind === 'road');
+        const ends = road?.type === 'path' ? [road.points[0], road.points[road.points.length - 1]] : [];
+        expect(ends.map((p) => p?.y)).toEqual([-1, 21]);
+    });
+
     it('runs a bridged road dead straight along its bridge and on past each end (operator: road not square with it)', () => {
         const base = (TEST_ROLES.get('bridge') ?? [])[0];
         expect(base).toBeDefined();
