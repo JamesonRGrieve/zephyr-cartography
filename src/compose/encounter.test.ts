@@ -76,10 +76,10 @@ describe('encounter ground', () => {
         // No two pieces of dressing heaped on one another.
         const apart = intent.fixtures.every((a, i) => intent.fixtures.slice(i + 1).every((b) => Math.hypot(a.at.x - b.at.x, a.at.y - b.at.y) > 0.6));
         expect(apart).toBe(true);
-        // Every piece of dressing stands within the middle half of some chamber.
+        // Every piece of dressing stands within the middle of some chamber, CAVE_SPREAD (0.55) of it across.
         for (const piece of intent.fixtures) {
             const inChamber = chambers.some(
-                (c) => Math.abs(piece.at.x - c.centre.x) <= c.width / 4 + 0.05 && Math.abs(piece.at.y - c.centre.y) <= c.height / 4 + 0.05,
+                (c) => Math.abs(piece.at.x - c.centre.x) <= (c.width * 0.55) / 2 + 0.05 && Math.abs(piece.at.y - c.centre.y) <= (c.height * 0.55) / 2 + 0.05,
             );
             expect(inChamber).toBe(true);
         }

@@ -416,8 +416,13 @@ const PATCH_TEXTURES = ['floor.mud', 'floor.gravel'] as const;
 const PATCH_RADIUS = { least: 1.2, most: 2.2 } as const;
 const PATCH_BLEND = 1.2;
 
-/** How far from a chamber's centre its pieces stand, as a share of its size: its middle half, as its ragged walls allow. */
-const CAVE_SPREAD = 0.5;
+/**
+ * How far from a chamber's centre its pieces stand, as a share of its size: a little over its middle half, as its
+ * ragged walls allow (0.6 stood a thorn growth in the rock, judge 2026-11-13); and the share more of each theme's
+ * pieces than its rate asks, so its floor is filled as far as that leaves room (render goal66: sparse chambers).
+ */
+const CAVE_SPREAD = 0.55;
+const CAVE_DENSITY = 1.5;
 
 /**
  * What each chamber is (2026-11-10 render, encounter caves: three or four pieces a chamber, every chamber alike, where
@@ -608,7 +613,7 @@ function cave(random: Random, width: number, height: number, setting: EncounterS
         }
         FLOOR_BREAKUP.forEach((item) => lay(item, CAVE_SPREAD));
         for (const [item, per10] of theme?.pieces ?? []) {
-            for (let n = Math.max(1, Math.round((area / 10) * per10)); n > 0; n--) {
+            for (let n = Math.max(1, Math.round((area / 10) * per10 * CAVE_DENSITY)); n > 0; n--) {
                 lay(item, CAVE_SPREAD);
             }
         }
