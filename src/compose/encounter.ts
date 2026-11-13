@@ -827,8 +827,8 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
         // A feudal tundra's stand of snow-laden pines, a frozen dead one and a fallen frozen log among them (Assets
         // 709e95bf0, plan view, fantasy and generic).
         [
-            { name: 'snow-laden pine', role: 'tree', tags: ['snow', 'laden', 'pine'], size: [2.4, 2.3], count: [3, 5], spread: 2.6, settings: FEUDAL_ONLY },
-            { name: 'dead frozen pine', role: 'tree', tags: ['dead', 'frozen', 'pine'], size: [2.2, 2.1], count: [0, 1], spread: 3, settings: FEUDAL_ONLY },
+            { name: 'snow-laden pine', role: 'tree', tags: ['snow', 'laden', 'pine'], size: [3.2, 3.1], count: [4, 6], spread: 2.6, settings: FEUDAL_ONLY },
+            { name: 'dead frozen pine', role: 'tree', tags: ['dead', 'frozen', 'pine'], size: [2.8, 2.7], count: [0, 1], spread: 3, settings: FEUDAL_ONLY },
             { name: 'fallen frozen log', role: 'log', tags: ['fallen', 'frozen', 'log'], size: [2.4, 0.35], count: [0, 1], spread: 3.2, settings: FEUDAL_ONLY },
         ],
     ],
