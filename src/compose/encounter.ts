@@ -548,9 +548,11 @@ const CAVE_THEMES: readonly {
         only: ['scifi'],
     },
     // Wreckage fallen through the cave's roof, and what was picked from it (render goal67: the sci-fi cave the sparsest).
+    // Not fixed at the centre: there, its reach left no spot in the dressing's spread for its scrap or cables (render
+    // goal70: a girder heap alone in its chamber).
     {
-        centre: WRECKAGE,
         pieces: [
+            [WRECKAGE, 0.1],
             [SCRAP, 0.4],
             [SEVERED_CABLE, 0.3],
         ],
