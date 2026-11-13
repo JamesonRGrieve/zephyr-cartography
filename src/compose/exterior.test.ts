@@ -199,10 +199,14 @@ describe('bridges and yard pieces', () => {
         // A piece asked to keep clear never stands on a bridge's ground: moved off it, not only off the road and water.
         const post = { name: 'waymark post', role: 'fitting', tags: ['post'], width: 0.3, height: 0.3, at: { x: 16.6, y: 11.2 }, fixed: true, clear: true };
         const kept = composeMap(crossing({ fixtures: [post] }), roles).spec;
-        const posts = kept.features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:post' ? [Math.hypot(f.x - 15, f.y - 10)] : []));
-        // Half the long bridge's 6 squares, round the crossing at (15, 10).
+        const posts = kept.features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:post' ? [f] : []));
+        // Off the long bridge's footprint over the crossing at (15, 10): 6 squares along the road, 2.2 across it.
         expect(posts).toHaveLength(1);
-        expect(posts[0]).toBeGreaterThanOrEqual(3);
+        expect(posts.every((f) => Math.abs(f.x - 15) >= 3 || Math.abs(f.y - 10) >= 1.1)).toBe(true);
+        // And a piece well clear of the bridge's ends stays where it was asked: its ground is the bridge, not a disc.
+        const near = { ...post, name: 'roadside post', at: { x: 15.4, y: 13.4 } };
+        const left = composeMap(crossing({ fixtures: [near] }), roles).spec.features.find((f) => f.type === 'stamp' && f.stamp === 'test:post');
+        expect(left?.type === 'stamp' ? Math.hypot(left.x - 15.4, left.y - 13.4) : null).toBeLessThan(2);
         // With only slabs loaded, a slab still bridges the road.
         const slabs: RoleIndex = new Map([...roles, ['bridge', (roles.get('bridge') ?? []).filter((s) => s.key === 'test:slab-bridge')]]);
         expect(stampsOf(composeMap(intent, slabs).spec, 'test:slab-bridge')).toBe(1);

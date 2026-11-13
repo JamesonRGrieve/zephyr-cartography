@@ -539,8 +539,12 @@ function blocked(p: Point, role: StampRole, keepout: Keepout, reach = 0, onPaths
     return CLEARED.includes(role) && keepout.clearings.some((outline) => pointInPolygon(p, outline));
 }
 
-/** Squares out from its point a piece kept clear looks for a free spot, and the step between the rings it tries. */
-const CLEAR_SEARCH = 6;
+/**
+ * Squares out from its point a piece kept clear looks for a free spot, and the step between the rings it tries. Nine
+ * since a bridge's ground is kept (2026-11-13: at six, knoll boulders by a warp hills' crossing found no room). The
+ * judge-map checker mirrors it.
+ */
+const CLEAR_SEARCH = 9;
 const CLEAR_STEP = 0.5;
 
 /**
@@ -1009,21 +1013,38 @@ function ownSetting(kinds: readonly RoleStamp[], settings: readonly string[]): r
 
 const GENERIC_SETTING = 'setting-generic';
 
+/** How much wider than the deck each circle of a bridge's kept ground is, to cover its corners. */
+const BRIDGE_GROUND_WIDEN = 1.2;
+
 /**
  * Ground kept for each bridge a road will take over a river, laid before anything else stands: the named pieces moved
  * off roads and water were set down on the far side of a bridge's end (2026-11-13, warp wasteland: a hell rift on the
- * ferrocrete bridge's ramp). As far round each crossing as the longest bridge that could be drawn there reaches.
+ * ferrocrete bridge's ramp). Along the road, as long and as wide as the longest bridge that could be drawn there.
  */
 function bridgeGround(paths: readonly LaidPath[], stamps: RoleIndex, charted: boolean): Standing[] {
-    // A chart lays no bridges of its own.
-    const reach = charted ? 0 : Math.max(0, ...spanning(roadBridges(stamps)).map((art) => Math.max(art.width, art.height) / 2));
+    const long = charted ? [] : spanning(roadBridges(stamps));
+    // The longest bridge's length and its widest deck: its footprint along the road, never a disc round the crossing,
+    // which left the boulders of a knoll beside a warp hills' river no room at all (2026-11-13).
+    const reach = Math.max(0, ...long.map((art) => Math.max(art.width, art.height) / 2));
+    const deck = Math.max(0, ...long.map((art) => Math.min(art.width, art.height) / 2));
     if (reach === 0) {
         return [];
     }
     const rivers = paths.filter((p) => p.kind === 'river');
+    // Circles a little wider than the deck, run out to the bridge's ends, so its corners are kept too (a rift sat on the
+    // end of a ferrocrete span, just past circles stopping a deck short of its end).
+    const r = deck * BRIDGE_GROUND_WIDEN;
+    const run = reach - deck / 2;
+    const steps = Math.ceil(run / deck);
     return paths
         .filter((p) => p.kind === 'road' && p.bridge !== false)
-        .flatMap((road) => rivers.flatMap((river) => crossings(road.points, river.points).map(({ at }) => ({ x: at.x, y: at.y, r: reach }))));
+        .flatMap((road) => rivers.flatMap((river) => crossings(road.points, river.points)))
+        .flatMap(({ at, along }) =>
+            Array.from({ length: 2 * steps + 1 }, (_, i) => {
+                const t = ((i - steps) / Math.max(steps, 1)) * run;
+                return { x: at.x + along.x * t, y: at.y + along.y * t, r };
+            }),
+        );
 }
 
 /** How many times longer than wide a bridge's art must be to span a river with a road's width of deck. */
