@@ -1058,8 +1058,33 @@ interface CampKit {
         at: readonly [number, number];
         state?: string;
     }[];
-    readonly line: { readonly name: string; readonly tags: readonly string[]; readonly size: readonly [number, number]; readonly step: number };
+    /** The run its ring is lined with; none, an open camp (the frontier world's has no barricade art). */
+    readonly line: { readonly name: string; readonly tags: readonly string[]; readonly size: readonly [number, number]; readonly step: number } | null;
 }
+
+/**
+ * A frontier world's open field camp (Assets 7f3b5f801, plan view, sci-fi): a large modular tent with its generator north
+ * of the road, a modular tent and crate stacks south of it, no ring (the world has no barricade art; its camp was a
+ * fortified zone's dressing). Its lamp posts and cots wait on a fitting role: their names make them a light and a bed,
+ * roles drawn only indoors, so as named pieces outdoors they stood as placeholder boxes.
+ */
+const FRONTIER_CAMP: CampKit = {
+    pieces: [
+        { name: 'large field tent', role: 'structure', tags: ['large', 'modular', 'field', 'tent'], size: [5, 3.2], at: [0, -3.2], state: 'slate grey' },
+        { name: 'field generator', role: 'structure', tags: ['portable', 'field', 'generator'], size: [1.2, 0.95], at: [3.6, -2.1], state: 'running' },
+        { name: 'field tent', role: 'structure', tags: ['modular', 'field', 'tent'], size: [3, 1.96], at: [-1.8, 3.2], state: 'sand' },
+        { name: 'field supply crates', role: 'storage', tags: ['field', 'supply', 'crate', 'stack'], size: [1.2, 0.81], at: [2.2, 2.7], state: 'six grey' },
+        {
+            name: 'field supply crates',
+            role: 'storage',
+            tags: ['field', 'supply', 'crate', 'stack'],
+            size: [1.2, 0.81],
+            at: [2.4, 3.9],
+            state: 'three strapped',
+        },
+    ],
+    line: null,
+};
 
 const IMPERIAL_CAMP: CampKit = {
     pieces: [
@@ -1082,10 +1107,11 @@ const IMPERIAL_CAMP: CampKit = {
  * left a broken arc of barriers round nothing, and its structures could be a cooling tower or a gantry crane). A frontier
  * world keeps the fortified zone.
  */
-const CAMP_KITS: Partial<Record<EncounterSetting, CampKit>> = {
+const CAMP_KITS: Readonly<Record<EncounterSetting, CampKit>> = {
     feudal: { pieces: CAMP_PIECES, line: { name: 'camp stakes', tags: ['stake', 'barricade', 'run'], size: [3, 0.3], step: CAMP_STAKE_STEP } },
     grimdark: IMPERIAL_CAMP,
     warp: IMPERIAL_CAMP,
+    scifi: FRONTIER_CAMP,
 };
 
 /** Where across the map a crossroads' second road runs past a camp: this share of the width from the camp's far side. */
@@ -1140,20 +1166,21 @@ function campStanding(at: Point, random: Random, map: { readonly width: number; 
         clear: true,
     }));
     const ring = CAMP_RADIUS - 0.4;
-    const count = Math.floor((2 * Math.PI * ring) / kit.line.step);
+    const { line } = kit;
+    const count = line === null ? 0 : Math.floor((2 * Math.PI * ring) / line.step);
     const stakes = Array.from({ length: count }, (_, i) => (i / count) * Math.PI * 2 + skew).flatMap((bearing) => {
         const p = { x: round1(at.x + Math.cos(bearing) * ring), y: round1(at.y + Math.sin(bearing) * ring) };
         const gate = Math.abs(Math.sin(bearing)) < CAMP_GATE;
         const off = p.x < 2 || p.y < 2 || p.x > width - 2 || p.y > height - 2;
-        return gate || off
+        return gate || off || line === null
             ? []
             : [
                   {
-                      name: kit.line.name,
+                      name: line.name,
                       role: 'barricade',
-                      tags: [...kit.line.tags],
-                      width: kit.line.size[0],
-                      height: kit.line.size[1],
+                      tags: [...line.tags],
+                      width: line.size[0],
+                      height: line.size[1],
                       at: p,
                       // Along the ring, its points facing out.
                       angle: (Math.round((bearing * 180) / Math.PI) + 90 + 360) % 360,
@@ -1174,21 +1201,12 @@ interface Camp {
 }
 
 /**
- * The camp at `at`: a feudal one stands as tents round a fire on worn earth (`campStanding`); any other is a fortified
- * zone, in a clearing of its own on covered ground (`opened`).
+ * The camp at `at`: its world's kit (`CAMP_KITS`) standing on worn earth in a clearing of its own (`campStanding`). Every
+ * world has one now, the frontier's from 2026-11-13, so none is a fortified zone's dressing any more.
  */
-function campOf(
-    choice: EncounterChoice,
-    at: Point,
-    map: { readonly width: number; readonly height: number },
-    opened: (at: Point, radius: number) => void,
-): Camp {
+function campOf(choice: EncounterChoice, at: Point, map: { readonly width: number; readonly height: number }): Camp {
     const span = Math.min(map.width, map.height);
     const kit = CAMP_KITS[choice.setting];
-    if (kit === undefined) {
-        opened(at, span / 4);
-        return { zones: [{ kind: 'fortified', area: circle(at, span / 4), density: choice.density }], earth: [], fixtures: [], keptFrom: [] };
-    }
     const radius = Math.max(CAMP_RADIUS, span / 4);
     return {
         zones: [{ kind: 'clearing', area: circle(at, radius) }],
@@ -1249,7 +1267,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     const campEarth: EarthCircle[] = [];
     if (has('camp')) {
         campAt = take();
-        const camp = campOf(choice, campAt, { width, height }, opened);
+        const camp = campOf(choice, campAt, { width, height });
         zones.push(...camp.zones);
         campEarth.push(...camp.earth);
         fixtures.push(...camp.fixtures);

@@ -137,7 +137,9 @@ describe('encounter maps', () => {
         expect(withLake.paths.find((p) => p.kind === 'river')?.from).toEqual({ zone: 'lake' });
         const all = parsed({ features: ['ruins', 'camp', 'wreck', 'cliffs'] });
         expect(all.fixtures.some((f) => f.name === 'camp tent')).toBe(true);
-        expect(parsed({ features: ['camp'], setting: 'scifi' }).zones.some((z) => z.kind === 'fortified')).toBe(true);
+        // A frontier world's open field camp: its tents and stores, no ring.
+        const frontier = parsed({ features: ['camp'], setting: 'scifi' }).fixtures.map((f) => f.name);
+        expect(['large field tent', 'field tent', 'field supply crates'].every((n) => frontier.includes(n))).toBe(true);
         // The Imperium's camp is its command tent and container inside a ring of checkpoint barriers.
         const imperial = parsed({ features: ['camp'], setting: 'grimdark' }).fixtures.map((f) => f.name);
         expect(['command tent', 'cargo container', 'checkpoint barrier'].every((n) => imperial.includes(n))).toBe(true);
@@ -365,9 +367,10 @@ describe('encounter maps', () => {
     it('opens a clearing round each feature in a forest, and runs the road through the camp', () => {
         const forest = parsed({ landscape: 'forest', features: ['camp', 'ruins'], setting: 'scifi' });
         expect(forest.zones.filter((z) => z.kind === 'clearing')).toHaveLength(2);
-        const camp = forest.zones.find((z) => z.kind === 'fortified');
+        // The road runs through the camp's clearing, at its centre.
         const road = forest.paths.find((p) => p.kind === 'road');
-        expect(camp?.area.shape === 'circle' && road?.via[0]).toEqual(camp?.area.shape === 'circle' ? camp.area.centre : null);
+        const centres = forest.zones.flatMap((z) => (z.kind === 'clearing' && z.area.shape === 'circle' ? [z.area.centre] : []));
+        expect(centres).toContainEqual(road?.via[0]);
         expect(parsed({ landscape: 'plains', features: ['ruins'] }).zones.some((z) => z.kind === 'clearing')).toBe(false);
     });
 
