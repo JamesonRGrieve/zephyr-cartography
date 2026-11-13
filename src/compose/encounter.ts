@@ -442,7 +442,8 @@ const OIL_BARREL = piece('oil barrel', [0.7, 0.75], 'storage', ['oil', 'barrel']
 const SEVERED_CABLE = piece('severed cable', [2.4, 0.6], 'fitting', ['severed', 'cable'], ['burnt bare wires', 'frayed sparking', 'torn strands']);
 const CABLE_BUNDLE = piece('cable bundle', [2.2, 1.2], 'fitting', ['floor', 'cable', 'bundle'], ['long loops thick', 'tangled bundle cables']);
 // The sci-fi camp's portable generator (a structure: exterior art), cold, as a camp left behind leaves it.
-const WRECKAGE = piece('fallen wreckage', [3.2, 2.6], 'debris', ['hull', 'wreckage'], ['heap girders', 'scatter dark plates']);
+// In the art's own proportions, about twice as long as deep: asked 3.2 by 2.6, it drew a strip across half its box.
+const WRECKAGE = piece('fallen wreckage', [3.6, 1.8], 'debris', ['hull', 'wreckage'], ['heap girders', 'scatter dark plates']);
 const SCRAP = piece('scrap heap', [1.4, 1.2], 'fitting', ['scrap', 'pile'], ['rusted', 'burnt', 'half sorted']);
 const GENERATOR = piece('power generator', [1.4, 1.1], 'structure', ['portable', 'generator'], ['cold', 'dented warning']);
 
