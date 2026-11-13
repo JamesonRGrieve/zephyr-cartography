@@ -84,6 +84,11 @@ interface SettingLook {
 
 /** Desert rock is sandstone scree, whatever the world (2026-11-05: rocky zones drew flat grey with no painted rock). */
 const DESERT_ROCK = 'floor.rock-sandstone';
+/**
+ * A tundra's worn ground under its stones, ruins and camps in any world: frozen churned earth under rime (Assets
+ * 2026-11-13). Every world's own earth lay on the snow as big brown smudges (render goal44, grimdark and sci-fi tundra).
+ */
+const TUNDRA_ROCK = 'floor.frozen-churned-earth';
 
 /** A desert's sand in wind ripples, never one flat tone (2026-11-05 preview: bare sand edge to edge). */
 const DESERT_GROUND = 'floor.rippled-sand';
@@ -1184,7 +1189,7 @@ export function encounterIntent(choice: EncounterChoice): object {
     fixtures.push(...cliffFaces(cliffDepth, width, height, passX), ...warpGrowthOf(choice.setting, random, width, height));
     fixtures.push(...landscapeFeatures(choice.landscape, choice.setting, seededRandom(choice.seed + FEATURE_SEED_OFFSET), width, height, ruinSites));
     // Rocky ground in the world's own rock (a texture role the set lacks draws as the biome's own).
-    const rock = choice.landscape === 'desert' ? DESERT_ROCK : look.rock;
+    const rock = { desert: DESERT_ROCK, tundra: TUNDRA_ROCK }[choice.landscape as string] ?? look.rock;
     // Rocky ground is painted into the blend as earth or rock under its stones, never laid over it as a patch of its own.
     const groundTexture = groundTextureOf(choice.landscape, choice.setting);
     // The heights are the landscape's own ground raised, strewn with its rocks, never a band of bare rock: in the rock
