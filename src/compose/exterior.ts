@@ -965,35 +965,43 @@ function bridgeRotation(stamp: RoleStamp, along: Point): number | null {
 /** Tags of a bridge built to carry a road (a timber or stone road bridge), before a footbridge or a rope span. */
 const ROAD_BRIDGE_TAGS: readonly string[] = ['road'];
 
-/** The gravel bar a ford is waded over, and how far past each bank it runs, in squares. */
-// Gravel, near the earth's own tone (luminance 111 against 94): pebble beach (136) read as a pale patch, near snow
-// (2026-11-10 render, grimdark wasteland).
-const FORD_TEXTURE = 'floor.gravel';
-const FORD_OVERRUN = 0.6;
-/** How wide its edge feathers into the water and the road, in squares. */
-const FORD_BLEND = 0.5;
+/** How far past each bank a ford's stones run, in squares, and the step between them. */
+const FORD_OVERRUN = 0.3;
+const FORD_STONE_STEP = 0.8;
+/** How far to either side of the road's line a ford's stones step, as a share of the road's half width. */
+const FORD_STAGGER = 0.35;
+/** A ford's stones are its smallest rocks: how many of the smallest it cycles through. */
+const FORD_STONE_KINDS = 3;
 
 /**
- * A ford's way across (2026-11-10 render, grimdark forest and wasteland: the road ran into the river and out the far
- * side with nothing in the water, reading as cut): a gravel bar the road's width laid along it, bank to bank and a
- * little past each, feathered into the water.
+ * A ford's way across: stepping stones along the road's line, bank to bank, staggered either side of it (operator
+ * 2026-11-13 of the gravel bar that replaced a road cut by the river: a pale smear across the water). Laid without the
+ * random stream, so the map's layout holds: the smallest rocks, cycled, each turned its own way.
  */
-function fordAt(at: Point, along: Point, roadHalf: number, riverHalf: number): FeatureInput {
-    const half = riverHalf + FORD_OVERRUN;
+function fordAt(at: Point, along: Point, roadHalf: number, riverHalf: number, rocks: readonly RoleStamp[]): FeatureInput[] {
+    const small = [...rocks].sort((a, b) => a.width * a.height - b.width * b.height).slice(0, FORD_STONE_KINDS);
+    if (small.length === 0) {
+        return [];
+    }
     const across = { x: -along.y, y: along.x };
-    const corner = (s: number, t: number): Point => ({
-        x: at.x + along.x * half * s + across.x * roadHalf * t,
-        y: at.y + along.y * half * s + across.y * roadHalf * t,
+    const span = riverHalf + FORD_OVERRUN;
+    const count = Math.max(2, Math.round((2 * span) / FORD_STONE_STEP));
+    return Array.from({ length: count + 1 }, (_, i) => {
+        const t = -span + (2 * span * i) / count;
+        const side = (i % 2 === 0 ? -1 : 1) * roadHalf * FORD_STAGGER;
+        const stone = small[i % small.length] ?? small[0];
+        return {
+            type: 'stamp' as const,
+            ...drawnAs(stone),
+            x: at.x + along.x * t + across.x * side,
+            y: at.y + along.y * t + across.y * side,
+            rotation: (i * FORD_STONE_TURN) % FULL_TURN,
+        };
     });
-    return {
-        type: 'region',
-        biome: LAKE_BED,
-        points: [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)],
-        sharp: false,
-        blend: FORD_BLEND,
-        texture: FORD_TEXTURE,
-    };
 }
+
+/** Degrees each of a ford's stones turns from the last, so no two lie alike. */
+const FORD_STONE_TURN = 73;
 
 /** The sound bridges for a road, else any sound bridge. */
 function roadBridges(stamps: RoleIndex): readonly RoleStamp[] {
@@ -1080,7 +1088,11 @@ function bridges(
         // A ford: waded, no bridge, nothing reported; the way across drawn as shallows over a gravel bar.
         if (wanted === false) {
             for (const river of paths.filter((p) => p.kind === 'river')) {
-                features.push(...crossings(road.points, river.points).map(({ at, along }) => fordAt(at, along, road.halfWidth, river.halfWidth)));
+                features.push(
+                    ...crossings(road.points, river.points).flatMap(({ at, along }) =>
+                        fordAt(at, along, road.halfWidth, river.halfWidth, inHabitat(stamps, 'rock', BANK_HABITATS)),
+                    ),
+                );
             }
             continue;
         }

@@ -148,11 +148,12 @@ describe('bridges and yard pieces', () => {
         const ford = composeMap(crossing(road(false)), roles);
         expect(stampsOf(ford.spec, 'test:timber-bridge') + stampsOf(ford.spec, 'test:stone-bridge')).toBe(0);
         expect(ford.problems.filter((p) => 'role' in p && p.role === 'bridge')).toEqual([]);
-        // The ford's way across is drawn: a gravel bar over the water, along the road, not the road cut by the river.
-        const bars = ford.spec.features.filter((f) => f.type === 'region' && f.texture === 'floor.gravel');
-        expect(bars).toHaveLength(1);
+        // The ford's way across is drawn: stepping stones along the road's line over the water, never a pale bar across it.
+        const stones = ford.spec.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:rock' && Math.abs(f.x - 15) < 2 && Math.abs(f.y - 10) < 1);
+        expect(stones.length).toBeGreaterThanOrEqual(3);
+        expect(ford.spec.features.filter((f) => f.type === 'region' && f.texture === 'floor.gravel')).toEqual([]);
         const bridged = composeMap(crossing(road(['rope'])), roles).spec;
-        expect(bridged.features.filter((f) => f.type === 'region' && f.texture === 'floor.gravel')).toEqual([]);
+        expect(bridged.features.filter((f) => f.type === 'stamp' && f.stamp === 'test:rock' && Math.abs(f.x - 15) < 2 && Math.abs(f.y - 10) < 1)).toEqual([]);
     });
 
     it('takes a bridge long enough to span the river over a squat slab, where one is loaded', () => {
