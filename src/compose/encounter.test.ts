@@ -428,6 +428,7 @@ describe('encounter maps', () => {
         expect(network?.chambers.length).toBeGreaterThanOrEqual(6);
         expect(network?.passages.length).toBeGreaterThan(network?.chambers.length ?? 0);
         expect(network?.passages.some((p) => p.points.some((pt) => pt.x < 0))).toBe(true);
+        expect(network?.floor).toBe('floor.cave-floor-large');
     });
 
     it('dresses its ground as thickly as asked, and narrows every picker value', () => {

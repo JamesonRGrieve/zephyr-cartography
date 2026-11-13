@@ -547,7 +547,9 @@ function cave(random: Random, width: number, height: number, warp: boolean, feud
     return {
         ground: null,
         backdrop: CAVE_BACKDROP,
-        hewn: [{ floor: 'floor.cave-floor', wall: 'wall.rock', roughness: 0.5, chambers, passages: [exit, ...passages] }],
+        // The large cave floor, one picture over ten squares (Assets a8f5a2226): the small tile's repeat showed across every
+        // chamber (render goal43, feudal cave).
+        hewn: [{ floor: 'floor.cave-floor-large', wall: 'wall.rock', roughness: 0.5, chambers, passages: [exit, ...passages] }],
         fixtures: dressing,
     };
 }
