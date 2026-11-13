@@ -529,14 +529,23 @@ const CAVE_THEMES: readonly {
         ],
         only: ['grimdark'],
     },
-    // A power line run down through the rock, cut.
+    // A power line run down through the rock, cut; its cable bundles are drawn for the grimdark world alone (in a
+    // sci-fi cave the name drew floor shackles, judge 2026-11-13).
     {
         pieces: [
             [SEVERED_CABLE, 0.4],
             [CABLE_BUNDLE, 0.3],
             [DEBRIS, 0.4],
         ],
-        only: ['grimdark', 'scifi'],
+        only: ['grimdark'],
+    },
+    {
+        pieces: [
+            [SEVERED_CABLE, 0.5],
+            [OIL_BARREL, 0.3],
+            [DEBRIS, 0.4],
+        ],
+        only: ['scifi'],
     },
     // Wreckage fallen through the cave's roof, and what was picked from it (render goal67: the sci-fi cave the sparsest).
     {
@@ -638,9 +647,14 @@ function cave(random: Random, width: number, height: number, setting: EncounterS
         if (warp) {
             WARP_CAVE_DRESSING.forEach((mark) => lay(mark, CAVE_SPREAD));
         }
+        // One of each of its theme's pieces before the floor's breakup, so a crowded chamber still shows what it is
+        // (render goal69: a smugglers' hideaway with its campfire and no bedroll or crates); then the breakup; then the
+        // rest of the theme's pieces.
+        const pieces = theme?.pieces ?? [];
+        pieces.forEach(([item]) => lay(item, CAVE_SPREAD));
         FLOOR_BREAKUP.forEach((item) => lay(item, CAVE_SPREAD));
-        for (const [item, per10] of theme?.pieces ?? []) {
-            for (let n = Math.max(1, Math.round((area / 10) * per10 * CAVE_DENSITY)); n > 0; n--) {
+        for (const [item, per10] of pieces) {
+            for (let n = Math.max(1, Math.round((area / 10) * per10 * CAVE_DENSITY)) - 1; n > 0; n--) {
                 lay(item, CAVE_SPREAD);
             }
         }
