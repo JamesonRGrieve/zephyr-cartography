@@ -141,7 +141,8 @@ const ZONE_DRESSING: Readonly<Record<ZoneKind, readonly Dressing[]>> = {
         // Stones gather in piles with open ground between, never strewn at even steps (2026-11-10 render, encounter
         // hills: small field stones dotted over the bare earth read as a lattice).
         { role: 'rock', spread: 12, clumping: 0.6, patch: [4, 8] },
-        { role: 'shrub', spread: 4, clumping: 0.2 },
+        // Scrub in clumps too (render goal72, grimdark desert: thirty scrub balls dotted over the sand at even steps).
+        { role: 'shrub', spread: 10, clumping: 0.75, patch: [4, 8] },
         { role: 'debris', spread: 5, clumping: 0.35 },
     ],
     rubble: [

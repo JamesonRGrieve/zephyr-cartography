@@ -419,6 +419,13 @@ describe('bridges and yard pieces', () => {
         const mean = nearest.reduce((t, d) => t + d, 0) / nearest.length;
         const random = 0.5 * Math.sqrt((40 * 30) / rocks.length);
         expect(mean / random).toBeLessThan(0.9);
+        // Its scrub in clumps too (render goal72: a desert's scrub dotted over the sand at even steps).
+        const shrubKeys = new Set((TEST_ROLES.get('shrub') ?? []).map((s) => s.key));
+        const shrubs = composeMap(parsed.intent, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'stamp' && shrubKeys.has(f.stamp) ? [f] : []));
+        expect(shrubs.length).toBeGreaterThan(6);
+        const shrubNearest = shrubs.map((a) => Math.min(...shrubs.filter((b) => b !== a).map((b) => Math.hypot(a.x - b.x, a.y - b.y))));
+        const shrubMean = shrubNearest.reduce((t, d) => t + d, 0) / shrubNearest.length;
+        expect(shrubMean / (0.5 * Math.sqrt((40 * 30) / shrubs.length))).toBeLessThan(0.9);
     });
 
     it('stands a wood’s trees in groves with open glades between, never as an orchard', () => {
