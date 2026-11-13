@@ -343,6 +343,8 @@ const LANDSCAPES: Readonly<Record<Exclude<EncounterLandscape, 'cave'>, Landscape
  */
 const CAVE_CHAMBERS = { smallest: 5, largest: 9, cell: 9 } as const;
 const CAVE_BACKDROP = '#0c0b0a';
+/** A cave's floor: cracked rock plates at ten squares, wide enough to hide its repeat in a chamber. */
+const CAVE_FLOOR = 'floor.cave-floor-large-2';
 /** A passage's width in squares. */
 const CAVE_PASSAGE = 2.5;
 /** Spots tried for a chamber's dressing, and the squares kept between two pieces of it. */
@@ -547,9 +549,10 @@ function cave(random: Random, width: number, height: number, warp: boolean, feud
     return {
         ground: null,
         backdrop: CAVE_BACKDROP,
-        // The cracked cave floor. The large one (Assets a8f5a2226, ten squares) hid the repeat but drew the chambers as flat
-        // beige, its low-contrast dust losing the cracked stone (render goal54); a large floor with the cracks is asked for.
-        hewn: [{ floor: 'floor.cave-floor', wall: 'wall.rock', roughness: 0.5, chambers, passages: [exit, ...passages] }],
+        // The cracked cave floor at ten squares (Assets 6ac5070b7): G63's cracked plates over a wider stretch, so the small
+        // floor's four-square repeat no longer shows in a chamber. The first large one (a8f5a2226) drew the chambers as
+        // flat beige, its low-contrast dust losing the cracked stone (render goal54).
+        hewn: [{ floor: CAVE_FLOOR, wall: 'wall.rock', roughness: 0.5, chambers, passages: [exit, ...passages] }],
         fixtures: dressing,
     };
 }
