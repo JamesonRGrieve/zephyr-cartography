@@ -986,17 +986,22 @@ function fordAt(at: Point, along: Point, roadHalf: number, riverHalf: number, ro
     const across = { x: -along.y, y: along.x };
     const span = riverHalf + FORD_OVERRUN;
     const count = Math.max(2, Math.round((2 * span) / FORD_STONE_STEP));
-    return Array.from({ length: count + 1 }, (_, i) => {
+    return Array.from({ length: count + 1 }, (_, i) => i).flatMap((i) => {
+        const stone = small[i % small.length];
+        if (!stone) {
+            return [];
+        }
         const t = -span + (2 * span * i) / count;
         const side = (i % 2 === 0 ? -1 : 1) * roadHalf * FORD_STAGGER;
-        const stone = small[i % small.length] ?? small[0];
-        return {
-            type: 'stamp' as const,
-            ...drawnAs(stone),
-            x: at.x + along.x * t + across.x * side,
-            y: at.y + along.y * t + across.y * side,
-            rotation: (i * FORD_STONE_TURN) % FULL_TURN,
-        };
+        return [
+            {
+                type: 'stamp' as const,
+                ...drawnAs(stone),
+                x: at.x + along.x * t + across.x * side,
+                y: at.y + along.y * t + across.y * side,
+                rotation: (i * FORD_STONE_TURN) % FULL_TURN,
+            },
+        ];
     });
 }
 
