@@ -777,6 +777,8 @@ const GRIMDARK_ONLY: readonly EncounterSetting[] = ['grimdark', 'warp'];
 const OPEN_ONLY: readonly EncounterSetting[] = ['feudal', 'scifi'];
 /** The settings whose packs draw the burnt woodland (generic, modern and sci-fi art: no feudal). */
 const NOT_FEUDAL: readonly EncounterSetting[] = ['grimdark', 'warp', 'scifi'];
+/** The feudal world's alone: its fantasy art (a tundra's snow-laden pines). */
+const FEUDAL_ONLY: readonly EncounterSetting[] = ['feudal'];
 
 /**
  * What gathers on each open landscape, a few clusters a map (2026-11-10 review of the goal32 renders: rocks scattered
@@ -816,11 +818,18 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
             { name: 'frozen boulder', role: 'rock', tags: ['boulder'], size: [1.6, 1.4], count: [3, 5], spread: 1.8 },
             { name: 'frost scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.4 },
         ],
-        // Dead trees standing in the snow (the pack's burnt woodland: no plan-view snow-laden pine exists yet). Its art is
-        // generic, modern and sci-fi, so a feudal tundra has none.
+        // Dead trees standing in the snow (the pack's burnt woodland): its art is generic, modern and sci-fi, so a feudal tundra
+        // has none of it.
         [
             { name: 'dead tree', role: 'fitting', tags: ['burnt', 'tree'], size: [2.2, 2.2], count: [2, 4], spread: 2.6, settings: NOT_FEUDAL },
             { name: 'dead stump', role: 'fitting', tags: ['charred', 'stump'], size: [0.9, 0.9], count: [1, 3], spread: 3, settings: NOT_FEUDAL },
+        ],
+        // A feudal tundra's stand of snow-laden pines, a frozen dead one and a fallen frozen log among them (Assets
+        // 709e95bf0, plan view, fantasy and generic).
+        [
+            { name: 'snow-laden pine', role: 'tree', tags: ['snow', 'laden', 'pine'], size: [2.4, 2.3], count: [3, 5], spread: 2.6, settings: FEUDAL_ONLY },
+            { name: 'dead frozen pine', role: 'tree', tags: ['dead', 'frozen', 'pine'], size: [2.2, 2.1], count: [0, 1], spread: 3, settings: FEUDAL_ONLY },
+            { name: 'fallen frozen log', role: 'log', tags: ['fallen', 'frozen', 'log'], size: [2.4, 0.35], count: [0, 1], spread: 3.2, settings: FEUDAL_ONLY },
         ],
     ],
     wasteland: [

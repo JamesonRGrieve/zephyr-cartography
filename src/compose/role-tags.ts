@@ -163,7 +163,8 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['flora', ['leaf']],
     // Flat marks on a floor or the ground (an oil stain, cracks, a scorch, a drift of dust): grime, never a piece that stands.
     ['decal', ['decal', 'stain', 'grime', 'cracks', 'crack', 'scorch', 'dust', 'smear', 'grit']],
-    ['tree', ['tree', 'copse']],
+    // A pine is a tree (the snow-laden pines of a tundra; the older single pines are pinned to no role in their pack).
+    ['tree', ['tree', 'copse', 'pine']],
     ['shrub', ['bush', 'overgrowth']],
     ['log', ['log', 'stump']],
     ['rock', ['boulder', 'rock', 'formation', 'stalagmites', 'stalactites', 'crystal', 'deposit']],

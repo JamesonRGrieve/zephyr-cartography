@@ -6,6 +6,8 @@ describe('roleFromTags', () => {
     it('reads what a stamp is from its tags, the most specific rule first', () => {
         expect(roleFromTags(['terminal', 'console', 'setting-grimdark-human'])).toBe('console');
         expect(roleFromTags(['terminal', 'desk'])).toBe('desk');
+        // A pine is a tree: the tundra's snow-laden and frozen pines.
+        expect([roleFromTags(['snow', 'laden', 'pine']), roleFromTags(['dead', 'frozen', 'pine'])]).toEqual(['tree', 'tree']);
         expect(roleFromTags(['desk', 'lamp'])).toBe('light');
         // Benches no one sits on: a cobbler's is worked at, armour laid on one is an armoury's display.
         expect(roleFromTags(['cobbler', 'bench'])).toBe('workbench');

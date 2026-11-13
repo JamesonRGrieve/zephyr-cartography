@@ -288,6 +288,8 @@ describe('encounter maps', () => {
         const DEAD = ['dead tree', 'dead stump', 'fallen dead trunk'];
         expect(parsed({ landscape: 'tundra', setting: 'grimdark', seed: 4 }).fixtures.some((f) => DEAD.includes(f.name))).toBe(true);
         expect(parsed({ landscape: 'tundra', setting: 'feudal', seed: 4 }).fixtures.some((f) => DEAD.includes(f.name))).toBe(false);
+        // A feudal tundra stands snow-laden pines instead.
+        expect(parsed({ landscape: 'tundra', setting: 'feudal', seed: 4 }).fixtures.some((f) => f.name === 'snow-laden pine')).toBe(true);
         // The battlefield's leavings are drawn only where the setting's packs have them: grimdark, not feudal.
         const LEAVINGS = ['blast crater', 'scattered wreckage', 'spent casings'];
         expect(parsed({ landscape: 'wasteland', setting: 'grimdark', seed: 4 }).fixtures.some((f) => LEAVINGS.includes(f.name))).toBe(true);
