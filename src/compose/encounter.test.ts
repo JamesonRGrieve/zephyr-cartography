@@ -293,6 +293,10 @@ describe('encounter maps', () => {
             const intent = parsed({ landscape: landscape as EncounterChoice['landscape'], seed: 4 });
             expect(pieces.every((f) => f.at.x >= f.width / 2 && f.at.x <= intent.width - f.width / 2)).toBe(true);
         }
+        // A wasteland's broken rock is whole stones, never a heap of small ones (render goal74).
+        const rocks = parsed({ landscape: 'wasteland', setting: 'feudal', seed: 4 }).fixtures.filter((f) => f.name === 'broken rock');
+        expect(rocks.length).toBeGreaterThan(0);
+        expect(rocks.every((f) => f.state === 'jagged outcrop' || f.state === 'single boulder')).toBe(true);
         // A ruin keeps walls standing among its rubble: a shell and two broken corners, all on the map, and the
         // landscape's own features keep their distance from it.
         const ruined = parsed({ landscape: 'plains', features: ['ruins'], seed: 4 });

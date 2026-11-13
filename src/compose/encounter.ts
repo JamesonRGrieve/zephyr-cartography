@@ -900,6 +900,8 @@ interface FeaturePart {
     readonly spread: number; // squares from the cluster's centre
     /** Only in these settings, where its art is drawn (omitted: every setting). */
     readonly settings?: readonly EncounterSetting[];
+    /** The pictures it is drawn in, one for each piece (omitted: its art's default). */
+    readonly states?: readonly string[];
 }
 
 /** The settings whose packs draw battlefield leavings (craters, wreckage, casings), and the rest. */
@@ -970,7 +972,18 @@ const LANDSCAPE_FEATURES: Readonly<Partial<Record<EncounterLandscape, readonly (
             { name: 'spent casings', role: 'debris', tags: ['spent', 'casings'], size: [0.8, 0.8], count: [2, 3], spread: 3.4, settings: GRIMDARK_ONLY },
         ],
         [
-            { name: 'broken rock', role: 'rock', tags: ['boulder'], size: [1.4, 1.2], count: [4, 6], spread: 2.4, settings: OPEN_ONLY },
+            // Whole stones, never Boulder's "scattered rock cluster": drawn four to six together, a cluster each read as a
+            // grid of heaps (render goal74, sci-fi wasteland).
+            {
+                name: 'broken rock',
+                role: 'rock',
+                tags: ['boulder'],
+                size: [1.4, 1.2],
+                count: [4, 6],
+                spread: 2.4,
+                settings: OPEN_ONLY,
+                states: ['jagged outcrop', 'single boulder'],
+            },
             { name: 'broken scree', role: 'debris', tags: ['scree'], size: [2, 1.6], count: [1, 2], spread: 2.8, settings: OPEN_ONLY },
         ],
         // A stand of burnt-out trees round a fallen trunk, as on the tundra.
@@ -1040,6 +1053,8 @@ function featurePiece(
             height: round1(part.size[1] * k),
             at,
             angle: randomInt(random, 0, 359),
+            // Drawn from the stream only for a piece naming its pictures, so every other feature keeps its layout.
+            ...(part.states === undefined ? {} : { state: part.states[randomInt(random, 0, part.states.length - 1)] }),
             fixed: true,
             clear: true,
         };
