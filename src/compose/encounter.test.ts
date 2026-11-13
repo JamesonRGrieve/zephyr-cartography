@@ -260,7 +260,7 @@ describe('encounter maps', () => {
 
     it("dresses a grimdark or sci-fi cave with its own world's leavings, and a feudal cave with none of them", () => {
         const GRIMDARK = ['burn barrel', 'ration crate', 'lamp pack', 'severed cable', 'cable bundle'];
-        const SCIFI = ['power generator', 'severed cable', 'cable bundle'];
+        const SCIFI = ['fallen wreckage', 'scrap heap', 'power generator', 'severed cable', 'cable bundle'];
         const OTHER_WORLDS = [...new Set([...GRIMDARK, ...SCIFI, 'oil barrel'])];
         const seeds = Array.from({ length: 10 }, (_, i) => i + 1);
         const holds = (setting: 'grimdark' | 'scifi' | 'feudal', names: readonly string[], seed: number): boolean =>

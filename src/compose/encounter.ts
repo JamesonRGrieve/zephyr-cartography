@@ -436,6 +436,8 @@ const OIL_BARREL = piece('oil barrel', [0.7, 0.75], 'storage', ['oil', 'barrel']
 const SEVERED_CABLE = piece('severed cable', [2.4, 0.6], 'fitting', ['severed', 'cable'], ['burnt bare wires', 'frayed sparking', 'torn strands']);
 const CABLE_BUNDLE = piece('cable bundle', [2.2, 1.2], 'fitting', ['floor', 'cable', 'bundle'], ['long loops thick', 'tangled bundle cables']);
 // The sci-fi camp's portable generator (a structure: exterior art), cold, as a camp left behind leaves it.
+const WRECKAGE = piece('fallen wreckage', [2.4, 2], 'debris', ['hull', 'wreckage'], ['heap girders', 'scatter dark plates']);
+const SCRAP = piece('scrap heap', [1.4, 1.2], 'fitting', ['scrap', 'pile'], ['rusted', 'burnt', 'half sorted']);
 const GENERATOR = piece('power generator', [1.4, 1.1], 'structure', ['portable', 'generator'], ['cold', 'dented warning']);
 
 const CAVE_THEMES: readonly {
@@ -519,6 +521,15 @@ const CAVE_THEMES: readonly {
             [DEBRIS, 0.4],
         ],
         only: ['grimdark', 'scifi'],
+    },
+    // Wreckage fallen through the cave's roof, and what was picked from it (render goal67: the sci-fi cave the sparsest).
+    {
+        centre: WRECKAGE,
+        pieces: [
+            [SCRAP, 0.4],
+            [SEVERED_CABLE, 0.3],
+        ],
+        only: ['scifi'],
     },
     // A survey party's camp, left.
     {
