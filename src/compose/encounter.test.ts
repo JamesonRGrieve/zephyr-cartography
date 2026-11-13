@@ -436,6 +436,20 @@ describe('encounter maps', () => {
         expect(network?.floor).toBe('floor.cave-floor-large-3');
     });
 
+    it('gives each cave passage its own width, and darkens its chambers with damp and drips', () => {
+        const intent = parsed({ landscape: 'cave', size: 'large' });
+        const [network] = intent.hewn;
+        const widths = (network?.passages ?? []).map((p) => p.width);
+        expect(widths.every((w) => w >= 2 && w <= 3.5)).toBe(true);
+        expect(new Set(widths).size).toBeGreaterThan(widths.length / 3);
+        const count = (piece: string): number => intent.fixtures.filter((f) => f.name === piece).length;
+        const chambers = network?.chambers.length ?? 0;
+        // Chambers with floor to spare keep a damp patch and drip marks; crowded ones may not.
+        expect(count('damp patch')).toBeGreaterThanOrEqual(chambers / 3);
+        expect(count('drip marks')).toBeGreaterThanOrEqual(chambers / 3);
+        expect(intent.fixtures.find((f) => f.name === 'damp patch')).toMatchObject({ role: 'decal', tags: ['water', 'stain'] });
+    });
+
     it('dresses its ground as thickly as asked, and narrows every picker value', () => {
         for (const density of ENCOUNTER_DENSITIES) {
             expect(parsed({ density, landscape: 'plains' }).zones.some((z) => z.density === density)).toBe(true);

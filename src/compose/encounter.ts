@@ -348,8 +348,8 @@ const CAVE_BACKDROP = '#0c0b0a';
  * and mid-toned so the dark floor decals (tar pits, stains) stay the darkest thing on it (renders goal60, goal61).
  */
 const CAVE_FLOOR = 'floor.cave-floor-large-3';
-/** A passage's width in squares. */
-const CAVE_PASSAGE = 2.5;
+/** A passage's width in squares, each passage its own (render goal61: every passage one width read as dug). */
+const CAVE_PASSAGE = { narrowest: 2, widest: 3.5 } as const;
 /** Spots tried for a chamber's dressing, and the squares kept between two pieces of it. */
 const CAVE_DRESSING_TRIES = 24;
 const CAVE_DRESSING_GAP = 0.3;
@@ -393,12 +393,17 @@ const CRYSTALS = piece('crystals', [0.8, 0.8], 'rock', ['crystal', 'cluster'], [
 const STALAGMITES = piece('stalagmites', [1, 0.95], 'fitting', ['stalagmite', 'cluster'], ['cluster five round']);
 const POOL = piece('cave pool', [3.4, 3], 'fitting', ['cave', 'pool'], ['still dark pool', 'clear pool pale', 'pool glowing blue-green']);
 const CAVE_IN = piece('cave-in rubble', [2.6, 2.4], 'fitting', ['cave', 'rubble', 'spread'], ['irregular spread broken', 'small spread one']);
-// What breaks up every chamber's floor, never one flat floor between the pieces: one of each.
+// What breaks up every chamber's floor, never one flat floor between the pieces: one of each. Render goal61: a chamber
+// read as one even tone of rock between its pieces, so a damp patch darkens it and drip marks spot it. Laid before the
+// chamber's theme: pieces laid further out, towards its ragged walls, stood half in the rock (judge, 2026-11-13).
 const FLOOR_BREAKUP: readonly CavePiece[] = [
+    piece('damp patch', [1.8, 1.6], 'decal', ['water', 'stain'], ['damp patch', 'pale water stain']),
     piece('cave rubble spread', [2, 1.6], 'fitting', ['cave', 'rubble', 'spread'], ['irregular spread broken']),
     piece('cave puddle', [1.2, 0.95], 'fitting', ['cave', 'puddle'], ['small puddle few', 'two small puddles']),
     piece('moss stain', [1.6, 1.4], 'decal', ['moss', 'stain'], ['']),
+    piece('drip marks', [1.1, 1], 'fitting', ['stalactite', 'drip'], ['scatter small wet', 'denser scatter', 'few faint spots']),
 ];
+const VEIN = piece('mineral vein', [1.8, 1.8], 'fitting', ['mineral', 'vein'], ['winding line gleaming', 'vein copper-green ore', 'vein silver-grey ore']);
 
 /** How far from a chamber's centre its pieces stand, as a share of its size: its middle half, as its ragged walls allow. */
 const CAVE_SPREAD = 0.5;
@@ -461,6 +466,7 @@ const CAVE_THEMES: readonly { readonly centre?: CavePiece; readonly pieces: read
             [BOULDER, 0.8],
             [DEBRIS, 0.6],
             [STALAGMITES, 0.4],
+            [VEIN, 0.3],
         ],
     },
 ];
@@ -487,7 +493,8 @@ function cave(random: Random, width: number, height: number, warp: boolean, feud
             height: size(cellHeight),
         };
     });
-    const chain = chambers.slice(1).map((chamber, i) => ({ points: [chambers[i]?.centre ?? chamber.centre, chamber.centre], width: CAVE_PASSAGE }));
+    const passageWidth = (): number => round(CAVE_PASSAGE.narrowest + random() * (CAVE_PASSAGE.widest - CAVE_PASSAGE.narrowest));
+    const chain = chambers.slice(1).map((chamber, i) => ({ points: [chambers[i]?.centre ?? chamber.centre, chamber.centre], width: passageWidth() }));
     // Loops between the rows, every other column, so the cave is a web with more than one way round, never one corridor
     // snaking chamber to chamber.
     const centreAt = (column: number, row: number): Point | undefined => chambers[ordered.findIndex((c) => c.column === column && c.row === row)]?.centre;
@@ -495,12 +502,12 @@ function cave(random: Random, width: number, height: number, warp: boolean, feud
         const here = centreAt(column, row);
         const below = centreAt(column, row + 1);
         const turn = row % 2 === 0 ? columns - 1 : 0;
-        return here && below && column % 2 === 1 && column !== turn ? [{ points: [here, below], width: CAVE_PASSAGE }] : [];
+        return here && below && column % 2 === 1 && column !== turn ? [{ points: [here, below], width: passageWidth() }] : [];
     });
     const passages = [...chain, ...loops];
     const dressing: object[] = [];
     const first = chambers[0]?.centre ?? { x: width / 2, y: height / 2 };
-    const exit = { points: [first, { x: -1, y: first.y }], width: CAVE_PASSAGE };
+    const exit = { points: [first, { x: -1, y: first.y }], width: CAVE_PASSAGE.widest };
     // Each chamber's pieces apart from one another: a spot tried a few times, kept only clear of those already there
     // (2026-11-09 judge: boulders and stalagmites heaped on one another). Each chamber takes the next theme of a
     // shuffled deal, so neighbours differ; a warp cave strews the warp's marks in every chamber too.
