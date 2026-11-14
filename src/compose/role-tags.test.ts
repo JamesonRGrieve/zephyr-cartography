@@ -29,6 +29,9 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['cliff', 'stair', 'hillside', 'escarpment', 'stairs'])).toBe('fitting');
         // A crystal ball is a seer's fitting, a crystal cluster the ground's rock.
         expect(roleFromTags(['top', 'down', 'crystal', 'ball', 'stand'])).toBe('fitting');
+        // An alchemist's bench is worked at, never sat on; a plain bench is a seat.
+        expect(roleFromTags(['alchemist', 'bench'])).toBe('workbench');
+        expect(roleFromTags(['wooden', 'bench'])).toBe('bench');
         expect(roleFromTags(['crystal', 'cluster'])).toBe('rock');
         // A vegetable patch grows in a garden: never stores in a cellar, as a basket of vegetables is.
         expect(roleFromTags(['vegetable', 'patch', 'setting-fantasy'])).toBe('fitting');

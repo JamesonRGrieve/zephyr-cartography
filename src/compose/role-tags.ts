@@ -61,8 +61,9 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     ['armchair', ['armchair', 'wingback', ['padded', 'chair'], ['easy', 'chair']]],
     ['seat', ['chair', 'stool']],
     // A cobbler's bench is worked at and armour laid on a bench is an armoury's display: neither is sat on (operator,
-    // 2026-10-02: a porch's bench came out a helm and breastplate on a stand).
-    ['workbench', ['cobbler']],
+    // 2026-10-02: a porch's bench came out a helm and breastplate on a stand). An alchemist's bench is a work surface
+    // too: as a seat it stood five times along a tavern's tables (library refresh render goal86, 2026-11-14).
+    ['workbench', ['cobbler', ['alchemist', 'bench']]],
     ['rack', [['armour', 'bench']]],
     ['bench', ['bench', 'settle']],
     ['pew', ['pew']],
