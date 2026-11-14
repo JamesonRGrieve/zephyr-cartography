@@ -1125,6 +1125,21 @@ describe('pickDressing', () => {
         expect(autumn).toBeLessThan(0.2);
     });
 
+    it('keeps bones an accent among strewn rubble', () => {
+        const base = (TEST_ROLES.get('rock') ?? [])[0];
+        if (!base) {
+            throw new Error('test rock');
+        }
+        const rubble = ['bits', 'scree', 'wood'].map((w) => ({ ...base, key: `test:${w}`, role: 'debris' as const, tags: [w, 'debris'] }));
+        const bones = { ...base, key: 'test:bones', role: 'debris' as const, tags: ['bone', 'cairn'] };
+        const random = seededRandom(7);
+        const picks = Array.from({ length: 2000 }, () => pickDressing(random, 'debris', [...rubble, bones])?.key);
+        const share = picks.filter((k) => k === 'test:bones').length / picks.length;
+        // At 0.15 against three kinds of rubble: about one piece in twenty-one, never a quarter.
+        expect(share).toBeGreaterThan(0.02);
+        expect(share).toBeLessThan(0.09);
+    });
+
     it('picks any other piece from its choices alike', () => {
         const base = (TEST_ROLES.get('rock') ?? [])[0];
         expect(base).toBeDefined();

@@ -635,12 +635,29 @@ const ACCENT_TREE_WEIGHT = 0.05;
 /** The words that make a tree an accent of colour in a wood. */
 const ACCENT_TREE_TAGS: readonly string[] = ['autumn'];
 
-/** A wood's tree, green ones before those turned in their colour; any other piece, one of its choices alike. */
+/**
+ * The weight of bones among strewn debris (a beast's skull, bleached remains) against rubble's 1: an accent in a ruin,
+ * never a third of its litter (2026-11-14 census of the megacity outpost preset: 32 Bone Cairns among 108 pieces of
+ * rubble, once the bones' picture became generic again).
+ */
+const ACCENT_DEBRIS_WEIGHT = 0.15;
+
+/** The words that make strewn debris an accent: remains. */
+const ACCENT_DEBRIS_TAGS: readonly string[] = ['bone', 'bones', 'remains', 'skull'];
+
+/** Each role's accents among its strewn pieces, and their weight against the rest's 1. */
+const ACCENTS: Partial<Record<StampRole, { readonly tags: readonly string[]; readonly weight: number }>> = {
+    tree: { tags: ACCENT_TREE_TAGS, weight: ACCENT_TREE_WEIGHT },
+    debris: { tags: ACCENT_DEBRIS_TAGS, weight: ACCENT_DEBRIS_WEIGHT },
+};
+
+/** A wood's tree, green ones before those turned in their colour; rubble before bones; any other piece, its choices alike. */
 export function pickDressing(random: Random, role: StampRole, choices: readonly RoleStamp[]): RoleStamp | undefined {
-    if (role !== 'tree') {
+    const accent = ACCENTS[role];
+    if (!accent) {
         return pick(random, choices);
     }
-    const weight = (stamp: RoleStamp): number => (stamp.tags.some((t) => ACCENT_TREE_TAGS.includes(t)) ? ACCENT_TREE_WEIGHT : 1);
+    const weight = (stamp: RoleStamp): number => (stamp.tags.some((t) => accent.tags.includes(t)) ? accent.weight : 1);
     const total = choices.reduce((sum, stamp) => sum + weight(stamp), 0);
     let left = random() * total;
     for (const stamp of choices) {
