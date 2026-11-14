@@ -101,6 +101,8 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     cook: ['kitchen', 'mess'],
     // Coal is kept by a kitchen's or a smithy's fire or in a store, never in a guest's room with no grate (render goal92).
     coal: ['kitchen', 'storage', 'workshop', 'factory'],
+    // Flour is a kitchen's or a store's, never a guest's floor (a flour bin stood by a guest's bed, render goal93).
+    flour: ['kitchen', 'storage'],
     reliquary: ['shrine', 'chapel'],
     offering: ['shrine', 'chapel'],
     votive: ['shrine', 'chapel'],

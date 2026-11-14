@@ -1261,7 +1261,17 @@ export function furnishRoom(
             return undefined;
         }
         const all = stamps.get(role) ?? [];
-        return MATCHED_ROLES.includes(role) ? () => first : () => pick(random, all) ?? first;
+        if (MATCHED_ROLES.includes(role)) {
+            return () => first;
+        }
+        // Never the same kind twice running where the room has another: three butcher's blocks in a row along a kitchen's
+        // walls read as one picture repeated (library refresh render goal93, 2026-11-14). One draw a piece, as before.
+        let last: RoleStamp | undefined;
+        return () => {
+            const others = all.filter((s) => s !== last);
+            last = pick(random, others.length > 0 ? others : all) ?? first;
+            return last;
+        };
     };
     const bulkiest = (role: StampRole): RoleStamp | undefined => [...(stamps.get(role) ?? [])].sort((a, b) => b.width * b.height - a.width * a.height)[0];
     // One kind of each shape per room, as a matched role has one kind; a room with none of that shape takes its one kind.

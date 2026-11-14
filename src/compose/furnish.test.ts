@@ -217,6 +217,33 @@ describe('furnishRoom', () => {
         });
     });
 
+    it('never draws one kind of a varied role twice running where the room has another', () => {
+        const bench = TEST_ROLES.get('workbench')?.[0];
+        if (!bench) {
+            throw new Error('test workbench');
+        }
+        const kinds = [bench, { ...bench, key: 'block' }, { ...bench, key: 'board' }];
+        const roles = new Map([...TEST_ROLES].map(([role, stamps]) => [role, role === 'workbench' ? kinds : stamps]));
+        const kitchen: RoomFloor = {
+            key: 'k',
+            purpose: 'kitchen',
+            rect: { x: 0, y: 0, w: 12, h: 6 },
+            doors: [{ side: 'left', at: 2 }],
+            outer: ['bottom', 'right'],
+            entrance: null,
+        };
+        for (const seed of [1, 2, 3, 4, 5]) {
+            // The wall's work surfaces, as drawn one after another (the one down the middle is the room's own kind).
+            const keys = furnishRoom(kitchen, roles, seededRandom(seed))
+                .stamps.filter((p) => kinds.some((k) => k.key === p.stamp))
+                .map((p) => p.stamp)
+                .slice(0, -1);
+            keys.slice(1).forEach((key, i) => {
+                expect(key).not.toBe(keys[i]);
+            });
+        }
+    });
+
     it('seats a taproom’s tables with chairs where its seat is a stool, the stools kept for the counter', () => {
         const chair = TEST_ROLES.get('seat')?.[0];
         if (!chair) {
