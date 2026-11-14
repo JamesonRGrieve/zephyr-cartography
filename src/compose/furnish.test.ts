@@ -931,6 +931,28 @@ const HALL: RoomFloor = {
     grime: 0,
 };
 
+describe('a room furnished by purpose over its own named pieces', () => {
+    it('adds no second bed to a guest room whose brief names one, and stands nothing on a fixed one', () => {
+        const bed = TEST_ROLES.get('bed')?.[0];
+        if (!bed) {
+            throw new Error('test bed');
+        }
+        const room: RoomFloor = {
+            ...HALL,
+            purpose: 'bedroom',
+            rect: { x: 0, y: 0, w: 6, h: 5 },
+            furnish: 'purpose',
+            fixtures: [fixture({ name: 'cot', role: 'bed', width: bed.width, height: bed.height, fixed: true, place: { at: { x: 0.75, y: 0.4 } } })],
+        };
+        for (const seed of [1, 2, 3, 4]) {
+            const placed = furnishRoom(room, TEST_ROLES, seededRandom(seed)).stamps;
+            const beds = placed.filter((p) => p.stamp === bed.key);
+            expect(beds).toHaveLength(1);
+            expectOrderly(room, placed);
+        }
+    });
+});
+
 /** Placed boxes by their label (placeholder keys carry it). */
 const labelled = (placed: readonly ComposedStamp[], label: string): ComposedStamp[] => placed.filter((p) => p.stamp.endsWith(`:${label}`));
 

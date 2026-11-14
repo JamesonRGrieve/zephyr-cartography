@@ -378,6 +378,11 @@ class Floor {
         this.kept = [...ways];
     }
 
+    /** Take `box` as a piece's floor, though the piece stands there by a design rather than by `put`. */
+    reserve(box: Box): void {
+        this.taken.push(box);
+    }
+
     /** Keep `box` open floor: nothing placed after stands there. */
     keep(box: Box): void {
         this.kept.push(box);
@@ -1128,6 +1133,27 @@ export function rolesOf(purpose: RoomPurpose): StampRole[] {
 /** The role a step is for: a cluster's table, else what it places. */
 const mainRole = (step: Step): StampRole => (step.kind === 'cluster' ? step.centre : step.role);
 
+/**
+ * A purpose's step less what the room's own named pieces already place of its role: a brief's bed is the guest room's
+ * bed, never one of two (2026-11-14, Jorl's hab furnished by purpose over its fixtures: "a bedroom with 4 beds"). A step
+ * counted out by its pieces is dropped; one that fills, or counts by the wall's length, runs as it is.
+ */
+function lessNamed(step: Step, namedRoles: readonly StampRole[]): Step | null {
+    if (step.kind === 'underlay' || step.kind === 'rows' || step.kind === 'dress' || !('count' in step)) {
+        return step;
+    }
+    const named = namedRoles.filter((role) => role === mainRole(step)).length;
+    const { count } = step;
+    if (named === 0 || typeof count === 'string' || (typeof count === 'object' && 'per' in count)) {
+        return step;
+    }
+    const [lo, hi] = typeof count === 'number' ? [count, count] : count;
+    if (hi - named <= 0) {
+        return null;
+    }
+    return { ...step, count: [Math.max(0, lo - named), hi - named] };
+}
+
 /** Whether a room needs what a step places: a rug is a nicety, and so is anything it may have none of. */
 function required(step: Step): boolean {
     if (step.kind === 'underlay') {
@@ -1297,7 +1323,14 @@ export function furnishRoom(
         return byShape.get(key);
     };
     const missing = new Set<StampRole>();
-    for (const step of room.furnish === 'fixtures' ? [] : ROOM_TEMPLATES[room.purpose]) {
+    // What the room's own named pieces placed, by role: the purpose adds only what they leave wanting.
+    const roleByKey = new Map([...given.values()].flat().map((st) => [st.key, st.role] as const));
+    const namedRoles = floor.placed.flatMap((p) => roleByKey.get(p.stamp) ?? []);
+    for (const templateStep of room.furnish === 'fixtures' ? [] : ROOM_TEMPLATES[room.purpose]) {
+        const step = lessNamed(templateStep, namedRoles);
+        if (step === null) {
+            continue;
+        }
         const picked = choose(mainRole(step));
         if (required(step) && (picked === undefined || isPlaceholder(picked.key))) {
             missing.add(mainRole(step));
@@ -1326,6 +1359,9 @@ export function furnishRoom(
     const borrowed = [...new Set(placed.flatMap((p) => lent.get(p.stamp) ?? []))];
     return { stamps: placed, missing: [...missing], borrowed, boxed, crowded };
 }
+
+/** Roles laid under or set on others, which take no floor: a rug, a stain, what stands on a table, a lamp on the wall. */
+const LAID_ROLES: readonly StampRole[] = ['rug', 'decal', 'tabletop', 'light', 'door'];
 
 /** A fixture's area when it names none: the whole room. */
 const WHOLE_ROOM = { from: { x: 0, y: 0 }, to: { x: 1, y: 1 } } as const;
@@ -1498,8 +1534,13 @@ function placeFree(floor: Floor, piece: RoleStamp, at: { readonly x: number; rea
     const clamp = (v: number, lo: number, span: number, size: number): number => Math.min(Math.max(v - size / 2, lo), lo + span - size);
     const box: Box = { x: clamp(rect.x + at.x * rect.w, rect.x, rect.w, w), y: clamp(rect.y + at.y * rect.h, rect.y, rect.h, h), w, h };
     if (fixed) {
-        // Exactly where the design puts it (hung above, laid flush, or blocking the way on purpose); it keeps no floor from others.
+        // Exactly where the design puts it (hung above, laid flush, or blocking the way on purpose); it keeps no floor from
+        // the room's other named pieces. Where the room's purpose furnishes it besides, a standing piece's floor is its own:
+        // a wardrobe stood on a brief's fixed cot (2026-11-14, Jorl's hab furnished by purpose over its fixtures).
         floor.setOn(piece, box, rotation);
+        if (floor.room.furnish !== 'fixtures' && !LAID_ROLES.includes(piece.role)) {
+            floor.reserve(box);
+        }
         return true;
     }
     return floor.clearOfWays(box) && floor.put(piece, box, rotation, null);
