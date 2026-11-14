@@ -1179,11 +1179,35 @@ function spanning(kinds: readonly RoleStamp[]): readonly RoleStamp[] {
  * built for a road where any such is loaded; a problem when a road needs one
  * and no stamp is a bridge.
  */
+/** Squares a bridge's deck keeps from a building's walls. */
+const BRIDGE_CLEARANCE = 0.5;
+
+/** Squares between the points along a bridge's deck tested against the buildings. */
+const BRIDGE_STEP = 0.5;
+
+/**
+ * Whether `stamp`, laid along the road at `at`, keeps its deck off every building: a nine-square span picked for a
+ * crossing three squares from an inn ran into the inn's wall (library refresh render goal94, 2026-11-14, woodland inn).
+ */
+function bridgeClear(stamp: RoleStamp, at: Point, along: Point, buildings: readonly Rect[]): boolean {
+    const half = Math.max(stamp.width, stamp.height) / 2;
+    const reach = Math.min(stamp.width, stamp.height) / 2 + BRIDGE_CLEARANCE;
+    const norm = Math.hypot(along.x, along.y) || 1;
+    for (let t = -half; t <= half; t += BRIDGE_STEP) {
+        const p = { x: at.x + (along.x / norm) * t, y: at.y + (along.y / norm) * t };
+        if (buildings.some((b) => p.x > b.x - reach && p.x < b.x + b.w + reach && p.y > b.y - reach && p.y < b.y + b.h + reach)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function bridges(
     paths: readonly LaidPath[],
     stamps: RoleIndex,
     random: Random,
     settings: readonly string[],
+    buildings: readonly Rect[],
 ): { features: FeatureInput[]; problems: ComposeProblem[] } {
     const sound = soundFirst(stamps.get('bridge') ?? []);
     const choices = ownSetting(roadBridges(stamps), settings);
@@ -1211,7 +1235,9 @@ function bridges(
                     const rotation = bridgeRotation(stamp, along);
                     return rotation === null ? [] : [{ stamp, rotation }];
                 });
-                const chosen = pick(random, fits);
+                // Spans that keep off the buildings, where any does; one draw either way, so nothing else moves.
+                const clear = fits.filter(({ stamp }) => bridgeClear(stamp, at, along, buildings));
+                const chosen = pick(random, clear.length > 0 ? clear : fits);
                 if (chosen) {
                     features.push({ type: 'stamp', ...drawnAs(chosen.stamp), x: at.x, y: at.y, rotation: chosen.rotation });
                 } else {
@@ -1697,7 +1723,7 @@ export function composeExterior(
         }
     }
     features.push(...banks(paths, keepout, strewn, random));
-    const crossed = bridges(paths, strewn, random, intent.settings);
+    const crossed = bridges(paths, strewn, random, intent.settings, sites.map(siteBounds));
     features.push(...crossed.features);
     problems.push(...crossed.problems);
     const leads = intent.paths.map((p) => typeof p.to === 'object' && 'building' in p.to);

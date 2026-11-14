@@ -595,6 +595,23 @@ describe('bridges and yard pieces', () => {
         expect(stampsOf(composeMap(crossing(), bridges(broken)).spec, 'test:broken-road-bridge')).toBe(1);
     });
 
+    it('lays a span short enough to keep off a building beside the crossing', () => {
+        const [plain] = TEST_ROLES.get('bridge') ?? [];
+        if (!plain) {
+            throw new Error('test bridge');
+        }
+        // A long road bridge would reach the hut standing five squares past the river; a short one keeps clear of it.
+        const long = { ...plain, key: 'test:long-bridge', tags: ['road', 'bridge'], width: 12, height: 3 };
+        const short = { ...plain, key: 'test:short-bridge', tags: ['road', 'bridge'], width: 6, height: 2.5 };
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['bridge', [long, short]]]);
+        const beside = crossing({ buildings: [{ key: 'hut', at: { x: 20, y: 8 }, width: 4, height: 4, rooms: [{ key: 'room', purpose: 'storage' }] }] });
+        for (const seed of [1, 2, 3, 4]) {
+            const { spec } = composeMap({ ...beside, seed }, roles);
+            expect(stampsOf(spec, 'test:long-bridge')).toBe(0);
+            expect(stampsOf(spec, 'test:short-bridge')).toBe(1);
+        }
+    });
+
     it('stands a sound well in a yard, never a ruin’s while a whole one is loaded', () => {
         const [whole] = TEST_ROLES.get('well') ?? [];
         if (!whole) {

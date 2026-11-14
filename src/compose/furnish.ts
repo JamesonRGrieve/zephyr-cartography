@@ -1295,9 +1295,10 @@ export function furnishRoom(
         };
         runStep(floor, step, { choose, drawOf, bulkiest, shaped, all: (role) => stamps.get(role) ?? [], leftOut }, random);
     }
+    // Grime keeps to the room's kind too: a cell's or a store's strewn rushes are no taproom's (render goal96).
     scatterGrime(
         floor,
-        (given.get('decal') ?? []).filter((s) => !isPlaceholder(s.key)),
+        (stamps.get('decal') ?? []).filter((s) => !isPlaceholder(s.key)),
         room.grime ?? DEFAULT_GRIME,
         random,
     );

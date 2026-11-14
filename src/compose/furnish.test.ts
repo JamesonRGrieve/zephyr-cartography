@@ -1195,6 +1195,19 @@ describe('named fixtures', () => {
         }
     });
 
+    it('strews only the grime that suits the room: a store’s rushes never in a hall', () => {
+        const debris = byKey.get('test:debris');
+        if (!debris) {
+            throw new Error('test debris');
+        }
+        const stain: RoleStamp = { ...debris, key: 'test:stain', role: 'decal', width: 0.8, height: 0.6, purposes: [] };
+        const rushes: RoleStamp = { ...stain, key: 'test:rushes', purposes: ['storage'] };
+        const roles = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['decal', [stain, rushes]]]);
+        const { stamps } = furnishRoom({ ...HALL, grime: 1 }, withPlaceholders(roles), seededRandom(3));
+        expect(stamps.some((p) => p.stamp === 'test:stain')).toBe(true);
+        expect(stamps.some((p) => p.stamp === 'test:rushes')).toBe(false);
+    });
+
     it('strews grime along the walls, never across a doorway, beneath everything else', () => {
         const debris = byKey.get('test:debris');
         if (!debris) {
