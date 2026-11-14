@@ -125,6 +125,40 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     specimen: ['workshop', 'office', 'medicae'],
     perfume: ['bedroom'],
     cobbler: ['workshop'],
+    // The same render's taproom tables were a draper's cloth-bolt tables, star-chart and astrolabe tables, its bar a
+    // weaponsmith's counter, with a chest tomb, a genie bottle, holy water and a smith's horseshoe and quench barrels
+    // about it: each keeps to its trade's rooms.
+    cloth: ['workshop', 'storage'],
+    chart: ['office', 'workshop'],
+    astrolabe: ['office', 'workshop'],
+    scrying: ['office', 'workshop', 'shrine'],
+    genie: ['office', 'workshop', 'storage'],
+    holy: ['shrine', 'chapel'],
+    tomb: ['shrine', 'chapel'],
+    merchant: ['office', 'storage'],
+    // A bank's wall of deposit boxes is a counting house's office, never an inn's store; a council table a commander's
+    // or a clerk's, never a taproom's; a log for a seat stands out on a porch; an apothecary's drawers in his own rooms.
+    deposit: ['office'],
+    council: ['command', 'office'],
+    log: ['porch'],
+    apothecary: ['medicae', 'workshop', 'office'],
+    // A forge's hearth is a smithy's, never a kitchen's fire; an alchemist's bench his laboratory's; coin scales a counting
+    // house's table or a strongroom's.
+    forge: ['workshop', 'factory'],
+    alchemist: ['workshop', 'office'],
+    coin: ['office', 'storage'],
+    // A smith's grinding bench and workbench are his forge's, never a taproom's seats or an inn kitchen's table; a
+    // wand case and an enchanter's counter are a wizard's (the counter was both inn presets' bar).
+    sharpening: ['workshop', 'armoury'],
+    smith: ['workshop', 'factory'],
+    wand: ['office', 'workshop'],
+    enchanter: ['office', 'workshop'],
+    // A priest's vestments and prayer things are a chapel's, or a devout trooper's or prisoner's: never a taproom's.
+    vestment: ['shrine', 'chapel'],
+    prayer: ['shrine', 'chapel', 'barracks', 'cell'],
+    weaponsmith: ['workshop', 'armoury'],
+    horseshoe: ['workshop', 'factory'],
+    quench: ['workshop', 'factory'],
 };
 
 /** The kinds of room `tags` name, or say a piece belongs in. */

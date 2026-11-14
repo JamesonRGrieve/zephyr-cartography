@@ -265,6 +265,8 @@ describe('roleIndex purposes', () => {
                 stampDef('potions', { role: 'clutter', tags: ['potion', 'bottles'] }),
                 stampDef('specimens', { role: 'clutter', tags: ['specimen', 'jar'] }),
                 stampDef('perfume', { role: 'clutter', tags: ['perfume', 'bottles'] }),
+                stampDef('cloth', { role: 'clutter', tags: ['cloth', 'bolt', 'table'] }),
+                stampDef('weaponsmith', { role: 'clutter', tags: ['weaponsmith', 'counter'] }),
             ]),
             [],
         );
@@ -285,6 +287,8 @@ describe('roleIndex purposes', () => {
         expect(purposes.get('pack:potions')).not.toContain('bar');
         expect(purposes.get('pack:specimens')).toEqual(['office', 'workshop', 'medicae']);
         expect(purposes.get('pack:perfume')).toEqual(['bedroom']);
+        expect(purposes.get('pack:cloth')).toEqual(['storage', 'workshop']);
+        expect(purposes.get('pack:weaponsmith')).toEqual(['workshop', 'armoury']);
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
 
