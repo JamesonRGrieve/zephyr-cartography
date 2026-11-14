@@ -262,6 +262,9 @@ describe('roleIndex purposes', () => {
                 stampDef('drafting', { role: 'clutter', tags: ['drafting', 'table'] }),
                 stampDef('brazier', { role: 'clutter', tags: ['burning', 'brazier'] }),
                 stampDef('firewood', { role: 'clutter', tags: ['firewood', 'pile'] }),
+                stampDef('potions', { role: 'clutter', tags: ['potion', 'bottles'] }),
+                stampDef('specimens', { role: 'clutter', tags: ['specimen', 'jar'] }),
+                stampDef('perfume', { role: 'clutter', tags: ['perfume', 'bottles'] }),
             ]),
             [],
         );
@@ -278,6 +281,10 @@ describe('roleIndex purposes', () => {
         // An open brazier never lights a bedroom.
         expect(purposes.get('pack:brazier')).not.toContain('bedroom');
         expect(purposes.get('pack:firewood')).not.toContain('bedroom');
+        // A trade's wares keep to its rooms: never a taproom's tables.
+        expect(purposes.get('pack:potions')).not.toContain('bar');
+        expect(purposes.get('pack:specimens')).toEqual(['office', 'workshop', 'medicae']);
+        expect(purposes.get('pack:perfume')).toEqual(['bedroom']);
         expect(index.get('bed')?.[0]?.purposes).toEqual(['cell']);
     });
 

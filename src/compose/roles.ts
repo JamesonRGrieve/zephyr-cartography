@@ -118,6 +118,13 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     brazier: ['common-room', 'bar', 'hall', 'shrine', 'chapel', 'mess', 'command', 'armoury', 'barracks', 'factory', 'interrogation', 'cell', 'workshop'],
     // Firewood is stacked by a hearth or in a store, never in a guest's bedroom with no fire to feed.
     firewood: ['kitchen', 'storage', 'common-room', 'bar', 'hall', 'mess', 'workshop', 'barracks'],
+    // An apothecary's and a naturalist's wares and a cobbler's bench belong to their trade's rooms, never a taproom's
+    // tables and walls (library refresh render goal86, 2026-11-14: perfume and potion bottles dressed a tavern's tables,
+    // specimen jars and a cobbler's bench stood in its taproom); perfume is a lady's, on her dresser.
+    potion: ['workshop', 'office', 'medicae', 'storage'],
+    specimen: ['workshop', 'office', 'medicae'],
+    perfume: ['bedroom'],
+    cobbler: ['workshop'],
 };
 
 /** The kinds of room `tags` name, or say a piece belongs in. */
