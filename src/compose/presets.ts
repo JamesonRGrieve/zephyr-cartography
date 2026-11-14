@@ -92,13 +92,14 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         // 2026-11-14).
         // The road comes straight in from the west, level with the inn's door, which faces it: to a door on the far side
         // the road wrapped round the inn's corner under its wall (operator 2026-11-14: "It clips the building!"), and a
-        // winding road met the door askew.
+        // winding road met the door askew. Fourteen squares wide, so its taproom is full of tables, not half bare floor beside
+        // its doors' approaches (render goal104).
         paths: [
-            { kind: 'road', from: { x: -1, y: 13.5 }, to: { building: 'inn' }, meander: 0 },
+            { kind: 'road', from: { x: -1, y: 17.5 }, to: { building: 'inn' }, meander: 0 },
             { kind: 'river', from: { x: 5, y: -1 }, to: { x: 3, y: 29 }, width: 2.5, meander: 0.6 },
         ],
         buildings: [
-            { key: 'inn', at: { x: 14, y: 8 }, width: 16, height: 11, entrance: 'west', floor: 'floor.tavern-boards', wall: 'wall.stone', rooms: TAVERN_ROOMS },
+            { key: 'inn', at: { x: 14, y: 8 }, width: 14, height: 11, entrance: 'west', floor: 'floor.tavern-boards', wall: 'wall.stone', rooms: TAVERN_ROOMS },
         ],
     },
     'tavern': {
