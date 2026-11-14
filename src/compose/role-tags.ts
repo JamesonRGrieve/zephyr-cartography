@@ -77,6 +77,9 @@ const ROLE_RULES: readonly (readonly [StampRole, readonly (string | readonly str
     // A flower bed is a garden's, not a bedroom's.
     ['flora', [['flower', 'bed']]],
     ['bed', ['bed', 'bunk', 'cot']],
+    // A cook's kit is a pot and its embers set down, not a kitchen's fire: as a hearth it stood as a tavern kitchen's only
+    // fire, a bowl a third of a square across (library refresh render goal92, 2026-11-14).
+    ['clutter', [['cook', 'kit']]],
     ['hearth', ['hearth', 'cook']],
     ['workbench', ['workbench', 'forge']],
     ['console', ['console', 'terminal', 'radio', 'telepathic', ['service', 'bot']]],

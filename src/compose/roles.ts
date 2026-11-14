@@ -97,6 +97,10 @@ function doorStatesOf(stamp: CatalogStamp): Partial<Record<DoorState, number>> {
 const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     cooking: ['kitchen'],
     kitchenware: ['kitchen'],
+    // A cook's stove or station, and the kit he cooks with, are a kitchen's or a mess's.
+    cook: ['kitchen', 'mess'],
+    // Coal is kept by a kitchen's or a smithy's fire or in a store, never in a guest's room with no grate (render goal92).
+    coal: ['kitchen', 'storage', 'workshop', 'factory'],
     reliquary: ['shrine', 'chapel'],
     offering: ['shrine', 'chapel'],
     votive: ['shrine', 'chapel'],

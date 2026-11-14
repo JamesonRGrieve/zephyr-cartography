@@ -31,6 +31,9 @@ describe('roleFromTags', () => {
         expect(roleFromTags(['top', 'down', 'crystal', 'ball', 'stand'])).toBe('fitting');
         // An alchemist's bench is worked at, never sat on; a plain bench is a seat.
         expect(roleFromTags(['alchemist', 'bench'])).toBe('workbench');
+        // A cook's kit is a pot on its embers, never a kitchen's hearth; a cook stove is.
+        expect(roleFromTags(['cook', 'kit'])).toBe('clutter');
+        expect(roleFromTags(['cook', 'stove'])).toBe('hearth');
         expect(roleFromTags(['wooden', 'bench'])).toBe('bench');
         expect(roleFromTags(['crystal', 'cluster'])).toBe('rock');
         // A vegetable patch grows in a garden: never stores in a cellar, as a basket of vegetables is.

@@ -141,21 +141,26 @@ const COMMON_ROOM: readonly Step[] = [
     { kind: 'scatter', role: 'clutter', count: [2, 4] },
 ];
 
+/** Squares of a kitchen's wall to each work surface, shelf and store along it. */
+const KITCHEN_WALL_PER = 9;
+
 /** What each kind of room holds, in the order it is placed: the anchoring pieces first, the clutter last. */
 export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
     'common-room': COMMON_ROOM,
     // A taproom: the counter stands out from an inner wall, stocked shelves behind the barkeep, stools before it; the floor
     // it leaves is a common room's, its hearth and tables, never a counter alone in an empty room.
     'bar': [{ kind: 'wall', role: 'counter', count: 1, prefer: 'inner', front: 'seat', standoff: 1.3, behind: 'shelf' }, ...COMMON_ROOM],
-    // The hearth on an outer wall, work surfaces along the walls and one down the middle, food and pots on them all.
+    // The hearth on an outer wall, work surfaces along the walls and one down the middle, food and pots on them all. Its
+    // walls are worked by their length, so a large kitchen is as busy as a small one (library refresh render goal92,
+    // 2026-11-14: a tavern's ten-square kitchen held two boards and a butcher's block on bare flags).
     'kitchen': [
         { kind: 'wall', role: 'hearth', count: 1, prefer: 'outer' },
-        { kind: 'wall', role: 'workbench', count: [1, 2] },
+        { kind: 'wall', role: 'workbench', count: { per: KITCHEN_WALL_PER } },
         { kind: 'cluster', centre: 'workbench', around: [], count: 1, sides: 1 },
         { kind: 'dress', role: 'tabletop', count: [2, 4] },
-        { kind: 'wall', role: 'shelf', count: [1, 2] },
+        { kind: 'wall', role: 'shelf', count: { per: KITCHEN_WALL_PER } },
         { kind: 'corner', role: 'storage', count: [2, 4] },
-        { kind: 'wall', role: 'storage', count: [1, 2] },
+        { kind: 'wall', role: 'storage', count: { per: KITCHEN_WALL_PER } },
         { kind: 'scatter', role: 'clutter', count: [2, 3] },
     ],
     // Stores lining the walls and stacked in rows down the floor, aisles between, a lamp to find them by.
