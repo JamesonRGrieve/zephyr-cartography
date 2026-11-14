@@ -84,14 +84,17 @@ export const PRESET_INTENTS: Readonly<Record<MapPreset, object>> = {
         ground: 'grassland',
         zones: [
             { kind: 'woodland', area: { shape: 'everywhere' }, density: 'dense' },
-            { kind: 'clearing', area: { shape: 'circle', centre: { x: 18, y: 14 }, radius: 11 } },
+            { kind: 'clearing', area: { shape: 'circle', centre: { x: 22, y: 14 }, radius: 11 } },
             { kind: 'meadow', area: { shape: 'circle', centre: { x: 30, y: 21 }, radius: 5 }, density: 'sparse' },
         ],
+        // The river keeps to the west, the inn stands back from it in the clearing: a road bridge is nine squares, and
+        // with the river four squares off the inn's wall its deck ran into the wall (library refresh render goal94,
+        // 2026-11-14).
         paths: [
             { kind: 'road', from: 'west', to: { building: 'inn' }, meander: 0.35 },
-            { kind: 'river', from: 'north', to: 'south', width: 2.5, meander: 0.6 },
+            { kind: 'river', from: { x: 5, y: -1 }, to: { x: 3, y: 29 }, width: 2.5, meander: 0.6 },
         ],
-        buildings: [{ key: 'inn', at: { x: 10, y: 8 }, width: 16, height: 11, floor: 'floor.tavern-boards', wall: 'wall.stone', rooms: TAVERN_ROOMS }],
+        buildings: [{ key: 'inn', at: { x: 14, y: 8 }, width: 16, height: 11, floor: 'floor.tavern-boards', wall: 'wall.stone', rooms: TAVERN_ROOMS }],
     },
     'tavern': {
         schemaVersion: 1,
