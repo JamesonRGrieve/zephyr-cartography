@@ -217,6 +217,31 @@ describe('furnishRoom', () => {
         });
     });
 
+    it('seats a taproom’s tables with chairs where its seat is a stool, the stools kept for the counter', () => {
+        const chair = TEST_ROLES.get('seat')?.[0];
+        if (!chair) {
+            throw new Error('test seat');
+        }
+        const stool = { ...chair, key: 'stool', width: 0.25, height: 0.3, tags: ['tall', 'bar', 'stool'] };
+        const roles = new Map([...TEST_ROLES].map(([role, stamps]) => [role, role === 'seat' ? [stool, ...stamps] : stamps]));
+        const taproom: RoomFloor = {
+            key: 'tap',
+            purpose: 'bar',
+            rect: { x: 0, y: 0, w: 10, h: 8 },
+            doors: [{ side: 'right', at: 3 }],
+            outer: ['top', 'left'],
+            entrance: null,
+        };
+        const placed = furnishRoom(taproom, roles, seededRandom(1)).stamps;
+        const counter = placed.find((p) => roleOf(p) === 'counter');
+        const seats = placed.filter((p) => p.stamp === 'stool' || p.stamp === chair.key);
+        expect(seats.some((p) => p.stamp === chair.key)).toBe(true);
+        for (const s of seats.filter((p) => p.stamp === 'stool')) {
+            // Every stool stands before the counter, within a seat's depth of it.
+            expect(Math.abs(s.y - (counter?.y ?? 0))).toBeLessThan(1.5);
+        }
+    });
+
     it('never lays a rug across a stairwell: a rug over the steps reads as the stair’s', () => {
         const bedroom: RoomFloor = {
             key: 'bed',

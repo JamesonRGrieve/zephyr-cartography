@@ -1528,6 +1528,16 @@ interface Pieces {
     readonly leftOut: (role: StampRole) => void;
 }
 
+/**
+ * The seat a table is laid with: a chair where the room's seat is a stool and it has chairs. Stools are for a counter: a
+ * stool a quarter square across stands off a tavern table's rim like a dropped coin (library refresh render goal90,
+ * 2026-11-14), where a chair is pulled up to it.
+ */
+function chairFor(seat: RoleStamp, seats: readonly RoleStamp[]): RoleStamp {
+    const stool = (s: RoleStamp): boolean => s.tags.includes('stool');
+    return seat.role === 'seat' && stool(seat) ? seats.find((s) => !stool(s)) ?? seat : seat;
+}
+
 /** A stack's least share of the bulkiest piece's floor: smaller pieces would read as clutter, not a stack. */
 const STACK_SHARE = 0.5;
 
@@ -1545,7 +1555,10 @@ function runCluster(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, piec
     }
     // The first kind of seat the room has that suits the table and leaves it room to stand: a bench far longer than it, or
     // too deep for the floor (a waiting bench in a narrow mess), gives way to chairs.
-    const suits = step.around.map(choose).filter((s): s is RoleStamp => s !== undefined && fitsBeside(s, table));
+    const suits = step.around
+        .map(choose)
+        .map((s) => (s === undefined ? s : chairFor(s, all('seat'))))
+        .filter((s): s is RoleStamp => s !== undefined && fitsBeside(s, table));
     const seat = suits.find((s) => blockFits(floor.room.rect, seatingOf(table, s, step.sides))) ?? suits[0];
     // Stores stacked in rows vary stack by stack among the pieces near the bulkiest's size: crates, barrels, sack piles.
     const fits = all(step.centre).filter(
