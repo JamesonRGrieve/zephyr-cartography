@@ -473,9 +473,17 @@ const reaches = (path: PathIntent, site: Site): boolean =>
  * only half the building's margin, so the step before the door, where it
  * ends, stays outside.
  */
-function aroundSite(site: Site, path: PathIntent, halfWidth: number): Rect {
-    return grown(siteBounds(site), reaches(path, site) ? BUILDING_MARGIN / 2 : halfWidth + SETBACK[path.kind]);
+function aroundSite(site: Site, path: PathIntent, halfWidth: number, ends: readonly Point[]): Rect {
+    const kept = grown(siteBounds(site), reaches(path, site) ? BUILDING_MARGIN / 2 : halfWidth + SETBACK[path.kind]);
+    // A path that starts or ends within another building's setback (a barn's door three squares from the cottage) cannot
+    // go round it at that distance, and a detour finding no way out let the road run straight through the cottage
+    // (judge ROAD ON WALL, pumpkin farm, 2026-11-14): round such a building it keeps only its own width off the walls.
+    const inside = (p: Point): boolean => p.x > kept.x && p.x < kept.x + kept.w && p.y > kept.y && p.y < kept.y + kept.h;
+    return !reaches(path, site) && ends.some(inside) ? grown(siteBounds(site), halfWidth + PATH_CLEAR) : kept;
 }
+
+/** Squares a path keeps off a building's walls past its own half width where it cannot keep its setback. */
+const PATH_CLEAR = 0.25;
 
 /** What a building covers outside: its footprint and its annexes. */
 const siteRects = (site: Site): readonly Rect[] => [site.footprint, ...site.annexes];
@@ -494,6 +502,8 @@ export interface LaidPath {
     readonly halfWidth: number;
     /** A road's crossing: bridge art carrying these tags, or a ford; undefined, any road bridge. */
     readonly bridge?: readonly string[] | false;
+    /** Whether its start and its end reach a building's door, by the step before it. */
+    readonly doors?: readonly [boolean, boolean];
 }
 
 /** Everything that decides whether something may stand at a point. */
@@ -1066,7 +1076,11 @@ function squaredAtBridges(paths: readonly LaidPath[], stamps: RoleIndex, charted
             return path;
         }
         const points = rivers.reduce<readonly Point[]>(
-            (line, river) => crossings(line, river.points).reduce((each, { at, along }) => straightThrough(each, at, along, reach + BRIDGE_APPROACH), line),
+            (line, river) =>
+                crossings(line, river.points).reduce(
+                    (each, { at, along }) => straightThrough(each, at, along, reach + BRIDGE_APPROACH, path.doors ?? [false, false]),
+                    line,
+                ),
             path.points,
         );
         return { ...path, points };
@@ -1074,12 +1088,15 @@ function squaredAtBridges(paths: readonly LaidPath[], stamps: RoleIndex, charted
 }
 
 /** `line` with its points within `run` of `at` replaced by a straight run along `along` through it, `run` each way. */
-function straightThrough(line: readonly Point[], at: Point, along: Point, run: number): readonly Point[] {
+function straightThrough(line: readonly Point[], at: Point, along: Point, run: number, doors: readonly [boolean, boolean]): readonly Point[] {
     // Its bends dropped further out than the straight run, so the road eases onto it: a bend kept just past the run
     // jogged the road sideways into the bridge's end (2026-11-13 render goal46, grimdark forest and wasteland).
     // Never a road's own ends: they are where it leaves the map or reaches a door (2026-11-13: a crossing near the top edge
     // of the roadside tavern's map dropped the road's start, and the road stopped short of the edge).
-    const near = (q: Point, i: number): boolean => i > 0 && i < line.length - 1 && Math.hypot(q.x - at.x, q.y - at.y) <= run + BRIDGE_EASE;
+    // Nor the step before a door a road reaches, where it turns square to the wall: dropped, the road eased from the bridge
+    // straight into the doorway askew, its edge running along the wall past the door (render goal101, woodland inn).
+    const [lo, hi] = [doors[0] ? 1 : 0, line.length - 1 - (doors[1] ? 1 : 0)];
+    const near = (q: Point, i: number): boolean => i > lo && i < hi && Math.hypot(q.x - at.x, q.y - at.y) <= run + BRIDGE_EASE;
     const first = line.findIndex(near);
     const last = line.length - 1 - [...line].reverse().findIndex((q, j) => near(q, line.length - 1 - j));
     // A crossing on a segment longer than the run has no point near it: the segment either side is cut at the crossing.
@@ -1586,6 +1603,7 @@ export function composeExterior(
     // through both of a marsh's pools). A river runs out of its lake, and a road ending in one is meant to.
     const lakeBounds: readonly Rect[] = outlines.filter(isLake).map(({ outline }) => boundsOf(outline));
     const holds = (b: Rect, p: Point): boolean => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+    const atDoor = (anchor: Anchor): boolean => typeof anchor !== 'string' && 'building' in anchor && sites.some((s) => s.key === anchor.building);
     const laidPaths: LaidPath[] = intent.paths.map((path) => {
         const halfWidth = (path.width ?? PATH_WIDTH[path.kind]) / 2;
         const [from, to] = pathEnds(path, intent, sites, keyed, random);
@@ -1602,7 +1620,8 @@ export function composeExterior(
             kind: path.kind,
             ...(path.bridge === undefined ? {} : { bridge: path.bridge }),
             halfWidth,
-            points: toDoors(detour(line, [...sites.map((site) => aroundSite(site, path, halfWidth)), ...waters]), path, sites),
+            points: toDoors(detour(line, [...sites.map((site) => aroundSite(site, path, halfWidth, [from, to])), ...waters]), path, sites),
+            doors: [atDoor(path.from), atDoor(path.to)],
         };
     });
     const paths = squaredAtBridges(laidPaths, stamps, intent.scale !== 'battlemap');

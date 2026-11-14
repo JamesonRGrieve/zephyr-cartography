@@ -239,6 +239,46 @@ describe('bridges and yard pieces', () => {
         expect(ends.map((p) => p?.y)).toEqual([-1, 21]);
     });
 
+    it('keeps the step square before a door a bridged road reaches close past its bridge', () => {
+        const base = (TEST_ROLES.get('bridge') ?? [])[0];
+        if (!base) {
+            throw new Error('test bridge');
+        }
+        const roles: RoleIndex = new Map([...TEST_ROLES, ['bridge', [{ ...base, key: 'test:long-bridge', width: 9, height: 3, tags: ['road', 'bridge'] }]]]);
+        // The hut's west door is four squares past the river: the bridge's straight run reaches nearly to it.
+        const intent = crossing({
+            paths: [
+                { kind: 'road', from: { x: -1, y: 10 }, to: { building: 'hut' }, meander: 0.3 },
+                { kind: 'river', from: { x: 12, y: -1 }, to: { x: 12, y: 21 }, meander: 0 },
+            ],
+            buildings: [{ key: 'hut', at: { x: 20, y: 8 }, width: 5, height: 5, entrance: 'west', rooms: [{ key: 'room', purpose: 'storage' }] }],
+        });
+        const road = composeMap(intent, roles).spec.features.find((f) => f.type === 'path' && f.kind === 'road');
+        const points = road?.type === 'path' ? road.points : [];
+        const [step, door] = points.slice(-2);
+        // The last run, from the step to the doorway, lies square to the west wall: level, ending on the wall.
+        expect(door?.x).toBeCloseTo(20, 5);
+        expect(step?.y).toBeCloseTo(door?.y ?? Number.NaN, 5);
+        expect(step?.x ?? 0).toBeLessThan(20);
+    });
+
+    it('takes a road round a building it passes even where its own end lies within that building’s setback', () => {
+        // The barn's door is three squares above the cottage: the road to it still goes round the cottage, never through it.
+        const intent = crossing({
+            paths: [{ kind: 'road', from: { x: 14, y: 21 }, to: { building: 'barn' }, meander: 0 }],
+            buildings: [
+                { key: 'barn', at: { x: 14, y: 1 }, width: 6, height: 5, rooms: [{ key: 'stalls', purpose: 'storage' }] },
+                { key: 'cottage', at: { x: 12, y: 9 }, width: 8, height: 6, rooms: [{ key: 'room', purpose: 'storage' }] },
+            ],
+        });
+        const road = composeMap(intent, TEST_ROLES).spec.features.find((f) => f.type === 'path' && f.kind === 'road');
+        const points = road?.type === 'path' ? road.points : [];
+        expect(points.length).toBeGreaterThan(2);
+        for (const p of points) {
+            expect(p.x > 12 && p.x < 20 && p.y > 9 && p.y < 15).toBe(false);
+        }
+    });
+
     it('runs a bridged road dead straight along its bridge and on past each end (operator: road not square with it)', () => {
         const base = (TEST_ROLES.get('bridge') ?? [])[0];
         expect(base).toBeDefined();
