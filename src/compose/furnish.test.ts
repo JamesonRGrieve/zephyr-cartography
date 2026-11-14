@@ -951,6 +951,31 @@ describe('a room furnished by purpose over its own named pieces', () => {
             expectOrderly(room, placed);
         }
     });
+
+    it('keeps the square at each end of a named stair clear of what the purpose adds', () => {
+        const stair = TEST_ROLES.get('stairs')?.[0];
+        if (!stair) {
+            throw new Error('test stairs');
+        }
+        const room: RoomFloor = {
+            ...HALL,
+            purpose: 'bedroom',
+            rect: { x: 0, y: 0, w: 6, h: 6 },
+            furnish: 'purpose',
+            fixtures: [fixture({ name: 'drop shaft', role: 'stairs', width: 1, height: 2, place: { at: { x: 0.5, y: 0.5 } } })],
+        };
+        for (const seed of [1, 2, 3, 4]) {
+            const placed = furnishRoom(room, TEST_ROLES, seededRandom(seed)).stamps;
+            const shaft = placed.find((p) => p.stamp === stair.key);
+            expect(shaft).toBeDefined();
+            // Nothing else stands within the shaft's run and a square past each end of it (decals and rugs aside).
+            const foot = { x0: (shaft?.x ?? 0) - 0.5, x1: (shaft?.x ?? 0) + 0.5, y0: (shaft?.y ?? 0) - 2, y1: (shaft?.y ?? 0) + 2 };
+            const on = placed.filter(
+                (p) => p !== shaft && !['rug', 'decal'].includes(roleOf(p) ?? '') && p.x > foot.x0 && p.x < foot.x1 && p.y > foot.y0 && p.y < foot.y1,
+            );
+            expect(on).toEqual([]);
+        }
+    });
 });
 
 /** Placed boxes by their label (placeholder keys carry it). */

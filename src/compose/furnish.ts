@@ -378,9 +378,28 @@ class Floor {
         this.kept = [...ways];
     }
 
-    /** Take `box` as a piece's floor, though the piece stands there by a design rather than by `put`. */
+    /** Floor a named piece claims from what the room's purpose adds, once all the named pieces are down. */
+    private readonly claims: { readonly box: Box; readonly kept: boolean }[] = [];
+
+    /** The feet of the named stairs: a rug never lies across one. */
+    readonly stairFeet: Box[] = [];
+
+    /** Take `box` as a piece's floor from what the purpose adds, though the piece stands there by a design. */
     reserve(box: Box): void {
-        this.taken.push(box);
+        this.claims.push({ box, kept: false });
+    }
+
+    /** Keep `box` open from everything the purpose adds, the chairs a table brings included (a named stair's foot). */
+    keepFromPurpose(box: Box): void {
+        this.claims.push({ box, kept: false });
+        this.stairFeet.push(box);
+    }
+
+    /** The named pieces are all down: what they claimed now holds against the purpose's pieces. */
+    applyClaims(): void {
+        for (const { box, kept } of this.claims) {
+            (kept ? this.kept : this.taken).push(box);
+        }
     }
 
     /** Keep `box` open floor: nothing placed after stands there. */
@@ -1006,7 +1025,7 @@ function placeUnderlay(floor: Floor, stamp: RoleStamp): void {
     const h = turned ? stamp.width : stamp.height;
     // Never across a stair or a doorway's approach: a rug laid over the steps reads as the stair's.
     const box = { x: rect.x + (rect.w - w) / 2, y: rect.y + (rect.h - h) / 2, w, h };
-    if (w <= rect.w - 1 && h <= rect.h - 1 && !floor.inWay(box)) {
+    if (w <= rect.w - 1 && h <= rect.h - 1 && !floor.inWay(box) && !floor.stairFeet.some((f) => overlaps(f, box))) {
         floor.placed.push({
             ...drawnAs(stamp),
             x: rect.x + rect.w / 2,
@@ -1139,7 +1158,11 @@ const mainRole = (step: Step): StampRole => (step.kind === 'cluster' ? step.cent
  * counted out by its pieces is dropped; one that fills, or counts by the wall's length, runs as it is.
  */
 function lessNamed(step: Step, namedRoles: readonly StampRole[]): Step | null {
-    if (step.kind === 'underlay' || step.kind === 'rows' || step.kind === 'dress' || !('count' in step)) {
+    // Rows a brief lays itself (a nave's pews) are the room's rows: the purpose lays no second set into the floor they fill.
+    if (step.kind === 'rows') {
+        return namedRoles.includes(step.role) ? null : step;
+    }
+    if (step.kind === 'underlay' || step.kind === 'dress' || !('count' in step)) {
         return step;
     }
     const named = namedRoles.filter((role) => role === mainRole(step)).length;
@@ -1323,6 +1346,7 @@ export function furnishRoom(
         return byShape.get(key);
     };
     const missing = new Set<StampRole>();
+    floor.applyClaims();
     // What the room's own named pieces placed, by role: the purpose adds only what they leave wanting.
     const roleByKey = new Map([...given.values()].flat().map((st) => [st.key, st.role] as const));
     const namedRoles = floor.placed.flatMap((p) => roleByKey.get(p.stamp) ?? []);
@@ -1541,9 +1565,26 @@ function placeFree(floor: Floor, piece: RoleStamp, at: { readonly x: number; rea
         if (floor.room.furnish !== 'fixtures' && !LAID_ROLES.includes(piece.role)) {
             floor.reserve(box);
         }
+        keepStairFoot(floor, piece, box);
         return true;
     }
-    return floor.clearOfWays(box) && floor.put(piece, box, rotation, null);
+    const placed = floor.clearOfWays(box) && floor.put(piece, box, rotation, null);
+    if (placed) {
+        keepStairFoot(floor, piece, box);
+    }
+    return placed;
+}
+
+/**
+ * A named stair or ladder keeps the square at each end of its run clear, as a stairwell does: the room's purpose stood a
+ * wardrobe and a test kit at the foot of Eva's drop-shaft ladder (2026-11-14, Solenne maps furnished by purpose).
+ */
+function keepStairFoot(floor: Floor, piece: RoleStamp, box: Box): void {
+    if (piece.role !== 'stairs') {
+        return;
+    }
+    const tall = box.h >= box.w;
+    floor.keepFromPurpose(tall ? { ...box, y: box.y - 1, h: box.h + 2 } : { ...box, x: box.x - 1, w: box.w + 2 });
 }
 
 /**
