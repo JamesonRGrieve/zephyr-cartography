@@ -179,7 +179,9 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
         { kind: 'wall', role: 'bed', count: 1, prefer: 'short', beside: 'nightstand' },
         { kind: 'wall', role: 'dresser', count: 1, prefer: 'outer' },
         { kind: 'corner', role: 'armchair', count: 1, orWall: true },
-        { kind: 'cluster', centre: 'table', around: ['seat'], count: 1, sides: 1, orWall: true },
+        // A small table: a long one with a row of chairs is a dining hall's, not a guest's (library refresh render goal105,
+        // 2026-11-14: an oak table four squares long and five chairs filled a tavern's guest room).
+        { kind: 'cluster', centre: 'table', around: ['seat'], count: 1, sides: 1, orWall: true, shape: 'round' },
         // A guest's trunk against a wall, never out in the floor.
         { kind: 'wall', role: 'chest', count: 1 },
         // A wardrobe or washstand besides, where the room has wall to spare.
@@ -659,6 +661,7 @@ function wallSpot(
     floor: Floor,
     stamp: RoleStamp,
     at: { readonly side: Side; readonly t: number; readonly hi: number; readonly inset: number },
+    exact = false,
 ): { box: Box; front: Box; turn: number } | null {
     const { side, t, hi, inset } = at;
     const { rect } = floor.room;
@@ -676,8 +679,17 @@ function wallSpot(
     // Its clear front may share floor with a door's approach: both are only floor kept open.
     // The floor behind it only needs no piece on it: a door there (the proprietor's, behind a counter) is walkable floor.
     const clear = floor.free(box) && (stamp.clearance === 0 || floor.free(front, false)) && (behind === null || floor.free(behind, false));
-    return clear ? { box, front, turn } : null;
+    // A fire keeps well back from every doorway: a hearth hard by the door the guests come in at (operator 2026-11-14,
+    // woodland inn: "Fire right beside the door?!"). A brief's own hearth stands where the brief puts it.
+    const byDoor = !exact && stamp.role === 'hearth' && floor.inWay(grownBox(box, HEARTH_DOOR_GAP));
+    return clear && !byDoor ? { box, front, turn } : null;
 }
+
+/** Squares a hearth keeps from any door's approach, beyond its own footprint. */
+const HEARTH_DOOR_GAP = 1.5;
+
+/** `box` grown by `by` all round. */
+const grownBox = (box: Box, by: number): Box => ({ x: box.x - by, y: box.y - by, w: box.w + 2 * by, h: box.h + 2 * by });
 
 /** Place a wall step's pieces; how many it placed. */
 function placeOnWalls(floor: Floor, step: WallStep, draw: Draw, companions: Companions, random: Random): number {
@@ -711,7 +723,7 @@ function placeOnWalls(floor: Floor, step: WallStep, draw: Draw, companions: Comp
             if (spacing !== null && placedAt.some((at) => Math.abs(at - t) < spacing / 2)) {
                 continue;
             }
-            const spot = wallSpot(floor, stamp, { side, t, hi, inset });
+            const spot = wallSpot(floor, stamp, { side, t, hi, inset }, step.exact === true);
             if (spot) {
                 const { box, front } = spot;
                 floor.put(stamp, box, spot.turn, stamp.clearance > 0 ? front : null);

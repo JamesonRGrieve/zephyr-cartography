@@ -217,6 +217,46 @@ describe('furnishRoom', () => {
         });
     });
 
+    it('gives a guest room a small table, never a long one with a row of chairs', () => {
+        const long = TEST_ROLES.get('table')?.[0];
+        if (!long) {
+            throw new Error('test table');
+        }
+        const round = { ...long, key: 'round-table', width: 1, height: 1 };
+        const roles = new Map([...TEST_ROLES].map(([role, stamps]) => [role, role === 'table' ? [{ ...long, width: 4, height: 1 }, round] : stamps]));
+        const bedroom: RoomFloor = {
+            key: 'bed',
+            purpose: 'bedroom',
+            rect: { x: 0, y: 0, w: 9, h: 7 },
+            doors: [{ side: 'bottom', at: 2 }],
+            outer: ['top'],
+            entrance: null,
+        };
+        for (const seed of [1, 2, 3, 4]) {
+            const tables = furnishRoom(bedroom, roles, seededRandom(seed)).stamps.filter((p) => p.stamp === long.key || p.stamp === 'round-table');
+            expect(tables.every((t) => t.stamp === 'round-table')).toBe(true);
+        }
+    });
+
+    it('keeps a hearth well back from every doorway (operator: "Fire right beside the door?!")', () => {
+        const room: RoomFloor = {
+            ...COMMON,
+            rect: { x: 0, y: 0, w: 10, h: 8 },
+            doors: [
+                { side: 'left', at: 3 },
+                { side: 'right', at: 4 },
+            ],
+            outer: ['left', 'right'],
+        };
+        for (const seed of [1, 2, 3, 4, 5]) {
+            const hearth = furnishRoom(room, TEST_ROLES, seededRandom(seed)).stamps.find((p) => roleOf(p) === 'hearth');
+            expect(hearth).toBeDefined();
+            // Its centre at least the gap and its own half depth from each door's approach (the doors' middles at y 3.5, 4.5).
+            const dy = Math.min(Math.abs((hearth?.y ?? 0) - 3.5), Math.abs((hearth?.y ?? 0) - 4.5));
+            expect(dy).toBeGreaterThan(2);
+        }
+    });
+
     it('never draws one kind of a varied role twice running where the room has another', () => {
         const bench = TEST_ROLES.get('workbench')?.[0];
         if (!bench) {

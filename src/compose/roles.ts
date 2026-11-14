@@ -106,6 +106,8 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // Strewn rushes are a store's, a barracks' or a cell's bedding: a heap of them by a taproom's wall reads as a bale
     // dropped among the tables (render goal95).
     rush: ['storage', 'barracks', 'cell'],
+    // A spider's web two squares across is a forgotten store's or a cell's, never a taproom's floor (render goal105).
+    spider: ['storage', 'cell'],
     reliquary: ['shrine', 'chapel'],
     offering: ['shrine', 'chapel'],
     votive: ['shrine', 'chapel'],
