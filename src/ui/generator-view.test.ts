@@ -98,13 +98,15 @@ describe('generator panel', () => {
             readonly seed: number;
             readonly paths: readonly { kind: string }[];
             readonly zones: readonly { kind: string }[];
+            readonly fixtures: readonly { name: string }[];
         };
         const first = JSON.parse(box()) as Rolled;
         expect(first.width).toBe(44);
         expect(first.ground).toBe('sand');
         expect(first.paths.filter((p) => p.kind === 'road')).toHaveLength(2);
         expect(first.zones.some((z) => z.kind === 'lake')).toBe(true);
-        expect(first.zones.some((z) => z.kind === 'fortified')).toBe(true);
+        // A camp is its world's own kit (5b9f885): a feudal camp's tents round its fire, no longer a fortified zone.
+        expect(first.fixtures.some((f) => f.name === 'camp tent')).toBe(true);
         expect(statusLines(root)[0]).toMatch(/^Would build \d+ features\.$/);
         buttonNamed(root, 'Reroll').click();
         expect((JSON.parse(box()) as Rolled).seed).not.toBe(first.seed);

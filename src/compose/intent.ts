@@ -398,7 +398,9 @@ const district = z
         roofPieces: z
             .array(z.object({ ...namedPieceSize }).strict())
             .default([])
-            .describe('Named pieces its roofs carry (vent stacks, conduit housings, cooling fans, access hatches): one to three to a small block, more on a larger roof.'),
+            .describe(
+                'Named pieces its roofs carry (vent stacks, conduit housings, cooling fans, access hatches): one to three to a small block, more on a larger roof.',
+            ),
     })
     .strict()
     .describe('A stretch of city: blocks of buildings seen from above, walled so none is walked into, cut by streets and alleys, never ruled.');
