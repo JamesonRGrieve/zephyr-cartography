@@ -1183,11 +1183,12 @@ const mainRole = (step: Step): StampRole => (step.kind === 'cluster' ? step.cent
  * counted out by its pieces is dropped; one that fills, or counts by the wall's length, runs as it is.
  */
 function lessNamed(step: Step, namedRoles: readonly StampRole[]): Step | null {
-    // Rows a brief lays itself (a nave's pews) are the room's rows: the purpose lays no second set into the floor they fill.
-    if (step.kind === 'rows') {
+    // Rows a brief lays itself, and a rug it names, are the room's own: the purpose lays no second set of pews, nor a second
+    // rug across the first (the Mora bedroom's two rugs piled one over the other, Solenne review render goal113).
+    if (step.kind === 'rows' || step.kind === 'underlay') {
         return namedRoles.includes(step.role) ? null : step;
     }
-    if (step.kind === 'underlay' || step.kind === 'dress' || !('count' in step)) {
+    if (step.kind === 'dress' || !('count' in step)) {
         return step;
     }
     const named = namedRoles.filter((role) => role === mainRole(step)).length;

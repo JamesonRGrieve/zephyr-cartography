@@ -1047,6 +1047,13 @@ describe('a purpose’s rug', () => {
         const desk = fixture({ name: 'pupil’s desk', role: 'desk', width: 1, height: 0.6, place: { at: { x: 0.5, y: 0.5 } } });
         expect(rugs({ ...office, fixtures: [desk] })).toBe(0);
     });
+
+    it('is left out where the room names its own rug', () => {
+        const office: RoomFloor = { ...HALL, key: 'office', purpose: 'office', furnish: 'purpose', fixtures: [] };
+        const rug = fixture({ name: 'worn rug', role: 'rug', width: 2, height: 1.4, place: { at: { x: 0.2, y: 0.3 } }, fixed: true });
+        const rugs = furnishRoom({ ...office, fixtures: [rug] }, TEST_ROLES, seededRandom(1)).stamps.filter((p) => roleOf(p) === 'rug');
+        expect(rugs).toHaveLength(1);
+    });
 });
 
 describe('a large room', () => {
