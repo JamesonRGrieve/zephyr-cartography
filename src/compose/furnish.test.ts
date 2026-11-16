@@ -1029,6 +1029,16 @@ describe('rooms furnished by purpose', () => {
     });
 });
 
+describe('a washroom', () => {
+    it('is its named fittings alone, whatever kind of room its brief files it under', () => {
+        const toilet = fixture({ name: 'latrine', role: 'storage', width: 0.8, height: 0.9, place: { corner: 'bottom-left' } });
+        const head: RoomFloor = { ...HALL, key: 'head', purpose: 'storage', furnish: 'purpose', fixtures: [toilet], rect: { x: 0, y: 0, w: 4, h: 4 } };
+        expect(furnishRoom(head, TEST_ROLES, seededRandom(1)).stamps).toHaveLength(1);
+        // A store of the same size is dressed as one.
+        expect(furnishRoom({ ...head, key: 'store' }, TEST_ROLES, seededRandom(1)).stamps.length).toBeGreaterThan(1);
+    });
+});
+
 describe('a purpose’s rug', () => {
     it('lies in an open middle, never under one of the room’s named pieces', () => {
         const office: RoomFloor = { ...HALL, key: 'office', purpose: 'office', furnish: 'purpose', fixtures: [] };

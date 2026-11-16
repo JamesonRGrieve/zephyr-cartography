@@ -339,6 +339,13 @@ describe('roleIndex purposes', () => {
         }
     });
 
+    it('keeps a laundry bin where people sleep or in a store, never out in a mess or a hall', () => {
+        const index = roleIndex(stamps([stampDef('laundry', { role: 'clutter', tags: ['laundry', 'bin'] })]), []);
+        expect(index.get('clutter')?.[0]?.purposes).toEqual(expect.arrayContaining(['bedroom', 'storage']));
+        expect(index.get('clutter')?.[0]?.purposes).not.toContain('mess');
+        expect(index.get('clutter')?.[0]?.purposes).not.toContain('hall');
+    });
+
     it('keeps a war room’s holotable to a command deck, never a bunk room’s little table', () => {
         const index = roleIndex(
             stamps([

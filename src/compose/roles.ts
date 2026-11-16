@@ -153,6 +153,9 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // A salvage bin of scrap is a store's, a workshop's or a works', never strewn four to a family's living room (the Mora
     // residence, render goal112).
     salvage: ['storage', 'workshop', 'factory'],
+    // A laundry bin heaped with linen is where people sleep or its store, never the middle of a mess, a hold or a council's
+    // corridor (Solenne review renders goal111-112).
+    laundry: ['bedroom', 'barracks', 'cell', 'storage'],
     throne: ['command', 'chapel'],
     // Fish hung to dry is a kitchen's, never strewn as a shelf through a wizard's laboratory.
     fish: ['kitchen'],

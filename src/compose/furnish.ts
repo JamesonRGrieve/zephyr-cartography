@@ -296,6 +296,9 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
     ],
 };
 
+/** Room keys naming a washroom. */
+const WASHROOM = /(^|-)(head|bath|bathroom|washroom|latrine|privy|lavatory|toilet)(-|$)/u;
+
 /** Squares kept clear inside a door: its width plus a margin either side, and how deep. */
 export const DOOR_CLEAR = { margin: 0.25, depth: 1.5 } as const;
 
@@ -1381,7 +1384,11 @@ export function furnishRoom(
     // What the room's own named pieces placed, by role: the purpose adds only what they leave wanting.
     const roleByKey = new Map([...given.values()].flat().map((st) => [st.key, st.role] as const));
     const namedRoles = floor.placed.flatMap((p) => roleByKey.get(p.stamp) ?? []);
-    for (const templateStep of room.furnish === 'fixtures' ? [] : ROOM_TEMPLATES[room.purpose]) {
+    // A washroom whose fittings are named (a head, a bath, a latrine) is those fittings: no purpose dresses it, whatever kind
+    // of room its brief files it under (Solenne review renders goal111-112, 2026-11-16: heads filed as stores took bookcases,
+    // ammo crates and parts shelves).
+    const namedWashroom = WASHROOM.test(room.key) && (room.fixtures ?? []).length > 0;
+    for (const templateStep of room.furnish === 'fixtures' || namedWashroom ? [] : ROOM_TEMPLATES[room.purpose]) {
         const step = lessNamed(templateStep, namedRoles);
         if (step === null) {
             continue;
