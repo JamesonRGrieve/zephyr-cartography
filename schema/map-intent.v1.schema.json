@@ -3984,7 +3984,7 @@
                     },
                     "roofPieces": {
                         "default": [],
-                        "description": "Named pieces its roofs carry (vent stacks, conduit housings, cooling fans, access hatches): one to three to a block.",
+                        "description": "Named pieces its roofs carry (vent stacks, conduit housings, cooling fans, access hatches): one to three to a small block, more on a larger roof.",
                         "type": "array",
                         "items": {
                             "type": "object",
