@@ -36,6 +36,25 @@ describe('platformFeatures', () => {
         expect(stair?.type === 'stamp' ? [stair.x, stair.y] : []).toEqual([10 - (flight?.height ?? 0) / 2, 4 + 0.5 + (flight?.width ?? 0) / 2]);
     });
 
+    it('climbs by the least flight loaded, whatever the seed, never a long stair run out across the floor', () => {
+        const flight = TEST_ROLES.get('stairs')?.find((s) => s.key === 'test:stairs');
+        if (!flight) {
+            throw new Error('test stairs');
+        }
+        const long = { ...flight, key: 'test:long-stair', width: flight.width, height: flight.height * 4 };
+        const stamps: RoleIndex = new Map<StampRole, readonly RoleStamp[]>([...TEST_ROLES, ['stairs', [long, ...(TEST_ROLES.get('stairs') ?? [])]]]);
+        const drawn = [1, 2, 3, 4, 5, 6].map((seed) => {
+            const { features } = platformFeatures([platformOf({ rect: { x: 10, y: 4, w: 8, h: 3 }, stair: { side: 'left', at: 0.5 } })], {
+                stamps,
+                random: seededRandom(seed),
+                ...LEVELS,
+            });
+            const stair = features.find((f) => f.type === 'stamp');
+            return stair?.type === 'stamp' ? stair.stamp : undefined;
+        });
+        expect(drawn.includes('test:long-stair')).toBe(false);
+    });
+
     it('turns its stair to climb onto whichever side it stands against', () => {
         const turns = (['bottom', 'left', 'top', 'right'] as const).map((side) => {
             const stair = compose(platformOf({ rect: { x: 10, y: 10, w: 6, h: 6 }, stair: { side, at: 1 } })).features.find((f) => f.type === 'stamp');

@@ -9,7 +9,7 @@
 import { type DoorSlot, type Rect, roomSpec, type Side } from '../generate/floor-plan';
 import type { Random } from '../generate/random';
 import type { SceneSpecInput } from '../generate/spec';
-import { flightFor } from './access';
+import { flightFor, narrowestFlight } from './access';
 import type { PlatformIntent } from './intent';
 import { standingAt } from './named';
 import type { ComposeProblem } from './problems';
@@ -59,7 +59,9 @@ function stairUp(
     },
 ): StairUp {
     const { stamps, random, ground, below, wantedIn } = context;
-    const { stair, problems } = flightFor('stairs', stamps, random, { wantedIn, below });
+    // The least flight of its kind: a catwalk is climbed by a short steel flight, never a long stone stair run out across the
+    // floor beneath it (Solenne review, 2026-11-16: one drawn at random ran nine squares over the processing hall's floor).
+    const { stair, problems } = narrowestFlight(flightFor('stairs', stamps, random, { wantedIn, below }), stamps);
     if (!stair) {
         return { ...NO_STAIR, problems };
     }
