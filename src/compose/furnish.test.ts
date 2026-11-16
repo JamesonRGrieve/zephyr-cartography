@@ -1049,6 +1049,17 @@ describe('a passage', () => {
         expect(drawn).toContain('test:sconce');
         expect(drawn).not.toContain('test:fire-barrel');
     });
+
+    it('keeps its lamps where none is shallow enough to hang on a wall, rather than go unlit', () => {
+        const lamp = TEST_ROLES.get('light')?.[0];
+        if (!lamp) {
+            throw new Error('test light');
+        }
+        const brazier = { ...lamp, key: 'test:brazier', width: 1, height: 1 };
+        const roles = new Map([...TEST_ROLES, ['light' as const, [brazier]]]);
+        const corridor: RoomFloor = { ...HALL, key: 'corridor', purpose: 'hall', furnish: 'purpose', fixtures: [], rect: { x: 0, y: 0, w: 16, h: 2 } };
+        expect(furnishRoom(corridor, roles, seededRandom(1)).stamps.map((s) => s.stamp)).toContain('test:brazier');
+    });
 });
 
 describe('a washroom', () => {

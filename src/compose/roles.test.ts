@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { type CatalogStamp, loadPacks } from '../stamps/catalog';
-import { drawnAs, groundFree, partsOf, roleIndex, soundFirst } from './roles';
+import { drawnAs, groundFree, partsOf, roleIndex, soundFirst, withoutFactions } from './roles';
 
 function stamps(defs: readonly object[], referenceGridSize = 100): readonly CatalogStamp[] {
     const packs = loadPacks([{ moduleId: 'pack', manifest: { schemaVersion: 1, id: 'pack', name: 'Pack', referenceGridSize, stamps: defs } }]);
@@ -52,6 +52,38 @@ describe('a stamp drawn side-on by default', () => {
             [],
         );
         expect(index.get('storage')?.[0]?.variant).toBeUndefined();
+    });
+
+    it('takes a wrecked picture seen from above where its default is itself wrecked, side-on', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('cache', {
+                    role: 'storage',
+                    perspective: 'front',
+                    variants: [
+                        { state: 'burnt wrecked crates', image: 'stamps/a.png', width: 100, height: 100 },
+                        { state: 'cratered burnt cache', image: 'stamps/b.png', width: 100, height: 100, perspective: 'top-down' },
+                    ],
+                }),
+            ]),
+            [],
+        );
+        expect(index.get('storage')?.[0]?.variant).toBe(1);
+    });
+});
+
+describe('partsOf and withoutFactions', () => {
+    // A map naming the orcish faction, so its art is in the index to be kept apart.
+    const index = roleIndex(stamps([stampDef('crate', { role: 'storage', tags: ['crate', 'setting-grimdark-orcish'] })]), ['setting-grimdark-orcish']);
+
+    it('finds no parts for a role the index holds no art of', () => {
+        expect(partsOf(index, 'altar')).toEqual([]);
+    });
+
+    it('leaves the index as it is when no faction is kept apart, and drops a named faction’s art', () => {
+        expect(index.get('storage')?.map((s) => s.key)).toEqual(['pack:crate']);
+        expect(withoutFactions(index, [])).toBe(index);
+        expect(withoutFactions(index, ['setting-grimdark-orcish']).get('storage')).toEqual([]);
     });
 });
 
