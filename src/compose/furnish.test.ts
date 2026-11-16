@@ -718,6 +718,12 @@ describe('variety', () => {
                 .map((p) => p.stamp),
         );
         expect(seats.size).toBe(1);
+        // Many of a role are spread over its kinds, the least used drawn first: no kind twice before every kind once.
+        for (let seed = 1; seed <= 10; seed++) {
+            const placed = furnishRoom({ ...medicae, rect: { x: 0, y: 0, w: 16, h: 10 } }, roles, seededRandom(seed)).stamps;
+            const counts = ['test:gurney', 'test:monitor', 'test:drip'].map((k) => placed.filter((p) => p.stamp === k).length);
+            expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+        }
     });
 });
 

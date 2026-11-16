@@ -1361,11 +1361,21 @@ export function furnishRoom(
             return () => first;
         }
         // Never the same kind twice running where the room has another: three butcher's blocks in a row along a kitchen's
-        // walls read as one picture repeated (library refresh render goal93, 2026-11-14). One draw a piece, as before.
+        // walls read as one picture repeated (library refresh render goal93, 2026-11-14). And the least used first: four
+        // tipped trash cans strewn round one living room (the Mora residence, Solenne review render goal113, 2026-11-16).
+        // One draw a piece, as before.
         let last: RoleStamp | undefined;
+        const used = new Map<RoleStamp, number>();
         return () => {
             const others = all.filter((s) => s !== last);
-            last = pick(random, others.length > 0 ? others : all) ?? first;
+            const pool = others.length > 0 ? others : all;
+            const least = Math.min(...pool.map((s) => used.get(s) ?? 0));
+            last =
+                pick(
+                    random,
+                    pool.filter((s) => (used.get(s) ?? 0) === least),
+                ) ?? first;
+            used.set(last, (used.get(last) ?? 0) + 1);
             return last;
         };
     };
