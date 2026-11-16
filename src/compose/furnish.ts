@@ -1305,7 +1305,7 @@ export function furnishRoom(
 ): { stamps: ComposedStamp[]; missing: StampRole[]; borrowed: StampRole[]; boxed: string[]; crowded: string[] } {
     const stamps = withStandIns(forPurpose(given, room.purpose));
     // Named pieces draw from `byName`: what the intent asks for by name stands whatever this room may strew (a faction's art),
-    // and in its own role's art even where all of it belongs to other rooms (an enginseer's workbench in his cell).
+    // and in its own role's art even where all of it belongs to other rooms.
     const nameable = withStandIns(forPurpose(byName, room.purpose, false));
     const floor = new Floor(room, [...doorApproaches(room), ...reserved]);
     // The room's named pieces first, each where asked: in its role's art where a pack draws it, else a box with its name;
@@ -1318,7 +1318,12 @@ export function furnishRoom(
         const from = floor.stood.length;
         // Art asked for by its tags is what the intent named, whatever room its tags would keep it to.
         const piece = namedArt(fixture, fixture.tags.length > 0 ? byName : nameable);
-        const stood = piece === undefined ? 0 : placeFixture(floor, fixture, piece, named, random);
+        const tried = piece === undefined ? 0 : placeFixture(floor, fixture, piece, named, random);
+        // Where the art this room's purpose keeps fills nothing asked (a bedroom's only workbench art the prep tables no
+        // other room claims, none two squares long), any art of its role before a box: an enginseer's bench in his cell
+        // (pilgrim hauler, judged 2026-11-16).
+        const fallback = tried === 0 && fixture.tags.length === 0 ? namedArt(fixture, withStandIns(byName)) : undefined;
+        const stood = fallback === undefined || fallback === piece ? tried : placeFixture(floor, fixture, fallback, named, random);
         // Art that stands nowhere it is asked (isometric, it cannot turn to a side wall) gives way to its box.
         const boxes = stood === 0 ? placeFixture(floor, fixture, namedBox(fixture), named, random) : 0;
         if (stood === 0 && boxes > 0) {
