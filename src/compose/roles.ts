@@ -147,6 +147,9 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     containment: ['storage', 'medicae', 'interrogation'],
     augmetic: ['workshop', 'medicae', 'storage'],
     troop: ['barracks', 'mess', 'command'],
+    // Effluent's green stain is a works' or a store's floor, never a wash-house's or a home's: strewn as grime it read as moss
+    // (the laundromat's hall, Solenne review render goal112, 2026-11-16; twice before on the corpse-paste maps).
+    effluent: ['factory', 'storage'],
     throne: ['command', 'chapel'],
     // Fish hung to dry is a kitchen's, never strewn as a shelf through a wizard's laboratory.
     fish: ['kitchen'],
