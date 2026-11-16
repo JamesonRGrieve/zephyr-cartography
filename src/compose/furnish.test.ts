@@ -1029,6 +1029,16 @@ describe('rooms furnished by purpose', () => {
     });
 });
 
+describe('a purpose’s rug', () => {
+    it('lies in an open middle, never under one of the room’s named pieces', () => {
+        const office: RoomFloor = { ...HALL, key: 'office', purpose: 'office', furnish: 'purpose', fixtures: [] };
+        const rugs = (room: RoomFloor): number => furnishRoom(room, TEST_ROLES, seededRandom(1)).stamps.filter((p) => roleOf(p) === 'rug').length;
+        expect(rugs(office)).toBe(1);
+        const desk = fixture({ name: 'pupil’s desk', role: 'desk', width: 1, height: 0.6, place: { at: { x: 0.5, y: 0.5 } } });
+        expect(rugs({ ...office, fixtures: [desk] })).toBe(0);
+    });
+});
+
 describe('a large room', () => {
     it('takes its ranged counts in proportion to its floor, never fewer than a small room’s and at most three times', () => {
         expect(areaScale({ x: 0, y: 0, w: 4, h: 3 })).toBe(1);
