@@ -325,10 +325,11 @@ describe('roleIndex purposes', () => {
                 stampDef('augmetic', { role: 'shelf', tags: ['augmetic', 'parts', 'shelf'] }),
                 stampDef('troop', { role: 'bench', tags: ['troop', 'seat', 'bench'] }),
                 stampDef('effluent', { role: 'decal', tags: ['effluent', 'stain'] }),
+                stampDef('salvage', { role: 'clutter', tags: ['salvage', 'bin'] }),
             ]),
             [],
         );
-        for (const role of ['storage', 'shelf', 'bench', 'decal'] as const) {
+        for (const role of ['storage', 'shelf', 'bench', 'decal', 'clutter'] as const) {
             for (const stamp of index.get(role) ?? []) {
                 expect(stamp.purposes.length).toBeGreaterThan(0);
                 expect(stamp.purposes).not.toContain('bedroom');
