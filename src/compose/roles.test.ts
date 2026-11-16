@@ -340,6 +340,11 @@ describe('roleIndex purposes', () => {
         }
     });
 
+    it('lets stained-glass light fall only in a chapel or a shrine', () => {
+        const index = roleIndex(stamps([stampDef('light', { role: 'decal', tags: ['coloured', 'light', 'smear'] })]), []);
+        expect(index.get('decal')?.[0]?.purposes).toEqual(['shrine', 'chapel']);
+    });
+
     it('keeps a laundry bin where people sleep or in a store, never out in a mess or a hall', () => {
         const index = roleIndex(stamps([stampDef('laundry', { role: 'clutter', tags: ['laundry', 'bin'] })]), []);
         expect(index.get('clutter')?.[0]?.purposes).toEqual(expect.arrayContaining(['bedroom', 'storage']));

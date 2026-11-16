@@ -152,6 +152,9 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     effluent: ['factory', 'storage'],
     // Coolant's green pool likewise: a works' floor under its machines, never a wash-house's (render goal113, the laundromat).
     coolant: ['factory', 'workshop', 'storage'],
+    // Light through stained glass falls in a chapel or a shrine, never as a coloured smear strewn on a hab's floor (an audit of
+    // the decals strewn as grime, 2026-11-16).
+    coloured: ['chapel', 'shrine'],
     // A salvage bin of scrap is a store's, a workshop's or a works', never strewn four to a family's living room (the Mora
     // residence, render goal112).
     salvage: ['storage', 'workshop', 'factory'],
