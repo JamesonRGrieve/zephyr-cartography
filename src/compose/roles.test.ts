@@ -364,6 +364,7 @@ describe('roleIndex purposes', () => {
                 stampDef('effluent', { role: 'decal', tags: ['effluent', 'stain'] }),
                 stampDef('coolant', { role: 'decal', tags: ['coolant', 'stain'] }),
                 stampDef('salvage', { role: 'clutter', tags: ['salvage', 'bin'] }),
+                stampDef('ammo', { role: 'storage', tags: ['ammo', 'crate'] }),
             ]),
             [],
         );

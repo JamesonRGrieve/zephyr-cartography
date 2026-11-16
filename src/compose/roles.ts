@@ -140,6 +140,8 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     contraband: ['storage'],
     smuggler: ['storage'],
     munitions: ['armoury', 'storage', 'barracks'],
+    // Ammunition likewise: a scholam's classroom stacked green ammo crates in its corner (review preview 2026-11-16).
+    ammo: ['armoury', 'storage', 'barracks', 'command'],
     weapon: ['armoury', 'barracks', 'command', 'storage'],
     weapons: ['armoury', 'barracks', 'command', 'storage'],
     razor: ['armoury', 'storage'],
