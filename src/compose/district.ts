@@ -267,6 +267,15 @@ function frontagePieces(
 const ROOF = { pieces: [1, 3], margin: 0.8 } as const;
 
 /**
+ * Squares of roof each of `ROOF.pieces` is written for; a larger roof takes proportionally more, up to `ROOF_SCALE_MAX`
+ * times, and tries several spots for each (Solenne review render goal109, 2026-11-16: the spire courtyard's blocks, eight
+ * squares across, read as empty walled boxes where the prompt asks for "a patchwork of vents, conduit housings").
+ */
+const ROOF_AREA_NOMINAL = 16;
+const ROOF_SCALE_MAX = 4;
+const ROOF_TRIES = 6;
+
+/**
  * What stands on a block's roof: a few of the district's roof pieces, each
  * inside the roof clear of its edge, of its courtyard (`court`) and of one
  * another, turned square at random. In its art where a pack draws it, else
@@ -297,8 +306,9 @@ function roofPieces(
     const features: FeatureInput[] = [];
     const boxed: string[] = [];
     const taken: Rect[] = court === null ? [] : [grown(court, ROOF.margin / 2)];
-    const count = district.roofPieces.length === 0 ? 0 : randomInt(random, ROOF.pieces[0], ROOF.pieces[1]);
-    for (let n = 0; n < count; n++) {
+    const scale = Math.min(ROOF_SCALE_MAX, Math.max(1, (roof.w * roof.h) / ROOF_AREA_NOMINAL));
+    const count = district.roofPieces.length === 0 ? 0 : Math.round(randomInt(random, ROOF.pieces[0], ROOF.pieces[1]) * scale);
+    for (let n = 0, tries = 0; n < count && tries < count * ROOF_TRIES; tries++) {
         const choice = district.roofPieces[randomInt(random, 0, district.roofPieces.length - 1)];
         if (choice === undefined) {
             break;
@@ -313,6 +323,7 @@ function roofPieces(
             continue;
         }
         taken.push(at);
+        n += 1;
         if (art === undefined) {
             boxed.push(choice.name);
         }

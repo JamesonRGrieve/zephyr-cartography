@@ -225,4 +225,17 @@ describe('districts', () => {
         const onStreet = stamps.filter((f) => f.stamp.includes('utility cabinet'));
         expect(onStreet.some((f) => blocks.some((b) => f.x > b.x && f.x < b.x + b.w && f.y > b.y && f.y < b.y + b.h))).toBe(false);
     });
+
+    it('crowds a large roof with more pieces than a small one carries, never a big block bare but for one vent', () => {
+        const { features } = districtFeatures(
+            district({ roofPieces: [{ name: 'vent stack', tags: [], width: 0.8, height: 0.8 }] }),
+            TEST_ROLES,
+            seededRandom(2),
+            {},
+        );
+        const vents = features.flatMap((f) => (f.type === 'stamp' && f.stamp.includes('vent stack') ? [f] : []));
+        const perRoof = rooms(features).map((b) => vents.filter((v) => v.x > b.x && v.x < b.x + b.w && v.y > b.y && v.y < b.y + b.h).length);
+        // A roof once took one to three pieces whatever its size.
+        expect(Math.max(...perRoof)).toBeGreaterThan(3);
+    });
 });
