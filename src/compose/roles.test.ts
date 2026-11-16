@@ -338,8 +338,14 @@ describe('roleIndex purposes', () => {
     });
 
     it('keeps a war room’s holotable to a command deck, never a bunk room’s little table', () => {
-        const index = roleIndex(stamps([stampDef('holo', { role: 'table', tags: ['war', 'room', 'holographic', 'table'] })]), []);
-        expect(index.get('table')?.[0]?.purposes).toEqual(['command']);
+        const index = roleIndex(
+            stamps([
+                stampDef('holo', { role: 'table', tags: ['war', 'room', 'holographic', 'table'] }),
+                stampDef('hololith', { role: 'table', tags: ['hololith', 'table'] }),
+            ]),
+            [],
+        );
+        expect(index.get('table')?.map((s) => s.purposes)).toEqual([['command'], ['command']]);
     });
 });
 

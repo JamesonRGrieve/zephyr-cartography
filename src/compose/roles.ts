@@ -121,6 +121,10 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // A war room's holotable, two squares across, is a command deck's, never a hab bedroom's little table (Solenne review
     // render goal109, 2026-11-16: one filled Jorl's bunk room).
     holographic: ['command'],
+    // A hololith or holo-table is the same war room's, never a shuttle cabin's or a guest's table (goal109: one filled the
+    // Vigil Ledger's cabin).
+    hololith: ['command'],
+    holo: ['command'],
     // A machinist's bench, vise and all, is a workshop's, a factory's, an armoury's or a store's: never a home kitchen's work
     // surface (Solenne review render goal109: four stood round the Mora family's kitchen-diner). Kitchens work at prep tables.
     workbench: ['workshop', 'factory', 'armoury', 'storage'],
