@@ -12,6 +12,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test as base, expect, type JSHandle, type Page } from '@playwright/test';
+import { parseFeatures, type Feature } from '../../../src/tools/feature';
+import { decodeFeatures } from '../../../src/tools/features-file';
 
 const PORT_BASE = Number(process.env['FOUNDRY_TEST_PORT'] ?? 30101);
 const MODULE_ID = 'zephyr-cartography';
@@ -167,6 +169,23 @@ export async function freshScene(page: Page, sceneTitle: string, size: SceneSize
         // eslint-disable-next-line no-await-in-loop -- mouse moves are sequential by nature
         await page.mouse.move(at.x, at.y);
     }
+}
+
+/**
+ * The viewed scene's features as saved: read from the file its marker names, as a client fetches them, else (a scene
+ * saved before files) from its flag; validated as the module reads them.
+ */
+export async function savedFeatures(page: Page): Promise<Feature[]> {
+    const saved = await page.evaluate(async () => {
+        const scene = canvas?.scene;
+        const marker = scene?.getFlag('zephyr-cartography', 'featuresFile');
+        if (marker) {
+            const response = await fetch(`${marker.path}?rev=${String(marker.rev)}`, { cache: 'no-store' });
+            return { file: await response.text(), flag: null };
+        }
+        return { file: null, flag: scene?.getFlag('zephyr-cartography', 'features') ?? null };
+    });
+    return saved.file === null ? parseFeatures(saved.flag) : decodeFeatures(saved.file) ?? [];
 }
 
 /** Viewport points the pointer sweeps across a fresh scene. */

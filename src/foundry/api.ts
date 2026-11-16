@@ -16,6 +16,7 @@ import type { CatalogStamp } from '../stamps/catalog';
 import { parseSun } from '../tools/sun';
 import { buildOnScene, type ComposeOutcome, composeOnScene } from './build-spec';
 import { terrainImagesLoading } from './pixi-surface';
+import { migrateFeatureFlags } from './scene-store';
 import { SUN_FLAG } from './shadow-layer';
 import { spawnInto, type SpawnResult } from './spawner';
 import { exportViewedLevel, type UvttExportOptions } from './uvtt-export';
@@ -56,6 +57,13 @@ interface CartographyApi {
      * to give it.
      */
     readonly exportUvtt: (options?: UvttExportOptions) => Promise<Uvtt | null>;
+    /**
+     * Move every world scene that still keeps its features in its flag (one
+     * saved before features had files of their own, or imported since) into
+     * its own file, as the active GM does at startup. Only the active GM, who
+     * may write files, moves any; returns how many scenes moved.
+     */
+    readonly migrateFeatures: () => Promise<number>;
     /**
      * Stand a scene's sun (the viewed scene's, else `sceneId`'s), which its
      * drop shadows fall away from: `{ azimuth, elevation }` in degrees, the
@@ -121,6 +129,7 @@ export function registerApi(controller: () => CartographyController | null, stam
         },
         terrainImagesLoading,
         exportUvtt: async (options = {}) => exportViewedLevel(options),
+        migrateFeatures: migrateFeatureFlags,
         setSun: async (sun, sceneId) => {
             const scene = sceneId === undefined ? canvas?.scene : game.scenes?.get(sceneId);
             const user = game.user;

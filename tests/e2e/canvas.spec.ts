@@ -5,7 +5,7 @@
  * its full width. Each is measured where the scene records it and kept as a
  * screenshot of the real canvas.
  */
-import { expect, frameScene, test } from './lib/foundry';
+import { expect, frameScene, savedFeatures, test } from './lib/foundry';
 import { dragScene, drawShape, holdView, MODULE_ID, type Point, tuckPanels, useTool } from './lib/pointer';
 
 test('a painted stroke is a round brush’s swath: its ground reaches a brush radius past both ends, no wider', async ({ world }) => {
@@ -97,16 +97,85 @@ test('features saved to the scene by another writer are drawn: another client, o
             return terrain instanceof PIXI.Container ? terrain.children.length : -1;
         });
     await expect.poll(fills).toBe(1);
-    // Saved straight to the scene, as a writer other than this canvas's controller would: a second stroke.
-    await world.evaluate(async () => {
-        const scene = canvas?.scene;
-        const first = scene?.getFlag('zephyr-cartography', 'features')[0];
-        if (!scene || !first) {
-            throw new Error('one feature saved');
-        }
-        await scene.setFlag('zephyr-cartography', 'features', [first, { ...first, id: 'written-elsewhere' }]);
-    });
+    // Saved as a writer other than this canvas's controller would: a file of its own with a second stroke, and the
+    // scene's marker moved on to it.
+    const [first] = await savedFeatures(world);
+    if (!first) {
+        throw new Error('one feature saved');
+    }
+    await world.evaluate(
+        async (features) => {
+            const scene = canvas?.scene;
+            const marker = scene?.getFlag('zephyr-cartography', 'featuresFile');
+            if (!scene || !marker) {
+                throw new Error('the features saved to a file');
+            }
+            const folder = marker.path.slice(0, marker.path.lastIndexOf('/'));
+            const file = new File([JSON.stringify(features)], 'written-elsewhere.json', { type: 'application/json' });
+            await foundry.applications.apps.FilePicker.implementation.upload('data', folder, file, {}, { notify: false });
+            await scene.setFlag('zephyr-cartography', 'featuresFile', { path: `${folder}/written-elsewhere.json`, rev: marker.rev + 1 });
+        },
+        [first, { ...first, id: 'written-elsewhere' }],
+    );
     await expect.poll(fills).toBe(2);
+});
+
+test('features are saved to a file of the scene’s own, never into the scene, so no client downloads them with the world', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [{ type: 'stroke', biome: 'forest', radius: 2, points: [{ x: 5, y: 5 }] }],
+        });
+    });
+    const flags = await world.evaluate(() => {
+        const scene = canvas?.scene;
+        const marker = scene?.getFlag('zephyr-cartography', 'featuresFile');
+        return {
+            id: scene?.id ?? null,
+            inScene: scene?.getFlag('zephyr-cartography', 'features') ?? null,
+            path: marker === undefined ? null : marker.path,
+        };
+    });
+    expect(flags.inScene).toBeNull();
+    expect(flags.path).toBe(`worlds/${await world.evaluate(() => game.world?.id ?? '')}/zephyr-cartography/features-${flags.id ?? ''}.json`);
+    expect((await savedFeatures(world)).map((f) => f.type)).toEqual(['stroke']);
+});
+
+test('a scene saved before files is drawn from its flag, then moved into a file of its own with nothing lost', async ({ world }) => {
+    await world.evaluate(async () => {
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
+            schemaVersion: 1,
+            features: [
+                { type: 'stroke', biome: 'forest', radius: 2, points: [{ x: 5, y: 5 }] },
+                { type: 'pin', x: 8, y: 4, text: 'Old well' },
+            ],
+        });
+    });
+    const saved = await savedFeatures(world);
+    // The scene as saved before files: its features in its flag, and no marker.
+    await world.evaluate(async (features) => {
+        const scene = canvas?.scene;
+        await scene?.unsetFlag('zephyr-cartography', 'featuresFile');
+        await scene?.setFlag('zephyr-cartography', 'features', features);
+        await canvas?.draw();
+    }, saved);
+    const ids = saved.map((f) => f.id);
+    const drawn = async (): Promise<number> =>
+        world.evaluate((wanted) => {
+            const controller = game.modules?.get('zephyr-cartography').api.controller();
+            return controller ? wanted.filter((id) => controller.getFeature(id) !== null).length : -1;
+        }, ids);
+    await expect.poll(drawn).toBe(2);
+    const moved = await world.evaluate(async () => game.modules?.get('zephyr-cartography').api.migrateFeatures());
+    expect(moved).toBeGreaterThanOrEqual(1);
+    const flags = await world.evaluate(() => ({
+        inScene: canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? null,
+        marked: canvas?.scene?.getFlag('zephyr-cartography', 'featuresFile') !== undefined,
+    }));
+    expect(flags).toEqual({ inScene: null, marked: true });
+    expect(await savedFeatures(world)).toEqual(saved);
+    // Moved once: run again, nothing moves.
+    expect(await world.evaluate(async () => game.modules?.get('zephyr-cartography').api.migrateFeatures())).toBe(0);
 });
 
 test('painted ground lies beneath the stamps placed on it, as a map background does', async ({ world }) => {

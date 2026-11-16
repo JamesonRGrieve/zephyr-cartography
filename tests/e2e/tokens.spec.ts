@@ -7,7 +7,7 @@
  * system's Actor type is not one fvtt-types knows, so actors and the
  * compendium are made from plain script.
  */
-import { expect, test } from './lib/foundry';
+import { expect, savedFeatures, test } from './lib/foundry';
 
 /** Every token on the scene, as the assertions read it. */
 interface PlacedToken {
@@ -84,9 +84,7 @@ test('a spec’s tokens are Tokens of world and compendium actors, the compendiu
 
     // Deleted by hand: its feature goes too.
     await world.evaluate(`canvas.scene.tokens.find((t) => t.name === 'Ogre chief').delete()`);
-    await expect
-        .poll(async () => world.evaluate<number>(`canvas.scene.getFlag('zephyr-cartography', 'features').filter((f) => f.type === 'token').length`))
-        .toBe(2);
+    await expect.poll(async () => (await savedFeatures(world)).filter((f) => f.type === 'token').length).toBe(2);
 });
 
 test('a spec’s token whose actor is not in the world is reported by index and actor, and nothing is placed for it', async ({ world }) => {

@@ -14,29 +14,12 @@ import { parseSplatLayers, type SplatLayer } from '../tools/splat';
 import type { FoundryScene } from './boundary';
 import { firstCreatedId } from './created-id';
 import { localize } from './localize';
+import { worldFolder, writeWorldFile } from './world-files';
 
 const SPLAT_FLAG = 'splats';
 
 /** A tile anchored at its centre. */
 const CENTRE = 0.5;
-
-/** The world's folder for the module's files. */
-function worldFolder(): string {
-    return `worlds/${game.world?.id ?? 'world'}/${MODULE_ID}`;
-}
-
-/** Make the module's world folder once per session; it already existing is fine. */
-let folderReady: Promise<void> | null = null;
-async function ensureFolder(): Promise<void> {
-    folderReady ??= (async (): Promise<void> => {
-        try {
-            await foundry.applications.apps.FilePicker.implementation.createDirectory('data', worldFolder());
-        } catch {
-            // The folder is there already: Foundry refuses to make it twice.
-        }
-    })();
-    await folderReady;
-}
 
 /** An 8-bit RGBA or RGB PNG as pixels, or null when it cannot be fetched or decoded. */
 async function readImage(path: string): Promise<RgbaImage | null> {
@@ -50,9 +33,7 @@ async function readImage(path: string): Promise<RgbaImage | null> {
 
 /** Save `png` to `path`, a file in the module's world folder. */
 async function upload(path: string, png: Uint8Array<ArrayBuffer>): Promise<void> {
-    await ensureFolder();
-    const file = new File([png], path.slice(path.lastIndexOf('/') + 1), { type: 'image/png' });
-    await foundry.applications.apps.FilePicker.implementation.upload('data', worldFolder(), file, {}, { notify: false });
+    await writeWorldFile(path.slice(path.lastIndexOf('/') + 1), png, 'image/png');
 }
 
 /** A baked Tile's `sort`: beneath the tiles Foundry places at its default 0. */

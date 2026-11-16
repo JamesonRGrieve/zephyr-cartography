@@ -147,7 +147,23 @@ for (const { key, intent: source } of listed) {
         mkdirSync(out, { recursive: true });
         writeFileSync(join(out, `${key}.problems.json`), `${JSON.stringify(problems, null, 2)}\n`);
         // The scene as composed, before anything is changed to draw it: its grid, darkness and lights as they are.
-        const sceneData = await world.evaluate(() => canvas?.scene?.toObject() ?? null);
+        // Self-contained: the features its file holds go back into its flag, as scenes were saved before files, and the
+        // marker naming a file in this test world goes; a world importing it reads them there and moves them into a
+        // file of its own.
+        const sceneData = await world.evaluate(async () => {
+            const scene = canvas?.scene;
+            if (!scene) {
+                return null;
+            }
+            const data = scene.toObject();
+            const marker = scene.getFlag('zephyr-cartography', 'featuresFile');
+            if (marker) {
+                const text = await (await fetch(`${marker.path}?rev=${String(marker.rev)}`, { cache: 'no-store' })).text();
+                foundry.utils.setProperty(data, 'flags.zephyr-cartography.features', JSON.parse(text));
+                foundry.utils.deleteProperty(data, 'flags.zephyr-cartography.featuresFile');
+            }
+            return data;
+        });
 
         // Full daylight and no grid while drawing: the exported lights light it in the VTT. A roofed room keeps the day out
         // with a darkness region, so those are switched off for the picture too (and back on after), and the token layer

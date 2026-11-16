@@ -37,7 +37,7 @@ import { registerPinRuntime } from './foundry/pin-runtime';
 import { createPixiSurface } from './foundry/pixi-surface';
 import { followNoteReveals, registerReadableNote } from './foundry/readable-note';
 import { activeScene, modifyBatch } from './foundry/scene-bridge';
-import { FoundrySceneStore } from './foundry/scene-store';
+import { FoundrySceneStore, migrateFeatureFlags, prefetchFeatures } from './foundry/scene-store';
 import { createWorldScenes } from './foundry/scenes';
 import { DROP_SHADOWS_SETTING, followShadows, redrawShadows } from './foundry/shadow-layer';
 import { createSilhouetteSource } from './foundry/silhouette';
@@ -55,6 +55,7 @@ import { I18N } from './i18n';
 import { MODULE_ID } from './module-id';
 import type { BiomeKind } from './tools/biome';
 import type { Feature } from './tools/feature';
+import { FEATURES_FILE_FLAG } from './tools/features-file';
 import { WALL_BAND_SQUARES } from './tools/materials';
 import { FLAG_KEY } from './tools/path';
 import { type ControlOverlay, handleFromDrag, type HandleSide, type PathControl, type PathKey, pathKey } from './tools/pen';
@@ -876,15 +877,36 @@ function setupDrawLayer(): void {
     });
 }
 
+// The viewed scene's features are fetched from their file before the layer is built on them; a canvas viewing
+// another scene by the time they arrive builds for that one instead. The last scene's layer goes at once, so nothing
+// edits it while they are on their way.
 Hooks.on('canvasReady', () => {
-    setupDrawLayer();
+    teardown();
+    const viewing = canvas?.scene?.id ?? null;
+    void (async (): Promise<void> => {
+        await prefetchFeatures(activeScene());
+        if (canvas?.ready === true && (canvas.scene?.id ?? null) === viewing) {
+            setupDrawLayer();
+        }
+    })();
 });
 
-// Features saved by another writer are drawn: another client, or a controller the canvas replaced mid-build.
+// Features saved by another writer are drawn: another client, or a controller the canvas replaced mid-build. A save
+// moves the scene's marker (or, before files, rewrites its flag); the file it names is fetched first.
 Hooks.on('updateScene', (scene, changed) => {
-    if (scene.id === canvas?.scene?.id && foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${FLAG_KEY}`)) {
-        state?.controller.reloadIfChanged();
+    const saved = [FEATURES_FILE_FLAG, FLAG_KEY].some((key) => foundry.utils.hasProperty(changed, `flags.${MODULE_ID}.${key}`));
+    if (scene.id === canvas?.scene?.id && saved) {
+        void (async (): Promise<void> => {
+            await prefetchFeatures(activeScene());
+            state?.controller.reloadIfChanged();
+        })();
     }
+});
+
+// Scenes saved before features had files of their own are moved into them once, by the active GM, so no client
+// downloads them with the world again.
+Hooks.once('ready', () => {
+    void migrateFeatureFlags();
 });
 
 const TERRAIN_REGIONS_SETTING = 'terrainRegions';

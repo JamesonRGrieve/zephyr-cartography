@@ -436,7 +436,8 @@
             "PackInvalid": "Stamp pack {module} failed validation ({count} issues); see the console.",
             "PackFetchFailed": "Stamp pack {module} could not be loaded: {message}",
             "NoScene": "There is no active scene to place a stamp on.",
-            "NoArmedStamp": "Select a stamp in the stamp browser first."
+            "NoArmedStamp": "Select a stamp in the stamp browser first.",
+            "FeaturesUnreadable": "The map features of scene {scene} could not be read from {path}, so they cannot be edited until it can; nothing has been changed."
         },
         "Biomes": {
             "Water": "Water",

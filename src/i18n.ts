@@ -419,6 +419,7 @@ export const I18N = {
         packFetchFailed: key('Notifications.PackFetchFailed'),
         noScene: key('Notifications.NoScene'),
         noArmedStamp: key('Notifications.NoArmedStamp'),
+        featuresUnreadable: key('Notifications.FeaturesUnreadable'),
     },
 } as const;
 

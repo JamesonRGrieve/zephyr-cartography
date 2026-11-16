@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { expect, frameScene, test } from './lib/foundry';
+import { expect, frameScene, savedFeatures, test } from './lib/foundry';
 
 test('what the GM edits reaches Foundry: draw order, a room’s materials, a crate’s state, a level’s band, an empty level removed', async ({ world }) => {
-    const result = await world.evaluate(async () => {
+    const ids = await world.evaluate(async () => {
         const api = game.modules?.get('zephyr-cartography').api;
         const square = (x: number): { x: number; y: number }[] => [
             { x, y: 2 },
@@ -24,49 +24,62 @@ test('what the GM edits reaches Foundry: draw order, a room’s materials, a cra
                 { type: 'stamp', stamp: 'zc-e2e-pack:crate', x: 8, y: 8, level: 'g' },
             ],
         });
-        const controller = api?.controller();
-        if (built?.ok !== true || !controller) {
+        if (built?.ok !== true) {
             return null;
         }
-        const [sand, forest, room, crate] = built.report.features;
-        const order = (): string[] => (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).map((f) => f.id);
-        await controller.toFront(sand ?? '');
-        const fronted = order();
-        await controller.lower(sand ?? '');
-        const lowered = order();
-        await controller.toBack(sand ?? '');
-        await controller.raise(sand ?? '');
-        const raised = order();
-        const materials = await controller.setRoomMaterials(room ?? '', { floor: 'stone', wall: null, wallKind: 'solid', ceiling: false });
+        const [sand = '', forest = '', room = '', crate = ''] = built.report.features;
+        return { sand, forest, room, crate };
+    });
+    if (!ids) {
+        throw new Error('spec not built');
+    }
+    // Each move as the GM makes it, then the order saved, as a client reads it from the scene's features file.
+    const moved = async (...moves: ('toFront' | 'lower' | 'toBack' | 'raise')[]): Promise<string[]> => {
+        await world.evaluate(
+            async ({ id, steps }) => {
+                const controller = game.modules?.get('zephyr-cartography').api.controller();
+                for (const step of steps) {
+                    // eslint-disable-next-line no-await-in-loop -- each move is made on the order the last one left
+                    await controller?.[step](id);
+                }
+            },
+            { id: ids.sand, steps: moves },
+        );
+        return (await savedFeatures(world)).map((f) => f.id);
+    };
+    const fronted = await moved('toFront');
+    const lowered = await moved('lower');
+    const raised = await moved('toBack', 'raise');
+    const result = await world.evaluate(async ({ room, crate }) => {
+        const controller = game.modules?.get('zephyr-cartography').api.controller();
+        if (!controller) {
+            return null;
+        }
+        const materials = await controller.setRoomMaterials(room, { floor: 'stone', wall: null, wallKind: 'solid', ceiling: false });
         const tileBefore = canvas?.scene?.tiles.contents[0]?.texture.src;
-        await controller.cycleStampVariant(crate ?? '');
+        await controller.cycleStampVariant(crate);
         const tileAfter = canvas?.scene?.tiles.contents[0]?.texture.src;
         const loft = canvas?.scene?.levels.contents.find((l) => l.name === 'Loft');
         const empty = canvas?.scene?.levels.contents.find((l) => l.name === 'Empty');
         const banded = await controller.setLevelBand(loft?.id ?? '', 40, 60);
         const removed = await controller.removeLevel(empty?.id ?? '');
         return {
-            ids: { sand, forest, room, crate },
-            fronted,
-            lowered,
-            raised,
             materials,
-            floor: controller.getFeature(room ?? '')?.type === 'room',
+            floor: controller.getFeature(room)?.type === 'room',
             tileChanged: tileBefore !== tileAfter,
             banded,
             loftBand: canvas?.scene?.levels.contents.find((l) => l.name === 'Loft')?.elevation.bottom,
             removed,
             emptyGone: !(canvas?.scene?.levels.contents ?? []).some((l) => l.name === 'Empty'),
         };
-    });
+    }, ids);
     if (!result) {
-        throw new Error('spec not built');
+        throw new Error('no controller');
     }
-    const { ids } = result;
-    expect(result.fronted).toEqual([ids.forest, ids.room, ids.crate, ids.sand]);
-    expect(result.lowered).toEqual([ids.forest, ids.room, ids.sand, ids.crate]);
+    expect(fronted).toEqual([ids.forest, ids.room, ids.crate, ids.sand]);
+    expect(lowered).toEqual([ids.forest, ids.room, ids.sand, ids.crate]);
     // To the back, then one step up: second.
-    expect(result.raised).toEqual([ids.forest, ids.sand, ids.room, ids.crate]);
+    expect(raised).toEqual([ids.forest, ids.sand, ids.room, ids.crate]);
     expect(result.materials).toBe(true);
     expect(result.floor).toBe(true);
     // The crate shows its next state: smashed.
@@ -767,17 +780,18 @@ test('a building’s name is hidden from players until the GM reveals it on the 
             ],
         });
     });
-    const state = async (): Promise<unknown> =>
-        world.evaluate(() => {
-            const note = canvas?.scene?.notes.contents.find((n) => n.text === 'The Antler Inn');
-            const stamp = (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).find((f) => f.type === 'stamp' && f.reads === 'The Antler Inn');
+    const state = async (): Promise<unknown> => {
+        const stamp = (await savedFeatures(world)).find((f) => f.type === 'stamp' && f.reads === 'The Antler Inn');
+        const note = await world.evaluate(() => {
+            const found = canvas?.scene?.notes.contents.find((n) => n.text === 'The Antler Inn');
             return {
-                hidden: note ? foundry.utils.getProperty(note.flags, 'zephyr-cartography.hidden') : null,
+                hidden: found ? foundry.utils.getProperty(found.flags, 'zephyr-cartography.hidden') : null,
                 // The GM always sees it, to find it and reveal it.
-                gmSees: note?.object?.isVisible,
-                recorded: stamp?.type === 'stamp' ? stamp.readsHidden : null,
+                gmSees: found?.object?.isVisible,
             };
         });
+        return { ...note, recorded: stamp?.type === 'stamp' ? stamp.readsHidden : null };
+    };
     await expect.poll(state).toEqual({ hidden: true, gmSees: true, recorded: true });
     // The Note sheet carries the box, checked, and submits it with the sheet.
     const box = async (): Promise<boolean | null> =>
@@ -812,18 +826,19 @@ test('a pin hidden from players is revealed and hidden again from its Note, a cl
             ],
         });
     });
-    const state = async (): Promise<unknown> =>
-        world.evaluate(() => {
-            const note = canvas?.scene?.notes.contents.find((n) => n.text === 'The smugglers’ cache');
-            const pin = (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).find((f) => f.type === 'pin');
+    const state = async (): Promise<unknown> => {
+        const pin = (await savedFeatures(world)).find((f) => f.type === 'pin');
+        const note = await world.evaluate(() => {
+            const found = canvas?.scene?.notes.contents.find((n) => n.text === 'The smugglers’ cache');
             return {
-                hidden: note ? foundry.utils.getProperty(note.flags, 'zephyr-cartography.hidden') ?? null : 'no note',
+                hidden: found ? foundry.utils.getProperty(found.flags, 'zephyr-cartography.hidden') ?? null : 'no note',
                 // A hidden pin that is no sign keeps its icon: only its mark is set, and its spot is sized as asked.
-                readable: note ? foundry.utils.getProperty(note.flags, 'zephyr-cartography.readable') ?? null : 'no note',
-                sized: (note?.iconSize ?? 0) > 0,
-                recorded: pin?.type === 'pin' ? pin.hidden : null,
+                readable: found ? foundry.utils.getProperty(found.flags, 'zephyr-cartography.readable') ?? null : 'no note',
+                sized: (found?.iconSize ?? 0) > 0,
             };
         });
+        return { ...note, recorded: pin?.type === 'pin' ? pin.hidden : null };
+    };
     await expect.poll(state).toEqual({ hidden: true, readable: null, sized: true, recorded: true });
     const pinNote = async (act: 'reveal' | 'hide' | 'clear' | 'retext' | 'other-mark'): Promise<void> =>
         world.evaluate(async (how) => {

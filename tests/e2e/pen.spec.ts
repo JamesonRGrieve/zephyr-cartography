@@ -7,7 +7,7 @@
  * with Delete, widths and handles kept one per point throughout.
  */
 import type { Page } from '@playwright/test';
-import { expect, test } from './lib/foundry';
+import { expect, savedFeatures, test } from './lib/foundry';
 import { clickScene, dragScene, holdView, type Point, useTool } from './lib/pointer';
 
 interface DrawnPath {
@@ -22,10 +22,8 @@ const rounded = (p: Point | null): Point | null => (p === null ? null : { x: Mat
 
 /** Every road and river on the scene, as the controller holds them, rounded. */
 async function paths(page: Page): Promise<DrawnPath[]> {
-    const drawn = await page.evaluate(() =>
-        (canvas?.scene?.getFlag('zephyr-cartography', 'features') ?? []).flatMap((feature) =>
-            feature.type === 'path' ? [{ id: feature.id, points: feature.points, handles: feature.handles, halfWidths: feature.halfWidths }] : [],
-        ),
+    const drawn = (await savedFeatures(page)).flatMap((feature) =>
+        feature.type === 'path' ? [{ id: feature.id, points: feature.points, handles: feature.handles, halfWidths: feature.halfWidths }] : [],
     );
     return drawn.map((path) => ({
         ...path,

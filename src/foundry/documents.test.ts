@@ -70,6 +70,7 @@ function scene(present: readonly string[], id: string | null = 'sc'): FoundrySce
         levels: { contents: [], size: 0 },
         getFlag: () => null,
         setFlag: unused,
+        unsetFlag: unused,
         createEmbeddedDocuments: unused,
         updateEmbeddedDocuments: unused,
         deleteEmbeddedDocuments: unused,

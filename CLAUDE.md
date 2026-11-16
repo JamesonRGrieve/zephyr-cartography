@@ -190,9 +190,33 @@ Layering (inner → outer; enforced by dependency-cruiser):
   scope, settings namespace, served path). Every localisation key lives only in
   `src/i18n.ts`; `i18n.test.ts` asserts it matches `src/static/lang/en.json`
   exactly (no missing, no unused keys). `src/static/` is copied into `dist/`.
-- **Persistence:** features live on the scene as the `zephyr-cartography.features`
-  flag. Parsing is **defensive and total** — parsers validate shape and drop
-  malformed entries, never throw; new fields are optional with defaults.
+- **Persistence:** a scene's features live in a JSON file of their own,
+  `worlds/<world>/zephyr-cartography/features-<scene id>.json`, and the scene
+  carries only a marker (`zephyr-cartography.featuresFile`: the file's path
+  and revision; operator decision, 2026-11-16, wh40k#739: in the scene flag,
+  every client downloaded every scene's features with the world, 12 MB over
+  84 scenes).
+  - **Reading.** A client fetches the viewed scene's file on `canvasReady`
+    before the draw layer is built (`prefetchFeatures`), and holds it, so
+    `SceneStore.load` stays synchronous. The last scene's layer is torn down
+    at once, so nothing edits it meanwhile. A fetch replaces what a client
+    holds only with a newer revision: its own save is held before its marker
+    lands, so a redraw in between never brings back older features.
+  - **Saving.** The active GM (any user who may upload files) writes the
+    file, then moves the marker, which every other client's `updateScene`
+    hook follows by fetching the file. The file is always named for the
+    scene itself, so a duplicated scene reads its original's file but saves
+    its own.
+  - **Unreadable files.** A file that cannot be read is never saved over: the
+    scene shows what its flag still holds, and saving throws (the
+    transaction rolls back) with a notification.
+  - **Before files.** A scene saved before files keeps its features in the
+    `features` flag. It is read from there until it is next saved, or until
+    the active GM migrates it: at `ready`, and through the API's
+    `migrateFeatures` (for scenes imported since).
+  - **Parsing.** It is **defensive and total**: parsers validate shape and drop
+    malformed entries, and never throw. New fields are optional with
+    defaults.
 
 ---
 
