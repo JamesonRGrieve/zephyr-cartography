@@ -36,6 +36,23 @@ describe('a stamp drawn side-on by default', () => {
         );
         expect(index.get('storage')?.[0]?.variant).toBe(2);
     });
+
+    it('stays in its whole default picture where its only pictures seen from above are wrecked', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('cache', {
+                    role: 'storage',
+                    perspective: 'front',
+                    variants: [
+                        { state: 'opened cache shells', image: 'stamps/a.png', width: 100, height: 100 },
+                        { state: 'cratered burnt cache', image: 'stamps/b.png', width: 100, height: 100, perspective: 'top-down' },
+                    ],
+                }),
+            ]),
+            [],
+        );
+        expect(index.get('storage')?.[0]?.variant).toBeUndefined();
+    });
 });
 
 describe('roleIndex for a chart', () => {

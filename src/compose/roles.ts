@@ -356,6 +356,26 @@ export const drawnAs = (art: RoleStamp): { readonly stamp: string; readonly vari
 /** Words of a variant's state showing its piece wrecked. */
 const WRECKED_STATE = /\b(burnt|burned|cratered|destroyed|ruined|broken|wrecked|smashed|toppled|collapsed|shattered)\b/u;
 
+/**
+ * The variant `stamp` is drawn in: its default, unless that one is drawn side-on and another looks down on the piece, then
+ * that one, which turns. A whole picture before a wrecked one (a ship's hold drew a Munitions Cache's "cratered burnt cache",
+ * the first of its pictures seen from above; Solenne review render goal115, 2026-11-16); and where every picture seen from
+ * above is wrecked and the default is whole, the whole default as drawn (that cache's only plan views are cratered).
+ */
+function plannedVariant(stamp: CatalogStamp): number {
+    const planOf = (whole: boolean): number => stamp.variants.findIndex((v) => seenFromAbove(stamp, v) && (!whole || !WRECKED_STATE.test(v.state)));
+    const defaultSeen = stamp.variants[stamp.defaultVariant];
+    if (defaultSeen === undefined || seenFromAbove(stamp, defaultSeen)) {
+        return stamp.defaultVariant;
+    }
+    const firstWhole = planOf(true);
+    if (firstWhole >= 0) {
+        return firstWhole;
+    }
+    const wrecked = WRECKED_STATE.test(defaultSeen.state) ? planOf(false) : -1;
+    return wrecked >= 0 ? wrecked : stamp.defaultVariant;
+}
+
 /** Tags of art showing its piece wrecked (a ruined well, a collapsed span): a ruin's art. */
 const WRECKED_TAGS: readonly string[] = ['ruined', 'ruin', 'broken', 'destroyed', 'collapsed', 'wrecked', 'abandoned'];
 
@@ -447,13 +467,7 @@ export function roleIndex(stamps: readonly CatalogStamp[], settings: readonly st
     // A run's gates and corners, kept out of every list, carried by the run pieces of their kind.
     const apart: RoleStamp[] = [];
     for (const stamp of stamps) {
-        // Its default variant, unless that one is drawn side-on and another looks down on the piece: then that one, which turns.
-        // A whole picture before a wrecked one (a ship's hold drew a Munitions Cache's "cratered burnt cache", the first of its
-        // pictures seen from above; Solenne review render goal115, 2026-11-16).
-        const planOf = (whole: boolean): number => stamp.variants.findIndex((v) => seenFromAbove(stamp, v) && (!whole || !WRECKED_STATE.test(v.state)));
-        const plan = planOf(true) >= 0 ? planOf(true) : planOf(false);
-        const defaultSeen = stamp.variants[stamp.defaultVariant];
-        const chosen = defaultSeen !== undefined && !seenFromAbove(stamp, defaultSeen) && plan >= 0 ? plan : stamp.defaultVariant;
+        const chosen = plannedVariant(stamp);
         const drawn = groundFree(stamp.variants, chosen);
         const variant = stamp.variants[drawn];
         const role = composedRole(stamp, mapScale);
