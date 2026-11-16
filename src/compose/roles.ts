@@ -129,6 +129,20 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     test: ['medicae', 'interrogation'],
     // A council's presiding chair is a command room's or a chapel's, never a hab's spare seat.
     presiding: ['command', 'chapel'],
+    // The Solenne review's scan of every render (goal109): an enforcer's stasis evidence locker in hab units, smugglers'
+    // caches and contraband in offices and on a ship's quarterdeck, munitions and weapon cases in a bar and an archive,
+    // augmetic parts on a family's shelves and troop seats in a living room. Each is kept to the rooms that hold it.
+    evidence: ['storage', 'office', 'interrogation', 'command'],
+    contraband: ['storage'],
+    smuggler: ['storage'],
+    munitions: ['armoury', 'storage', 'barracks'],
+    weapon: ['armoury', 'barracks', 'command', 'storage'],
+    weapons: ['armoury', 'barracks', 'command', 'storage'],
+    razor: ['armoury', 'storage'],
+    kennel: ['storage'],
+    containment: ['storage', 'medicae', 'interrogation'],
+    augmetic: ['workshop', 'medicae', 'storage'],
+    troop: ['barracks', 'mess', 'command'],
     throne: ['command', 'chapel'],
     // Fish hung to dry is a kitchen's, never strewn as a shelf through a wizard's laboratory.
     fish: ['kitchen'],

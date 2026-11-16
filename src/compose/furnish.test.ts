@@ -1081,6 +1081,17 @@ describe('stand-ins', () => {
         // A workshop still works at its own bench.
         const shop = furnishRoom({ ...office, key: 'shop', purpose: 'workshop' }, roles, seededRandom(1)).stamps.map((s) => s.stamp);
         expect(shop).toContain('test:vise-bench');
+        // And a bench named in a kitchen is that bench.
+        const asked = fixture({
+            name: 'enginseer’s workbench',
+            role: 'workbench',
+            width: 2,
+            height: 0.8,
+            place: { wall: 'top', along: 'middle', standoff: 0 },
+        });
+        const named = furnishRoom({ ...kitchen, furnish: 'fixtures', fixtures: [asked] }, roles, seededRandom(1));
+        expect(named.stamps.map((s) => s.stamp)).toContain('test:vise-bench');
+        expect(named.boxed).toEqual([]);
     });
 });
 

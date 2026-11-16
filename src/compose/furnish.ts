@@ -1281,8 +1281,8 @@ function withStandIns(stamps: RoleIndex): RoleIndex {
  * stand-in, which then serves (a grim kitchen works at a long steel table,
  * never a machinist's vise bench).
  */
-function forPurpose(stamps: RoleIndex, purpose: RoomPurpose): RoleIndex {
-    const hasStandIn = (role: StampRole): boolean => STAND_INS.some(([own]) => own === role);
+function forPurpose(stamps: RoleIndex, purpose: RoomPurpose, standIns = true): RoleIndex {
+    const hasStandIn = (role: StampRole): boolean => standIns && STAND_INS.some(([own]) => own === role);
     return new Map(
         [...stamps].map(([role, list]) => {
             const fit = list.filter((s) => s.purposes.length === 0 || s.purposes.includes(purpose));
@@ -1304,8 +1304,9 @@ export function furnishRoom(
     byName: RoleIndex = given,
 ): { stamps: ComposedStamp[]; missing: StampRole[]; borrowed: StampRole[]; boxed: string[]; crowded: string[] } {
     const stamps = withStandIns(forPurpose(given, room.purpose));
-    // Named pieces draw from `byName`: what the intent asks for by name stands whatever this room may strew (a faction's art).
-    const nameable = byName === given ? stamps : withStandIns(forPurpose(byName, room.purpose));
+    // Named pieces draw from `byName`: what the intent asks for by name stands whatever this room may strew (a faction's art),
+    // and in its own role's art even where all of it belongs to other rooms (an enginseer's workbench in his cell).
+    const nameable = withStandIns(forPurpose(byName, room.purpose, false));
     const floor = new Floor(room, [...doorApproaches(room), ...reserved]);
     // The room's named pieces first, each where asked: in its role's art where a pack draws it, else a box with its name;
     // those with no room even for their box are left off, and said so.
