@@ -18,6 +18,26 @@ const stampDef = (id: string, over: object): object => ({
     ...over,
 });
 
+describe('a stamp drawn side-on by default', () => {
+    it('is drawn in its first whole picture seen from above, never a wrecked one first', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('cache', {
+                    role: 'storage',
+                    perspective: 'front',
+                    variants: [
+                        { state: 'crates side-on', image: 'stamps/a.png', width: 100, height: 100 },
+                        { state: 'cratered burnt cache', image: 'stamps/b.png', width: 100, height: 100, perspective: 'top-down' },
+                        { state: 'sealed ammo crates', image: 'stamps/c.png', width: 100, height: 100, perspective: 'top-down' },
+                    ],
+                }),
+            ]),
+            [],
+        );
+        expect(index.get('storage')?.[0]?.variant).toBe(2);
+    });
+});
+
 describe('roleIndex for a chart', () => {
     it('offers a regional map its regional art as named fittings, and none of a battlemap’s', () => {
         const pack = stamps([
