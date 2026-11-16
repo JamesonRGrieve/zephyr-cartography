@@ -517,15 +517,32 @@ function doorApproaches(room: RoomFloor): Box[] {
     return room.doors.map((door) => doorApproach(room.rect, door));
 }
 
-/** How many a step asks for in `rect`: a fixed number, a seeded pick between bounds, as many as its walls' length calls for, or effectively unbounded. */
-function howMany(count: Count, random: Random, rect: Rect): number {
+/**
+ * The floor, in squares, a purpose's ranged counts are written for: a room this size takes them as written, a larger one
+ * proportionally more, up to `ROOM_AREA_SCALE_MAX` times (Solenne review render goal109, 2026-11-16: a twelve-by-nine
+ * living room and a hundred-square office held the same few pieces as a six-by-four bedroom, round bare middles).
+ */
+const ROOM_AREA_NOMINAL = 24;
+const ROOM_AREA_SCALE_MAX = 3;
+
+/** How much more a ranged count asks for in `rect` than in a room of the nominal floor. */
+export function areaScale(rect: Rect): number {
+    return Math.min(ROOM_AREA_SCALE_MAX, Math.max(1, (rect.w * rect.h) / ROOM_AREA_NOMINAL));
+}
+
+/** How many a step asks for in `rect`: a fixed number, a seeded pick between bounds (scaled by its floor), as many as its walls' length calls for, or effectively unbounded. */
+function howMany(count: Count, random: Random, rect: Rect, scaled = true): number {
     if (count === 'fill') {
         return Number.POSITIVE_INFINITY;
     }
     if (typeof count === 'number') {
         return count;
     }
-    return 'per' in count ? Math.max(1, Math.round((2 * (rect.w + rect.h)) / count.per)) : randomInt(random, count[0], count[1]);
+    if ('per' in count) {
+        return Math.max(1, Math.round((2 * (rect.w + rect.h)) / count.per));
+    }
+    const scale = scaled ? areaScale(rect) : 1;
+    return randomInt(random, Math.round(count[0] * scale), Math.round(count[1] * scale));
 }
 
 /** A wall's extent: the room's width for the top and bottom walls, its height for the sides. */
@@ -908,7 +925,9 @@ function placeClusters(floor: Floor, step: Extract<Step, { kind: 'cluster' }>, g
     const rows = Math.floor((region.h + WALKWAY) / (bh + WALKWAY));
     const spareX = region.w - (cols * bw + (cols - 1) * WALKWAY);
     const spareY = region.h - (rows * bh + (rows - 1) * WALKWAY);
-    let wanted = howMany(step.count, random, floor.room.rect);
+    // Tables are counted as written: a room's floor already bounds them, and a long table's step scaled to a great room's
+    // floor would leave none for the round ones seated after it.
+    let wanted = howMany(step.count, random, floor.room.rect, false);
     let placed = 0;
     const placeOne = (cell: Box): boolean => {
         // Tables stand a little off their rows, as a room's are left, never ruled into a grid; true to the row where the

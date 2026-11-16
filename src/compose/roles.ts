@@ -118,6 +118,9 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // A table spread with maps is a war room's, and a throne a commander's or a chapel's: never a taproom's tables and stools,
     // nor a lobby's seats (a hall is a reception or a corridor as often as a lord's; a great hall names its throne).
     map: ['command'],
+    // A war room's holotable, two squares across, is a command deck's, never a hab bedroom's little table (Solenne review
+    // render goal109, 2026-11-16: one filled Jorl's bunk room).
+    holographic: ['command'],
     throne: ['command', 'chapel'],
     // Fish hung to dry is a kitchen's, never strewn as a shelf through a wizard's laboratory.
     fish: ['kitchen'],

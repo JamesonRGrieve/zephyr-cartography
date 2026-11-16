@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { seededRandom } from '../generate/random';
 import type { StampRole } from '../stamps/schema';
-import { type ComposedStamp, doubleBeds, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
+import { areaScale, type ComposedStamp, doubleBeds, furnishRoom, ROOM_TEMPLATES, type RoomFloor } from './furnish';
 import { type FixtureIntent, ROOM_PURPOSES } from './intent';
 import { withPlaceholders } from './placeholders';
 import { carrying, type RoleIndex, type RoleStamp } from './roles';
@@ -1026,6 +1026,22 @@ describe('rooms furnished by purpose', () => {
         const roles = new Map([...TEST_ROLES, ['bed' as const, [cot]]]);
         const asked = fixture({ name: 'watchman’s cot', role: 'bed', tags: ['cot'], width: 1.2, height: 2, place: { at: { x: 0.5, y: 0.4 } } });
         expect(furnishRoom({ ...store, fixtures: [asked] }, roles, seededRandom(1)).stamps.some((s) => s.stamp === 'test:cot')).toBe(true);
+    });
+});
+
+describe('a large room', () => {
+    it('takes its ranged counts in proportion to its floor, never fewer than a small room’s and at most three times', () => {
+        expect(areaScale({ x: 0, y: 0, w: 4, h: 3 })).toBe(1);
+        expect(areaScale({ x: 0, y: 0, w: 12, h: 4 })).toBe(2);
+        expect(areaScale({ x: 0, y: 0, w: 20, h: 20 })).toBe(3);
+    });
+
+    it('fills a big workshop with more than a small one holds, rather than the same few pieces on a bare floor', () => {
+        const count = (w: number, h: number): number => {
+            const shop: RoomFloor = { ...HALL, key: 'shop', purpose: 'workshop', furnish: 'purpose', fixtures: [], rect: { x: 0, y: 0, w, h } };
+            return [1, 2, 3, 4, 5].reduce((sum, seed) => sum + furnishRoom(shop, TEST_ROLES, seededRandom(seed)).stamps.length, 0);
+        };
+        expect(count(12, 9)).toBeGreaterThan(count(6, 4) * 1.5);
     });
 });
 
