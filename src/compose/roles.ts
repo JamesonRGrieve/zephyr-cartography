@@ -121,6 +121,14 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // A war room's holotable, two squares across, is a command deck's, never a hab bedroom's little table (Solenne review
     // render goal109, 2026-11-16: one filled Jorl's bunk room).
     holographic: ['command'],
+    // A machinist's bench, vise and all, is a workshop's, a factory's, an armoury's or a store's: never a home kitchen's work
+    // surface (Solenne review render goal109: four stood round the Mora family's kitchen-diner). Kitchens work at prep tables.
+    workbench: ['workshop', 'factory', 'armoury', 'storage'],
+    // A reagent test kit or a rack of test tubes is a medicae's or an interrogator's, never strewn on a family's dining
+    // table (three lay about the Mora home; in this campaign the blood reagent is a story piece).
+    test: ['medicae', 'interrogation'],
+    // A council's presiding chair is a command room's or a chapel's, never a hab's spare seat.
+    presiding: ['command', 'chapel'],
     throne: ['command', 'chapel'],
     // Fish hung to dry is a kitchen's, never strewn as a shelf through a wizard's laboratory.
     fish: ['kitchen'],

@@ -1277,13 +1277,16 @@ function withStandIns(stamps: RoleIndex): RoleIndex {
 /**
  * `stamps` fit for a room of `purpose`: each role's pieces that name no
  * other kind of room (a guest room's bed, not a medicae bed or a cell's
- * bunk), or all of them when every one names another.
+ * bunk), or all of them when every one names another, unless the role has a
+ * stand-in, which then serves (a grim kitchen works at a long steel table,
+ * never a machinist's vise bench).
  */
 function forPurpose(stamps: RoleIndex, purpose: RoomPurpose): RoleIndex {
+    const hasStandIn = (role: StampRole): boolean => STAND_INS.some(([own]) => own === role);
     return new Map(
         [...stamps].map(([role, list]) => {
             const fit = list.filter((s) => s.purposes.length === 0 || s.purposes.includes(purpose));
-            return [role, fit.length > 0 ? fit : list];
+            return [role, fit.length > 0 || hasStandIn(role) ? fit : list];
         }),
     );
 }

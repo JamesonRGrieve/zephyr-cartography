@@ -302,6 +302,21 @@ describe('roleIndex purposes', () => {
         expect(index.get('seat')?.[0]?.purposes).toHaveLength(2);
     });
 
+    it('keeps a machinist’s bench, a reagent test kit and a presiding chair to their own rooms', () => {
+        const index = roleIndex(
+            stamps([
+                stampDef('vise', { role: 'workbench', tags: ['steel', 'workbench'] }),
+                stampDef('kit', { role: 'clutter', tags: ['reagent', 'test', 'kit'] }),
+                stampDef('presiding', { role: 'seat', tags: ['presiding', 'chair'] }),
+            ]),
+            [],
+        );
+        expect(index.get('workbench')?.[0]?.purposes).toEqual(expect.arrayContaining(['workshop', 'factory']));
+        expect(index.get('workbench')?.[0]?.purposes).not.toContain('kitchen');
+        expect(index.get('clutter')?.[0]?.purposes).toEqual(expect.arrayContaining(['medicae', 'interrogation']));
+        expect(index.get('seat')?.[0]?.purposes).toEqual(expect.arrayContaining(['command', 'chapel']));
+    });
+
     it('keeps a war room’s holotable to a command deck, never a bunk room’s little table', () => {
         const index = roleIndex(stamps([stampDef('holo', { role: 'table', tags: ['war', 'room', 'holographic', 'table'] })]), []);
         expect(index.get('table')?.[0]?.purposes).toEqual(['command']);

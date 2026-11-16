@@ -1066,6 +1066,22 @@ describe('stand-ins', () => {
         const drawn = furnishRoom(office, noDesks([round]), seededRandom(1)).stamps.map((s) => s.stamp);
         expect(drawn).toContain('test:round-table');
     });
+
+    it('works a kitchen at a long table where its only work surfaces are a workshop’s benches, never at a vise bench', () => {
+        const bench = TEST_ROLES.get('workbench')?.[0];
+        if (!bench) {
+            throw new Error('test workbench');
+        }
+        const vise = { ...bench, key: 'test:vise-bench', purposes: ['workshop' as const] };
+        const roles = new Map([...TEST_ROLES, ['workbench' as const, [vise]], ['table' as const, [long]]]);
+        const kitchen: RoomFloor = { ...office, key: 'kitchen', purpose: 'kitchen' };
+        const drawn = furnishRoom(kitchen, roles, seededRandom(1)).stamps.map((s) => s.stamp);
+        expect(drawn).not.toContain('test:vise-bench');
+        expect(drawn).toContain('test:long-table');
+        // A workshop still works at its own bench.
+        const shop = furnishRoom({ ...office, key: 'shop', purpose: 'workshop' }, roles, seededRandom(1)).stamps.map((s) => s.stamp);
+        expect(shop).toContain('test:vise-bench');
+    });
 });
 
 describe('named fixtures', () => {
