@@ -296,6 +296,25 @@ export const ROOM_TEMPLATES: Readonly<Record<RoomPurpose, readonly Step[]>> = {
     ],
 };
 
+/** Squares across under which a room is a passage: its lamps hang on its walls. */
+const NARROW_ROOM = 3;
+
+/** Squares deep a lamp hung on a wall is at most: a sconce or a lumen, never a fire barrel stood out from it. */
+const WALL_LAMP_DEPTH = 0.5;
+
+/**
+ * `stamps` fit for `rect`: in a passage narrower than `NARROW_ROOM`, lamps hung on its walls only, where it has any (a hostel's
+ * corridor drew a burning fire barrel in its walkway, Solenne review render goal115, 2026-11-16).
+ */
+function forNarrow(stamps: RoleIndex, rect: Rect): RoleIndex {
+    if (Math.min(rect.w, rect.h) >= NARROW_ROOM) {
+        return stamps;
+    }
+    const lamps = stamps.get('light') ?? [];
+    const hung = lamps.filter((s) => Math.min(s.width, s.height) <= WALL_LAMP_DEPTH);
+    return hung.length > 0 ? new Map([...stamps, ['light', hung]]) : stamps;
+}
+
 /** Room keys naming a washroom. */
 const WASHROOM = /(^|-)(head|bath|bathroom|washroom|latrine|privy|lavatory|toilet)(-|$)/u;
 
@@ -1310,7 +1329,7 @@ export function furnishRoom(
     reserved: readonly Box[] = [],
     byName: RoleIndex = given,
 ): { stamps: ComposedStamp[]; missing: StampRole[]; borrowed: StampRole[]; boxed: string[]; crowded: string[] } {
-    const stamps = withStandIns(forPurpose(given, room.purpose));
+    const stamps = forNarrow(withStandIns(forPurpose(given, room.purpose)), room.rect);
     // Named pieces draw from `byName`: what the intent asks for by name stands whatever this room may strew (a faction's art),
     // and in its own role's art even where all of it belongs to other rooms.
     const nameable = withStandIns(forPurpose(byName, room.purpose, false));

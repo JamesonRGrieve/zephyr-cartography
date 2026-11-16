@@ -1035,6 +1035,22 @@ describe('rooms furnished by purpose', () => {
     });
 });
 
+describe('a passage', () => {
+    it('is lit by lamps hung on its walls, never a fire barrel stood in its way', () => {
+        const lamp = TEST_ROLES.get('light')?.[0];
+        if (!lamp) {
+            throw new Error('test light');
+        }
+        const barrel = { ...lamp, key: 'test:fire-barrel', width: 1, height: 1 };
+        const sconce = { ...lamp, key: 'test:sconce', width: 0.6, height: 0.3 };
+        const roles = new Map([...TEST_ROLES, ['light' as const, [barrel, sconce]]]);
+        const corridor: RoomFloor = { ...HALL, key: 'corridor', purpose: 'hall', furnish: 'purpose', fixtures: [], rect: { x: 0, y: 0, w: 16, h: 2 } };
+        const drawn = furnishRoom(corridor, roles, seededRandom(1)).stamps.map((s) => s.stamp);
+        expect(drawn).toContain('test:sconce');
+        expect(drawn).not.toContain('test:fire-barrel');
+    });
+});
+
 describe('a washroom', () => {
     it('is its named fittings alone, whatever kind of room its brief files it under', () => {
         const toilet = fixture({ name: 'latrine', role: 'storage', width: 0.8, height: 0.9, place: { corner: 'bottom-left' } });
