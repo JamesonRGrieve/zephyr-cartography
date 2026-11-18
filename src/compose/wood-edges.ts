@@ -2,10 +2,12 @@
 /**
  * A wood's edge as line of sight sees it (operator, 2026-11-18, in play: "They can see the whole fucking map. Trees are
  * blocking visibility"): a wood hides what is in it and beyond it, never each trunk on its own. The crowns laid out of
- * doors are joined into woods; round each wood large enough to be one (a lone tree or two hides nothing) run two rings of
- * walls that limit sight and light and bar nothing: one on the canopy's edge and one a little inside it. Foundry's
- * limited walls let sight through one and stop it at the second, so a token sees into the first trees, never through
- * the wood. Glades inside a wood are ringed the same way. Nothing runs along the map's own edge. Pure and unit-tested.
+ * doors are joined into woods; round each wood large enough to be one (a lone tree or two hides nothing) run rings of
+ * walls that limit sight and light and bar nothing: one on the canopy's edge and more a step apart inside it, to its
+ * heart. Foundry's limited walls let sight through one and stop it at the second, so a token sees into the first
+ * trees, never through the wood, and one in the wood sees a step or two about it, never across it (2026-11-18: with
+ * two rings only, a token past the first saw across the whole wood). Glades inside a wood are ringed the same way.
+ * Nothing runs along the map's own edge. Pure and unit-tested.
  */
 import type { SceneSpecInput } from '../generate/spec';
 import type { Point } from '../geometry/spline';
@@ -24,8 +26,10 @@ export interface Crown {
 const CELLS = 2;
 /** Squares crowns may stand apart and still be one wood: the gap between two neighbours' leaves. */
 const JOIN = 0.35;
-/** Squares inside the canopy's edge the second ring runs: how far into a wood a token sees. */
+/** Squares between a wood's rings: how far into a wood a token sees, and how far about it inside. */
 const INSET = 1.5;
+/** Rings at most, edge included: a wood twenty squares deep is ringed to its heart, no deeper. */
+const MAX_RINGS = 8;
 /** Square squares a wood must cover to hide anything; a lone tree or a pair does not. */
 const MIN_WOOD = 12;
 /** Squares a traced edge may stray from the canopy, for walls a GM can still pick out. */
@@ -36,7 +40,7 @@ const ON_EDGE = 0.3;
 /** The walls a wood's edge carries: sight and light limited (one is seen through, two are not), the way open, sound carrying. */
 const FOLIAGE = { sight: 'limited', light: 'limited', movement: false } as const;
 
-/** The two rings of walls round every wood the crowns make on a map `width` by `height` squares, as walled lines. */
+/** The rings of walls round and through every wood the crowns make on a map `width` by `height` squares, as walled lines. */
 export function woodEdges(crowns: readonly Crown[], width: number, height: number, level: { readonly level?: string }): FeatureInput[] {
     if (crowns.length === 0) {
         return [];
@@ -54,27 +58,35 @@ export function woodEdges(crowns: readonly Crown[], width: number, height: numbe
             }
         }
     }
-    const inner = eroded(wood, cols, rows, Math.round(INSET * CELLS));
+    const depth = depths(wood, cols, rows);
+    const step = Math.round(INSET * CELLS);
     const at =
         (mask: Uint8Array) =>
         (p: Point): boolean =>
             mask[Math.floor(p.y * CELLS) * cols + Math.floor(p.x * CELLS)] === 1;
     const box = { x: 0, y: 0, w: cols / CELLS, h: rows / CELLS };
     const woods = traceShapes(at(wood), box, { cellsPerSquare: CELLS, tolerance: TOLERANCE, minArea: MIN_WOOD });
-    // The inner ring only inside the woods kept: an eroded lone tree is gone already, and a wood's glades keep theirs.
-    const cores = traceShapes(at(inner), box, { cellsPerSquare: CELLS, tolerance: TOLERANCE, minArea: 1 });
-    const loops = [...woods, ...cores].flatMap((shape) => [shape.outline, ...shape.holes]);
+    // The rings inside only within the woods kept (an eroded lone tree is gone already; a wood's glades keep theirs),
+    // each a step deeper, until the wood's heart.
+    const rings: ReturnType<typeof traceShapes> = [];
+    for (let ring = 1; ring < MAX_RINGS; ring++) {
+        const inner = deeperThan(depth, ring * step);
+        if (!inner.includes(1)) {
+            break;
+        }
+        rings.push(...traceShapes(at(inner), box, { cellsPerSquare: CELLS, tolerance: TOLERANCE, minArea: 1 }));
+    }
+    const loops = [...woods, ...rings].flatMap((shape) => [shape.outline, ...shape.holes]);
     return loops.flatMap((loop) => runsOffEdge(loop, width, height)).map((points) => edgeLine(points, level));
 }
 
 /**
- * `mask` shrunk by `by` cells on every side, as `by` passes of dropping each cell with one of its four neighbours outside
- * would leave it: the cells more than `by` steps (city-block) from any cell outside, found in two sweeps. Past the map's
- * edge the wood runs on as it meets it, so a wood cut by the edge keeps its inner ring off that edge.
+ * Each cell's steps (city-block) to the nearest cell outside `mask`, found in two sweeps: a wood's depth. Past the map's
+ * edge the wood runs on as it meets it, so a wood cut by the edge keeps its inner rings off that edge.
  */
-function eroded(mask: Uint8Array, cols: number, rows: number, by: number): Uint8Array {
+function depths(mask: Uint8Array, cols: number, rows: number): DataView {
     const far = cols + rows;
-    // A view's reads are numbers, never missing: each cell's steps to the nearest cell outside, 4 bytes a cell.
+    // A view's reads are numbers, never missing: 4 bytes a cell.
     const steps = new DataView(new ArrayBuffer(mask.length * 4));
     const stepsAt = (i: number): number => steps.getInt32(i * 4);
     for (let y = 0; y < rows; y++) {
@@ -83,14 +95,20 @@ function eroded(mask: Uint8Array, cols: number, rows: number, by: number): Uint8
             steps.setInt32(i * 4, mask[i] === 1 ? Math.min(far, x > 0 ? stepsAt(i - 1) + 1 : far, y > 0 ? stepsAt(i - cols) + 1 : far) : 0);
         }
     }
-    const inner = new Uint8Array(mask.length);
     for (let y = rows - 1; y >= 0; y--) {
         for (let x = cols - 1; x >= 0; x--) {
             const i = y * cols + x;
-            const here = Math.min(stepsAt(i), x < cols - 1 ? stepsAt(i + 1) + 1 : far, y < rows - 1 ? stepsAt(i + cols) + 1 : far);
-            steps.setInt32(i * 4, here);
-            inner[i] = here > by ? 1 : 0;
+            steps.setInt32(i * 4, Math.min(stepsAt(i), x < cols - 1 ? stepsAt(i + 1) + 1 : far, y < rows - 1 ? stepsAt(i + cols) + 1 : far));
         }
+    }
+    return steps;
+}
+
+/** The cells more than `by` steps into the wood: the wood shrunk by `by` cells on every side. */
+function deeperThan(depth: DataView, by: number): Uint8Array {
+    const inner = new Uint8Array(depth.byteLength / 4);
+    for (let i = 0; i < inner.length; i++) {
+        inner[i] = depth.getInt32(i * 4) > by ? 1 : 0;
     }
     return inner;
 }

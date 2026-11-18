@@ -20,10 +20,10 @@ function lines(crowns: readonly Crown[], width = 30, height = 30): Line[] {
 }
 
 describe('woodEdges', () => {
-    it('ring a wood twice with walls that limit sight and light and bar nothing, drawing nothing', () => {
+    it('ring a wood on its edge and a step apart to its heart, with walls that limit sight and light and bar nothing, drawing nothing', () => {
         const edges = lines(grove(8, 8, 8, 8));
-        // One ring on the canopy's edge and one inside it, each a closed run.
-        expect(edges).toHaveLength(2);
+        // The canopy's edge and the rings inside it, each a closed run, one inside the next.
+        expect(edges.length).toBeGreaterThanOrEqual(3);
         for (const edge of edges) {
             expect(edge).toMatchObject({
                 type: 'shape',
@@ -35,10 +35,14 @@ describe('woodEdges', () => {
             expect(edge.points.length).toBeGreaterThan(3);
         }
         const span = (edge: Line): number => Math.max(...edge.points.map((p) => p.x)) - Math.min(...edge.points.map((p) => p.x));
-        const [outer, inner] = edges.map(span).sort((a, b) => b - a);
-        // The outer ring runs on the canopy (crowns from 7 to 19.5, joined a little wider); the inner one well inside it.
-        expect(outer).toBeGreaterThan(12);
-        expect(inner).toBeLessThan((outer ?? 0) - 2.5);
+        const spans = edges.map(span).sort((a, b) => b - a);
+        // The outer ring runs on the canopy (crowns from 7 to 19.5, joined a little wider); each next one well inside it.
+        expect(spans[0]).toBeGreaterThan(12);
+        spans.slice(1).forEach((inner, i) => expect(inner).toBeLessThan((spans[i] ?? 0) - 2.5));
+    });
+
+    it('ring a wood deep enough no deeper than its heart, and no more rings than the most', () => {
+        expect(lines(grove(1, 1, 40, 40), 62, 62).length).toBeLessThanOrEqual(8);
     });
 
     it('leave a lone tree or a pair open, and nothing without crowns', () => {
