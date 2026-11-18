@@ -118,14 +118,14 @@ describe('encounter ground', () => {
 });
 
 describe('encounter maps', () => {
-    it('compose every landscape in every setting, every feature ticked, into a valid scene spec', () => {
-        const outcomes = ENCOUNTER_LANDSCAPES.flatMap((landscape) =>
-            ENCOUNTER_SETTINGS.map((setting) => {
-                const intent = parsed({ landscape, setting, road: 'crossroads', features: [...ENCOUNTER_FEATURES] });
-                return { landscape, setting, valid: parseSceneSpec(composeMap(intent, TEST_ROLES).spec).ok };
-            }),
-        );
-        expect(outcomes).toEqual(ENCOUNTER_LANDSCAPES.flatMap((landscape) => ENCOUNTER_SETTINGS.map((setting) => ({ landscape, setting, valid: true }))));
+    // One landscape a test, every setting and feature in it: the whole sweep in one test ran past its limit under the
+    // gate's load (2026-11-18: 30.8 s of 30).
+    it.each(ENCOUNTER_LANDSCAPES)('compose %s in every setting, every feature ticked, into a valid scene spec', (landscape) => {
+        const outcomes = ENCOUNTER_SETTINGS.map((setting) => {
+            const intent = parsed({ landscape, setting, road: 'crossroads', features: [...ENCOUNTER_FEATURES] });
+            return { setting, valid: parseSceneSpec(composeMap(intent, TEST_ROLES).spec).ok };
+        });
+        expect(outcomes).toEqual(ENCOUNTER_SETTINGS.map((setting) => ({ setting, valid: true })));
     });
 
     it('lays only what is ticked: no road, a road, or a crossroads; a river and a lake it runs out of', () => {

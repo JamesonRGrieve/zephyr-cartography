@@ -20,8 +20,8 @@ export interface Crown {
     readonly r: number;
 }
 
-/** Samples per square the woods are traced at. */
-const CELLS = 4;
+/** Samples per square the woods are traced at: half a square, as fine as a wall a token walks up to needs. */
+const CELLS = 2;
 /** Squares crowns may stand apart and still be one wood: the gap between two neighbours' leaves. */
 const JOIN = 0.35;
 /** Squares inside the canopy's edge the second ring runs: how far into a wood a token sees. */
@@ -68,23 +68,29 @@ export function woodEdges(crowns: readonly Crown[], width: number, height: numbe
 }
 
 /**
- * `mask` shrunk by `by` cells on every side: each pass drops a cell with any of its four neighbours outside. Past the
- * map's edge the wood runs on as it meets it, so a wood cut by the edge keeps its inner ring off that edge.
+ * `mask` shrunk by `by` cells on every side, as `by` passes of dropping each cell with one of its four neighbours outside
+ * would leave it: the cells more than `by` steps (city-block) from any cell outside, found in two sweeps. Past the map's
+ * edge the wood runs on as it meets it, so a wood cut by the edge keeps its inner ring off that edge.
  */
 function eroded(mask: Uint8Array, cols: number, rows: number, by: number): Uint8Array {
-    let current = mask;
-    for (let pass = 0; pass < by; pass++) {
-        const was = current;
-        const cell = (x: number, y: number): number => was[Math.min(rows - 1, Math.max(0, y)) * cols + Math.min(cols - 1, Math.max(0, x))] ?? 0;
-        const next = new Uint8Array(was.length);
-        for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
-                next[y * cols + x] = cell(x, y) && cell(x - 1, y) && cell(x + 1, y) && cell(x, y - 1) && cell(x, y + 1) ? 1 : 0;
-            }
+    const far = cols + rows;
+    const steps = new Int32Array(mask.length);
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            const i = y * cols + x;
+            steps[i] = mask[i] === 1 ? Math.min(far, x > 0 ? (steps[i - 1] ?? far) + 1 : far, y > 0 ? (steps[i - cols] ?? far) + 1 : far) : 0;
         }
-        current = next;
     }
-    return current;
+    const inner = new Uint8Array(mask.length);
+    for (let y = rows - 1; y >= 0; y--) {
+        for (let x = cols - 1; x >= 0; x--) {
+            const i = y * cols + x;
+            const here = Math.min(steps[i] ?? 0, x < cols - 1 ? (steps[i + 1] ?? far) + 1 : far, y < rows - 1 ? (steps[i + cols] ?? far) + 1 : far);
+            steps[i] = here;
+            inner[i] = here > by ? 1 : 0;
+        }
+    }
+    return inner;
 }
 
 /** A closed loop as the runs of it off the map's edge: a wood cut by the edge is walled where it meets open ground only. */
