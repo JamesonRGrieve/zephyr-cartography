@@ -78,6 +78,37 @@ describe('CartographyController', () => {
         expect(d.writes).toHaveLength(3);
     });
 
+    it('writes and saves a second edit made while the first is still saving, rather than joining it too late', async () => {
+        const { c, d, s } = make();
+        await drawRoom(c, [0, 100, 100, 0]);
+        const writes = d.writes.length;
+        // Hold the store's next save open, as a slow file upload does, and know when the first edit has reached it.
+        let release = (): void => undefined;
+        const held = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        let entered = (): void => undefined;
+        const saving = new Promise<void>((resolve) => {
+            entered = resolve;
+        });
+        const save = s.save.bind(s);
+        s.save = async (features) => {
+            entered();
+            await held;
+            await save(features);
+        };
+        const first = c.moveVertex('p1', 2, { x: 150, y: 150 });
+        // The first edit's work is done and its save under way: the second comes now.
+        await saving;
+        const second = c.moveVertex('p1', 3, { x: -50, y: 150 });
+        release();
+        await Promise.all([first, second]);
+        // Both edits written as transactions of their own, and the second saved, not left staged behind the first.
+        expect(d.writes).toHaveLength(writes + 2);
+        expect(s.last()[0]?.points[3]).toEqual({ x: -50, y: 150 });
+        expect(s.last()[0]?.points[2]).toEqual({ x: 150, y: 150 });
+    });
+
     it('rolls the features, the store and the undo history back when a write is rejected', async () => {
         const { c, d, s } = make();
         await drawRoom(c, [0, 100, 100]);

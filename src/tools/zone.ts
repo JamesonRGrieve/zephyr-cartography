@@ -124,6 +124,35 @@ export function withShapeSize(shape: ZoneShape, field: string, value: number): Z
     return validZoneShape(next) ? next : null;
 }
 
+/**
+ * A panel's edit, `next`, of the settings it last drew, `rendered`, laid over the zone as it stands now, `current`:
+ * edits made close together run one after another, and one built from a stale render would otherwise put back what
+ * the edit before it changed (a cone picked, then its radius typed, came back a circle; 2026-11-18 gate e2e). Each
+ * field the edit changed is taken; a change of shape kind takes its whole shape, and a change of sizes alone sets just
+ * those sizes on the current shape.
+ */
+export function zoneEditOver(current: ZoneSettings, rendered: ZoneSettings, next: ZoneSettings): ZoneSettings {
+    const changed = <T>(a: T, b: T): boolean => JSON.stringify(a) !== JSON.stringify(b);
+    const merged: ZoneSettings = {
+        name: changed(next.name, rendered.name) ? next.name : current.name,
+        rotation: changed(next.rotation, rendered.rotation) ? next.rotation : current.rotation,
+        gridBased: changed(next.gridBased, rendered.gridBased) ? next.gridBased : current.gridBased,
+        attachedTo: changed(next.attachedTo, rendered.attachedTo) ? next.attachedTo : current.attachedTo,
+        shape: current.shape,
+    };
+    if (!changed(next.shape, rendered.shape)) {
+        return merged;
+    }
+    const before = shapeSizes(rendered.shape);
+    const sizes = Object.entries(shapeSizes(next.shape)).filter(([field, value]) => before[field] !== value);
+    const sizesOnly = next.shape.kind === rendered.shape.kind && !changed({ ...next.shape, ...before }, { ...rendered.shape, ...before });
+    if (!sizesOnly) {
+        return { ...merged, shape: next.shape };
+    }
+    const shape = sizes.reduce<ZoneShape>((at, [field, value]) => withShapeSize(at, field, value) ?? at, current.shape);
+    return { ...merged, shape };
+}
+
 /** `shape` with every length times `factor` (a cone's angle is no length). */
 export function scaledZoneShape(shape: ZoneShape, factor: number): ZoneShape {
     const s = (size: number): number => size * factor;

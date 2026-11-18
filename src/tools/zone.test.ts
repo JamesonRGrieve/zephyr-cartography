@@ -15,6 +15,7 @@ import {
     scaledZoneShape,
     shapeSizes,
     validZoneShape,
+    zoneEditOver,
     withCurvature,
     withShapeSize,
     withZonePlace,
@@ -235,5 +236,24 @@ describe('zones', () => {
             attachedTo: null,
             shape: { kind: 'circle', radius: 5 },
         });
+    });
+
+    it('lays a panel’s edit over the zone as it stands now, taking only what the edit changed', () => {
+        const circle = NEW_ZONE;
+        const cone = {
+            ...NEW_ZONE,
+            shape: { kind: 'cone' as const, radius: circle.shape.kind === 'circle' ? circle.shape.radius : 100, angle: 60, curvature: 'round' as const },
+        };
+        // The radius typed in a panel still drawn as a circle, after the cone was picked: the cone keeps its kind.
+        const radius = zoneEditOver(cone, circle, { ...circle, shape: { kind: 'circle', radius: 200 } });
+        expect(radius.shape).toEqual({ ...cone.shape, radius: 200 });
+        // The name typed in that stale panel too: taken, the cone and its radius kept.
+        expect(zoneEditOver(radius, circle, { ...circle, name: 'Fuel wash' })).toEqual({ ...radius, name: 'Fuel wash' });
+        // A change of kind takes its whole shape; an edit changing nothing leaves the zone as it is.
+        const ring = { kind: 'ring' as const, radius: 100, innerWidth: 20, outerWidth: 20 };
+        expect(zoneEditOver(cone, circle, { ...circle, shape: ring }).shape).toEqual(ring);
+        expect(zoneEditOver(cone, circle, circle)).toEqual(cone);
+        // A size the current shape lacks, or Foundry would refuse, leaves it as it was.
+        expect(zoneEditOver(cone, circle, { ...circle, shape: { kind: 'circle', radius: -5 } }).shape).toEqual(cone.shape);
     });
 });

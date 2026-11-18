@@ -345,6 +345,8 @@ export class CartographyController {
     private readonly staged: StagedChanges;
     /** Depth of nested transactions; only the outermost one writes. */
     private writing = 0;
+    /** Whether a transaction's own work is running: an edit then is nested in it and joins it. */
+    private working = false;
     /** Ids of Tokens the sink could not place since last asked (`takeUnplacedTokens`). */
     private unplaced: string[] = [];
     /** Settles when the transaction under way ends: what an independent operation waits for before starting its own. */
@@ -1847,9 +1849,13 @@ export class CartographyController {
      * exit region, a container pile, a level) are not rolled back.
      */
     private async transaction<T>(work: () => Promise<T> | T): Promise<T> {
-        if (this.writing > 0) {
+        if (this.writing > 0 && this.working) {
             return work();
         }
+        // Another transaction past its work (saving the features, writing its documents) has taken what it stages: one
+        // joining it now would stage documents nothing writes (2026-11-18 gate e2e, a zone's name and a darkness mode
+        // lost while a slow save landed). It waits for that one to end and runs as its own.
+        await this.whenIdle();
         const before = { features: [...this.features], history: [...this.history], future: [...this.future] };
         this.writing = 1;
         let ended = (): void => undefined;
@@ -1857,7 +1863,11 @@ export class CartographyController {
             ended = resolve;
         });
         try {
-            const result = await work();
+            // Edits made while the work runs are its own (nested), and join it.
+            this.working = true;
+            const result = await Promise.resolve(work()).finally(() => {
+                this.working = false;
+            });
             // The features are saved once, as the transaction ends, before the documents they own are written.
             if (this.unsaved) {
                 this.unsaved = false;

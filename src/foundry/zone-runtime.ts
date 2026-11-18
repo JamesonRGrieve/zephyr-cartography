@@ -12,6 +12,7 @@ import type { Point } from '../geometry/spline';
 import { I18N } from '../i18n';
 import { MODULE_ID } from '../module-id';
 import { isRecord } from '../tools/guards';
+import { zoneEditOver } from '../tools/zone';
 import { parseZonePresets, presetOf, serializeZonePresets, withoutPreset, withPreset, type ZonePreset } from '../tools/zone-presets';
 import type { ZoneShapeKind } from '../tools/zone-shape';
 import { renderZonePanel, type TokenChoice, type ZoneLabels } from '../ui/zone-panel-view';
@@ -164,7 +165,11 @@ export function registerZoneRuntime(controller: () => CartographyController | nu
                 labels(),
                 {
                     set: (next) => {
-                        after(async () => active.setZoneSettings(id, next));
+                        // Laid over the zone as it stands when the edit runs, not as the panel last drew it.
+                        after(async () => {
+                            const current = active.zoneSettings(id);
+                            return active.setZoneSettings(id, current ? zoneEditOver(current, settings, next) : next);
+                        });
                         return true;
                     },
                     applyPreset: (presetName) => {
