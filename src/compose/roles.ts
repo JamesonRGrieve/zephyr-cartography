@@ -138,6 +138,10 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // augmetic parts on a family's shelves and troop seats in a living room. Each is kept to the rooms that hold it.
     evidence: ['storage', 'office', 'interrogation', 'command'],
     contraband: ['storage'],
+    // A hip flask and an ashtray are a drinker's and a smoker's: a bar, a mess, quarters or a command post, never a
+    // scholam's student desks (Solenne review render goal121, 2026-11-18: eleven flasks and nine ashtrays on them).
+    flask: ['bar', 'common-room', 'mess', 'bedroom', 'barracks', 'command', 'cell'],
+    ashtray: ['bar', 'common-room', 'mess', 'bedroom', 'barracks', 'command'],
     smuggler: ['storage'],
     munitions: ['armoury', 'storage', 'barracks'],
     // Ammunition likewise: a scholam's classroom stacked green ammo crates in its corner (review preview 2026-11-16).
