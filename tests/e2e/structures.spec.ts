@@ -526,6 +526,52 @@ test('a spec’s drawn shapes become native Drawings, stroked and filled, and er
     await expect.poll(async () => (await drawings()).map((d) => d.type)).toEqual(['p', 'p']);
 });
 
+test('a walled shape drawing nothing is its walls alone: a wood’s edge, seen into through one and not through two', async ({ world }) => {
+    const result = await world.evaluate(async () => {
+        const ring = (x0: number, x1: number): { x: number; y: number }[] => [
+            { x: x0, y: 1 },
+            { x: x0, y: 9 },
+            { x: x1, y: 9 },
+            { x: x1, y: 1 },
+            { x: x0, y: 1 },
+        ];
+        await game.modules?.get('zephyr-cartography').api.buildSpec({
+            schemaVersion: 1,
+            units: 'grid',
+            features: [
+                // A wood's two rings, as the composer lays them: lines that draw nothing, limiting sight and light, barring nothing.
+                ...[ring(6, 14), ring(8, 12)].map((points) => ({
+                    type: 'shape' as const,
+                    kind: 'line' as const,
+                    points,
+                    stroke: { colour: '#000000', width: 0, alpha: 0 },
+                    hidden: true,
+                    walls: { sight: 'limited' as const, light: 'limited' as const, movement: false },
+                })),
+            ],
+        });
+        const scene = canvas?.scene;
+        const size = scene?.grid.size ?? 100;
+        const level = scene?.levels.contents[0];
+        const sweep = (x: number): number => {
+            const poly = foundry.canvas.geometry.ClockwiseSweepPolygon.create({ x: x * size, y: 5 * size }, { type: 'sight', level });
+            return Math.max(...poly.points.filter((_, i) => i % 2 === 0)) / size;
+        };
+        return {
+            drawings: scene?.drawings.size ?? -1,
+            walls: (scene?.walls.contents ?? []).map((w) => ({ sight: w.sight, light: w.light, move: w.move, sound: w.sound })),
+            // From open ground west of the wood: sight runs into the first ring and stops at the second.
+            reach: sweep(2),
+        };
+    });
+    // No Drawing: the shapes are their walls alone. EDGE_SENSE_TYPES: NONE 0, LIMITED 10.
+    expect(result.drawings).toBe(0);
+    expect(result.walls).toHaveLength(8);
+    expect(new Set(result.walls.map((w) => JSON.stringify(w)))).toEqual(new Set([JSON.stringify({ sight: 10, light: 10, move: 0, sound: 0 })]));
+    expect(result.reach).toBeGreaterThan(6);
+    expect(result.reach).toBeLessThanOrEqual(8.01);
+});
+
 test('a fenced road puts Foundry’s terrain walls along its centerline', async ({ world }) => {
     const walls = await world.evaluate(async () => {
         await game.modules?.get('zephyr-cartography').api.buildSpec({
