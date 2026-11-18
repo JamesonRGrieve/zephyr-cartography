@@ -74,19 +74,21 @@ export function woodEdges(crowns: readonly Crown[], width: number, height: numbe
  */
 function eroded(mask: Uint8Array, cols: number, rows: number, by: number): Uint8Array {
     const far = cols + rows;
-    const steps = new Int32Array(mask.length);
+    // A view's reads are numbers, never missing: each cell's steps to the nearest cell outside, 4 bytes a cell.
+    const steps = new DataView(new ArrayBuffer(mask.length * 4));
+    const stepsAt = (i: number): number => steps.getInt32(i * 4);
     for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
             const i = y * cols + x;
-            steps[i] = mask[i] === 1 ? Math.min(far, x > 0 ? (steps[i - 1] ?? far) + 1 : far, y > 0 ? (steps[i - cols] ?? far) + 1 : far) : 0;
+            steps.setInt32(i * 4, mask[i] === 1 ? Math.min(far, x > 0 ? stepsAt(i - 1) + 1 : far, y > 0 ? stepsAt(i - cols) + 1 : far) : 0);
         }
     }
     const inner = new Uint8Array(mask.length);
     for (let y = rows - 1; y >= 0; y--) {
         for (let x = cols - 1; x >= 0; x--) {
             const i = y * cols + x;
-            const here = Math.min(steps[i] ?? 0, x < cols - 1 ? (steps[i + 1] ?? far) + 1 : far, y < rows - 1 ? (steps[i + cols] ?? far) + 1 : far);
-            steps[i] = here;
+            const here = Math.min(stepsAt(i), x < cols - 1 ? stepsAt(i + 1) + 1 : far, y < rows - 1 ? stepsAt(i + cols) + 1 : far);
+            steps.setInt32(i * 4, here);
             inner[i] = here > by ? 1 : 0;
         }
     }
@@ -95,24 +97,24 @@ function eroded(mask: Uint8Array, cols: number, rows: number, by: number): Uint8
 
 /** A closed loop as the runs of it off the map's edge: a wood cut by the edge is walled where it meets open ground only. */
 function runsOffEdge(loop: readonly Point[], width: number, height: number): Point[][] {
-    const along = (a: Point, b: Point): boolean =>
+    const along = ([a, b]: readonly [Point, Point]): boolean =>
         (a.x <= ON_EDGE && b.x <= ON_EDGE) ||
         (a.y <= ON_EDGE && b.y <= ON_EDGE) ||
         (a.x >= width - ON_EDGE && b.x >= width - ON_EDGE) ||
         (a.y >= height - ON_EDGE && b.y >= height - ON_EDGE);
-    const n = loop.length;
-    // Start the walk just after a segment on the edge, so no run is split where the loop closes.
-    const start = loop.findIndex((p, i) => along(p, loop[(i + 1) % n] ?? p));
-    const order = start < 0 ? [...loop, loop[0] ?? { x: 0, y: 0 }] : [...loop.slice(start + 1), ...loop.slice(0, start + 2)];
+    // Its segments, closed back to its first point.
+    const segments: [Point, Point][] = [];
+    [...loop, ...loop.slice(0, 1)].reduce((a, b) => {
+        segments.push([a, b]);
+        return b;
+    });
+    // Walked from just after a segment on the edge, so no run is split where the loop closes.
+    const first = segments.findIndex(along);
+    const walk = first < 0 ? segments : [...segments.slice(first + 1), ...segments.slice(0, first + 1)];
     const runs: Point[][] = [];
     let run: Point[] = [];
-    for (let i = 0; i + 1 < order.length; i++) {
-        const a = order[i];
-        const b = order[i + 1];
-        if (a === undefined || b === undefined) {
-            continue;
-        }
-        if (along(a, b)) {
+    for (const segment of walk) {
+        if (along(segment)) {
             if (run.length >= 2) {
                 runs.push(run);
             }
@@ -120,9 +122,9 @@ function runsOffEdge(loop: readonly Point[], width: number, height: number): Poi
             continue;
         }
         if (run.length === 0) {
-            run.push(a);
+            run.push(segment[0]);
         }
-        run.push(b);
+        run.push(segment[1]);
     }
     if (run.length >= 2) {
         runs.push(run);

@@ -62,6 +62,20 @@ describe('woodEdges', () => {
         }
     });
 
+    it('leave every edge of the map unwalled: a wood in the far corner, and one met halfway down the near side', () => {
+        const width = 30;
+        const height = 30;
+        const edges = lines([...grove(22, 22, 6, 6), ...grove(0, 12, 3, 5)], width, height);
+        expect(edges.length).toBeGreaterThan(0);
+        for (const edge of edges) {
+            edge.points.slice(1).forEach((b, i) => {
+                const a = edge.points[i] ?? b;
+                const along = (lo: (p: { x: number; y: number }) => boolean): boolean => lo(a) && lo(b);
+                expect(along((p) => p.x <= 0.3) || along((p) => p.y >= height - 0.3) || along((p) => p.x >= width - 0.3)).toBe(false);
+            });
+        }
+    });
+
     it('ring a glade inside a wood too, so a token in the glade sees its edge and no further', () => {
         // A wood with its middle left open: crowns all round a square hole.
         const ring = grove(4, 4, 14, 14).filter((c) => !(c.x > 10 && c.x < 16 && c.y > 10 && c.y < 16));
