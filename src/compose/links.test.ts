@@ -70,10 +70,16 @@ describe('linkFeatures', () => {
         expect(ways.map((w) => (w.type === 'zone' ? [w.x, w.y, w.shape] : null))).toEqual([
             [15, 1, { kind: 'rectangle', width: 3, height: 2 }],
             [11, 5, { kind: 'rectangle', width: 2, height: 2 }],
+            // A token coming back to the town lands before it, a square clear of it, never inside its art.
+            [11, 6.7, { kind: 'rectangle', width: 1, height: 1 }],
             [8, 7.5, { kind: 'rectangle', width: 2, height: 1 }],
         ]);
+        // The landing holds the way's own id, which the other map names, and takes no one anywhere; the way in over
+        // the place has an id of its own.
+        expect(ways[1]).toMatchObject({ name: 'To town', link: { region: linkRegionIdOf('region', 'town:entry') } });
+        expect(ways[2]).toMatchObject({ name: 'To town arrival', link: { region: linkRegionIdOf('region', 'town'), targets: [] } });
         // A way still to be linked takes no one anywhere, and is named for what it is.
-        expect(ways[2]).toMatchObject({ name: 'inn-door', link: { targets: [] } });
+        expect(ways[3]).toMatchObject({ name: 'inn-door', link: { targets: [] } });
         // A building left unbuilt has no door, and its way no zone.
         expect(linkFeatures('region', [{ key: 'gone', at: { building: 'keep' }, to: null }], places, onGround)).toEqual([]);
     });
@@ -117,6 +123,43 @@ describe('linkFeatures', () => {
             // A way down inside a building, over the area asked.
             ['To tomb', 22.5, 13.9, { kind: 'rectangle', width: 1.2, height: 1.2 }],
         ]);
+    });
+
+    it('lands a token beside a named piece: before its front, on the side a path is much nearer, past what blocks it, or in it where nothing is clear', () => {
+        const link = { key: 'mill', at: { fixture: 'mill' }, to: { map: 'mill', link: 'door' } } as const;
+        const landing = (places: LinkPlaces): readonly (number | undefined)[] => {
+            const ways = linkFeatures('town', [link], places, onGround);
+            const way = ways[1];
+            return way?.type === 'zone' ? [ways.length, way.x, way.y] : [ways.length];
+        };
+        const mill = { x: 10, y: 6, w: 4, h: 4 };
+        // Before its front, with no paths to weigh.
+        expect(landing({ ...NO_PLACES, fixtures: new Map([['mill', mill]]) })).toEqual([2, 12, 10.7]);
+        // A road running past its east side, far from its front, takes the landing there.
+        const road = {
+            points: [
+                { x: 18, y: 2 },
+                { x: 18, y: 8 },
+            ],
+            halfWidth: 1,
+        };
+        expect(landing({ ...NO_PLACES, fixtures: new Map([['mill', mill]]), paths: [road] })).toEqual([2, 14.7, 8]);
+        // A house hard against its front's middle moves the landing along that side.
+        const house = { x: 11.5, y: 10.1, w: 1, h: 2 };
+        expect(
+            landing({
+                ...NO_PLACES,
+                fixtures: new Map([
+                    ['mill', mill],
+                    ['house', house],
+                ]),
+            }),
+        ).toEqual([2, 11, 10.7]);
+        // Hemmed in on every side, the way keeps its one zone, landing in the piece as before.
+        const hemmed = { ...NO_PLACES, width: 4, height: 4, fixtures: new Map([['mill', { x: 0, y: 0, w: 4, h: 4 }]]) };
+        const hemmedWays = linkFeatures('town', [link], hemmed, onGround);
+        expect(hemmedWays).toHaveLength(1);
+        expect(hemmedWays[0]).toMatchObject({ link: { region: linkRegionIdOf('town', 'mill') } });
     });
 
     it('stands a way over an area on its storey’s level (a trapdoor in a cellar floor), every other on the ground', () => {
@@ -163,7 +206,7 @@ describe('map links in an intent', () => {
             ],
         });
         const ways = composeMap(region, TEST_ROLES).spec.features.flatMap((f) => (f.type === 'zone' && f.link !== undefined ? [f] : []));
-        expect(ways.map((w) => w.name)).toEqual(['road-east', 'To town']);
+        expect(ways.map((w) => w.name)).toEqual(['road-east', 'To town', 'To town arrival']);
         // The road's way stands over the edge where it leaves, the town's over the town.
         expect(ways[0]?.x).toBe(29);
         expect([ways[1]?.x, ways[1]?.y]).toEqual([15, 5]);

@@ -480,8 +480,8 @@ const HAZARD_COLOUR = '#f1c40f';
  *   a token coming into it, for everyone to see.
  * - A teleport names its destinations by region UUID, and travels as its link
  *   says: where the token lands and whether it snaps there, whether players
- *   see where it leads, the prompt and the scene transition. The token
- *   chooses when there is more than one way to go.
+ *   see where it leads, the prompt and the scene transition. The token is
+ *   always asked before it goes, whether there is one way or several.
  * - `changeLevel`: which levels it offers comes from the region's own level
  *   membership; its movement actions are the ones that take it (none: any,
  *   `movementActions` since 14.361).
@@ -530,7 +530,8 @@ export function behaviourData(behaviour: RegionBehaviour | null, hazardText: (ki
                 destinations,
                 placement,
                 snap,
-                choice: destinations.length > 1,
+                // Always ask: walking onto a link never forces a token through (operator 2026-11-18).
+                choice: true,
                 revealed,
                 // One prompt whether or not the destination is revealed.
                 dialog: { revealed: question, unrevealed: question },

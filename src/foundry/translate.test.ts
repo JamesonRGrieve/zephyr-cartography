@@ -780,7 +780,7 @@ describe('regionCreateData', () => {
         expect(data?.levels).toEqual(['B', 'A']);
     });
 
-    it('teleports to regions in another scene, relative, with a choice when there are several', () => {
+    it('teleports to regions in another scene, asking before it goes', () => {
         const many: RegionDoc = {
             id: null,
             label: { kind: 'entrance', scene: 'Residence' },
@@ -831,7 +831,7 @@ describe('regionCreateData', () => {
             destinations: ['Scene.residence.Region.out1'],
             placement: 'relative',
             snap: true,
-            choice: false,
+            choice: true,
             revealed: false,
             dialog: { revealed: null, unrevealed: null },
             transition: { type: null, duration: 1500 },

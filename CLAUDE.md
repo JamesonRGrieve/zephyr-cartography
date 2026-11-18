@@ -515,8 +515,9 @@ tool; an auto `AmbientLightDocument` per room at its centroid.
   the floor.
 - **Native.** Levels *are* the scene's native Level documents. Walls, tiles,
   lights and regions get `levels`, so vision is per floor. Submap teleports
-  use `destinations`, `placement: relative` and a choice when there are
-  several.
+  use `destinations`, `placement: relative` and always ask before they go
+  (`choice`; operator 2026-11-18: walking onto a link never forces a token
+  through).
 - **Seen levels.** A level shows the levels below it that its native Level
   sees (`visibility.levels`): viewing an upper storey, the yard, road and
   trees round it show beneath its floor, never a grey void. Foundry draws a
@@ -1686,7 +1687,14 @@ or a tavern is. Composition is the layer above them (operator decisions,
     floor, the foot of a tomb's stair), standing on its `storey` (0 the
     ground, -1 the top cellar: a trapdoor in a cellar floor), and leads to another
     map's way (`to: { map, link }`), or nowhere yet (`to: null`). It is a
-    rectangle zone with a link. Every id comes from keys: a map's scene is
+    rectangle zone with a link. A way over a named piece (a building's art
+    on a town, a town on a chart) also has a landing: a square beside the
+    piece, clear of every named piece, before its front (the bottom side,
+    where town art draws its doors) unless another side lies much nearer a
+    path. The landing holds the way's own id, which the other map names, so
+    a token coming back stands outside the art's walls, never trapped in
+    them (operator, 2026-11-18); the way in over the piece takes the id of
+    `<key>:entry`. Every id comes from keys: a map's scene is
     made under `sceneIdOf(key)` and a way's region under
     `linkRegionIdOf(map, link)`, so maps name each other's ways before
     either is built, and scenes made under their maps' ids arrive joined.

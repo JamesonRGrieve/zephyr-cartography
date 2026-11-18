@@ -2,7 +2,8 @@
 /**
  * Ways between maps: where a map's road runs off its edge, a place on a
  * chart, or just inside a building's front door, a zone whose region
- * teleports a token to a way in another map. Every id is derived from keys
+ * teleports a token to a way in another map. A token coming back to a way
+ * over a named piece lands beside it, never inside its art. Every id is derived from keys
  * (`sceneIdOf`, `linkRegionIdOf`), so two maps name each other's ways before
  * either is built, and a scene made under its map's id arrives already
  * joined. A way with no map to lead to yet takes no one anywhere until it is
@@ -32,6 +33,10 @@ const ROAD_MARGIN = 1;
 const OFF_EDGE = 1.5;
 /** Squares inside a doorway its way stands. */
 const INSIDE = 1;
+/** Squares a way's landing beside a named piece stands off its footprint. */
+const ARRIVAL_GAP = 0.2;
+/** Squares nearer a path another side of a piece must be for its landing to stand there, not before the front. */
+const FRONT_BIAS = 1.5;
 
 /** What the composed map says about where its ways go. */
 export interface LinkPlaces {
@@ -61,20 +66,76 @@ export function linkFeatures(
             return [];
         }
         const targets = link.to === null ? [] : [{ scene: sceneIdOf(link.to.map), region: linkRegionIdOf(link.to.map, link.to.link) }];
+        const title = link.name ?? (link.to === null ? link.key : `To ${link.to.map}`);
+        // A way over an area stands on its storey (a trapdoor in a cellar floor); every other way on the ground.
+        const level = levelOf('area' in link.at ? link.at.storey : 0);
+        const zone = (key: string, at: Rect, named: string, region: string, to: typeof targets): FeatureInput => ({
+            type: 'zone',
+            key,
+            x: at.x + at.w / 2,
+            y: at.y + at.h / 2,
+            shape: { kind: 'rectangle', width: at.w, height: at.h },
+            name: named,
+            link: { region, targets: to, placement: 'center' },
+            ...level,
+        });
+        const landing = 'fixture' in link.at ? arrivalBeside(rect, places) : null;
+        if (landing === null) {
+            return [zone(`link-${link.key}`, rect, title, linkRegionIdOf(mapKey, link.key), targets)];
+        }
+        // Over a named piece (a building's art on a town, a town on a chart) the way in covers the piece, but a token
+        // coming back lands beside it, on open ground before its front: landing in the piece stood it inside the art's
+        // walls, trapped (operator 2026-11-18). The landing holds the way's own id, which the other map names; it
+        // takes no one anywhere.
         return [
-            {
-                type: 'zone',
-                key: `link-${link.key}`,
-                x: rect.x + rect.w / 2,
-                y: rect.y + rect.h / 2,
-                shape: { kind: 'rectangle', width: rect.w, height: rect.h },
-                name: link.name ?? (link.to === null ? link.key : `To ${link.to.map}`),
-                link: { region: linkRegionIdOf(mapKey, link.key), targets, placement: 'center' },
-                // A way over an area stands on its storey (a trapdoor in a cellar floor); every other way on the ground.
-                ...levelOf('area' in link.at ? link.at.storey : 0),
-            },
+            zone(`link-${link.key}`, rect, title, linkRegionIdOf(mapKey, `${link.key}:entry`), targets),
+            zone(`arrive-${link.key}`, landing, `${title} arrival`, linkRegionIdOf(mapKey, link.key), []),
         ];
     });
+}
+
+/**
+ * A square beside `piece`, clear of every named piece and on the map, where a token arriving at it lands: before its
+ * front (the bottom side, where town art draws its doors) unless another side lies much nearer a path; null where
+ * none is clear.
+ */
+function arrivalBeside(piece: Rect, places: LinkPlaces): Rect | null {
+    const clear = (r: Rect): boolean =>
+        r.x >= 0 &&
+        r.y >= 0 &&
+        r.x + r.w <= places.width &&
+        r.y + r.h <= places.height &&
+        [...places.fixtures.values()].every((f) => r.x + r.w <= f.x || r.x >= f.x + f.w || r.y + r.h <= f.y || r.y >= f.y + f.h);
+    const toPath = (r: Rect): number => {
+        const c = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+        const ds = places.paths.flatMap((p) => p.points.map((q) => Math.hypot(q.x - c.x, q.y - c.y) - p.halfWidth));
+        return ds.length === 0 ? 0 : Math.min(...ds);
+    };
+    const cx = piece.x + piece.w / 2;
+    const cy = piece.y + piece.h / 2;
+    const sides: readonly { readonly bias: number; readonly at: (slide: number) => Rect; readonly span: number }[] = [
+        { bias: 0, span: piece.w, at: (d) => ({ x: cx + d - 0.5, y: piece.y + piece.h + ARRIVAL_GAP, w: 1, h: 1 }) },
+        { bias: FRONT_BIAS, span: piece.h, at: (d) => ({ x: piece.x - ARRIVAL_GAP - 1, y: cy + d - 0.5, w: 1, h: 1 }) },
+        { bias: FRONT_BIAS, span: piece.h, at: (d) => ({ x: piece.x + piece.w + ARRIVAL_GAP, y: cy + d - 0.5, w: 1, h: 1 }) },
+        { bias: FRONT_BIAS, span: piece.w, at: (d) => ({ x: cx + d - 0.5, y: piece.y - ARRIVAL_GAP - 1, w: 1, h: 1 }) },
+    ];
+    let best: { readonly rect: Rect; readonly score: number } | null = null;
+    for (const side of sides) {
+        // The side's middle first, then sliding out along it a half square at a time.
+        const steps = Math.floor(side.span / 2);
+        for (let i = 0; i <= steps * 2; i += 1) {
+            const slide = (i % 2 === 0 ? 1 : -1) * Math.ceil(i / 2) * 0.5;
+            const rect = side.at(slide);
+            if (clear(rect)) {
+                const score = toPath(rect) + side.bias;
+                if (best === null || score < best.score) {
+                    best = { rect, score };
+                }
+                break;
+            }
+        }
+    }
+    return best?.rect ?? null;
 }
 
 /** Where a way stands, in squares, or null where its place is not on this map. */
