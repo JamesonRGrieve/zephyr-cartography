@@ -80,6 +80,15 @@ describe('woodEdges', () => {
         }
     });
 
+    it('never repeat a point in a run, so no wall has both its ends in one place', () => {
+        for (const edge of lines([...grove(3.333, 3.337, 9, 9), ...grove(0.001, 14.004, 5, 4)])) {
+            edge.points.slice(1).forEach((b, i) => {
+                const a = edge.points[i] ?? b;
+                expect(a.x !== b.x || a.y !== b.y).toBe(true);
+            });
+        }
+    });
+
     it('ring a glade inside a wood too, so a token in the glade sees its edge and no further', () => {
         // A wood with its middle left open: crowns all round a square hole.
         const ring = grove(4, 4, 14, 14).filter((c) => !(c.x > 10 && c.x < 16 && c.y > 10 && c.y < 16));

@@ -77,6 +77,9 @@ export function woodEdges(crowns: readonly Crown[], width: number, height: numbe
         rings.push(...traceShapes(at(inner), box, { cellsPerSquare: CELLS, tolerance: TOLERANCE, minArea: 1 }));
     }
     const loops = [...woods, ...rings].flatMap((shape) => [shape.outline, ...shape.holes]);
+    // The traced points as they are: rounded, neighbouring points can meet and wall nothing (Foundry refuses such a wall,
+    // and with it the whole build's batch: gate e2e 2026-11-18, an encounter built nothing). The plan drops a wall whose
+    // ends share a whole pixel too.
     return loops.flatMap((loop) => runsOffEdge(loop, width, height)).map((points) => edgeLine(points, level));
 }
 
@@ -151,11 +154,11 @@ function runsOffEdge(loop: readonly Point[], width: number, height: number): Poi
 }
 
 /** A run of a wood's edge as a walled line that draws nothing: its walls alone, hidden from players and GM alike. */
-function edgeLine(points: readonly Point[], level: { readonly level?: string }): FeatureInput {
+function edgeLine(points: Point[], level: { readonly level?: string }): FeatureInput {
     return {
         type: 'shape',
         kind: 'line',
-        points: points.map((p) => ({ x: Math.round(p.x * 100) / 100, y: Math.round(p.y * 100) / 100 })),
+        points,
         stroke: { colour: '#000000', width: 0, alpha: 0 },
         fill: null,
         hidden: true,

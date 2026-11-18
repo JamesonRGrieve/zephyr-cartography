@@ -105,7 +105,12 @@ function shapeWalls(shape: ShapeFeature, floor: Floor): WallDoc[] {
     }
     const blocks: SenseBlock = { sight: shape.walls.sight, light: shape.walls.light, movement: shape.walls.movement, sound: 'none' };
     const segments = shape.geometry.kind === 'polygon' ? perimeterSegments(shape.points) : perimeterSegments(shape.points).slice(0, -1);
-    return segments.map((s) => ({ a: s.a, b: s.b, door: 'none', doorState: 'closed', blocks, level: floor.level }));
+    // A segment with both ends on one whole pixel (Foundry keeps a wall's ends in whole pixels) walls nothing, and Foundry
+    // refuses it, and the batch it came in: never planned.
+    const px = Math.round;
+    return segments
+        .filter((s) => px(s.a.x) !== px(s.b.x) || px(s.a.y) !== px(s.b.y))
+        .map((s) => ({ a: s.a, b: s.b, door: 'none', doorState: 'closed', blocks, level: floor.level }));
 }
 
 /**

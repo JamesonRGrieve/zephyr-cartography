@@ -109,6 +109,21 @@ describe('drawn shapes', () => {
         expect(planDocuments(shape(makeShape('u', { kind: 'polygon' }, TRIANGLE, unseen))).drawings).toHaveLength(1);
         expect(shape(makeShape('b', { kind: 'rectangle', width: 5, height: 5, rotation: 0 }, [{ x: 0, y: 0 }], DEFAULT_SHAPE_STYLE, foliage)).walls).toBeNull();
         expect(shape(makeShape('n', { kind: 'line' }, TRIANGLE, DEFAULT_SHAPE_STYLE, { sight: 'none', light: 'none', movement: false })).walls).toBeNull();
+        // A segment whose ends fall on one whole pixel walls nothing and is never planned (Foundry would refuse the batch).
+        const pinched = shape(
+            makeShape(
+                'p',
+                { kind: 'line' },
+                [
+                    { x: 100, y: 100 },
+                    { x: 100.2, y: 100.3 },
+                    { x: 300, y: 100 },
+                ],
+                unseen,
+                foliage,
+            ),
+        );
+        expect(planDocuments(pinched).walls).toHaveLength(1);
         // Walls round-trip through the scene flag, an unknown sense read as none.
         expect(parseFeatures(JSON.parse(JSON.stringify([wood])))).toEqual([wood]);
         expect(
