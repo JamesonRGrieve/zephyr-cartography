@@ -528,19 +528,20 @@ test('a spec’s drawn shapes become native Drawings, stroked and filled, and er
 
 test('a walled shape drawing nothing is its walls alone: a wood’s edge, seen into through one and not through two', async ({ world }) => {
     const result = await world.evaluate(async () => {
-        const ring = (x0: number, x1: number): { x: number; y: number }[] => [
-            { x: x0, y: 1 },
-            { x: x0, y: 9 },
-            { x: x1, y: 9 },
-            { x: x1, y: 1 },
-            { x: x0, y: 1 },
+        // Nested rings, as a wood's are: the inner one inset on every side, so no edge of one lies along the other's.
+        const ring = (x0: number, y0: number, x1: number, y1: number): { x: number; y: number }[] => [
+            { x: x0, y: y0 },
+            { x: x0, y: y1 },
+            { x: x1, y: y1 },
+            { x: x1, y: y0 },
+            { x: x0, y: y0 },
         ];
         await game.modules?.get('zephyr-cartography').api.buildSpec({
             schemaVersion: 1,
             units: 'grid',
             features: [
                 // A wood's two rings, as the composer lays them: lines that draw nothing, limiting sight and light, barring nothing.
-                ...[ring(6, 14), ring(8, 12)].map((points) => ({
+                ...[ring(6, 1, 14, 9), ring(8, 3, 12, 7)].map((points) => ({
                     type: 'shape' as const,
                     kind: 'line' as const,
                     points,
@@ -553,23 +554,23 @@ test('a walled shape drawing nothing is its walls alone: a wood’s edge, seen i
         const scene = canvas?.scene;
         const size = scene?.grid.size ?? 100;
         const level = scene?.levels.contents[0];
-        const sweep = (x: number): number => {
-            const poly = foundry.canvas.geometry.ClockwiseSweepPolygon.create({ x: x * size, y: 5 * size }, { type: 'sight', level });
-            return Math.max(...poly.points.filter((_, i) => i % 2 === 0)) / size;
-        };
+        // From open ground west of the wood, along the middle of both rings.
+        const seen = foundry.canvas.geometry.ClockwiseSweepPolygon.create({ x: 2 * size, y: 5 * size }, { type: 'sight', level });
+        const sees = (x: number): boolean => seen.contains(x * size, 5 * size);
         return {
             drawings: scene?.drawings.size ?? -1,
             walls: (scene?.walls.contents ?? []).map((w) => ({ sight: w.sight, light: w.light, move: w.move, sound: w.sound })),
-            // From open ground west of the wood: sight runs into the first ring and stops at the second.
-            reach: sweep(2),
+            // Sight runs into the first ring (between the rings) and stops at the second (inside the inner ring).
+            between: sees(7),
+            inner: sees(10),
         };
     });
     // No Drawing: the shapes are their walls alone. EDGE_SENSE_TYPES: NONE 0, LIMITED 10.
     expect(result.drawings).toBe(0);
     expect(result.walls).toHaveLength(8);
     expect(new Set(result.walls.map((w) => JSON.stringify(w)))).toEqual(new Set([JSON.stringify({ sight: 10, light: 10, move: 0, sound: 0 })]));
-    expect(result.reach).toBeGreaterThan(6);
-    expect(result.reach).toBeLessThanOrEqual(8.01);
+    expect(result.between).toBe(true);
+    expect(result.inner).toBe(false);
 });
 
 test('a fenced road puts Foundry’s terrain walls along its centerline', async ({ world }) => {
