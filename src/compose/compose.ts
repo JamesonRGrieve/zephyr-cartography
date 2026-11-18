@@ -37,6 +37,7 @@ import { drawnAs, type RoleIndex, type RoleStamp, withoutFactions } from './role
 import { flawsOf, layOutStoreys, type Storeys, type Well, type Wells } from './storeys';
 import { tokenFeatures } from './tokens';
 import { windowSlots } from './windows';
+import { woodEdges } from './wood-edges';
 
 type FeatureInput = SceneSpecInput['features'][number];
 type SceneSettingsInput = NonNullable<SceneSpecInput['scene']>;
@@ -1106,6 +1107,8 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
         ...composed.flatMap((c) => c.features),
         ...platforms.features,
         ...ways,
+        // The woods' edges, which hide what is in a wood and beyond it from line of sight, never each tree on its own.
+        ...woodEdges(exterior.crowns, intent.width, intent.height, levelOf(0)),
         // Its names and orbits over it all.
         ...chartMarks(intent, levelOf(0)),
         // And who stands on it.

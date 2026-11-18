@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { deletePoint, movePoint } from './edit';
 import { parseFeatures } from './feature';
-import { DEFAULT_SHAPE_STYLE, isBox, makeShape, parseShape, shapeBox, shapeHit, type ShapeFeature, withShapePoints } from './shape';
+import { planDocuments } from './plan';
+import { DEFAULT_SHAPE_STYLE, isBox, makeShape, parseShape, shapeBox, shapeDrawn, shapeHit, type ShapeFeature, withShapePoints } from './shape';
 
 const TRIANGLE = [
     { x: 100, y: 100 },
@@ -82,5 +83,40 @@ describe('drawn shapes', () => {
         expect(parseShape({ type: 'shape', id: 's', points: TRIANGLE, geometry: { kind: 'hexagon' } })).toBeNull();
         expect(parseShape({ type: 'shape', id: 's', points: TRIANGLE, geometry: 'polygon' })).toBeNull();
         expect(parseShape({ type: 'shape', id: 's', points: [], geometry: { kind: 'rectangle', width: 5, height: 5 } })).toBeNull();
+    });
+
+    it('wall a polygon closed and a line open, as their senses say; a box or walls blocking nothing have none', () => {
+        const foliage = { sight: 'limited', light: 'limited', movement: false } as const;
+        const unseen = { ...DEFAULT_SHAPE_STYLE, strokeWidth: 0 };
+        const wood = shape(makeShape('w', { kind: 'polygon' }, TRIANGLE, unseen, foliage));
+        expect(wood.walls).toEqual(foliage);
+        // Drawn with nothing to show and walled, it is its walls alone: three of them round the triangle, no Drawing.
+        expect(shapeDrawn(wood)).toBe(false);
+        const plan = planDocuments(wood);
+        expect(plan.drawings).toEqual([]);
+        expect(plan.walls).toHaveLength(3);
+        expect(plan.walls[0]).toMatchObject({
+            a: TRIANGLE[0],
+            b: TRIANGLE[1],
+            door: 'none',
+            blocks: { sight: 'limited', light: 'limited', movement: false, sound: 'none' },
+        });
+        // A line is walled along its run, never closed back to its start; a drawn one keeps its Drawing.
+        const edge = shape(makeShape('e', { kind: 'line' }, TRIANGLE, DEFAULT_SHAPE_STYLE, foliage));
+        expect(planDocuments(edge).walls).toHaveLength(2);
+        expect(planDocuments(edge).drawings).toHaveLength(1);
+        // An unwalled shape with nothing to show still asks for its Drawing, as before.
+        expect(planDocuments(shape(makeShape('u', { kind: 'polygon' }, TRIANGLE, unseen))).drawings).toHaveLength(1);
+        expect(shape(makeShape('b', { kind: 'rectangle', width: 5, height: 5, rotation: 0 }, [{ x: 0, y: 0 }], DEFAULT_SHAPE_STYLE, foliage)).walls).toBeNull();
+        expect(shape(makeShape('n', { kind: 'line' }, TRIANGLE, DEFAULT_SHAPE_STYLE, { sight: 'none', light: 'none', movement: false })).walls).toBeNull();
+        // Walls round-trip through the scene flag, an unknown sense read as none.
+        expect(parseFeatures(JSON.parse(JSON.stringify([wood])))).toEqual([wood]);
+        expect(
+            parseShape({ type: 'shape', id: 'x', points: TRIANGLE, geometry: { kind: 'line' }, walls: { sight: 'fog', light: 'limited', movement: 1 } })?.walls,
+        ).toEqual({
+            sight: 'none',
+            light: 'limited',
+            movement: false,
+        });
     });
 });

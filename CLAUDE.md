@@ -1201,6 +1201,10 @@ These make everything after them cheaper and safer, so they come first.
       needs.
     - `tests/e2e/structures.spec.ts` checks the native Drawings and
       screenshots them.
+    - **Walls along a shape** (`walls`: sight, light, movement): a polygon
+      walled round, a line along its run. A walled shape with no stroke and
+      no fill is its walls alone, with no Drawing. This is how a wood's
+      edge is walled (see Woods below).
 - **[done] Scene settings.** A scene spec's `scene` block sets the scene's
   own settings, only those given (`tools/scene-settings.ts`):
   - darkness, its lock, global light and token vision;
@@ -1755,6 +1759,15 @@ or a tavern is. Composition is the layer above them (operator decisions,
     and thinning at a zone's edge, spaced by the pieces' own size. Nothing
     stands on a path, in a clearing that keeps it out, or where its canopy
     would spread over a building. Rocks line riverbanks.
+  - **Woods hide what is in them** (operator, 2026-11-18, in play: tokens
+    saw the whole map through a wood). Trees carry no sight walls of their
+    own; the crowns laid are joined into woods, and round each wood of a
+    dozen square squares or more run two rings of walls limiting sight and
+    light and barring nothing (`compose/wood-edges.ts`): one on the
+    canopy's edge, one a square and a half inside it, glades ringed the
+    same way, nothing along the map's own edge. Foundry sees through one
+    limited wall and not two, so a token sees into the first trees, never
+    through the wood; a lone tree or a pair hides nothing.
   - Flowers and ground cover grow in patches (`patch`), open grass
     between them, never dotted evenly. A canopy reaches over a road or a
     river only as little as over a lake: the way is seen, never roofed

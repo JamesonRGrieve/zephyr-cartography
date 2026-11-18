@@ -3570,6 +3570,47 @@
                                 "description": "Seen by the GM alone.",
                                 "type": "boolean"
                             },
+                            "walls": {
+                                "default": null,
+                                "description": "Walls along a polygon's outline or a line (a wood's edge: sight and light limited, the way open); null for none. With no stroke and no fill, the shape is its walls alone, with no Drawing.",
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "sight": {
+                                                "default": "none",
+                                                "type": "string",
+                                                "enum": [
+                                                    "none",
+                                                    "normal",
+                                                    "limited",
+                                                    "proximity",
+                                                    "distance"
+                                                ]
+                                            },
+                                            "light": {
+                                                "default": "none",
+                                                "type": "string",
+                                                "enum": [
+                                                    "none",
+                                                    "normal",
+                                                    "limited",
+                                                    "proximity",
+                                                    "distance"
+                                                ]
+                                            },
+                                            "movement": {
+                                                "default": false,
+                                                "type": "boolean"
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
                             "level": {
                                 "description": "Key of an entry in `levels`. Omitted: the feature shows on every level.",
                                 "type": "string",
@@ -3581,7 +3622,7 @@
                             "kind"
                         ],
                         "additionalProperties": false,
-                        "description": "A drawn shape: a native Drawing, as Foundry's own Drawings tools draw them."
+                        "description": "A drawn shape: a native Drawing, as Foundry's own Drawings tools draw them, and any walls along it."
                     },
                     {
                         "type": "object",

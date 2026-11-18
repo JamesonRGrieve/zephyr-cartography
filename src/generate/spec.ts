@@ -25,7 +25,7 @@ import {
     TOGGLE_EVENTS,
 } from '../tools/area-effects';
 import { BIOMES } from '../tools/biome';
-import { DOOR_ANIMATIONS, type DoorState, TRAVEL_PLACEMENTS } from '../tools/documents';
+import { DOOR_ANIMATIONS, type DoorState, type SenseLevel, TRAVEL_PLACEMENTS } from '../tools/documents';
 import { MAX_FONT_SIZE, MIN_FONT_SIZE, NEW_LABEL } from '../tools/label';
 import { NO_LEVEL_ART, TEXTURE_FITS } from '../tools/levels';
 import type { Liquid, PathKind } from '../tools/path';
@@ -48,6 +48,7 @@ const PATH_KINDS = ['road', 'river'] as const satisfies readonly PathKind[];
 const SPEC_LIQUIDS = ['water', 'lava', 'poison', 'acid'] as const satisfies readonly Liquid[];
 const DOOR_TYPES = ['door', 'secret', 'opening'] as const satisfies readonly RoomDoorType[];
 const DOOR_STATES = ['closed', 'open', 'locked'] as const satisfies readonly DoorState[];
+const SPEC_SENSE_LEVELS = ['none', 'normal', 'limited', 'proximity', 'distance'] as const satisfies readonly SenseLevel[];
 
 const text = z.string().min(1);
 const point = z.object({ x: z.number(), y: z.number() }).strict();
@@ -549,10 +550,22 @@ const shapeSpec = z
             .default(null)
             .describe('A solid fill; null for none.'),
         hidden: z.boolean().default(false).describe('Seen by the GM alone.'),
+        walls: z
+            .object({
+                sight: z.enum(SPEC_SENSE_LEVELS).default('none'),
+                light: z.enum(SPEC_SENSE_LEVELS).default('none'),
+                movement: z.boolean().default(false),
+            })
+            .strict()
+            .nullable()
+            .default(null)
+            .describe(
+                "Walls along a polygon's outline or a line (a wood's edge: sight and light limited, the way open); null for none. With no stroke and no fill, the shape is its walls alone, with no Drawing.",
+            ),
         level,
     })
     .strict()
-    .describe("A drawn shape: a native Drawing, as Foundry's own Drawings tools draw them.");
+    .describe("A drawn shape: a native Drawing, as Foundry's own Drawings tools draw them, and any walls along it.");
 
 const featureSpec = z.discriminatedUnion('type', [regionSpec, strokeSpec, pathSpec, roomSpec, stampSpec, pinSpec, labelSpec, zoneSpec, shapeSpec, tokenSpec]);
 

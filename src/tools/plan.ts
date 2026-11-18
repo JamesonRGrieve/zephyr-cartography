@@ -35,7 +35,7 @@ import { type CartographyPath, pathSpine } from './path';
 import { MIN_NOTE_SIZE, NEW_PIN, pinPoint, pinSettingsOf } from './pin';
 import { regionOutline, type RegionFeature } from './region';
 import { roomDoorLook, roomLight, roomWalls, type RoomDoor, type RoomFeature } from './room';
-import { shapeBox } from './shape';
+import { shapeBox, shapeDrawn, type ShapeFeature } from './shape';
 import { customSpawn, spawnOf } from './spawn';
 import { stableId } from './stable-id';
 import { stampCentre, stampCorners, stampDoorAxis, stampPoint, type StampFeature } from './stamp';
@@ -96,6 +96,16 @@ function pathWalls(path: CartographyPath, kind: WallPreset, floor: Floor): WallD
         }
     }
     return walls;
+}
+
+/** Walls along a walled polygon's outline, closed, or a line's, open; none for a shape without walls. */
+function shapeWalls(shape: ShapeFeature, floor: Floor): WallDoc[] {
+    if (shape.walls === null) {
+        return [];
+    }
+    const blocks: SenseBlock = { sight: shape.walls.sight, light: shape.walls.light, movement: shape.walls.movement, sound: 'none' };
+    const segments = shape.geometry.kind === 'polygon' ? perimeterSegments(shape.points) : perimeterSegments(shape.points).slice(0, -1);
+    return segments.map((s) => ({ a: s.a, b: s.b, door: 'none', doorState: 'closed', blocks, level: floor.level }));
 }
 
 /**
@@ -742,10 +752,16 @@ export function planDocuments(feature: Feature, context: PlanContext = NO_CONTEX
         return { ...NO_PLAN, drawings: [{ kind: 'text', ...labelPoint(feature), ...labelBox(feature), elevation, level, ...labelSettingsOf(feature) }] };
     }
     if (feature.type === 'shape') {
-        const { elevation, level } = floorOf(feature, context);
+        const floor = floorOf(feature, context);
         const { strokeColour, strokeWidth, strokeAlpha, fillColour, fillAlpha, hidden } = feature;
         const style = { strokeColour, strokeWidth, strokeAlpha, fillColour, fillAlpha, hidden };
-        return { ...NO_PLAN, drawings: [{ kind: 'shape', ...shapeBox(feature), elevation, level, style }] };
+        // A walled shape that draws nothing is its walls alone: Foundry refuses a Drawing with nothing to show.
+        const drawn = feature.walls === null || shapeDrawn(feature);
+        return {
+            ...NO_PLAN,
+            drawings: drawn ? [{ kind: 'shape', ...shapeBox(feature), elevation: floor.elevation, level: floor.level, style }] : [],
+            walls: shapeWalls(feature, floor),
+        };
     }
     if (feature.type === 'zone') {
         return { ...NO_PLAN, regions: [zoneRegion(feature, context.levels)] };

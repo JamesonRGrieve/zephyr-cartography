@@ -6,7 +6,10 @@
  * tools draw these by hand; a shape feature is how a scene spec or a
  * generator declares one, so it moves, undoes and erases like any feature.
  * A rectangle or ellipse stands at its centre, turned by its rotation; a
- * polygon or line is its vertices. Pure and unit-tested.
+ * polygon or line is its vertices. A polygon or line can also carry walls
+ * along its outline (a wood's edge that sight carries into but not through);
+ * a walled shape drawn with no stroke and no fill is its walls alone, with
+ * no Drawing. Pure and unit-tested.
  */
 import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { localPoint } from '../geometry/rectangle';
@@ -51,9 +54,28 @@ export interface ShapeStyle {
 /** Foundry's own look for a new drawing, in white: an 8 px line, unfilled. */
 export const DEFAULT_SHAPE_STYLE: ShapeStyle = { strokeColour: '#ffffff', strokeWidth: 8, strokeAlpha: 1, fillColour: null, fillAlpha: 0.5, hidden: false };
 
+// The documents' sense levels, named here as well: the documents' own module reads shapes, so it cannot be read from here.
+const SENSE_LEVELS = ['none', 'normal', 'limited', 'proximity', 'distance'] as const;
+
+type SenseLevel = (typeof SENSE_LEVELS)[number];
+
+/** How the walls along a shape's outline restrict sight and light, and whether they bar the way; sound carries. */
+export interface ShapeWalls {
+    readonly sight: SenseLevel;
+    readonly light: SenseLevel;
+    readonly movement: boolean;
+}
+
 export interface ShapeFeature extends FeatureCommon, ShapeStyle {
     readonly type: 'shape';
     readonly geometry: ShapeGeometry;
+    /** Walls along a polygon's or line's outline, or null for none (a box never has them). */
+    readonly walls: ShapeWalls | null;
+}
+
+/** Whether a shape draws anything: a stroke of some width or a fill. */
+export function shapeDrawn(shape: ShapeStyle): boolean {
+    return (shape.strokeWidth > 0 && shape.strokeAlpha > 0) || (shape.fillColour !== null && shape.fillAlpha > 0);
 }
 
 /** Fewest points each kind stands on. */
@@ -63,11 +85,19 @@ const MIN_POINTS: Readonly<Record<ShapeKind, number>> = { rectangle: 1, ellipse:
 const LINE_HIT_PADDING = 4;
 
 /** A shape of `geometry` on `points`, or null when they are too few for it, a box has no size, or its style is not one Foundry takes. */
-export function makeShape(id: string, geometry: ShapeGeometry, points: readonly Point[], style: ShapeStyle = DEFAULT_SHAPE_STYLE): ShapeFeature | null {
+export function makeShape(
+    id: string,
+    geometry: ShapeGeometry,
+    points: readonly Point[],
+    style: ShapeStyle = DEFAULT_SHAPE_STYLE,
+    walls: ShapeWalls | null = null,
+): ShapeFeature | null {
     if (!validGeometry(geometry) || !validStyle(style)) {
         return null;
     }
-    return withShapePoints({ type: 'shape', id, points: [], geometry, ...style, ...NEW_FEATURE }, points);
+    // Only a polygon or a line has an outline to wall; walls that block nothing are none.
+    const walled = walls !== null && !isBox(geometry) && (walls.sight !== 'none' || walls.light !== 'none' || walls.movement) ? walls : null;
+    return withShapePoints({ type: 'shape', id, points: [], geometry, ...style, walls: walled, ...NEW_FEATURE }, points);
 }
 
 /** The same shape on other points, or null when they are too few for it (a box takes only its centre). */
@@ -190,12 +220,21 @@ function parseGeometry(v: unknown): ShapeGeometry | null {
     return kind === undefined ? null : { kind, width: numberOr(v['width'], 0), height: numberOr(v['height'], 0), rotation: numberOr(v['rotation'], 0) };
 }
 
+// eslint-disable-next-line no-restricted-syntax -- boundary: reads a persisted shape's walls from scene-flag JSON
+function parseWalls(v: unknown): ShapeWalls | null {
+    if (!isRecord(v)) {
+        return null;
+    }
+    const level = (field: string): SenseLevel => SENSE_LEVELS.find((l) => l === v[field]) ?? 'none';
+    return { sight: level('sight'), light: level('light'), movement: v['movement'] === true };
+}
+
 // eslint-disable-next-line no-restricted-syntax -- boundary: parses one untyped scene-flag entry, validating shape and returning a narrow ShapeFeature or null
 export function parseShape(v: unknown): ShapeFeature | null {
     if (!isRecord(v) || v['type'] !== 'shape' || typeof v['id'] !== 'string' || !Array.isArray(v['points'])) {
         return null;
     }
     const geometry = parseGeometry(v['geometry']);
-    const shape = geometry && makeShape(v['id'], geometry, v['points'].filter(isPoint), parseStyle(v));
+    const shape = geometry && makeShape(v['id'], geometry, v['points'].filter(isPoint), parseStyle(v), parseWalls(v['walls']));
     return shape && { ...shape, ...parseFeatureCommon(v) };
 }

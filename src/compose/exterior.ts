@@ -30,6 +30,7 @@ import { narrowed, type Preferences, zonePlace } from './preferences';
 import type { ComposeProblem } from './problems';
 import { drawnAs, type RoleIndex, type RoleStamp, soundFirst, withoutFactions } from './roles';
 import { poissonDisc } from './scatter';
+import type { Crown } from './wood-edges';
 
 type FeatureInput = SceneSpecInput['features'][number];
 
@@ -1586,7 +1587,7 @@ export function composeExterior(
     preferences: Preferences,
     levelOf: (storey: number) => { readonly level?: string },
     confined: readonly string[] = [],
-): { features: FeatureInput[]; problems: ComposeProblem[]; paths: readonly LaidPath[] } {
+): { features: FeatureInput[]; problems: ComposeProblem[]; paths: readonly LaidPath[]; crowns: readonly Crown[] } {
     const features: FeatureInput[] = [];
     const problems: ComposeProblem[] = [];
     // A painted blend (splats) is the map's open ground, and it draws beneath painted terrain: the ground, the zones'
@@ -1726,7 +1727,7 @@ export function composeExterior(
         features.push(...placed.map((s) => ({ type: 'stamp' as const, ...s, ...level })));
     }
     if (charted) {
-        return { features, problems, paths };
+        return { features, problems, paths, crowns: [] };
     }
     // Everything strewn out of doors keeps off the factions kept to their own rooms (a sanctum's warp flora in the garden).
     const strewn = withoutFactions(stamps, confined);
@@ -1764,5 +1765,7 @@ export function composeExterior(
     problems.push(...crossed.problems);
     const leads = intent.paths.map((p) => typeof p.to === 'object' && 'building' in p.to);
     features.push(...waymarks(paths, leads, strewn, keepout, random));
-    return { features, problems, paths };
+    // The trees' crowns, for the woods' edges that line of sight sees (`woodEdges`).
+    const crowns = standing.filter((s) => s.canopy === true).map(({ x, y, r }) => ({ x, y, r }));
+    return { features, problems, paths, crowns };
 }

@@ -164,7 +164,7 @@ function buildShape(spec: Extract<FeatureSpec, { type: 'shape' }>, id: string, s
         hidden: spec.hidden,
     };
     if (spec.kind === 'polygon' || spec.kind === 'line') {
-        return makeShape(id, { kind: spec.kind }, (spec.points ?? []).map(scale.point), style);
+        return makeShape(id, { kind: spec.kind }, (spec.points ?? []).map(scale.point), style, spec.walls);
     }
     const geometry = { kind: spec.kind, width: scale.length(spec.width ?? 0), height: scale.length(spec.height ?? 0), rotation: spec.rotation };
     return makeShape(id, geometry, [scale.point({ x: spec.x ?? 0, y: spec.y ?? 0 })], style);
