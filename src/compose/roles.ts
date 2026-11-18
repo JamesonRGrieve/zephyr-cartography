@@ -142,6 +142,11 @@ const PURPOSE_TAGS: Readonly<Record<string, readonly RoomPurpose[]>> = {
     // scholam's student desks (Solenne review render goal121, 2026-11-18: eleven flasks and nine ashtrays on them).
     flask: ['bar', 'common-room', 'mess', 'bedroom', 'barracks', 'command', 'cell'],
     ashtray: ['bar', 'common-room', 'mess', 'bedroom', 'barracks', 'command'],
+    // Liquor and amasec too (goal122, 2026-11-18: an orange liquor bottle still stood on a student's desk), kept by a bar's shelves,
+    // a mess, quarters, a command post, a kitchen or a store.
+    liquor: ['bar', 'common-room', 'mess', 'bedroom', 'barracks', 'command', 'kitchen', 'storage'],
+    rotgut: ['bar', 'common-room', 'mess', 'bedroom', 'barracks', 'command', 'kitchen', 'storage'],
+    amasec: ['bar', 'common-room', 'mess', 'bedroom', 'barracks', 'command', 'kitchen', 'storage'],
     smuggler: ['storage'],
     munitions: ['armoury', 'storage', 'barracks'],
     // Ammunition likewise: a scholam's classroom stacked green ammo crates in its corner (review preview 2026-11-16).

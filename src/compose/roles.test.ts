@@ -386,16 +386,20 @@ describe('roleIndex purposes', () => {
         expect(index.get('seat')?.[0]?.purposes).toEqual(expect.arrayContaining(['command', 'chapel']));
     });
 
-    it('keeps a hip flask and an ashtray off a classroom’s desks', () => {
+    it('keeps a hip flask, an ashtray and liquor off a classroom’s desks', () => {
         const index = roleIndex(
-            stamps([stampDef('flask', { role: 'tabletop', tags: ['hip', 'flask'] }), stampDef('ashtray', { role: 'tabletop', tags: ['ashtray'] })]),
+            stamps([
+                stampDef('flask', { role: 'tabletop', tags: ['hip', 'flask'] }),
+                stampDef('ashtray', { role: 'tabletop', tags: ['ashtray'] }),
+                stampDef('liquor', { role: 'tabletop', tags: ['liquor', 'bottle'] }),
+            ]),
             [],
         );
         for (const piece of index.get('tabletop') ?? []) {
             expect(piece.purposes).toEqual(expect.arrayContaining(['bar', 'mess']));
             expect(piece.purposes).not.toContain('office');
         }
-        expect(index.get('tabletop')).toHaveLength(2);
+        expect(index.get('tabletop')).toHaveLength(3);
     });
 
     it('keeps evidence, contraband, munitions, augmetics and troop seats out of a family’s rooms', () => {
