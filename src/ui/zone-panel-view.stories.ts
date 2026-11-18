@@ -75,27 +75,38 @@ export function mountZonePanel(args: ZonePanelArgs): HTMLElement {
     windowEl.append(root);
     let settings = args.settings;
     let presets = args.presets;
+    // The typed preset name, kept across re-renders as the runtime keeps it.
+    let presetDraft: string | undefined;
     const render = (): void => {
-        renderZonePanel(root, { settings, tokens: args.tokens, presets, cellSize: args.cellSize }, LABELS, {
-            set: (next) => {
-                settings = next;
-                render();
-                return true;
+        renderZonePanel(
+            root,
+            { settings, tokens: args.tokens, presets, cellSize: args.cellSize, ...(presetDraft === undefined ? {} : { presetDraft }) },
+            LABELS,
+            {
+                set: (next) => {
+                    settings = next;
+                    render();
+                    return true;
+                },
+                // A stand-in for the world's presets: applying one just names the zone after it.
+                applyPreset: (presetName) => {
+                    settings = { ...settings, name: presetName };
+                    render();
+                },
+                savePreset: (presetName) => {
+                    presets = presets.includes(presetName) || presetName.trim() === '' ? presets : [...presets, presetName.trim()];
+                    presetDraft = undefined;
+                    render();
+                },
+                draftPreset: (presetName) => {
+                    presetDraft = presetName;
+                },
+                forgetPreset: (presetName) => {
+                    presets = presets.filter((p) => p !== presetName);
+                    render();
+                },
             },
-            // A stand-in for the world's presets: applying one just names the zone after it.
-            applyPreset: (presetName) => {
-                settings = { ...settings, name: presetName };
-                render();
-            },
-            savePreset: (presetName) => {
-                presets = presets.includes(presetName) || presetName.trim() === '' ? presets : [...presets, presetName.trim()];
-                render();
-            },
-            forgetPreset: (presetName) => {
-                presets = presets.filter((p) => p !== presetName);
-                render();
-            },
-        });
+        );
     };
     render();
     return windowEl;

@@ -132,6 +132,9 @@ export interface ZoneRuntime {
 
 export function registerZoneRuntime(controller: () => CartographyController | null): ZoneRuntime {
     let zoneId: string | null = null;
+    // The preset name typed in the open zone's panel and not yet saved: a re-render (the zone's own save landing after
+    // the typing, 2026-11-18 gate e2e) keeps it, rather than resetting the field to the zone's name and saving nothing.
+    let presetDraft: string | undefined;
 
     Hooks.once('init', () => {
         game.settings?.register(MODULE_ID, PRESETS_SETTING, { scope: 'world', config: false, type: String, default: '[]' });
@@ -155,28 +158,37 @@ export function registerZoneRuntime(controller: () => CartographyController | nu
             const saved = presets();
             const level = active.getFeature(id)?.level ?? null;
             const choices = tokens(level, settings.attachedTo);
-            renderZonePanel(root, { settings, tokens: choices, presets: saved.map((p) => p.name), cellSize: cellSize() }, labels(), {
-                set: (next) => {
-                    after(async () => active.setZoneSettings(id, next));
-                    return true;
+            renderZonePanel(
+                root,
+                { settings, tokens: choices, presets: saved.map((p) => p.name), cellSize: cellSize(), ...(presetDraft === undefined ? {} : { presetDraft }) },
+                labels(),
+                {
+                    set: (next) => {
+                        after(async () => active.setZoneSettings(id, next));
+                        return true;
+                    },
+                    applyPreset: (presetName) => {
+                        const preset = saved.find((p) => p.name === presetName);
+                        if (preset) {
+                            after(async () => active.applyZonePreset(id, preset));
+                        }
+                    },
+                    savePreset: (presetName) => {
+                        const area = active.areaSettings(id);
+                        const preset = area && presetOf(presetName, settings, area);
+                        if (preset) {
+                            presetDraft = undefined;
+                            after(async () => savePresets(withPreset(saved, preset)));
+                        }
+                    },
+                    draftPreset: (presetName) => {
+                        presetDraft = presetName;
+                    },
+                    forgetPreset: (presetName) => {
+                        after(async () => savePresets(withoutPreset(saved, presetName)));
+                    },
                 },
-                applyPreset: (presetName) => {
-                    const preset = saved.find((p) => p.name === presetName);
-                    if (preset) {
-                        after(async () => active.applyZonePreset(id, preset));
-                    }
-                },
-                savePreset: (presetName) => {
-                    const area = active.areaSettings(id);
-                    const preset = area && presetOf(presetName, settings, area);
-                    if (preset) {
-                        after(async () => savePresets(withPreset(saved, preset)));
-                    }
-                },
-                forgetPreset: (presetName) => {
-                    after(async () => savePresets(withoutPreset(saved, presetName)));
-                },
-            });
+            );
         },
     });
 
@@ -194,6 +206,9 @@ export function registerZoneRuntime(controller: () => CartographyController | nu
 
     return {
         edit: (id) => {
+            if (zoneId !== id) {
+                presetDraft = undefined;
+            }
             zoneId = id;
             panel.open();
             panel.refresh();

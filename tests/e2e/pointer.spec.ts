@@ -475,8 +475,10 @@ test('a zone saved as a hazard preset gives another zone its shape and behaviour
     await panel.getByRole('button', { name: 'Save this zone as a preset' }).click();
     await expect(panel.getByLabel('Preset', { exact: true })).toHaveValue('Cordon');
 
-    // A second zone, clear of the first and of the open panel, takes the preset.
+    // A second zone, clear of the first and of the open panel, takes the preset. The panel turns to it once it is placed
+    // (its features saved to their file): a new zone's circle, where the first was made a ring.
     await clickScene(world, { x: 100, y: 800 });
+    await expect(panel.getByLabel('Type')).toHaveValue('circle');
     await panel.getByRole('button', { name: 'Apply to this zone' }).click();
     const shapes = async (): Promise<string[][]> =>
         world.evaluate(() => (canvas?.scene?.regions.contents ?? []).map((region) => region.shapes.map((shape) => `${region.name}:${shape.type}`)));

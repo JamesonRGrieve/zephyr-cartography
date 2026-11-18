@@ -24,6 +24,11 @@ export interface ZonePanel {
     readonly presets: readonly string[];
     /** The scene's cell size (px) on a square grid, for zones of grid spaces; null where there are none. */
     readonly cellSize: number | null;
+    /**
+     * The name typed for a preset and not yet saved, kept by the runtime so a re-render (the zone's own save landing a
+     * moment later) never takes it away; omitted, the zone's own name.
+     */
+    readonly presetDraft?: string;
 }
 
 export interface ZoneLabels {
@@ -63,6 +68,8 @@ export interface ZoneHandlers {
     readonly applyPreset: (name: string) => void;
     /** Save the zone as a preset named `name` (replacing one of that name). */
     readonly savePreset: (name: string) => void;
+    /** The preset name as typed, before it is saved, for the runtime to keep. */
+    readonly draftPreset?: (name: string) => void;
     readonly forgetPreset: (name: string) => void;
 }
 
@@ -93,12 +100,24 @@ function presetSection(panel: ZonePanel, labels: PresetLabels, handlers: ZoneHan
             }),
         );
     }
-    let saveAs = panel.settings.name;
+    let saveAs = panel.presetDraft ?? panel.settings.name;
+    const typed = (presetName: string): void => {
+        saveAs = presetName;
+        handlers.draftPreset?.(presetName);
+    };
+    const nameField = labelledInput(labels.name, 'text', saveAs, 'zone-preset-name', (presetName) => {
+        typed(presetName);
+        return true;
+    });
+    // Kept as it is typed, not only once committed: a re-render landing mid-typing (the zone's own save finishing) starts
+    // the new field from what was typed so far.
+    nameField.querySelector('input')?.addEventListener('input', (typing) => {
+        if (typing.target instanceof HTMLInputElement) {
+            typed(typing.target.value);
+        }
+    });
     section.append(
-        labelledInput(labels.name, 'text', saveAs, 'zone-preset-name', (typed) => {
-            saveAs = typed;
-            return true;
-        }),
+        nameField,
         button('tw-text-xs', labels.save, 'zone-preset-save', () => {
             handlers.savePreset(saveAs);
         }),

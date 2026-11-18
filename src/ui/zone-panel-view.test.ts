@@ -100,6 +100,22 @@ describe('zone panel', () => {
         expect(select(gone, 'zc-zone-token').value).toBe('tokenGone0000001');
     });
 
+    it('keeps a typed preset name through a re-render, as the zone’s own save landing after the typing would cause', () => {
+        const root = mount({ args: { presets: [] } });
+        // Typed but not yet committed (no change event): kept all the same.
+        const field = input(root, 'zone-preset-name');
+        field.value = 'Cordon';
+        field.dispatchEvent(new Event('input'));
+        // Any change to the zone re-renders the whole panel.
+        change(input(root, 'zone-name'), 'Picket line');
+        expect(input(root, 'zone-preset-name').value).toBe('Cordon');
+        const save = root.querySelector<HTMLButtonElement>('button[data-zc-focus="zone-preset-save"]');
+        save?.click();
+        expect([...select(root, 'zc-zone-preset').options].map((o) => o.value)).toEqual(['Cordon']);
+        // Saved, the draft is spent: the field starts from the zone's own name again.
+        expect(input(root, 'zone-preset-name').value).toBe('Picket line');
+    });
+
     it('applies and forgets the world’s presets, and saves the zone as one under its own name to start', () => {
         const none = mount(stories.NewZone);
         expect(none.textContent).toContain('No presets yet');

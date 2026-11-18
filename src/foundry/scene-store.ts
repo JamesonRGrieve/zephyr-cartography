@@ -48,6 +48,13 @@ interface Held {
 }
 
 const held = new Map<string, Held>();
+
+/**
+ * Each scene's latest write, so the next waits for it: two saves made close together (a zone placed, then a preset
+ * applied to it) must land in the order they were made, or the earlier, slower upload would replace the later file and
+ * hold the older features.
+ */
+const writing = new Map<string, Promise<void>>();
 const fetching = new Map<string, Promise<void>>();
 
 function markerOf(scene: FoundryScene): FeaturesMarker | null {
@@ -153,7 +160,15 @@ export class FoundrySceneStore implements SceneStore {
             await scene.setFlag(MODULE_ID, FLAG_KEY, features);
             return;
         }
-        await writeFeatures(scene, id, features, [mine?.rev ?? null, marker?.rev ?? null]);
+        const before = writing.get(id) ?? Promise.resolve();
+        // The revisions this save moves past are read once the save before it has landed.
+        const write = before.then(async () => writeFeatures(scene, id, features, [held.get(id)?.rev ?? null, markerOf(scene)?.rev ?? null]));
+        // A failed write still lets the next one run; this save reports its own failure.
+        writing.set(
+            id,
+            write.catch(() => undefined),
+        );
+        await write;
     }
 }
 
