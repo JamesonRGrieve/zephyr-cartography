@@ -281,6 +281,8 @@ const MAX_HISTORY = 50;
 
 /** A door stamp placed within this many grid squares of a room wall snaps onto it. */
 const DOOR_SNAP_SQUARES = 0.5;
+/** How many times a transaction writes again for the echoes of its own writes before it ends. */
+const ECHO_ROUNDS = 4;
 
 /** The labels of the regions areas carry their settings on: a room's own, painted ground's and a zone's. */
 const AREA_REGION_KINDS: ReadonlySet<string> = new Set(['room', 'terrain', 'zone']);
@@ -1116,7 +1118,12 @@ export class CartographyController {
         if (unchanged) {
             return false;
         }
-        await this.replaceFeature(id, withStampFrame(feature, { centre, width: frame.width, height: frame.height, rotation: frame.rotation }));
+        await this.replaceFeature(
+            id,
+            withStampFrame(feature, { centre, width: frame.width, height: frame.height, rotation: frame.rotation }),
+            true,
+            this.writing > 0,
+        );
         return true;
     }
 
@@ -1755,7 +1762,7 @@ export class CartographyController {
     }
 
     /** Swap the feature with `id` for `next`, snapshotting for undo, then persist + redraw it. */
-    private async replaceFeature(id: string, next: Feature, recorded = true): Promise<void> {
+    private async replaceFeature(id: string, next: Feature, recorded = true, echo = false): Promise<void> {
         const old = this.features.find((f) => f.id === id);
         if (!old) {
             return;
@@ -1774,7 +1781,7 @@ export class CartographyController {
                 await this.containers.move(next.pile, pileSpec(next, levelElevation(this.levelList, next.level)));
             }
             await this.resyncDependents(before, [old, next]);
-        });
+        }, echo);
     }
 
     /**
@@ -1848,9 +1855,21 @@ export class CartographyController {
      * propagates. Side effects outside the scene's documents (another scene's
      * exit region, a container pile, a level) are not rolled back.
      */
-    private async transaction<T>(work: () => Promise<T> | T): Promise<T> {
+    private async transaction<T>(work: () => Promise<T> | T, echo = false): Promise<T> {
+        // An echo of the transaction's own writes (Foundry's update hook for a tile it just wrote) joins it still, as it
+        // always did: deferred, it re-synced every stamp it touched after the transaction ended, while a composed map was
+        // being captured (render goal124 2026-11-19: a scholam's desks, counter and aquilas missing from its render).
         if (this.writing > 0 && this.working) {
             return work();
+        }
+        if (this.writing > 0 && echo) {
+            // Its own nested edits (re-syncing what depends on the stamp) join it in turn.
+            this.working = true;
+            try {
+                return await work();
+            } finally {
+                this.working = false;
+            }
         }
         // Another transaction past its work (saving the features, writing its documents) has taken what it stages: one
         // joining it now would stage documents nothing writes (2026-11-18 gate e2e, a zone's name and a darkness mode
@@ -1868,17 +1887,30 @@ export class CartographyController {
             const result = await Promise.resolve(work()).finally(() => {
                 this.working = false;
             });
-            // The features are saved once, as the transaction ends, before the documents they own are written.
-            if (this.unsaved) {
-                this.unsaved = false;
-                await this.store.save(this.features);
+            // The features are saved once, as the transaction ends, before the documents they own are written. Echoes of
+            // those writes join it while it writes (see above), so it writes again until they leave nothing new: an
+            // echo's frame or re-planned documents are never left unsaved behind it. A frame that never settles stops
+            // after ECHO_ROUNDS.
+            for (let round = 0; round < ECHO_ROUNDS && (this.unsaved || !this.staged.empty); round++) {
+                if (this.unsaved) {
+                    this.unsaved = false;
+                    // eslint-disable-next-line no-await-in-loop -- each round writes what the last one's echoes joined
+                    await this.store.save(this.features);
+                }
+                if (!this.staged.empty) {
+                    // eslint-disable-next-line no-await-in-loop -- as above
+                    const { unplacedTokens } = await this.sink.write(this.staged.take());
+                    this.unplaced.push(...unplacedTokens);
+                }
             }
-            if (!this.staged.empty) {
-                const { unplacedTokens } = await this.sink.write(this.staged.take());
-                this.unplaced.push(...unplacedTokens);
+            if (this.unsaved || !this.staged.empty) {
+                // Left for the next transaction to write; a frame that never settles is a bug worth seeing in a log.
+                console.warn(`zephyr-cartography: echoes still unsettled after ${String(ECHO_ROUNDS)} writes; the next edit writes the rest`);
             }
             return result;
         } catch (error) {
+            // Not all-or-nothing past the first write: a later round's documents rejected leaves the earlier rounds' in
+            // Foundry while the features roll back. Only an echo's re-sync is written in a later round.
             this.staged.take();
             this.unsaved = false;
             this.features = before.features;

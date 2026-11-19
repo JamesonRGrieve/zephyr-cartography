@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { catalogStamps, FAKE_SILHOUETTE, makeHarness } from './test-fakes';
 
 const stamps = catalogStamps([
@@ -130,6 +130,67 @@ describe('CartographyController stamp occlusion', () => {
         await c.syncStampFrame('p1', { x: 200, y: 0, width: 100, height: 100, rotation: 0 });
         expect(d.wallUpdates[0]?.[0]).toMatchObject({ id: 'w0', doc: { a: { x: 200, y: 0 }, b: { x: 300, y: 0 } } });
         expect(c.getFeature('p1')?.docs.walls).toEqual(['w0', 'w1', 'w2', 'w3']);
+    });
+
+    it("follows a tile's echo inside the transaction still writing, never as a deferred transaction after it", async () => {
+        const { c, s } = makeHarness(walled);
+        c.grid = { size: 100, originX: 0, originY: 0 };
+        await c.placeStamp({ stamp: 'pack:pillar', x: 50, y: 50 });
+        // Hold the next save open, and know when a transaction has reached it (past its work, writing).
+        let release = (): void => undefined;
+        const held = new Promise<void>((resolve) => {
+            release = resolve;
+        });
+        let entered = (): void => undefined;
+        const saving = new Promise<void>((resolve) => {
+            entered = resolve;
+        });
+        const save = s.save.bind(s);
+        s.save = async (features) => {
+            entered();
+            await held;
+            await save(features);
+        };
+        const placing = c.placeStamp({ stamp: 'pack:pillar', x: 450, y: 50 });
+        await saving;
+        // Foundry echoes a tile the transaction wrote: it is followed now, inside it, not queued behind it.
+        const echo = c.syncStampFrame('p1', { x: 200, y: 0, width: 100, height: 100, rotation: 0 });
+        // A deferred echo cannot resolve before the save is released, so any short wait tells them apart.
+        const when = await Promise.race([
+            echo.then(() => 'joined'),
+            new Promise<string>((resolve) => {
+                setTimeout(() => resolve('deferred'), 20);
+            }),
+        ]);
+        release();
+        await placing;
+        expect(when).toBe('joined');
+        // And it is saved by that same transaction, which writes again for what joined it, never left for a later one.
+        expect(s.last().find((f) => f.id === 'p1')).toMatchObject({ points: [{ x: 250, y: 50 }] });
+        await echo;
+    });
+
+    it('stops writing again for echoes that never settle, warns, and leaves the rest for the next edit', async () => {
+        const { c, d } = makeHarness(walled);
+        c.grid = { size: 100, originX: 0, originY: 0 };
+        await c.placeStamp({ stamp: 'pack:pillar', x: 50, y: 50 });
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        // Every write echoes a frame a step on from the last, as a frame that never settles would.
+        let step = 0;
+        const write = d.write.bind(d);
+        d.write = async (staged) => {
+            const result = await write(staged);
+            step += 1;
+            await c.syncStampFrame('p1', { x: step * 10, y: 0, width: 100, height: 100, rotation: 0 });
+            return result;
+        };
+        const writes = d.writes.length;
+        await c.placeStamp({ stamp: 'pack:pillar', x: 450, y: 50 });
+        const warned = warn.mock.calls.length;
+        warn.mockRestore();
+        // The first write and three more rounds of echoes, then it stops and says so.
+        expect(d.writes.length - writes).toBe(4);
+        expect(warned).toBe(1);
     });
 });
 
