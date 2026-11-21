@@ -12,7 +12,7 @@ import { tintToward } from '../tools/colour';
 import type { DoorAnimationType } from '../tools/documents';
 import { type Feature, isAnchored } from '../tools/feature';
 import { materialName } from '../tools/materials';
-import { type CartographyPath, type Liquid, pathSpine } from '../tools/path';
+import { type CartographyPath, LIQUID_TINT_STRENGTH, type Liquid, pathSpine, riverTint } from '../tools/path';
 import { proceduralRole, type Pattern } from '../tools/procedural';
 import { regionOutline } from '../tools/region';
 import { BIOME_TEXTURE, BIOME_TINT, ROAD_TEXTURE, type Textured, type TextureResolver } from '../tools/texture';
@@ -58,7 +58,6 @@ const LIQUID_ROLES: Record<Liquid, readonly string[]> = {
  * has its own colour and takes the shade gently, while the lava tile is dark
  * rock that the shade turns molten.
  */
-const LIQUID_TINT_STRENGTH: Record<Liquid, number> = { water: 0.25, lava: 1, poison: 0.6, acid: 0.6 };
 
 /** Texture roles of the untextured water biomes, the first the active set has; with none, they ripple. */
 const OPEN_WATER_ROLES: Readonly<Partial<Record<BiomeKind, readonly string[]>>> = {
@@ -211,7 +210,7 @@ function pathFilled(path: CartographyPath, resolve: TextureResolver): Filled {
         return { outline, fill: ROAD_STYLE.fill, alpha: TEXTURE_ALPHA, ...road, feather: false };
     }
     const { liquid, shade } = path.river;
-    const flow = texturing(resolve, LIQUID_ROLES[liquid], tintToward(shade, LIQUID_TINT_STRENGTH[liquid]), 'ripple', shade);
+    const flow = texturing(resolve, LIQUID_ROLES[liquid], tintToward(shade, riverTint(path.river)), 'ripple', shade);
     return { outline, fill: shade, alpha: LIQUID_ALPHA[liquid], ...flow, feather: false };
 }
 

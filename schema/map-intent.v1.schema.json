@@ -636,6 +636,12 @@
                         "type": "string",
                         "pattern": "^#[0-9a-f]{6}$"
                     },
+                    "tint": {
+                        "description": "A river only: how far its texture is tinted toward its shade, 0–1 (a black moat at 1); omitted, its liquid’s own.",
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                    },
                     "bed": {
                         "description": "A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.",
                         "type": "string",

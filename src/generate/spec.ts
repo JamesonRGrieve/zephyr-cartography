@@ -237,6 +237,12 @@ const pathSpec = z
             ),
         liquid: z.enum(SPEC_LIQUIDS).optional().describe('What a river carries (default: water). Ignored for a road.'),
         shade: hexColour.optional().describe("A river's liquid colour, #rrggbb (default: the liquid's usual shade)."),
+        tint: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe("How far a river's texture is tinted toward its shade, 0–1 (default: its liquid's own; water 0.25). 1 for black water."),
         bed: text.nullable().optional().describe('Texture role of a river\'s bed, e.g. "sand"; null: no bed (default: the liquid\'s usual bed).'),
         level,
     })

@@ -54,6 +54,7 @@ export function registerPathRuntime(textureRoles: () => string[], onChange: (set
                         acid: localize(I18N.paths.liquids.acid),
                     },
                     shade: localize(I18N.paths.shade),
+                    tint: localize(I18N.paths.tint),
                     bed: localize(I18N.paths.bed),
                     noBed: localize(I18N.paths.noBed),
                     walls: localize(I18N.paths.walls),

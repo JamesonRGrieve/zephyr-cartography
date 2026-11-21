@@ -19,6 +19,7 @@ const LABELS: PathLabels = {
     liquid: 'Liquid',
     liquids: { water: 'Water', lava: 'Lava', poison: 'Poison', acid: 'Acid' },
     shade: 'Shade',
+    tint: 'Shade strength (0–1)',
     bed: 'Bed',
     noBed: 'No bed',
     walls: 'Walls',

@@ -1,7 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { catmullRom } from '../geometry/spline';
-import { DEFAULT_HALF_WIDTH, isLiquid, LIQUID_LOOKS, LIQUIDS, makePath, parsePath, pathSpine, type RiverLook, withPathGeometry } from './path';
+import {
+    DEFAULT_HALF_WIDTH,
+    isLiquid,
+    LIQUID_LOOKS,
+    LIQUID_TINT_STRENGTH,
+    LIQUIDS,
+    makePath,
+    parsePath,
+    parseTint,
+    pathSpine,
+    type RiverLook,
+    riverTint,
+    withPathGeometry,
+} from './path';
 
 const LINE = [
     { x: 0, y: 0 },
@@ -150,6 +163,27 @@ describe('river looks', () => {
     it('gives a river saved before looks water on its usual bed, and a road none', () => {
         expect(parsePath({ type: 'path', id: 'r', kind: 'river', points: LINE })?.river).toEqual(LIQUID_LOOKS.water);
         expect(parsePath({ type: 'path', id: 'a', kind: 'road', points: LINE, river: LIQUID_LOOKS.lava })?.river).toBeNull();
+    });
+
+    it('keeps a river’s tint strength only when it is one, else its liquid’s own', () => {
+        const river = (look: Readonly<Record<string, string | number | null>>): RiverLook | null | undefined =>
+            parsePath({ type: 'path', id: 'r', kind: 'river', points: LINE, river: look })?.river;
+        expect(river({ liquid: 'water', tint: 1 })).toEqual({ ...LIQUID_LOOKS.water, tint: 1 });
+        expect(river({ liquid: 'water', tint: 1.5 })).toEqual(LIQUID_LOOKS.water);
+        expect(river({ liquid: 'water', tint: 'dark' })).toEqual(LIQUID_LOOKS.water);
+        expect(riverTint({ ...LIQUID_LOOKS.water, tint: 0.9 })).toBe(0.9);
+        expect(riverTint(LIQUID_LOOKS.water)).toBe(LIQUID_TINT_STRENGTH.water);
+        expect(riverTint(LIQUID_LOOKS.lava)).toBe(LIQUID_TINT_STRENGTH.lava);
+    });
+
+    it('reads a typed tint strength from 0 to 1, and nothing else', () => {
+        expect(parseTint(' 0.8 ')).toBe(0.8);
+        expect(parseTint('0')).toBe(0);
+        expect(parseTint('1')).toBe(1);
+        expect(parseTint('1.2')).toBeNull();
+        expect(parseTint('-0.1')).toBeNull();
+        expect(parseTint('')).toBeNull();
+        expect(parseTint('dark')).toBeNull();
     });
 
     it('offers every liquid a look of its own', () => {

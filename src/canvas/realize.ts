@@ -13,7 +13,7 @@ import { parseCssHex } from '../tools/colour';
 import type { Feature } from '../tools/feature';
 import { makeLabel } from '../tools/label';
 import type { LevelArt } from '../tools/levels';
-import { DEFAULT_HALF_WIDTH, LIQUID_LOOKS, makePath } from '../tools/path';
+import { DEFAULT_HALF_WIDTH, LIQUID_LOOKS, makePath, type RiverLook } from '../tools/path';
 import { makePin, withPinSettings } from '../tools/pin';
 import { makeRegion } from '../tools/region';
 import { DEFAULT_FLOOR, makeRoom, withRoomDoor, withRoomLit } from '../tools/room';
@@ -84,6 +84,17 @@ function buildZone(spec: Extract<FeatureSpec, { type: 'zone' }>, id: string, lev
     return zone && { ...zone, ...areaOf(spec), level, ...(link ? { link } : {}) };
 }
 
+/** A spec path's river look, field by field over its liquid's own (a road's is ignored by the path). */
+function riverLookOf(spec: Extract<FeatureSpec, { type: 'path' }>): RiverLook {
+    const base = LIQUID_LOOKS[spec.liquid ?? 'water'];
+    return {
+        ...base,
+        shade: (spec.shade === undefined ? null : parseCssHex(spec.shade)) ?? base.shade,
+        bed: spec.bed === undefined ? base.bed : spec.bed,
+        ...(spec.tint === undefined ? {} : { tint: spec.tint }),
+    };
+}
+
 /** The plain (non-stamp) feature a spec describes, on `level`, or null if it is malformed. */
 function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string, level: string | null, scale: Scale): Feature | null {
     if (spec.type === 'label') {
@@ -114,12 +125,7 @@ function buildFeature(spec: Exclude<FeatureSpec, { type: 'stamp' }>, id: string,
     const points = spec.points.map(scale.point);
     let feature: Feature | null;
     if (spec.type === 'path') {
-        const base = LIQUID_LOOKS[spec.liquid ?? 'water'];
-        const river = {
-            ...base,
-            shade: (spec.shade === undefined ? null : parseCssHex(spec.shade)) ?? base.shade,
-            bed: spec.bed === undefined ? base.bed : spec.bed,
-        };
+        const river = riverLookOf(spec);
         const walls = spec.walls === true ? DEFAULT_WALL_PRESET : spec.walls === false ? null : spec.walls;
         const width = spec.halfWidth === undefined ? DEFAULT_HALF_WIDTH : scale.length(spec.halfWidth);
         const widths = spec.halfWidths?.map((w) => scale.length(w)) ?? width;

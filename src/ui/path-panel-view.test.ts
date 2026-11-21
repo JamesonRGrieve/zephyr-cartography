@@ -28,6 +28,7 @@ const liquid = (root: HTMLElement): HTMLSelectElement => control(root, '#zc-path
 const bed = (root: HTMLElement): HTMLSelectElement => control(root, '#zc-path-bed');
 const shade = (root: HTMLElement): HTMLInputElement => control(root, 'input[type="color"]');
 const width = (root: HTMLElement): HTMLInputElement => control(root, 'input[type="number"]');
+const tint = (root: HTMLElement): HTMLInputElement => control(root, '[data-zc-focus="path-tint"]');
 
 function change(node: HTMLInputElement | HTMLSelectElement, value: string): void {
     node.value = value;
@@ -70,6 +71,15 @@ describe('road and river panel', () => {
         expect(width(root).value).toBe('120');
         change(width(root), 'wide');
         expect(width(root).value).toBe('120');
+    });
+
+    it('shows a river’s shade strength, its liquid’s own until set, and takes only 0 to 1', () => {
+        const root = mount(stories.WaterOnDirt);
+        expect(tint(root).value).toBe('0.25');
+        change(tint(root), '1');
+        expect(tint(root).value).toBe('1');
+        change(tint(root), '3');
+        expect(tint(root).value).toBe('1');
     });
 
     it('keeps a bed the active set lacks selectable instead of silently changing it', () => {

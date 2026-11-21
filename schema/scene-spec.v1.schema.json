@@ -1654,6 +1654,12 @@
                                 "type": "string",
                                 "pattern": "^#[0-9a-fA-F]{6}$"
                             },
+                            "tint": {
+                                "description": "How far a river's texture is tinted toward its shade, 0–1 (default: its liquid's own; water 0.25). 1 for black water.",
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1
+                            },
                             "bed": {
                                 "description": "Texture role of a river's bed, e.g. \"sand\"; null: no bed (default: the liquid's usual bed).",
                                 "anyOf": [

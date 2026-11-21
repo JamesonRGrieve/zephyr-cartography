@@ -223,6 +223,7 @@ export const I18N = {
         width: key('Paths.Width'),
         liquid: key('Paths.Liquid'),
         shade: key('Paths.Shade'),
+        tint: key('Paths.Tint'),
         bed: key('Paths.Bed'),
         noBed: key('Paths.NoBed'),
         walls: key('Paths.Walls'),

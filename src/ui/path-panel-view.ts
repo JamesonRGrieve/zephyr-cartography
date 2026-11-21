@@ -7,7 +7,7 @@
  * function from the panel state to elements; unit-tested under happy-dom.
  */
 import { cssHex, parseCssHex } from '../tools/colour';
-import { LIQUID_LOOKS, LIQUIDS, type Liquid, type PathKind, type RiverLook } from '../tools/path';
+import { LIQUID_LOOKS, LIQUIDS, type Liquid, type PathKind, parseTint, type RiverLook, riverTint } from '../tools/path';
 import { isWallPreset, WALL_PRESETS, type WallPreset } from '../tools/wall-presets';
 import { choice, el, labelledInput, replacePreservingFocus } from './dom';
 
@@ -32,6 +32,8 @@ export interface PathLabels {
     readonly liquid: string;
     readonly liquids: Readonly<Record<Liquid, string>>;
     readonly shade: string;
+    /** How far the texture takes the shade, 0–1. */
+    readonly tint: string;
     readonly bed: string;
     readonly noBed: string;
     readonly walls: string;
@@ -82,6 +84,13 @@ function riverControls(panel: PathPanel, labels: PathLabels, handlers: PathHandl
         ),
         shadeInput(labels.shade, river.shade, (shade) => {
             handlers.setRiver({ ...river, shade });
+        }),
+        labelledInput(labels.tint, 'number', String(riverTint(river)), 'path-tint', (typed) => {
+            const tint = parseTint(typed);
+            if (tint !== null) {
+                handlers.setRiver({ ...river, tint });
+            }
+            return tint !== null;
         }),
         choice('zc-path-bed', labels.bed, [[NONE, labels.noBed] as const, ...beds.map((b) => [b.role, b.label] as const)], bed ?? NONE, (picked) => {
             handlers.setRiver({ ...river, bed: picked === NONE ? null : picked });

@@ -22,12 +22,29 @@ export const LIQUIDS: readonly Liquid[] = ['water', 'lava', 'poison', 'acid'];
 
 /**
  * How a river looks: its liquid, the liquid's shade (0xRRGGBB), and the
- * texture role of the bed laid beneath and beside it (null: no bed).
+ * texture role of the bed laid beneath and beside it (null: no bed); and how
+ * far its texture is tinted toward the shade (`tint`, 0–1; omitted, the
+ * liquid's own strength), so a moat can be black water, not teal.
  */
 export interface RiverLook {
     readonly liquid: Liquid;
     readonly shade: number;
     readonly bed: string | null;
+    readonly tint?: number;
+}
+
+/** How far each liquid's texture is tinted toward its shade unless a river says otherwise: water keeps most of its own. */
+export const LIQUID_TINT_STRENGTH: Readonly<Record<Liquid, number>> = { water: 0.25, lava: 1, poison: 0.6, acid: 0.6 };
+
+/** How far a river's texture is tinted toward its shade. */
+export function riverTint(look: RiverLook): number {
+    return look.tint ?? LIQUID_TINT_STRENGTH[look.liquid];
+}
+
+/** A typed tint strength, 0–1, or null where it is not one. */
+export function parseTint(typed: string): number | null {
+    const value = Number(typed.trim());
+    return typed.trim() !== '' && Number.isFinite(value) && value >= 0 && value <= 1 ? value : null;
 }
 
 /** Each liquid's look when first picked: its usual shade, on a bed that suits it. */
@@ -74,10 +91,12 @@ function parseRiverLook(v: unknown): RiverLook {
     }
     const base = LIQUID_LOOKS[isLiquid(v['liquid']) ? v['liquid'] : 'water'];
     const bed = v['bed'];
+    const tint = v['tint'];
     return {
         liquid: base.liquid,
         shade: numberOr(v['shade'], base.shade),
         bed: bed === null || typeof bed === 'string' ? bed : base.bed,
+        ...(typeof tint === 'number' && tint >= 0 && tint <= 1 ? { tint } : {}),
     };
 }
 

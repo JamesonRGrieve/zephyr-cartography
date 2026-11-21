@@ -211,6 +211,7 @@ describe('realizeSpec', () => {
                     { type: 'path', kind: 'river', points: line, liquid: 'acid', shade: '#00FF00', bed: null },
                     { type: 'path', kind: 'river', points: line, liquid: 'lava' },
                     { type: 'path', kind: 'road', points: line, liquid: 'lava' },
+                    { type: 'path', kind: 'river', points: line, shade: '#0b0e0c', tint: 1 },
                 ],
             }),
             { origin: ORIGIN, gridSize: GRID },
@@ -219,6 +220,8 @@ describe('realizeSpec', () => {
             { liquid: 'acid', shade: 0x00ff00, bed: null },
             LIQUID_LOOKS.lava,
             null,
+            // Black water: its shade taken whole.
+            { ...LIQUID_LOOKS.water, shade: 0x0b0e0c, tint: 1 },
         ]);
     });
 

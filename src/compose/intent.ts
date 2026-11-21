@@ -816,6 +816,12 @@ const path = z
         shade: hexColour
             .optional()
             .describe('A river only: its liquid’s colour, to match the lakes it runs into (a chart’s lake art); omitted, its liquid’s usual shade.'),
+        tint: z
+            .number()
+            .min(0)
+            .max(1)
+            .optional()
+            .describe('A river only: how far its texture is tinted toward its shade, 0–1 (a black moat at 1); omitted, its liquid’s own.'),
         bed: text
             .optional()
             .describe('A river only: texture role of the bed showing along its banks (a pale `sand` shore on a chart); omitted, its liquid’s usual bed.'),
