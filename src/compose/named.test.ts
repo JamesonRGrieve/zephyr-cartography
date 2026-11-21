@@ -392,6 +392,21 @@ describe('named pieces', () => {
         expect(inState({ ...well, scale: 2 }, 'wooden')).toMatchObject({ width: 2.4, height: 1.6 });
         expect(inState(well, 'golden')).toBe(well);
         expect(inState(well, undefined)).toBe(well);
+        // Given the box to fill, a take that fills half of it before a sharper one that does not: the sharp hydraulic arm is
+        // tall and narrow, the wide berth box takes the smaller wide one.
+        const arm = {
+            ...well,
+            states: ['clamp arm hydraulic', 'clamp arm hydraulic'],
+            sharpness: [128, 1024],
+            sizes: [
+                { width: 2, height: 1.52 },
+                { width: 0.86, height: 2 },
+            ],
+        };
+        expect(inState(arm, 'hydraulic')).toMatchObject({ variant: 1 });
+        expect(inState(arm, 'hydraulic', { width: 2, height: 1.52 })).toMatchObject({ variant: 0, width: 2, height: 1.52 });
+        // A box both fill: the sharpest, as before.
+        expect(inState(arm, 'hydraulic', { width: 1.5, height: 2 })).toMatchObject({ variant: 1 });
         // A run: its modules in the state, its ends refitted to the modules' depth, the run's length theirs.
         const unit = {
             ...well,

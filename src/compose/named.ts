@@ -57,8 +57,12 @@ function hasState(art: RoleStamp, words: string): boolean {
  * first of equals, of those drawn as its own is (never a side-on picture
  * among plans), sized as that picture is at the art's scale; a run's modules
  * with it and its ends refitted to their depth; as it is where none does.
+ * Given the `box` it is to fill, a picture that fills half of it comes before
+ * one that does not, however sharp (2026-11-21: a clamp arm's sharpest
+ * "hydraulic" take, tall and narrow, stood a placeholder in a wide berth box
+ * while a smaller wide take of the same state filled it).
  */
-export function inState(art: RoleStamp, words: string | undefined): RoleStamp {
+export function inState(art: RoleStamp, words: string | undefined, box?: { readonly width: number; readonly height: number }): RoleStamp {
     if (words === undefined) {
         return art;
     }
@@ -69,10 +73,22 @@ export function inState(art: RoleStamp, words: string | undefined): RoleStamp {
         return { ...art, width: runLength(run), height: unit.height, run };
     }
     const sharpness = (i: number): number => art.sharpness?.[i] ?? 0;
-    // A redraw with no ground painted round it before one with, then the sharpest.
+    // A picture that fills the box before one that does not, then a redraw with no ground painted round it before one
+    // with, then the sharpest.
+    const fills = (i: number): number => {
+        const picture = art.sizes?.[i];
+        return box === undefined || picture === null || picture === undefined || pictureCover(picture, box, art.upright) >= NAMED_FILL ? 1 : 0;
+    };
     const groundless = (i: number): number => ((art.states?.[i] ?? '').endsWith(NO_GROUND) ? 1 : 0);
-    const better = (i: number, best: number): boolean =>
-        best < 0 || groundless(i) > groundless(best) || (groundless(i) === groundless(best) && sharpness(i) > sharpness(best));
+    const rank = (i: number): readonly number[] => [fills(i), groundless(i), sharpness(i)];
+    const better = (i: number, best: number): boolean => {
+        if (best < 0) {
+            return true;
+        }
+        const [a, b] = [rank(i), rank(best)];
+        const differs = a.findIndex((value, k) => value !== b[k]);
+        return differs >= 0 && (a[differs] ?? 0) > (b[differs] ?? 0);
+    };
     const variant = (art.states ?? []).reduce(
         (best, state, i) => (art.sizes?.[i] !== null && state.toLowerCase().includes(words.toLowerCase()) && better(i, best) ? i : best),
         -1,
@@ -83,6 +99,22 @@ export function inState(art: RoleStamp, words: string | undefined): RoleStamp {
     }
     const scale = art.scale ?? 1;
     return size ? { ...art, variant, width: size.width * scale, height: size.height * scale } : { ...art, variant };
+}
+
+/**
+ * How much of `box` a picture of `size` covers, scaled evenly to fit it; art drawn with depth (upright), which is never
+ * turned, either way round.
+ */
+function pictureCover(
+    size: { readonly width: number; readonly height: number },
+    box: { readonly width: number; readonly height: number },
+    upright: boolean,
+): number {
+    const cover = (w: number, h: number): number => {
+        const scale = Math.min(w / size.width, h / size.height);
+        return (size.width * scale * size.height * scale) / (box.width * box.height);
+    };
+    return upright ? Math.max(cover(box.width, box.height), cover(box.height, box.width)) : cover(box.width, box.height);
 }
 
 /** The role a named piece stands as when it names none: a free-standing piece of plant. */
@@ -151,7 +183,7 @@ export function namedArt(piece: NamedPiece, pool: RoleIndex): RoleStamp | undefi
                   tags.filter((tag) => !partAsked.includes(tag)),
               )
             : (pool.get(role) ?? []).filter((s) => !isPlaceholder(s.key) && (tags.length === 0 || tags.some((tag) => s.tags.includes(tag))))
-    ).map((s) => inState(s, piece.state));
+    ).map((s) => inState(s, piece.state, { width: piece.width, height: piece.height }));
     // A state names a picture (a "large farmhouse with outbuildings"): the art that has one in that state is the art meant,
     // before art of the same tags that draws no such thing (another set's farmhouse, drawn another way).
     const { state } = piece;
