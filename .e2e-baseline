@@ -1,8 +1,8 @@
 {
-  "passed": 131,
-  "lines": 95.1,
-  "statements": 95.1,
-  "functions": 92.4,
-  "branches": 84.09,
+  "passed": 150,
+  "lines": 95.43,
+  "statements": 95.43,
+  "functions": 92.9,
+  "branches": 84.39,
   "strict": []
 }
