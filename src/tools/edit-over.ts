@@ -10,10 +10,15 @@
 export function editOver<T extends object>(current: T, rendered: T, next: T): T {
     const changed = (key: keyof T): boolean => JSON.stringify(next[key]) !== JSON.stringify(rendered[key]);
     const merged = { ...current };
-    for (const key of Object.keys(next) as (keyof T)[]) {
-        if (changed(key)) {
+    for (const key of Object.keys(next)) {
+        if (isKeyOf(next, key) && changed(key)) {
             merged[key] = next[key];
         }
     }
     return merged;
+}
+
+/** Whether a key read off a settings object is one of its own fields. */
+function isKeyOf<T extends object>(settings: T, key: string): key is Extract<keyof T, string> {
+    return key in settings;
 }
