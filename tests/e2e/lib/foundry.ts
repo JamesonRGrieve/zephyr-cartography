@@ -180,8 +180,15 @@ export async function savedFeatures(page: Page): Promise<Feature[]> {
         const scene = canvas?.scene;
         const marker = scene?.getFlag('zephyr-cartography', 'featuresFile');
         if (marker) {
-            const response = await fetch(`${marker.path}?rev=${String(marker.rev)}`, { cache: 'no-store' });
-            return { file: await response.text(), flag: null };
+            // A save that lands while this reads (the file rewritten under the fetch) fails the read itself, not with a
+            // status (2026-11-21 gate e2e, tokens:24 "Failed to fetch"). The module reads it as not yet there and fetches
+            // again; so does this, as the caller polls.
+            try {
+                const response = await fetch(`${marker.path}?rev=${String(marker.rev)}`, { cache: 'no-store' });
+                return { file: response.ok ? await response.text() : '', flag: null };
+            } catch {
+                return { file: '', flag: null };
+            }
         }
         return { file: null, flag: scene?.getFlag('zephyr-cartography', 'features') ?? null };
     });

@@ -8,6 +8,7 @@
  */
 import type { CartographyController } from '../canvas/controller';
 import { I18N } from '../i18n';
+import { editOver } from '../tools/edit-over';
 import { type LabelLabels, renderLabelPanel } from '../ui/label-panel-view';
 import { localize } from './localize';
 import { createViewWindow } from './view-window';
@@ -47,7 +48,11 @@ export function registerLabelRuntime(controller: () => CartographyController | n
                 return;
             }
             renderLabelPanel(root, { settings, fonts: Object.keys(CONFIG.fontDefinitions) }, labels(), (next) => {
-                panel.apply(async () => active.setLabelSettings(id, next));
+                panel.apply(async () => {
+                    // Laid over the label as it stands when the edit runs, not as the panel last drew it.
+                    const current = active.labelSettings(id);
+                    return active.setLabelSettings(id, current ? editOver(current, settings, next) : next);
+                });
             });
         },
     });

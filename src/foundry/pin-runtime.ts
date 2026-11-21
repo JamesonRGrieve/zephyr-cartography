@@ -8,6 +8,7 @@
  */
 import type { CartographyController } from '../canvas/controller';
 import { I18N } from '../i18n';
+import { editOver } from '../tools/edit-over';
 import { type JournalChoice, renderPinPanel, type PinLabels } from '../ui/pin-panel-view';
 import { pickImage } from './file-picker';
 import { localize } from './localize';
@@ -59,7 +60,11 @@ export function registerPinRuntime(controller: () => CartographyController | nul
                 return;
             }
             const save = (next: typeof settings): void => {
-                panel.apply(async () => active.setPinSettings(id, next));
+                panel.apply(async () => {
+                    // Laid over the pin as it stands when the edit runs, not as the panel last drew it.
+                    const current = active.pinSettings(id);
+                    return active.setPinSettings(id, current ? editOver(current, settings, next) : next);
+                });
             };
             renderPinPanel(root, { settings, journal: journal() }, labels(), {
                 set: save,
