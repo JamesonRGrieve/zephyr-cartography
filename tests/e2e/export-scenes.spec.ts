@@ -50,6 +50,16 @@ const MAX_TILE_SIDE = 4096;
  * ten minutes, and past thirty with the runner loaded (2026-11-04, about seven minutes a level); `EXPORT_TIMEOUT_MIN`
  * gives such a run longer.
  */
+/**
+ * Which of a scene's levels this run draws, by index (`EXPORT_LEVELS=0,1`; unset: all). A scene of several levels takes
+ * about six minutes a level on the build runner, so one past the runner's fifteen-minute job cap is drawn over several
+ * runs, each writing its own levels' pictures and the scene's JSON (2026-11-21, the Split Antler's three storeys).
+ */
+const ONLY_LEVELS =
+    process.env['EXPORT_LEVELS'] === undefined
+        ? null
+        : new Set(z.array(z.coerce.number().int().nonnegative()).parse(process.env['EXPORT_LEVELS'].split(',').filter((part) => part.trim() !== '')));
+
 const EXPORT_TIMEOUT_MS = z.coerce.number().positive().default(30).parse(process.env['EXPORT_TIMEOUT_MIN']) * 60_000;
 
 /** How long a composed map's images may take to load, in ms. */
@@ -193,6 +203,9 @@ for (const { key, intent: source } of listed) {
         const levels = await world.evaluate(() => (canvas?.scene?.levels.contents ?? []).map((l) => ({ id: l.id, name: l.name })));
         await levels.reduce(async (previous, level, n) => {
             await previous;
+            if (ONLY_LEVELS !== null && !ONLY_LEVELS.has(n)) {
+                return;
+            }
             await world.evaluate(async (id) => {
                 await canvas?.scene?.view({ level: id });
             }, level.id);
@@ -229,6 +242,18 @@ for (const { key, intent: source } of listed) {
                     }
                     if (canvas?.controls?.doors) {
                         canvas.controls.doors.visible = false;
+                    }
+                    // A hidden Drawing (a GM-only label) is the GM's note, never the map's: the GM sees it, players and the
+                    // picture do not (2026-11-21: a hidden street label baked into the Thornwick Arms render).
+                    // Notes too: a readable pin's text is read on hover in play, never part of the map's picture
+                    // (2026-11-21: the Millhaven circle room's note baked into its render).
+                    if (canvas?.notes) {
+                        canvas.notes.visible = false;
+                    }
+                    for (const drawing of canvas?.drawings?.placeables ?? []) {
+                        if (drawing.document.hidden) {
+                            drawing.visible = false;
+                        }
                     }
                 });
                 return [...taken, await world.locator('#board').screenshot()];
