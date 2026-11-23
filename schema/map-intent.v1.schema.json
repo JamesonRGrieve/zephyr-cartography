@@ -3618,6 +3618,11 @@
                         "minimum": 0,
                         "maximum": 1
                     },
+                    "ruled": {
+                        "default": false,
+                        "description": "Cut to a rule, not hewn: square-ended passages and rectangular chambers with dead-straight walls and square corners (a xenos tomb’s labyrinth, a vault’s machined galleries); its roughness is ignored.",
+                        "type": "boolean"
+                    },
                     "passages": {
                         "default": [],
                         "type": "array",

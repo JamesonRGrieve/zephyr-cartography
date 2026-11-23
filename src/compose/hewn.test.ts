@@ -12,6 +12,7 @@ const network = (over: Partial<HewnIntent>): HewnIntent => ({
     floor: 'floor.rubble',
     wall: 'wall.rock',
     roughness: 0.4,
+    ruled: false,
     passages: [],
     chambers: [],
     patches: [],
@@ -128,5 +129,49 @@ describe('hewn passages', () => {
         // A network without patches draws exactly what it drew before patches existed.
         const plain = hewnFeatures(network({ chambers }), MAP, seededRandom(4), {});
         expect(plain.every((f) => f.type === 'room')).toBe(true);
+    });
+
+    it('cuts a ruled passage square: an L of corridor traced with every edge on the grid’s axes and its corners square', () => {
+        const [cut, ...more] = rooms(
+            hewnFeatures(
+                network({
+                    ruled: true,
+                    roughness: 1,
+                    passages: [
+                        {
+                            points: [
+                                { x: 5, y: 5 },
+                                { x: 20, y: 5 },
+                                { x: 20, y: 15 },
+                            ],
+                            width: 2,
+                        },
+                    ],
+                }),
+                MAP,
+                seededRandom(3),
+                {},
+            ),
+        );
+        expect(more).toEqual([]);
+        const xs = cut?.outline.filter((_, i) => i % 2 === 0) ?? [];
+        const ys = cut?.outline.filter((_, i) => i % 2 === 1) ?? [];
+        const n = xs.length;
+        // Every edge runs straight along x or y, never a diagonal worn across a corner.
+        for (let i = 0; i < n; i++) {
+            const j = (i + 1) % n;
+            expect(Math.min(Math.abs((xs[i] ?? 0) - (xs[j] ?? 0)), Math.abs((ys[i] ?? 0) - (ys[j] ?? 0)))).toBeLessThan(0.01);
+        }
+        // Its ends square: the cut reaches a square past each end of its line, no further.
+        expect(Math.min(...xs)).toBeCloseTo(4, 0);
+        expect(Math.max(...ys)).toBeCloseTo(16, 0);
+    });
+
+    it('cuts a ruled chamber as a rectangle of its width and height', () => {
+        const [cut] = rooms(hewnFeatures(network({ ruled: true, chambers: [{ centre: { x: 15, y: 10 }, width: 8, height: 4 }] }), MAP, seededRandom(4), {}));
+        const xs = cut?.outline.filter((_, i) => i % 2 === 0) ?? [];
+        const ys = cut?.outline.filter((_, i) => i % 2 === 1) ?? [];
+        expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)].map((v) => Math.round(v * 2) / 2)).toEqual([11, 19, 8, 12]);
+        expect(xs.length).toBe(4);
     });
 });

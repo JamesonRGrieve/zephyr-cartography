@@ -273,6 +273,12 @@ const hewn = z
             .default('wall.rock')
             .describe('Wall texture role of the rock it is cut through; rock left standing inside a loop is walled round, unfloored.'),
         roughness: z.number().min(0).max(1).default(0.35).describe('How ragged its walls are: 0 smooth-bored, 1 raw rock.'),
+        ruled: z
+            .boolean()
+            .default(false)
+            .describe(
+                'Cut to a rule, not hewn: square-ended passages and rectangular chambers with dead-straight walls and square corners (a xenos tomb’s labyrinth, a vault’s machined galleries); its roughness is ignored.',
+            ),
         passages: z
             .array(
                 z

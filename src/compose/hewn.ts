@@ -14,7 +14,7 @@
 import { outlineRoomSpec, type RoomBuild } from '../generate/floor-plan';
 import type { Random } from '../generate/random';
 import type { SceneSpecInput } from '../generate/spec';
-import { distanceToPolyline } from '../geometry/hit';
+import { distanceToPolyline, pointInPolygon } from '../geometry/hit';
 import { keyhole } from '../geometry/keyhole';
 import { type Point, roundCorners, simplify } from '../geometry/spline';
 import { traceShapes } from '../geometry/trace-shape';
@@ -73,8 +73,61 @@ function smoothed(loop: readonly Point[]): Point[] {
 /** A noise value in [0, 1) as a deviation in about [-1, 1]. */
 const centred = (field: NoiseField, p: Point): number => Math.max(-1, Math.min(1, (field(p.x, p.y) - 0.5) * 3));
 
+/** The greater of the two axis distances from `p` to the nearest point of segment `a`-`b`: a square-ended reach. */
+function squareDistanceToSegment(p: Point, a: Point, b: Point): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared));
+    return Math.max(Math.abs(p.x - (a.x + t * dx)), Math.abs(p.y - (a.y + t * dy)));
+}
+
+/** Whether rock at `p` is cut away by a ruled `network`: square-ended passages and rectangular chambers, no wander. */
+function cutRuled(network: HewnIntent, p: Point): boolean {
+    return (
+        network.passages.some(({ points, width }) => points.slice(1).some((b, i) => squareDistanceToSegment(p, points[i] ?? b, b) < width / 2)) ||
+        network.chambers.some(({ centre, width, height }) => Math.abs(p.x - centre.x) < width / 2 && Math.abs(p.y - centre.y) < height / 2)
+    );
+}
+
+/** Below this many squares a traced step along x or y counts as none: the edge runs straight. */
+const STRAIGHT = 1e-6;
+
+/**
+ * A ruled loop traced by marching squares, its corners squared: each diagonal step the trace cuts across a corner is
+ * replaced by the corner itself, the one of its two candidates on whose side the trace was wrong (floor left out at an
+ * outer corner, rock taken in at an inner one), then points along a straight run dropped. `inside` is whether the loop
+ * encloses the cut (an outline) or rock (a pillar).
+ */
+function squared(loop: readonly Point[], isCut: (p: Point) => boolean, inside: boolean): Point[] {
+    const flat = loop.flatMap((p) => [p.x, p.y]);
+    const corners = loop.flatMap((p, i): Point[] => {
+        const q = loop[(i + 1) % loop.length] ?? p;
+        if (Math.abs(q.x - p.x) < STRAIGHT || Math.abs(q.y - p.y) < STRAIGHT) {
+            return [p];
+        }
+        const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+        const wrong = (c: Point): boolean => {
+            const probe = { x: (c.x + mid.x) / 2, y: (c.y + mid.y) / 2 };
+            return isCut(probe) !== (pointInPolygon(probe, flat) === inside);
+        };
+        const first = { x: p.x, y: q.y };
+        return [p, wrong(first) ? first : { x: q.x, y: p.y }];
+    });
+    return corners.filter((p, i) => {
+        const before = corners[(i + corners.length - 1) % corners.length] ?? p;
+        const after = corners[(i + 1) % corners.length] ?? p;
+        const alongX = Math.abs(before.y - p.y) < STRAIGHT && Math.abs(after.y - p.y) < STRAIGHT;
+        const alongY = Math.abs(before.x - p.x) < STRAIGHT && Math.abs(after.x - p.x) < STRAIGHT;
+        return !alongX && !alongY;
+    });
+}
+
 /** Whether rock at `p` (squares) is cut away by `network`. */
 function cut(network: HewnIntent, p: Point, swell: NoiseField, jag: NoiseField): boolean {
+    if (network.ruled) {
+        return cutRuled(network, p);
+    }
     const r = network.roughness;
     const bulge = centred(swell, p) * SWELL.share * r;
     const edge = centred(jag, p) * JAG.squares * r;
@@ -108,7 +161,14 @@ export function hewnFeatures(
     // Rock left standing inside the cut is keyholed out of its floor: unfloored like the rock round it, walled round,
     // the bridges out to it openings, no wall at all.
     const rooms = shapes.map(({ outline, holes }): FeatureInput => {
-        const { points, bridges } = keyhole(smoothed(outline), holes.map(smoothed));
+        // A ruled cut keeps its traced corners square; a hewn one is worn round.
+        const ruledCut = (p: Point): boolean => cutRuled(network, p);
+        const { points, bridges } = network.ruled
+            ? keyhole(
+                  squared(outline, ruledCut, true),
+                  holes.map((hole) => squared(hole, ruledCut, false)),
+              )
+            : keyhole(smoothed(outline), holes.map(smoothed));
         return {
             ...outlineRoomSpec(
                 points,
