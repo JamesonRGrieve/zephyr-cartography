@@ -283,6 +283,9 @@ describe('districts', () => {
         expect(stains.length).toBeGreaterThan(20);
         expect(stains.filter((stain) => overlaps(stain, square) || blocks.some((b) => overlaps(stain, b)))).toEqual([]);
         expect(stains.filter((stain) => cabinets.some((c) => overlaps(grownBox(stain, -0.21), c)))).toEqual([]);
+        // In runs, overlapping into smears: most stains overlap another (single dabs beaded along the walls, 2026-11-24).
+        const touching = stains.filter((stain, i) => stains.some((other, j) => i !== j && overlaps(stain, other)));
+        expect(touching.length).toBeGreaterThan(stains.length * 0.7);
         // At the walls' foot: every stain within half a square of a block.
         expect(stains.every((stain) => blocks.some((b) => overlaps(grownBox(stain, 0.55), b)))).toBe(true);
     });

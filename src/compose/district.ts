@@ -171,10 +171,10 @@ const PATH_SAMPLE = 0.5;
 
 /**
  * Street grime: decals (stains, soot, cracks) strewn per square of a block's walls at `perSquare` of the full measure,
- * within `reach` squares of the wall (most right at its foot, overlapping as dirt gathers in a band), a few `tries` each
- * before giving up a spot. Strewn up to 1.6 squares out it read as separate spots in the street (2026-11-24 review).
+ * within `reach` squares of the wall (most right at its foot), a few `tries` each before giving up a spot; laid in `run`s
+ * of `least` to `most` decals, each `step` of a decal's width on from the last, so they overlap into one smear. Strewn up to 1.6 squares out it read as separate spots in the street (2026-11-24 review).
  */
-const STREET_GRIME = { perSquare: 0.6, reach: 0.5, tries: 6 } as const;
+const STREET_GRIME = { perSquare: 0.6, reach: 0.5, tries: 6, run: { least: 2, most: 5, mean: 3.5, step: 0.45 } } as const;
 
 /**
  * Grime gathered in the streets along the blocks' walls, as dirt gathers at a wall's foot (Solenne review 2026-11-24:
@@ -199,30 +199,49 @@ function streetGrime(
     const taken = [...blocks, ...clear];
     const { area } = district;
     const features: FeatureInput[] = [];
+    /** A decal against `side` of `block`, `along` squares from the side's start and `out` from the wall, if its spot is free. */
+    const lay = (block: Rect, side: Side, decal: (typeof decals)[number], along: number, out: number): boolean => {
+        const turn = decal.upright ? 0 : BACK_TO_BLOCK[side];
+        const [w, h] = turn % HALF_TURN !== 0 ? [decal.height, decal.width] : [decal.width, decal.height];
+        const box: Record<Side, Rect> = {
+            top: { x: block.x + along, y: block.y - out - h, w, h },
+            bottom: { x: block.x + along, y: block.y + block.h + out, w, h },
+            left: { x: block.x - out - w, y: block.y + along, w, h },
+            right: { x: block.x + block.w + out, y: block.y + along, w, h },
+        };
+        const at = box[side];
+        const inside = at.x >= area.x && at.y >= area.y && at.x + at.w <= area.x + area.w && at.y + at.h <= area.y + area.h;
+        if (!inside || taken.some((other) => overlaps(at, other))) {
+            return false;
+        }
+        features.push({ type: 'stamp', ...drawnAs(decal), x: at.x + w / 2, y: at.y + h / 2, rotation: turn, ...level });
+        return true;
+    };
     for (const block of blocks) {
-        const count = Math.round(2 * (block.w + block.h) * STREET_GRIME.perSquare * district.streetGrime);
-        for (let n = 0; n < count; n++) {
+        // Laid in runs: a few decals overlapping along the wall's foot read as one smear of dirt, where single ones beaded
+        // along it as separate dabs (2026-11-24 review of the chapel approach's crops).
+        const runs = Math.round((2 * (block.w + block.h) * STREET_GRIME.perSquare * district.streetGrime) / STREET_GRIME.run.mean);
+        for (let n = 0; n < runs; n++) {
+            const side = pick(random, SIDES);
+            const first = pick(random, decals);
+            if (side === undefined || first === undefined) {
+                break;
+            }
+            const span = (side === 'top' || side === 'bottom' ? block.w : block.h) - first.width;
             for (let attempt = 0; attempt < STREET_GRIME.tries; attempt++) {
-                const decal = pick(random, decals);
-                const side = pick(random, SIDES);
-                if (decal === undefined || side === undefined) {
-                    break;
+                const start = random() * Math.max(0, span);
+                if (!lay(block, side, first, start, random() ** 3 * STREET_GRIME.reach)) {
+                    continue;
                 }
-                const turn = decal.upright ? 0 : BACK_TO_BLOCK[side];
-                const [w, h] = turn % HALF_TURN !== 0 ? [decal.height, decal.width] : [decal.width, decal.height];
-                const [t, out] = [random(), random() ** 3 * STREET_GRIME.reach];
-                const box: Record<Side, Rect> = {
-                    top: { x: block.x + t * Math.max(0, block.w - w), y: block.y - out - h, w, h },
-                    bottom: { x: block.x + t * Math.max(0, block.w - w), y: block.y + block.h + out, w, h },
-                    left: { x: block.x - out - w, y: block.y + t * Math.max(0, block.h - h), w, h },
-                    right: { x: block.x + block.w + out, y: block.y + t * Math.max(0, block.h - h), w, h },
-                };
-                const at = box[side];
-                const inside = at.x >= area.x && at.y >= area.y && at.x + at.w <= area.x + area.w && at.y + at.h <= area.y + area.h;
-                if (inside && !taken.some((other) => overlaps(at, other))) {
-                    features.push({ type: 'stamp', ...drawnAs(decal), x: at.x + w / 2, y: at.y + h / 2, rotation: turn, ...level });
-                    break;
+                const runLength = randomInt(random, STREET_GRIME.run.least, STREET_GRIME.run.most);
+                for (let k = 1; k < runLength; k++) {
+                    const next = pick(random, decals) ?? first;
+                    const along = start + k * STREET_GRIME.run.step * first.width;
+                    if (along > span || !lay(block, side, next, along, random() ** 3 * STREET_GRIME.reach)) {
+                        break;
+                    }
                 }
+                break;
             }
         }
     }
