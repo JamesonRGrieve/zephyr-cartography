@@ -296,8 +296,19 @@ function capped(section: RoleStamp, end: RoleStamp): RoleStamp {
     return { ...section, width: section.width + 2 * cap.width, run: { count: 1, module: section, cap } };
 }
 
+/**
+ * Chart scales, whose art is painted three-quarter by convention and placed as a plan symbol: a town's house, a region's
+ * castle. Their perspective labels say how each picture is drawn, for galleries and training sets, and never change how
+ * it composes (2026-11-24: labelling a town's houses `isometric` or `front` would have left a town only its few plan-view
+ * lots and roofs, a role keeping only its art seen from above).
+ */
+const CHART_SCALES: readonly CatalogStamp['scale'][] = ['city', 'regional', 'planet', 'system'];
+
 /** Whether `variant` of `stamp` is drawn looking down on the piece (straight down or in one-point perspective), so turns like a plan. */
 function seenFromAbove(stamp: CatalogStamp, variant: CatalogStamp['variants'][number]): boolean {
+    if (CHART_SCALES.includes(stamp.scale)) {
+        return true;
+    }
     const perspective = variant.perspective ?? stamp.perspective;
     return perspective === 'orthographic' || perspective === 'central';
 }

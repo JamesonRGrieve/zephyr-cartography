@@ -211,6 +211,24 @@ describe('roleIndex variants', () => {
         expect(shelves.get('pack:iso-shelf')?.variant).toBeUndefined();
     });
 
+    it('composes chart-scale art as plan symbols whatever its perspective label (2026-11-24: town houses relabelled side-on)', () => {
+        const house = (id: string, perspective: string): object =>
+            stampDef(id, {
+                role: 'fitting',
+                tags: ['house'],
+                scale: 'city',
+                perspective,
+                variants: [{ state: 'plain', image: `stamps/${id}.png`, width: 200, height: 160 }],
+            });
+        const index = roleIndex(stamps([house('plan-lot', 'orthographic'), house('painted-house', 'isometric'), house('square-front', 'front')]), [], 'city');
+        // Every house stays a town's choice: none is dropped for a plan-view lot beside it, and each turns as before.
+        expect((index.get('fitting') ?? []).map((s) => [s.key, s.upright]).sort()).toEqual([
+            ['pack:painted-house', false],
+            ['pack:plan-lot', false],
+            ['pack:square-front', false],
+        ]);
+    });
+
     it("knows each variant's sharpness from its resolution, in pixels; 0 where the pack does not say", () => {
         const index = roleIndex(
             stamps([
