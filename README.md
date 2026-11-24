@@ -54,11 +54,14 @@ In Foundry VTT v14, open Add-on Modules → Install Module and paste the manifes
 URL, then enable the module in your world:
 
 ```
-https://github.com/JamesonRGrieve/zephyr-cartography/releases/latest/download/module.json
+https://github.com/JamesonRGrieve/zephyr-cartography/releases/download/nightly/module.json
 ```
 
-For the rolling build of `main`, use
-`https://github.com/JamesonRGrieve/zephyr-cartography/releases/download/nightly/module.json`.
+That is the nightly build: every push to `main` republishes it, its version
+stamped with the build number, so Foundry updates it like any release. Once an
+official version is tagged, its manifest is
+`https://github.com/JamesonRGrieve/zephyr-cartography/releases/latest/download/module.json`
+(there is none yet, so that link fails until then).
 
 ## Releasing
 
