@@ -211,6 +211,45 @@ const ZONE_HABITATS: Readonly<Record<ZoneKind, readonly StampHabitat[]>> = {
 /** Rocks along a riverbank: any that belong outdoors on open ground. */
 const BANK_HABITATS: readonly StampHabitat[] = ['forest', 'grassland', 'marsh', 'rocky'];
 
+/** The habitats a map's ground biome is, for what lines its water: a fen's ground is marsh, a moor's rock rocky. */
+const GROUND_HABITATS: Readonly<Record<BiomeKind, readonly StampHabitat[]>> = {
+    water: BANK_HABITATS,
+    ocean: BANK_HABITATS,
+    grassland: ['grassland'],
+    forest: ['forest'],
+    sand: ['desert'],
+    rock: ['rocky'],
+    snow: ['arctic'],
+    ice: ['arctic'],
+    tundra: ['arctic', 'rocky'],
+    dirt: ['grassland', 'rocky'],
+    lava: ['rocky'],
+    marsh: ['marsh'],
+    ash: ['ruin', 'rocky'],
+};
+
+/** The habitats of the ground at a point: the zone it lies in, else the map's own ground. */
+type GroundAt = (p: Point) => readonly StampHabitat[];
+
+/**
+ * The rocks of `stamps` that belong on the ground at a point, by its habitats (2026-11-24: a fen's pools were ringed
+ * with the pale grassland field stones, because the water's edge took any open ground's rocks).
+ */
+function rocksAt(stamps: RoleIndex, groundAt: GroundAt): (p: Point) => RoleStamp[] {
+    const byHabitats = new Map<string, RoleStamp[]>();
+    return (p) => {
+        const habitats = groundAt(p);
+        const key = habitats.join(',');
+        const known = byHabitats.get(key);
+        if (known !== undefined) {
+            return known;
+        }
+        const rocks = inHabitat(stamps, 'rock', habitats);
+        byHabitats.set(key, rocks);
+        return rocks;
+    };
+}
+
 /** The stamps of a role that belong on any of `habitats` (any stamp of a role that is not land). */
 function inHabitat(stamps: RoleIndex, role: StampRole, habitats: readonly StampHabitat[]): RoleStamp[] {
     const all = stamps.get(role) ?? [];
@@ -867,9 +906,9 @@ function perimeter(
 }
 
 /** Rocks strewn along each river's banks. */
-function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, random: Random): FeatureInput[] {
-    const rocks = inHabitat(stamps, 'rock', BANK_HABITATS);
-    if (rocks.length === 0) {
+function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, random: Random, groundAt: GroundAt): FeatureInput[] {
+    const rocksFor = rocksAt(stamps, groundAt);
+    if (inHabitat(stamps, 'rock', BANK_HABITATS).length === 0) {
         return [];
     }
     return paths
@@ -887,7 +926,9 @@ function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, 
                     // (2026-11-13 judge, sci-fi wasteland: a bank boulder set out by the water's half-width alone stood 15% in it).
                     const offset = BANK.offset * (QUARTER * 2 + random() * 2);
                     const side = random() < QUARTER * 2 ? 1 : -1;
-                    const stamp = pick(random, rocks);
+                    // The bank's own ground there decides its rocks: a fen's bank takes a fen's stones.
+                    const near = { x: a.x + ux * t - uy * (river.halfWidth + offset) * side, y: a.y + uy * t + ux * (river.halfWidth + offset) * side };
+                    const stamp = pick(random, rocksFor(near));
                     const aside = (river.halfWidth + (stamp ? Math.max(stamp.width, stamp.height) / 2 : 0) + offset) * side;
                     const p = { x: a.x + ux * t - uy * aside, y: a.y + uy * t + ux * aside };
                     const clearOfBuildings = !blocked(p, 'rock', { ...keepout, paths: [] });
@@ -905,9 +946,9 @@ function banks(paths: readonly LaidPath[], keepout: Keepout, stamps: RoleIndex, 
 const SHORE = { step: 1.6, chance: 0.55, offset: 0.4, reeds: 0.6 } as const;
 
 /** Reeds and rocks round a lake's `outline`, on dry land clear of paths and buildings. */
-function shore(outline: readonly Point[], keepout: Keepout, stamps: RoleIndex, random: Random): FeatureInput[] {
+function shore(outline: readonly Point[], keepout: Keepout, stamps: RoleIndex, random: Random, groundAt: GroundAt): FeatureInput[] {
     const reeds = inHabitat(stamps, 'flora', ['marsh']);
-    const rocks = inHabitat(stamps, 'rock', BANK_HABITATS);
+    const rocksFor = rocksAt(stamps, groundAt);
     const centre = centreOf(outline);
     const out: FeatureInput[] = [];
     [...outline, ...outline.slice(0, 1)].reduce((a, b) => {
@@ -917,7 +958,7 @@ function shore(outline: readonly Point[], keepout: Keepout, stamps: RoleIndex, r
             const away = Math.hypot(edge.x - centre.x, edge.y - centre.y) || 1;
             const p = { x: edge.x + ((edge.x - centre.x) / away) * SHORE.offset, y: edge.y + ((edge.y - centre.y) / away) * SHORE.offset };
             const role = random() < SHORE.reeds ? 'flora' : 'rock';
-            const stamp = pick(random, role === 'flora' ? reeds : rocks);
+            const stamp = pick(random, role === 'flora' ? reeds : rocksFor(p));
             if (stamp && random() < SHORE.chance && !blocked(p, role, keepout)) {
                 out.push({ type: 'stamp', ...drawnAs(stamp), x: p.x, y: p.y, rotation: stamp.upright ? 0 : Math.floor(random() * FULL_TURN) });
             }
@@ -1755,12 +1796,21 @@ export function composeExterior(
             );
         }
     });
+    // The ground a point lies on, for what lines the water there: the zone round it (the last listed is drawn on top),
+    // else the map's ground, else any open ground.
+    const groundAt: GroundAt = (p) => {
+        const around = outlines.filter(({ zone, outline }) => zone.kind !== 'lake' && pointInPolygon(p, flat(outline))).at(-1);
+        if (around !== undefined) {
+            return ZONE_HABITATS[around.zone.kind];
+        }
+        return intent.ground === null ? BANK_HABITATS : GROUND_HABITATS[intent.ground];
+    };
     for (const { zone, outline } of outlines) {
         if (zone.kind === 'lake') {
-            features.push(...shore(outline, keepout, strewn, random));
+            features.push(...shore(outline, keepout, strewn, random, groundAt));
         }
     }
-    features.push(...banks(paths, keepout, strewn, random));
+    features.push(...banks(paths, keepout, strewn, random, groundAt));
     const crossed = bridges(paths, strewn, random, intent.settings, sites.map(siteBounds));
     features.push(...crossed.features);
     problems.push(...crossed.problems);

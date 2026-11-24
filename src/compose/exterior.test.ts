@@ -740,6 +740,37 @@ describe('bridges and yard pieces', () => {
         expect(floors.filter((f) => f.type === 'stamp' && Math.abs(f.y - 10) < reach + (road?.width ?? 0) / 2)).toEqual([]);
     });
 
+    it('lines water with the rocks of the ground it lies in: a fen’s pools take a fen’s stones (2026-11-24)', () => {
+        const base = TEST_ROLES.get('rock')?.[0];
+        expect(base).toBeDefined();
+        if (base === undefined) {
+            return;
+        }
+        const roles: RoleIndex = new Map([
+            ...TEST_ROLES,
+            [
+                'rock',
+                [
+                    { ...base, key: 'test:field-stones', habitats: ['grassland'] },
+                    { ...base, key: 'test:fen-stones', habitats: ['marsh'] },
+                ],
+            ],
+        ]);
+        const rocksOn = (ground: string): string[] => {
+            const pools = crossing({
+                ground,
+                zones: [{ kind: 'lake', area: { shape: 'circle', centre: { x: 8, y: 6 }, radius: 3 } }],
+                paths: [{ kind: 'river', from: { x: 22, y: -1 }, to: { x: 22, y: 21 }, meander: 0 }],
+                buildings: [],
+            });
+            return composeMap(pools, roles).spec.features.flatMap((f) => (f.type === 'stamp' && f.stamp.endsWith('-stones') ? [f.stamp] : []));
+        };
+        const fen = rocksOn('marsh');
+        expect(fen.length).toBeGreaterThan(0);
+        expect(new Set(fen)).toEqual(new Set(['test:fen-stones']));
+        expect(new Set(rocksOn('grassland'))).toEqual(new Set(['test:field-stones']));
+    });
+
     it('runs a road round a lake in its way, never through the water', () => {
         const pond = crossing({
             zones: [{ kind: 'lake', area: { shape: 'circle', centre: { x: 15, y: 10 }, radius: 3 } }],
