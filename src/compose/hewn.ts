@@ -82,10 +82,28 @@ function squareDistanceToSegment(p: Point, a: Point, b: Point): number {
     return Math.max(Math.abs(p.x - (a.x + t * dx)), Math.abs(p.y - (a.y + t * dy)));
 }
 
+/** Each item with the one after it, in order: a line's segments. */
+function pairs<T>(list: readonly T[]): [T, T][] {
+    const out: [T, T][] = [];
+    let previous: T | undefined;
+    for (const item of list) {
+        if (previous !== undefined) {
+            out.push([previous, item]);
+        }
+        previous = item;
+    }
+    return out;
+}
+
+/** Each item of a closed loop with the one before it and the one after it. */
+function aroundLoop<T>(loop: readonly T[]): [T, T, T][] {
+    return pairs(pairs([...loop.slice(-1), ...loop, ...loop.slice(0, 1)])).map(([[before, item], [, after]]) => [before, item, after]);
+}
+
 /** Whether rock at `p` is cut away by a ruled `network`: square-ended passages and rectangular chambers, no wander. */
 function cutRuled(network: HewnIntent, p: Point): boolean {
     return (
-        network.passages.some(({ points, width }) => points.slice(1).some((b, i) => squareDistanceToSegment(p, points[i] ?? b, b) < width / 2)) ||
+        network.passages.some(({ points, width }) => pairs(points).some(([a, b]) => squareDistanceToSegment(p, a, b) < width / 2)) ||
         network.chambers.some(({ centre, width, height }) => Math.abs(p.x - centre.x) < width / 2 && Math.abs(p.y - centre.y) < height / 2)
     );
 }
@@ -101,8 +119,7 @@ const STRAIGHT = 1e-6;
  */
 function squared(loop: readonly Point[], isCut: (p: Point) => boolean, inside: boolean): Point[] {
     const flat = loop.flatMap((p) => [p.x, p.y]);
-    const corners = loop.flatMap((p, i): Point[] => {
-        const q = loop[(i + 1) % loop.length] ?? p;
+    const corners = pairs([...loop, ...loop.slice(0, 1)]).flatMap(([p, q]): Point[] => {
         if (Math.abs(q.x - p.x) < STRAIGHT || Math.abs(q.y - p.y) < STRAIGHT) {
             return [p];
         }
@@ -114,12 +131,10 @@ function squared(loop: readonly Point[], isCut: (p: Point) => boolean, inside: b
         const first = { x: p.x, y: q.y };
         return [p, wrong(first) ? first : { x: q.x, y: p.y }];
     });
-    return corners.filter((p, i) => {
-        const before = corners[(i + corners.length - 1) % corners.length] ?? p;
-        const after = corners[(i + 1) % corners.length] ?? p;
+    return aroundLoop(corners).flatMap(([before, p, after]): Point[] => {
         const alongX = Math.abs(before.y - p.y) < STRAIGHT && Math.abs(after.y - p.y) < STRAIGHT;
         const alongY = Math.abs(before.x - p.x) < STRAIGHT && Math.abs(after.x - p.x) < STRAIGHT;
-        return !alongX && !alongY;
+        return alongX || alongY ? [] : [p];
     });
 }
 

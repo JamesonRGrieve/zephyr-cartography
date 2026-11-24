@@ -174,4 +174,22 @@ describe('hewn passages', () => {
         expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)].map((v) => Math.round(v * 2) / 2)).toEqual([11, 19, 8, 12]);
         expect(xs.length).toBe(4);
     });
+
+    it('leaves a ruled loop’s rock standing as a square pillar, and reads a repeated point as no segment', () => {
+        const loop = [
+            { x: 5, y: 5 },
+            { x: 5, y: 5 },
+            { x: 20, y: 5 },
+            { x: 20, y: 15 },
+            { x: 5, y: 15 },
+            { x: 5, y: 5 },
+        ];
+        const [cut] = rooms(hewnFeatures(network({ ruled: true, passages: [{ points: loop, width: 2 }] }), MAP, seededRandom(6), {}));
+        const xs = cut?.outline.filter((_, i) => i % 2 === 0) ?? [];
+        const ys = cut?.outline.filter((_, i) => i % 2 === 1) ?? [];
+        // Out to a square past the loop's line, and round the pillar a square inside it.
+        expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)].map((v) => Math.round(v))).toEqual([4, 21, 4, 16]);
+        expect(pointInPolygon({ x: 12, y: 10 }, cut?.outline ?? [])).toBe(false);
+        expect(pointInPolygon({ x: 12, y: 5 }, cut?.outline ?? [])).toBe(true);
+    });
 });
