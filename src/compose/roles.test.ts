@@ -222,7 +222,8 @@ describe('roleIndex variants', () => {
             });
         const index = roleIndex(stamps([house('plan-lot', 'orthographic'), house('painted-house', 'isometric'), house('square-front', 'front')]), [], 'city');
         // Every house stays a town's choice: none is dropped for a plan-view lot beside it, and each turns as before.
-        expect((index.get('fitting') ?? []).map((s) => [s.key, s.upright]).sort()).toEqual([
+        const houses = (index.get('fitting') ?? []).map((s): [string, boolean] => [s.key, s.upright]);
+        expect(houses.sort((a, b) => a[0].localeCompare(b[0]))).toEqual([
             ['pack:painted-house', false],
             ['pack:plan-lot', false],
             ['pack:square-front', false],
