@@ -262,20 +262,29 @@ describe('districts', () => {
         if (rug === undefined) {
             return;
         }
-        const roles = new Map([...TEST_ROLES, ['decal', [{ ...rug, key: 'test:oil-stain', role: 'decal' as const, width: 1, height: 1 }]] as const]);
+        const oil = { ...rug, key: 'test:oil-stain', role: 'decal' as const, width: 1, height: 1 };
+        // A room-kind's decal (effluent's green stain) is never strewn in a street.
+        const effluent = { ...oil, key: 'test:effluent', purposes: ['factory' as const] };
+        const roles = new Map([...TEST_ROLES, ['decal', [oil, effluent]] as const]);
         const square = { x: 22, y: 14, w: 12, h: 9 };
+        const cabinet = { name: 'utility cabinet', tags: [], width: 1, height: 0.6 };
         const composed = (grime: number): ReturnType<typeof districtFeatures>['features'] =>
-            districtFeatures(district({ streetGrime: grime, keepOpen: [square] }), roles, seededRandom(3), {}).features;
+            districtFeatures(district({ streetGrime: grime, keepOpen: [square], streetPieces: [cabinet], frontage: 1 }), roles, seededRandom(3), {}).features;
         const stainsOf = (features: ReturnType<typeof composed>): Box[] =>
             features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:oil-stain' ? [{ x: f.x - 0.5, y: f.y - 0.5, w: 1, h: 1 }] : []));
         expect(stainsOf(composed(0))).toEqual([]);
         const filthy = composed(1);
+        expect(filthy.some((f) => f.type === 'stamp' && f.stamp === 'test:effluent')).toBe(false);
+        // Never on the street's own pieces: each cabinet's box, whichever way it stands.
+        const cabinets = filthy.flatMap((f) => (f.type === 'stamp' && f.stamp.includes('utility cabinet') ? [{ x: f.x - 0.5, y: f.y - 0.5, w: 1, h: 1 }] : []));
+        expect(cabinets.length).toBeGreaterThan(0);
         const stains = stainsOf(filthy);
         const blocks = rooms(filthy).filter((r) => r.floor === 'floor.deck-plating');
         expect(stains.length).toBeGreaterThan(20);
         expect(stains.filter((stain) => overlaps(stain, square) || blocks.some((b) => overlaps(stain, b)))).toEqual([]);
-        // Close in along the walls: every stain within its reach of a block.
-        expect(stains.every((stain) => blocks.some((b) => overlaps(grownBox(stain, 1.7), b)))).toBe(true);
+        expect(stains.filter((stain) => cabinets.some((c) => overlaps(grownBox(stain, -0.21), c)))).toEqual([]);
+        // At the walls' foot: every stain within half a square of a block.
+        expect(stains.every((stain) => blocks.some((b) => overlaps(grownBox(stain, 0.55), b)))).toBe(true);
     });
 
     it('dresses its streets against the frontages and its roofs with their pieces, boxed where no art draws them', () => {

@@ -171,15 +171,16 @@ const PATH_SAMPLE = 0.5;
 
 /**
  * Street grime: decals (stains, soot, cracks) strewn per square of a block's walls at `perSquare` of the full measure,
- * as far as `reach` squares out into the street (most close in), a few `tries` each before giving up a spot.
+ * within `reach` squares of the wall (most right at its foot, overlapping as dirt gathers in a band), a few `tries` each
+ * before giving up a spot. Strewn up to 1.6 squares out it read as separate spots in the street (2026-11-24 review).
  */
-const STREET_GRIME = { perSquare: 0.35, reach: 1.6, tries: 6 } as const;
+const STREET_GRIME = { perSquare: 0.6, reach: 0.5, tries: 6 } as const;
 
 /**
  * Grime gathered in the streets along the blocks' walls, as dirt gathers at a wall's foot (Solenne review 2026-11-24:
  * a chapel approach's streets read as clean open concrete; a brief's painted ground cannot know where the blocks
- * stand). Laid flat, never on a block, on the map's own pieces or on the ground kept open, and only where `streetGrime`
- * asks for it.
+ * stand). Laid flat, never on a block, the map's own pieces, the street's pieces or the ground kept open, and only where
+ * `streetGrime` asks for it.
  */
 function streetGrime(
     district: DistrictIntent,
@@ -189,10 +190,12 @@ function streetGrime(
     random: Random,
     level: { level?: string },
 ): FeatureInput[] {
-    const decals = (stamps.get('decal') ?? []).filter((s) => !isPlaceholder(s.key));
+    // Plain dirt only: a decal kept to a kind of room (effluent's green stain, coloured light) reads as moss or a spill strewn in a street.
+    const decals = (stamps.get('decal') ?? []).filter((s) => !isPlaceholder(s.key) && s.purposes.length === 0);
     if (district.streetGrime <= 0 || decals.length === 0) {
         return [];
     }
+    // The map's pieces, the ground kept open and the street's own pieces (a stain lay on a public stair): grime overlaps only grime.
     const taken = [...blocks, ...clear];
     const { area } = district;
     const features: FeatureInput[] = [];
@@ -207,7 +210,7 @@ function streetGrime(
                 }
                 const turn = decal.upright ? 0 : BACK_TO_BLOCK[side];
                 const [w, h] = turn % HALF_TURN !== 0 ? [decal.height, decal.width] : [decal.width, decal.height];
-                const [t, out] = [random(), random() ** 2 * STREET_GRIME.reach];
+                const [t, out] = [random(), random() ** 3 * STREET_GRIME.reach];
                 const box: Record<Side, Rect> = {
                     top: { x: block.x + t * Math.max(0, block.w - w), y: block.y - out - h, w, h },
                     bottom: { x: block.x + t * Math.max(0, block.w - w), y: block.y + block.h + out, w, h },
@@ -343,9 +346,10 @@ function frontagePieces(
     random: Random,
     level: { level?: string },
     standing: readonly Rect[],
-): { features: FeatureInput[]; boxed: string[] } {
+): { features: FeatureInput[]; boxed: string[]; spots: Rect[] } {
     const features: FeatureInput[] = [];
     const boxed: string[] = [];
+    const spots: Rect[] = [];
     // The map's own pieces too (2026-11-24: a public stair stood on a chapel's buttress in the street beside it).
     const taken: Rect[] = [...blocks, ...standing];
     for (const block of blocks) {
@@ -376,12 +380,13 @@ function frontagePieces(
             continue;
         }
         taken.push(at);
+        spots.push(at);
         if (art === undefined) {
             boxed.push(choice.name);
         }
         features.push(...standsAs(piece, { x: at.x + at.w / 2, y: at.y + at.h / 2 }, turn).map((s) => ({ type: 'stamp' as const, ...s, ...level })));
     }
-    return { features, boxed };
+    return { features, boxed, spots };
 }
 
 /** Pieces a roof carries, at least and at most, and how far in from its edge (squares) they keep. */
@@ -532,7 +537,7 @@ export function districtFeatures(
             return [roof, { ...outlineRoomSpec(court, build(district.courtyard)), ...level }, way];
         });
     const dressed = frontagePieces(district, outlines.map(boundsOf), stamps, random, level, clear.boxes);
-    const grime = streetGrime(district, outlines.map(boundsOf), [...clear.boxes, ...district.keepOpen], stamps, random, level);
+    const grime = streetGrime(district, outlines.map(boundsOf), [...clear.boxes, ...district.keepOpen, ...dressed.spots], stamps, random, level);
     // Grime lies flat under the street's pieces: first among them in the drawing order.
     return { features: [...buildings, ...onRoofs, ...grime, ...dressed.features], boxed: [...boxed, ...dressed.boxed] };
 }
