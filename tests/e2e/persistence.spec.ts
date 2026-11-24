@@ -38,6 +38,17 @@ test('every kind of feature is read back from the scene’s features file exactl
                     },
                 },
                 { type: 'zone', x: 18, y: 9, name: 'Emanation', shape: { kind: 'emanation', radius: 1 } },
+                // A black-water moat: its shade taken whole (tint 1), kept across the reload.
+                {
+                    type: 'path',
+                    kind: 'river',
+                    points: [
+                        { x: 1, y: 11 },
+                        { x: 19, y: 11 },
+                    ],
+                    shade: '#0b0e0c',
+                    tint: 1,
+                },
                 {
                     type: 'shape',
                     kind: 'polygon',
@@ -84,7 +95,7 @@ test('every kind of feature is read back from the scene’s features file exactl
         });
         return outcome?.ok === true ? outcome.report.features : [];
     });
-    expect(ids).toHaveLength(13);
+    expect(ids).toHaveLength(14);
 
     const read = async (): Promise<unknown[]> =>
         world.evaluate((featureIds) => featureIds.map((id) => game.modules?.get('zephyr-cartography').api.controller()?.getFeature(id) ?? null), ids);
