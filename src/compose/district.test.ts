@@ -71,6 +71,29 @@ describe('district clearances (operator, 2026-10-02: a well in a house, building
         }
     });
 
+    it('keeps a quarter in one piece where a neighbour’s street shifts its edge half a square (2026-11-24 e2e: no blocks)', () => {
+        // A square kept open in its corner, the first quarter's houses beside it, a road down its far side, a chest out among its houses.
+        const quarter = district({ area: { x: 40, y: 2, w: 18, h: 26 }, street: 2.5, alley: 1.2, block: [5, 12], keepOpen: [{ x: 42, y: 4, w: 4, h: 4 }] });
+        const clear = {
+            boxes: [
+                { x: 30, y: 2, w: 8, h: 16 },
+                { x: 45.5, y: 21.5, w: 1, h: 1 },
+            ],
+            paths: [
+                {
+                    points: [
+                        { x: 57, y: -1 },
+                        { x: 57, y: 29 },
+                    ],
+                    halfWidth: 1.5,
+                },
+            ],
+        };
+        for (const seed of [1, 2, 3, 4, 5, 6]) {
+            expect(blocksOf(districtFeatures(quarter, TEST_ROLES, seededRandom(seed), {}, clear).features).length).toBeGreaterThan(0);
+        }
+    });
+
     it('carves a street round a building on the map, and ignores pieces standing in its own open ground', () => {
         const hall = { x: 20, y: 10, w: 12, h: 10 };
         const plaza = { x: 36, y: 22, w: 12, h: 9 };

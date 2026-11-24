@@ -66,12 +66,29 @@ function blocksIn(area: Rect, district: DistrictIntent, random: Random, depth = 
     return [first, second].flatMap((part) => (part === undefined ? [] : blocksIn(part, district, random, depth + 1)));
 }
 
+/** The stretches of `x0`..`x1` beside `strips`, a street's width `gap` clear of each, as [from, to] runs. */
+function besideRuns(x0: number, x1: number, strips: readonly Rect[], gap: number): [number, number][] {
+    const runs: [number, number][] = [];
+    let from = x0;
+    for (const strip of [...strips].sort((a, b) => a.x - b.x)) {
+        if (strip.x - gap > from) {
+            runs.push([from, strip.x - gap]);
+        }
+        from = Math.max(from, strip.x + strip.w + gap);
+    }
+    if (from < x1) {
+        runs.push([from, x1]);
+    }
+    return runs;
+}
+
 /**
  * `area` less every box in `kept` (each grown by a street's width `gap`), as boxes packed up against them: the area is
- * cut into bands at every kept box's top and bottom, each band's free runs between the boxes taken as strips, and a
- * run going on straight down from the band above it carried on as one strip. Where a run meets a different one above
- * it, the lower gives a street's width to the one above, so no two blocks cut from them ever share a wall (operator,
- * 2026-10-02: buildings physically touching). Strips thinner than `least` are left as open ground.
+ * cut into bands at every kept box's top and bottom, each band's free runs between the boxes taken as strips. A run
+ * holding the strips above it carries them on down, with what it has beside them as strips a street clear of them;
+ * otherwise (or where that leaves more ground bare) the run is one strip a street's width below them, so no two blocks
+ * cut from them ever share a wall (operator, 2026-10-02: buildings physically touching). Strips thinner than `least`
+ * are left as open ground.
  *
  * Cutting round each box in turn left a strip beside the first box the area's whole height, so the ground beside a
  * narrower box under it (a chapel's forecourt under the chapel) was a sliver too thin for a house, and lay bare
@@ -113,14 +130,24 @@ function carve(area: Rect, kept: readonly Rect[], gap: number, least: number): R
         }
         const next: Rect[] = [];
         for (const [x0, x1] of runsOf(y0, y1)) {
-            const above = growing.find((strip) => strip.x === x0 && strip.x + strip.w === x1);
-            if (above !== undefined) {
-                next.push({ ...above, h: y1 - above.y });
+            const over = growing.filter((strip) => strip.x < x1 && x0 < strip.x + strip.w);
+            if (over.length === 0) {
+                next.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
                 continue;
             }
-            // A new run under one that differs: a street's width between them.
-            const meets = growing.some((strip) => strip.x < x1 && x0 < strip.x + strip.w);
-            next.push({ x: x0, y: meets ? y0 + gap : y0, w: x1 - x0, h: y1 - (meets ? y0 + gap : y0) });
+            // The strips above carry on down where the run holds them all, with what the run has beside them (a street
+            // clear of them) as strips of their own; else the run is one strip, a street below them. Whichever leaves
+            // less ground bare: a run half a square wider must not cut a quarter in two, nor a sliver too thin for a
+            // house stand where the whole run would hold one.
+            const held = over.every((strip) => strip.x >= x0 && strip.x + strip.w <= x1);
+            const beside = held ? besideRuns(x0, x1, over, gap) : [];
+            const widths = [...over.map((strip) => strip.w), ...beside.map(([b0, b1]) => b1 - b0)];
+            const usable = widths.reduce((sum, w) => sum + (w >= least ? w : 0), 0);
+            if (held && (x1 - x0 - usable) * (y1 - y0) <= gap * (x1 - x0)) {
+                next.push(...over.map((strip) => ({ ...strip, h: y1 - strip.y })), ...beside.map(([b0, b1]) => ({ x: b0, y: y0, w: b1 - b0, h: y1 - y0 })));
+                continue;
+            }
+            next.push({ x: x0, y: y0 + gap, w: x1 - x0, h: y1 - y0 - gap });
         }
         strips.push(...growing.filter((strip) => !next.some((going) => going.x === strip.x && going.y === strip.y)));
         growing = next;
