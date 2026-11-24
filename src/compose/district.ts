@@ -67,32 +67,66 @@ function blocksIn(area: Rect, district: DistrictIntent, random: Random, depth = 
 }
 
 /**
- * `area` less every box in `kept`: what is left of it round them, as boxes
- * (the strips beside, above and below each), a street's width `gap` kept
- * round each and between the strips themselves, so no two blocks cut from
- * them ever share a wall (operator, 2026-10-02: buildings physically
- * touching). Strips thinner than `least` are left as open ground.
+ * `area` less every box in `kept` (each grown by a street's width `gap`), as boxes packed up against them: the area is
+ * cut into bands at every kept box's top and bottom, each band's free runs between the boxes taken as strips, and a
+ * run going on straight down from the band above it carried on as one strip. Where a run meets a different one above
+ * it, the lower gives a street's width to the one above, so no two blocks cut from them ever share a wall (operator,
+ * 2026-10-02: buildings physically touching). Strips thinner than `least` are left as open ground.
+ *
+ * Cutting round each box in turn left a strip beside the first box the area's whole height, so the ground beside a
+ * narrower box under it (a chapel's forecourt under the chapel) was a sliver too thin for a house, and lay bare
+ * (2026-11-24: seven-square bands between a chapel's approach and its district).
  */
 function carve(area: Rect, kept: readonly Rect[], gap: number, least: number): Rect[] {
-    const [first, ...rest] = kept;
-    if (first === undefined) {
-        return [area];
+    const right = area.x + area.w;
+    const bottom = area.y + area.h;
+    const holes = kept.map((box) => grown(box, gap)).filter((hole) => overlaps(area, hole));
+    const edges = [...new Set([area.y, bottom, ...holes.flatMap((hole) => [hole.y, hole.y + hole.h])])]
+        .filter((y) => y >= area.y && y <= bottom)
+        .sort((a, b) => a - b);
+    /** The free runs of a band, left to right: the area's width less every hole across it. */
+    const runsOf = (y0: number, y1: number): [number, number][] => {
+        const across = holes
+            .filter((hole) => hole.y < y1 && hole.y + hole.h > y0)
+            .map((hole): [number, number] => [Math.max(area.x, hole.x), Math.min(right, hole.x + hole.w)])
+            .sort((a, b) => a[0] - b[0]);
+        const runs: [number, number][] = [];
+        let from = area.x;
+        for (const [x0, x1] of across) {
+            if (x0 > from) {
+                runs.push([from, x0]);
+            }
+            from = Math.max(from, x1);
+        }
+        if (from < right) {
+            runs.push([from, right]);
+        }
+        return runs;
+    };
+    const strips: Rect[] = [];
+    /** The strips still growing down from the band above, by their run. */
+    let growing: Rect[] = [];
+    for (const [i, y0] of edges.entries()) {
+        const y1 = edges[i + 1];
+        if (y1 === undefined || y1 <= y0) {
+            continue;
+        }
+        const next: Rect[] = [];
+        for (const [x0, x1] of runsOf(y0, y1)) {
+            const above = growing.find((strip) => strip.x === x0 && strip.x + strip.w === x1);
+            if (above !== undefined) {
+                next.push({ ...above, h: y1 - above.y });
+                continue;
+            }
+            // A new run under one that differs: a street's width between them.
+            const meets = growing.some((strip) => strip.x < x1 && x0 < strip.x + strip.w);
+            next.push({ x: x0, y: meets ? y0 + gap : y0, w: x1 - x0, h: y1 - (meets ? y0 + gap : y0) });
+        }
+        strips.push(...growing.filter((strip) => !next.some((going) => going.x === strip.x && going.y === strip.y)));
+        growing = next;
     }
-    const hole = grown(first, gap);
-    if (!overlaps(area, hole)) {
-        return carve(area, rest, gap, least);
-    }
-    const x0 = Math.max(area.x, hole.x);
-    const x1 = Math.min(area.x + area.w, hole.x + hole.w);
-    // The strips above and below the hole stand a street's width clear of those beside it, where there are any.
-    const [mid0, mid1] = [x0 > area.x ? x0 + gap : x0, x1 < area.x + area.w ? x1 - gap : x1];
-    const strips: Rect[] = [
-        { x: area.x, y: area.y, w: x0 - area.x, h: area.h },
-        { x: x1, y: area.y, w: area.x + area.w - x1, h: area.h },
-        { x: mid0, y: area.y, w: mid1 - mid0, h: hole.y - area.y },
-        { x: mid0, y: hole.y + hole.h, w: mid1 - mid0, h: area.y + area.h - hole.y - hole.h },
-    ];
-    return strips.filter((s) => s.w >= least && s.h >= least).flatMap((s) => carve(s, rest, gap, least));
+    strips.push(...growing);
+    return strips.filter((strip) => strip.w >= least && strip.h >= least);
 }
 
 /** What a district keeps clear of besides its own open ground: the map's buildings and named pieces (boxes), its roads and rivers. */
