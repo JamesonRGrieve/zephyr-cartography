@@ -29,6 +29,7 @@ import { hewnFeatures } from './hewn';
 import { type BuildingIntent, type FixtureIntent, type MapIntent, mapDepth, mapHeight, WALL_SIDES, type ZoneIntent } from './intent';
 import { type BuildingLayout, doorsOf } from './layout';
 import { type LinkPlaces, linkFeatures } from './links';
+import { FACING_TURN } from './named';
 import { drawPlaceholders, isPlaceholder, missing, placeholder, withPlaceholders } from './placeholders';
 import { platformFeatures } from './platform';
 import { NO_PREFERENCES, narrowedIndex, type Preferences, roomPlace } from './preferences';
@@ -952,6 +953,28 @@ const PROP_CLEARANCE = 1.5;
 /** The square `side` squares across centred on `at`: a piece's footprint whichever way it is turned. */
 const squareAround = (at: Point, side: number): Rect => ({ x: at.x - side / 2, y: at.y - side / 2, w: side, h: side });
 
+/** Degrees in half a turn, to read a piece's turn in radians. */
+const HALF_TURN_DEGREES = 180;
+
+/**
+ * The box a named piece outside takes: its width by its height turned as it lies (its `angle`, else its facing), round
+ * its point. A square of its longest side made a long thin piece (an 8 by 0.25 kerb) a broad block that a district
+ * carved a street round (2026-11-24: a garrison's side blocks lost to its street kerbs).
+ */
+function footprintAround(fixture: {
+    readonly at: Point;
+    readonly width: number;
+    readonly height: number;
+    readonly angle?: number | undefined;
+    readonly facing: Side;
+}): Rect {
+    const radians = ((fixture.angle ?? FACING_TURN[fixture.facing]) * Math.PI) / HALF_TURN_DEGREES;
+    const [cos, sin] = [Math.abs(Math.cos(radians)), Math.abs(Math.sin(radians))];
+    const w = fixture.width * cos + fixture.height * sin;
+    const h = fixture.width * sin + fixture.height * cos;
+    return { x: fixture.at.x - w / 2, y: fixture.at.y - h / 2, w, h };
+}
+
 /**
  * How dark each lighting leaves the scene, never with Foundry's global
  * light: by night lit by its lights alone; dim (an interior, the underhive)
@@ -1083,7 +1106,7 @@ export function composeMap(intent: MapIntent, loaded: RoleIndex, preferences: Pr
     // (a town's well), its roads and rivers, and the districts laid before it (two quarters never meet wall to wall).
     const standing: Rect[] = [
         ...composed.flatMap(({ footprint, annexes, clear }) => [footprint, ...annexes, ...clear]),
-        ...intent.fixtures.map((f) => squareAround(f.at, Math.max(f.width, f.height))),
+        ...intent.fixtures.map(footprintAround),
         ...intent.props.flatMap((p) => ('at' in p ? [squareAround(p.at, PROP_CLEARANCE)] : [])),
     ];
     const districts = intent.districts.map((d, i) =>

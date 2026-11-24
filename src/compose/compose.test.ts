@@ -1584,6 +1584,23 @@ describe('maps drawn to a brief', () => {
         expect(second.filter((b) => b.x0 < 30 && b.y0 < 24)).toEqual([]);
     });
 
+    it('keeps a district clear of a long thin piece by its own footprint, not a square of its length (2026-11-24: street kerbs)', () => {
+        const blocksBeside = (kerb: object | null): number =>
+            composeMap(
+                intentOf({
+                    width: 30,
+                    height: 30,
+                    districts: [{ area: { x: 0, y: 0, w: 30, h: 26 }, street: 1, alley: 0.6, block: [3, 7] }],
+                    fixtures: kerb === null ? [] : [kerb],
+                }),
+                TEST_ROLES,
+            ).spec.features.filter((f) => f.type === 'room' && f.floor === 'floor.deck-plating' && f.points.some((p) => p.y > 20)).length;
+        // An 8 by 0.25 kerb along the street below: the blocks above it stand as they would without it, short of its alley.
+        const bare = blocksBeside(null);
+        expect(bare).toBeGreaterThan(0);
+        expect(blocksBeside({ name: 'street kerb', width: 8, height: 0.25, at: { x: 15, y: 27.3 } })).toBeGreaterThanOrEqual(bare - 1);
+    });
+
     it('carries a named piece’s words onto its art, reports a porch’s missing art, and builds no porch with no front door', () => {
         const building = (over: object): object => ({
             key: 'shop',
