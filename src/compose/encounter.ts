@@ -106,7 +106,7 @@ const OPEN_ROCK = 'floor.rough-packed-earth-2';
  * encounter-grimdark-wasteland and -desert, warp-forest).
  */
 const GRIMDARK_ROCK = 'floor.shell-churned-earth';
-const WARP_ROCK = 'floor.warp-scarred-earth';
+const WARP_ROCK = 'floor.hell-scarred-earth';
 
 /**
  * A wasteland's open ground: rough brown earth, its patches scorched (2026-11-06: grey pebble ash under tan hardpan
@@ -118,7 +118,7 @@ const WASTELAND_GROUND = 'floor.rough-packed-earth-2';
 const MARSH_HEIGHTS = 'floor.olive-meadow';
 
 /** Ground the warp has scarred, dark soil veined violet, under its grassland and forest (2026-11-05: a warp forest drew as any green wood). */
-const WARP_GROUND = 'floor.warp-scarred-earth';
+const WARP_GROUND = 'floor.hell-scarred-earth';
 
 /**
  * The ground texture a landscape is drawn in, where it is not its biome's own: rippled sand in any world's desert, the

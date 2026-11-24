@@ -93,7 +93,7 @@ describe('encounter ground', () => {
 
     it("lays a desert in rippled sand in any world, and the warp's woods and plains on scarred earth", () => {
         expect(parsed({ landscape: 'desert', setting: 'scifi' }).groundTexture).toBe('floor.rippled-sand');
-        expect(parsed({ landscape: 'forest', setting: 'warp' }).groundTexture).toBe('floor.warp-scarred-earth');
+        expect(parsed({ landscape: 'forest', setting: 'warp' }).groundTexture).toBe('floor.hell-scarred-earth');
         expect(parsed({ landscape: 'forest', setting: 'feudal' }).groundTexture ?? null).toBeNull();
         expect(parsed({ landscape: 'marsh', setting: 'warp' }).groundTexture ?? null).toBeNull();
     });
@@ -339,7 +339,7 @@ describe('encounter maps', () => {
         };
         expect(heights({ landscape: 'marsh', setting: 'feudal' })).toEqual(['floor.olive-meadow', 'floor.olive-meadow']);
         expect(heights({ landscape: 'desert', setting: 'feudal' })).toEqual(['floor.rippled-sand', 'floor.rippled-sand']);
-        expect(heights({ landscape: 'hills', setting: 'warp' })).toEqual(['floor.warp-scarred-earth', 'floor.warp-scarred-earth']);
+        expect(heights({ landscape: 'hills', setting: 'warp' })).toEqual(['floor.hell-scarred-earth', 'floor.hell-scarred-earth']);
         expect(heights({ landscape: 'tundra', setting: 'feudal' })).toEqual(['snow', 'snow']);
     });
 
