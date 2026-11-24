@@ -9,6 +9,7 @@
 import type { CartographyController } from '../canvas/controller';
 import { I18N } from '../i18n';
 import type { AreaEffectKind } from '../tools/area-effects';
+import { editListOver, editOver } from '../tools/edit-over';
 import { parseCostInput } from '../tools/terrain-cost';
 import { renderEffectsPanel, type EffectsLabels, type RegionDisplayLabels } from '../ui/effects-panel-view';
 import { format, localize } from './localize';
@@ -147,8 +148,16 @@ export function registerEffectsRuntime(controller: () => CartographyController |
                 root.replaceChildren();
                 return;
             }
+            // Laid over the area as it stands when the write runs, not as last drawn: edits made close together each
+            // change one field or one behaviour, and a stale draw would put the one before back.
             const save = (next: typeof settings): void => {
-                panel.apply(async () => active.setAreaSettings(id, next));
+                panel.apply(async () => {
+                    const current = active.areaSettings(id);
+                    return active.setAreaSettings(
+                        id,
+                        current ? { ...editOver(current, settings, next), effects: editListOver(current.effects, settings.effects, next.effects) } : next,
+                    );
+                });
             };
             renderEffectsPanel(root, { settings, adding }, labels(), {
                 setMovementCost: (typed) => {
