@@ -82,5 +82,6 @@ test('the effects panel sets a room’s restriction, darkness, toggle and behavi
     // Removing the macro (the first) renumbers the toggle's target: the darkness behaviour is now the first.
     await panel.getByRole('button', { name: 'Remove: Execute Macro' }).click();
     await expect.poll(async () => (await state()).effects.map((e) => e['kind'])).toEqual(['darkness', 'toggle', 'activeEffect']);
-    expect((await state()).effects[1]).toMatchObject({ kind: 'toggle', enable: [0] });
+    // The renumbered target can land a write after the removal itself, so wait for it as for the rest.
+    await expect.poll(async () => (await state()).effects[1]).toMatchObject({ kind: 'toggle', enable: [0] });
 });

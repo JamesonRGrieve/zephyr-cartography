@@ -301,7 +301,7 @@ test('the river tool draws the liquid, shade, bed and width picked in its panel'
     await expect(panel).toBeVisible();
     await panel.getByLabel('Liquid').selectOption('lava');
     // A new liquid starts from its own shade and bed.
-    await expect(panel.getByLabel('Shade')).toHaveValue('#ff5a1e');
+    await expect(panel.getByLabel('Shade', { exact: true })).toHaveValue('#ff5a1e');
     await expect(panel.getByLabel('Bed')).toHaveValue('rock');
     await panel.getByLabel('Bed').selectOption('sand');
     await panel.getByLabel('Width (px)').fill('80');
