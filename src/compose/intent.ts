@@ -401,6 +401,9 @@ const district = z
             .default([])
             .describe('Named pieces its streets are dressed with, against the blocks’ frontages (drainage grates, utility cabinets, public stairs).'),
         frontage: fraction.default(0.3).describe('Share of block frontages with a street piece against them: 0 bare streets, 1 every frontage.'),
+        streetGrime: fraction
+            .default(0)
+            .describe('How much grime (stains, soot, cracks) gathers in its streets along the blocks’ walls: 0 none, 1 filthy; none when omitted.'),
         roofPieces: z
             .array(z.object({ ...namedPieceSize }).strict())
             .default([])

@@ -16,6 +16,7 @@ const district = (over: Partial<DistrictIntent>): DistrictIntent => ({
     courtyard: 'floor.concrete',
     streetPieces: [],
     frontage: 0.3,
+    streetGrime: 0,
     roofPieces: [],
     ...over,
 });
@@ -253,6 +254,28 @@ describe('districts', () => {
         const on = (stair: { x: number; y: number }): boolean =>
             post !== undefined && Math.abs(stair.x - post.x - 0.25) < 1.3 && Math.abs(stair.y - post.y - 0.25) < 1.3;
         expect(stairsOf(run({ boxes: post ? [post] : [], paths: [] })).some(on)).toBe(false);
+    });
+
+    it('gathers grime in its streets along the blocks’ walls where asked, never on a block or the ground kept open', () => {
+        const rug = TEST_ROLES.get('rug')?.[0];
+        expect(rug).toBeDefined();
+        if (rug === undefined) {
+            return;
+        }
+        const roles = new Map([...TEST_ROLES, ['decal', [{ ...rug, key: 'test:oil-stain', role: 'decal' as const, width: 1, height: 1 }]] as const]);
+        const square = { x: 22, y: 14, w: 12, h: 9 };
+        const composed = (grime: number): ReturnType<typeof districtFeatures>['features'] =>
+            districtFeatures(district({ streetGrime: grime, keepOpen: [square] }), roles, seededRandom(3), {}).features;
+        const stainsOf = (features: ReturnType<typeof composed>): Box[] =>
+            features.flatMap((f) => (f.type === 'stamp' && f.stamp === 'test:oil-stain' ? [{ x: f.x - 0.5, y: f.y - 0.5, w: 1, h: 1 }] : []));
+        expect(stainsOf(composed(0))).toEqual([]);
+        const filthy = composed(1);
+        const stains = stainsOf(filthy);
+        const blocks = rooms(filthy).filter((r) => r.floor === 'floor.deck-plating');
+        expect(stains.length).toBeGreaterThan(20);
+        expect(stains.filter((stain) => overlaps(stain, square) || blocks.some((b) => overlaps(stain, b)))).toEqual([]);
+        // Close in along the walls: every stain within its reach of a block.
+        expect(stains.every((stain) => blocks.some((b) => overlaps(grownBox(stain, 1.7), b)))).toBe(true);
     });
 
     it('dresses its streets against the frontages and its roofs with their pieces, boxed where no art draws them', () => {
