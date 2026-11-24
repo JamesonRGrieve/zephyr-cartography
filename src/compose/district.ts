@@ -284,10 +284,12 @@ function frontagePieces(
     stamps: RoleIndex,
     random: Random,
     level: { level?: string },
+    standing: readonly Rect[],
 ): { features: FeatureInput[]; boxed: string[] } {
     const features: FeatureInput[] = [];
     const boxed: string[] = [];
-    const taken: Rect[] = [...blocks];
+    // The map's own pieces too (2026-11-24: a public stair stood on a chapel's buttress in the street beside it).
+    const taken: Rect[] = [...blocks, ...standing];
     for (const block of blocks) {
         const choice = district.streetPieces[randomInt(random, 0, district.streetPieces.length - 1)];
         const side = SIDES[randomInt(random, 0, SIDES.length - 1)];
@@ -471,6 +473,6 @@ export function districtFeatures(
             // Drawn after the roof, so it lies over it: a room within a room is drawn above it.
             return [roof, { ...outlineRoomSpec(court, build(district.courtyard)), ...level }, way];
         });
-    const dressed = frontagePieces(district, outlines.map(boundsOf), stamps, random, level);
+    const dressed = frontagePieces(district, outlines.map(boundsOf), stamps, random, level, clear.boxes);
     return { features: [...buildings, ...onRoofs, ...dressed.features], boxed: [...boxed, ...dressed.boxed] };
 }

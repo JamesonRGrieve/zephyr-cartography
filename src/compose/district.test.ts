@@ -230,6 +230,31 @@ describe('districts', () => {
         expect(boxed).toEqual([]);
     });
 
+    it('stands no street piece on the map’s own pieces in its streets (2026-11-24: a stair on a chapel’s buttress)', () => {
+        // A deep piece (a public stair) in broad streets, and a post standing out in the street where its far half lay:
+        // further than an alley from every block, so it takes no house, only the street piece's spot.
+        const dressed = district({ street: 5, streetPieces: [{ name: 'public stair', tags: [], width: 1, height: 3 }], frontage: 1 });
+        const run = (clear?: { boxes: Box[]; paths: [] }): ReturnType<typeof districtFeatures>['features'] =>
+            districtFeatures(dressed, TEST_ROLES, seededRandom(2), {}, clear).features;
+        const stairsOf = (features: ReturnType<typeof run>): { x: number; y: number }[] =>
+            features.flatMap((f) => (f.type === 'stamp' && f.stamp.includes('public stair') ? [{ x: f.x, y: f.y }] : []));
+        const bare = run();
+        const blocks = rooms(bare);
+        const posts = stairsOf(bare).flatMap((stair) =>
+            [
+                [1.2, 0],
+                [-1.2, 0],
+                [0, 1.2],
+                [0, -1.2],
+            ].map(([dx = 0, dy = 0]) => ({ x: stair.x + dx - 0.25, y: stair.y + dy - 0.25, w: 0.5, h: 0.5 })),
+        );
+        const post = posts.find((box) => !blocks.some((block) => overlaps(grownBox(box, 1.05), block)));
+        expect(post).toBeDefined();
+        const on = (stair: { x: number; y: number }): boolean =>
+            post !== undefined && Math.abs(stair.x - post.x - 0.25) < 1.3 && Math.abs(stair.y - post.y - 0.25) < 1.3;
+        expect(stairsOf(run({ boxes: post ? [post] : [], paths: [] })).some(on)).toBe(false);
+    });
+
     it('dresses its streets against the frontages and its roofs with their pieces, boxed where no art draws them', () => {
         const pieces = [{ name: 'utility cabinet', tags: [], width: 1, height: 0.6 }];
         const { features, boxed } = districtFeatures(
